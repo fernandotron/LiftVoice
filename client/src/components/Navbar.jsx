@@ -25,25 +25,25 @@ export default function Navbar({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-200 bg-white/95 backdrop-blur-md">
-      <div className="w-full px-6 flex items-center justify-between h-14">
+      <div className="w-full max-w-full px-3.5 sm:px-6 flex items-center justify-between h-14">
         
         {/* Left: Brand Logo II LiftVoice */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-2.5 sm:gap-6 min-w-0">
           <button
             onClick={onNavigateHome}
-            className="flex items-center gap-2.5 text-left cursor-pointer group select-none"
+            className="flex items-center gap-2 sm:gap-2.5 text-left cursor-pointer group select-none min-w-0"
           >
             {/* Minimalist "II" Soundwave Bars Icon mimicking ElevenLabs logo */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <div className="w-1.5 h-5 bg-zinc-900 rounded-full group-hover:bg-zinc-700 transition-colors" />
               <div className="w-1.5 h-3.5 bg-zinc-900 rounded-full group-hover:bg-zinc-700 transition-colors" />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               <span className="font-semibold text-base text-zinc-900 tracking-tight">
                 LiftVoice
               </span>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-600">
+              <span className="text-[10px] font-medium px-1.5 sm:px-2 py-0.5 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-600 hidden sm:inline-block">
                 Studio 2026
               </span>
             </div>
@@ -89,7 +89,7 @@ export default function Navbar({
         </div>
 
         {/* Right Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {/* Subtle Help Links */}
           <div className="hidden sm:flex items-center gap-4 text-xs font-medium text-zinc-500 mr-2">
             <button

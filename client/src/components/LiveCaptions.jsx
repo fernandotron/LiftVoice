@@ -117,9 +117,9 @@ export default function LiveCaptions({
   return (
     <div className={`flex flex-col h-full relative bg-white ${className}`}>
       {/* Studio Subtitles Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 bg-white">
-        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-900 uppercase tracking-wider">
-          <AudioLines className="w-3.5 h-3.5 text-zinc-900" />
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-zinc-200 bg-white">
+        <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-zinc-900 uppercase tracking-wider">
+          <AudioLines className="w-3.5 h-3.5 text-zinc-900 flex-shrink-0" />
           <span>Subtítulos en Vivo ({currentLanguage.toUpperCase()})</span>
           {medicalMode && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-mono border border-emerald-200">
@@ -130,7 +130,7 @@ export default function LiveCaptions({
         </div>
 
         {/* Action icons */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
           {/* Font Size Button */}
           <button
             onClick={() => setFontSizeLevel((fontSizeLevel + 1) % 3)}

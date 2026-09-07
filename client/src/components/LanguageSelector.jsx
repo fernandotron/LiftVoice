@@ -61,40 +61,43 @@ export default function LanguageSelector({
                 type="button"
                 disabled={disabled}
                 onClick={() => onSelectLanguage(lang.code)}
-                className={`relative group p-3.5 rounded-xl text-left transition-all duration-150 cursor-pointer overflow-hidden border ${
+                className={`relative group p-3 sm:p-3.5 rounded-xl text-left transition-all duration-150 cursor-pointer overflow-hidden border ${
                   isSelected
                     ? 'bg-zinc-900 border-white text-white shadow-lg ring-1 ring-white/20'
                     : 'bg-zinc-950/80 border-white/10 text-zinc-300 hover:border-white/25 hover:bg-zinc-900/60'
                 }`}
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-2xl flex-shrink-0">{lang.flag}</span>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-xs sm:text-sm text-white truncate flex items-center gap-1.5">
-                        {lang.nativeName}
-                      </div>
-                      <div className="text-[10px] text-zinc-500 font-mono truncate">
-                        {lang.code.toUpperCase()} &bull; {lang.voice}
-                      </div>
-                    </div>
-                  </div>
+                {/* Top Row: Flag & Selection / Listener Count */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-2xl flex-shrink-0">{lang.flag}</span>
 
                   {isSelected ? (
-                    <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-white text-black text-xs font-bold">
+                    <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-white text-black text-xs font-bold shadow-xs">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </span>
                   ) : (
-                    <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-900 border border-white/10 text-zinc-400 font-mono">
+                    <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-900/90 border border-white/10 text-zinc-400 font-mono">
                       {listenerCount} {listenerCount === 1 ? 'oyente' : 'oyentes'}
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] pt-2 border-t border-white/5">
+                {/* Second Row: Language Name & Voice Model */}
+                <div className="space-y-0.5 min-w-0">
+                  <div className="font-semibold text-xs sm:text-sm text-white truncate flex items-center gap-1.5">
+                    <span>{lang.nativeName}</span>
+                    <span className="text-[10px] font-mono text-zinc-400 font-normal">({lang.code.toUpperCase()})</span>
+                  </div>
+                  <div className="text-[10px] text-zinc-400 font-mono truncate">
+                    {lang.voice}
+                  </div>
+                </div>
+
+                {/* Bottom Row: Accent Description & Active Status */}
+                <div className="flex items-center justify-between text-[11px] pt-2 mt-2 border-t border-white/5">
                   <span className="text-zinc-500 truncate text-[10px] sm:text-xs">{lang.description}</span>
                   {isSelected && (
-                    <span className="flex items-center gap-1 text-emerald-400 font-mono text-[10px] flex-shrink-0 ml-1">
+                    <span className="flex items-center gap-1 text-emerald-400 font-mono text-[10px] font-semibold flex-shrink-0 ml-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                       ACTIVO
                     </span>

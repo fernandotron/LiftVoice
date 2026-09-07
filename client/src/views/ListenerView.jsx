@@ -91,6 +91,7 @@ export default function ListenerView({
     languageBreakdown: { en: 0, es: 0, it: 0, pt: 0 }
   });
   const [socketLatency, setSocketLatency] = useState(14);
+  const SHOW_QA_SECTION = false; // Ocultado temporalmente por solicitud del usuario
 
   // Bi-directional Q&A Backchannel State (2026-2029)
   const [qaState, setQaState] = useState('idle'); // 'idle' | 'requested' | 'speaking' | 'completed'
@@ -474,54 +475,48 @@ export default function ListenerView({
 
   // 2. Main Live Audio Receiver UI
   return (
-    <div className="container-custom py-6 sm:py-8 space-y-6 max-w-6xl pb-20 bg-white text-zinc-900 text-left">
+    <div className="container-custom py-4 sm:py-8 space-y-4 sm:space-y-6 max-w-6xl pb-20 bg-white text-zinc-900 text-left overflow-x-hidden">
       
       {/* Top Header Card */}
-      <div className="bg-white border border-zinc-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-2xs">
-        <div className="flex items-center gap-3 text-left">
-          <div className="w-11 h-11 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
+      <div className="bg-white border border-zinc-200 rounded-2xl p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 shadow-2xs">
+        <div className="flex items-center gap-3 text-left min-w-0">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs flex-shrink-0">
             <AudioLines className="w-5 h-5 text-white" />
           </div>
 
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-zinc-900 tracking-tight">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <h2 className="text-sm sm:text-base font-bold text-zinc-900 tracking-tight truncate">
                 Canal de Traducción Simultánea
               </h2>
-              <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex-shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 EN VIVO
               </span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-zinc-500 mt-0.5">
-              <span>Sala: <b className="text-zinc-900 font-mono">{roomId}</b></span>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] sm:text-xs text-zinc-500 mt-0.5 font-mono">
+              <span>Sala: <b className="text-zinc-900">{roomId}</b></span>
               <span>&bull;</span>
-              <span className="font-mono text-zinc-500">⚡ {socketLatency}ms latencia</span>
-              {hasSavedProfile ? (
-                <>
-                  <span>&bull;</span>
-                  <span className="text-zinc-800 font-medium truncate max-w-[140px]">{profile.name}</span>
-                </>
-              ) : null}
+              <span>⚡ {socketLatency}ms latencia</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between sm:justify-end gap-2 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-zinc-100 flex-shrink-0">
           {hasSavedProfile ? (
             <button
               onClick={() => setIsEditingProfile(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-zinc-50 border border-zinc-200 text-xs text-zinc-700 hover:text-zinc-900 transition-all cursor-pointer shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-zinc-50 border border-zinc-200 text-xs text-zinc-700 hover:text-zinc-900 transition-all cursor-pointer shadow-2xs max-w-[180px] sm:max-w-[200px]"
               title="Editar mis datos de asistente"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span className="font-medium max-w-[120px] truncate">{profile.name}</span>
-              <Edit3 className="w-3 h-3 text-zinc-400 hover:text-zinc-700 ml-0.5" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+              <span className="font-medium truncate">{profile.name}</span>
+              <Edit3 className="w-3 h-3 text-zinc-400 hover:text-zinc-700 ml-0.5 flex-shrink-0" />
             </button>
           ) : (
             <button
               onClick={() => setShowCheckInModal(true)}
-              className="text-xs text-zinc-800 hover:text-zinc-900 px-3.5 py-2 rounded-xl bg-white hover:bg-zinc-50 border border-zinc-200 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              className="text-xs text-zinc-800 hover:text-zinc-900 px-3.5 py-1.5 rounded-xl bg-white hover:bg-zinc-50 border border-zinc-200 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
             >
               <User className="w-3.5 h-3.5 text-zinc-700" />
               <span>Identificarme</span>
@@ -530,7 +525,7 @@ export default function ListenerView({
 
           <button
             onClick={handleExitClick}
-            className="text-xs text-zinc-600 hover:text-zinc-900 px-3.5 py-2 rounded-xl bg-zinc-50 border border-zinc-200 hover:bg-zinc-100 transition-colors cursor-pointer"
+            className="text-xs text-zinc-600 hover:text-zinc-900 px-3.5 py-1.5 rounded-xl bg-zinc-50 border border-zinc-200 hover:bg-zinc-100 transition-colors cursor-pointer flex-shrink-0"
           >
             Salir
           </button>
@@ -581,24 +576,24 @@ export default function ListenerView({
         <div className="lg:col-span-5 space-y-5">
           
           {/* Central Tactile Studio Player */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-6 text-center space-y-5 relative overflow-hidden shadow-2xs">
-            <div className="flex items-center justify-between text-xs text-zinc-500 font-mono">
+          <div className="bg-white border border-zinc-200 rounded-2xl p-4 sm:p-6 text-center space-y-4 sm:space-y-5 relative overflow-hidden shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] sm:text-xs text-zinc-500 font-mono">
               <span className="flex items-center gap-1.5">
                 <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
                 CABINA DE INTERPRETACIÓN
               </span>
-              <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
+              <span className="flex items-center gap-1 text-[10px] sm:text-[11px] text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
                 <Lock className="w-3 h-3" />
                 Segundo plano activo
               </span>
             </div>
 
             {/* Tactile Voice Ring with animated glow */}
-            <div className="py-3 flex items-center justify-center">
-              <div className="p-4 rounded-full transition-all duration-300">
-                <div className="w-28 h-28 rounded-full bg-zinc-50 border border-zinc-200 flex flex-col items-center justify-center shadow-xs">
-                  <span className="text-4xl">{currentLangObj.flag}</span>
-                  <span className="text-xs font-mono text-zinc-700 mt-1.5 uppercase font-semibold tracking-wider">
+            <div className="py-2 sm:py-3 flex items-center justify-center">
+              <div className="p-3 sm:p-4 rounded-full transition-all duration-300">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-zinc-50 border border-zinc-200 flex flex-col items-center justify-center shadow-xs">
+                  <span className="text-3xl sm:text-4xl">{currentLangObj.flag}</span>
+                  <span className="text-[11px] sm:text-xs font-mono text-zinc-700 mt-1 uppercase font-semibold tracking-wider">
                     {currentLangObj.code} &bull; {currentLangObj.nativeName}
                   </span>
                 </div>
@@ -606,18 +601,18 @@ export default function ListenerView({
             </div>
 
             {/* Waveform Spectrum (Minimalist Monochromatic) */}
-            <div className="px-2">
+            <div className="px-1 sm:px-2">
               <AudioVisualizer
                 mode="bars"
-                height={44}
-                barCount={36}
+                height={40}
+                barCount={32}
                 barColor="#18181b"
                 isActive={isPlayingAudio}
                 getFrequencyDataFn={audioPlayerService.getFrequencyData.bind(audioPlayerService)}
               />
             </div>
 
-            <div className="text-xs text-zinc-500 font-medium">
+            <div className="text-[11px] sm:text-xs text-zinc-500 font-medium">
               {isPlayingAudio ? (
                 <span className="text-zinc-900 flex items-center justify-center gap-2 font-semibold">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
@@ -632,11 +627,11 @@ export default function ListenerView({
           </div>
 
           {/* Audio Controls: Volume & Playback Rate */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-4 shadow-2xs">
-            <div className="flex items-center justify-between">
+          <div className="bg-white border border-zinc-200 rounded-2xl p-4 sm:p-5 space-y-3.5 sm:space-y-4 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <button
                 onClick={handleToggleMute}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                   isMuted
                     ? 'bg-red-50 text-red-700 border border-red-200'
                     : 'bg-zinc-50 text-zinc-800 hover:bg-zinc-100 border border-zinc-200'
@@ -648,7 +643,7 @@ export default function ListenerView({
 
               {/* Playback Rate Selector */}
               <div className="flex items-center gap-1 bg-zinc-50 border border-zinc-200 p-1 rounded-xl">
-                <span className="text-[10px] font-mono text-zinc-500 px-1.5 uppercase">Velocidad:</span>
+                <span className="text-[10px] font-mono text-zinc-500 px-1.5 uppercase">Vel:</span>
                 {[0.9, 1.0, 1.1, 1.2].map((spd) => (
                   <button
                     key={spd}
@@ -684,130 +679,132 @@ export default function ListenerView({
             </div>
           </div>
 
-          {/* Bi-directional Q&A Backchannel Card (2026-2029) */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-3.5 shadow-2xs text-left">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Hand className="w-4 h-4 text-zinc-900" />
-                <h3 className="font-semibold text-xs text-zinc-900 uppercase tracking-wider">
-                  Preguntar al Ponente (Q&A)
-                </h3>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 font-mono">
-                EN VIVO
-              </span>
-            </div>
-
-            {qaState === 'idle' && (
-              <div className="space-y-3">
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  ¿Tienes una duda o comentario? Levanta la mano para pedir la palabra. Podrás hablar en tu idioma ({currentLangObj.nativeName}) y el ponente te escuchará traducido en tiempo real en su auricular.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleRaiseHand}
-                  className="w-full h-11 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-                >
-                  <Hand className="w-4 h-4 text-amber-400" />
-                  <span>Levantar la Mano / Pedir la Palabra</span>
-                </button>
-              </div>
-            )}
-
-            {qaState === 'requested' && (
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 space-y-2.5 text-center">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
-                  <span className="text-xs font-bold text-amber-950">Mano levantada enviada</span>
+          {/* Bi-directional Q&A Backchannel Card (2026-2029) - Ocultado temporalmente por solicitud del usuario */}
+          {SHOW_QA_SECTION && (
+            <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-3.5 shadow-2xs text-left">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Hand className="w-4 h-4 text-zinc-900" />
+                  <h3 className="font-semibold text-xs text-zinc-900 uppercase tracking-wider">
+                    Preguntar al Ponente (Q&A)
+                  </h3>
                 </div>
-                <p className="text-xs text-amber-800">
-                  El ponente ha recibido tu turno. Cuando te concedan la palabra se activará tu micrófono.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleCancelRaiseHand}
-                  className="px-3.5 py-1.5 rounded-lg bg-white border border-amber-300 text-xs font-medium text-amber-900 hover:bg-amber-100 transition-colors cursor-pointer"
-                >
-                  Bajar la mano / Cancelar
-                </button>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 font-mono">
+                  EN VIVO
+                </span>
               </div>
-            )}
 
-            {qaState === 'speaking' && (
-              <div className="p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50/50 space-y-3 animate-fadeIn text-left">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs font-bold text-emerald-950">
-                      ¡Tienes la palabra! Micrófono abierto
+              {qaState === 'idle' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-zinc-500 leading-relaxed">
+                    ¿Tienes una duda o comentario? Levanta la mano para pedir la palabra. Podrás hablar en tu idioma ({currentLangObj.nativeName}) y el ponente te escuchará traducido en tiempo real en su auricular.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRaiseHand}
+                    className="w-full h-11 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                  >
+                    <Hand className="w-4 h-4 text-amber-400" />
+                    <span>Levantar la Mano / Pedir la Palabra</span>
+                  </button>
+                </div>
+              )}
+
+              {qaState === 'requested' && (
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 space-y-2.5 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+                    <span className="text-xs font-bold text-amber-950">Mano levantada enviada</span>
+                  </div>
+                  <p className="text-xs text-amber-800">
+                    El ponente ha recibido tu turno. Cuando te concedan la palabra se activará tu micrófono.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCancelRaiseHand}
+                    className="px-3.5 py-1.5 rounded-lg bg-white border border-amber-300 text-xs font-medium text-amber-900 hover:bg-amber-100 transition-colors cursor-pointer"
+                  >
+                    Bajar la mano / Cancelar
+                  </button>
+                </div>
+              )}
+
+              {qaState === 'speaking' && (
+                <div className="p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50/50 space-y-3 animate-fadeIn text-left">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-xs font-bold text-emerald-950">
+                        ¡Tienes la palabra! Micrófono abierto
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-200/80 text-emerald-900 font-bold">
+                      {currentLangObj.code.toUpperCase()}
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-200/80 text-emerald-900 font-bold">
-                    {currentLangObj.code.toUpperCase()}
-                  </span>
+
+                  <p className="text-xs text-emerald-900">
+                    Habla por el micrófono en tu idioma o escribe tu pregunta. El ponente la escuchará traducida a su auricular al instante.
+                  </p>
+
+                  <form onSubmit={handleSendQuestion} className="space-y-2.5">
+                    <div className="relative">
+                      <textarea
+                        rows={2}
+                        value={questionText}
+                        onChange={(e) => setQuestionText(e.target.value)}
+                        placeholder="Habla o escribe aquí tu pregunta para el ponente..."
+                        className="w-full bg-white border border-emerald-300 rounded-xl p-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={isRecordingQuestion ? handleStopRecordingQuestion : handleStartRecordingQuestion}
+                        className={`h-9 px-3 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                          isRecordingQuestion
+                            ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
+                            : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-700'
+                        }`}
+                      >
+                        {isRecordingQuestion ? (
+                          <>
+                            <MicOff className="w-3.5 h-3.5" />
+                            <span>Detener Dictado</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="w-3.5 h-3.5 text-zinc-600" />
+                            <span>Dictar con Voz</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={!questionText.trim()}
+                        className="flex-1 h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Enviar al Ponente</span>
+                      </button>
+                    </div>
+                  </form>
                 </div>
+              )}
 
-                <p className="text-xs text-emerald-900">
-                  Habla por el micrófono en tu idioma o escribe tu pregunta. El ponente la escuchará traducida a su auricular al instante.
-                </p>
-
-                <form onSubmit={handleSendQuestion} className="space-y-2.5">
-                  <div className="relative">
-                    <textarea
-                      rows={2}
-                      value={questionText}
-                      onChange={(e) => setQuestionText(e.target.value)}
-                      placeholder="Habla o escribe aquí tu pregunta para el ponente..."
-                      className="w-full bg-white border border-emerald-300 rounded-xl p-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={isRecordingQuestion ? handleStopRecordingQuestion : handleStartRecordingQuestion}
-                      className={`h-9 px-3 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
-                        isRecordingQuestion
-                          ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
-                          : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-700'
-                      }`}
-                    >
-                      {isRecordingQuestion ? (
-                        <>
-                          <MicOff className="w-3.5 h-3.5" />
-                          <span>Detener Dictado</span>
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="w-3.5 h-3.5 text-zinc-600" />
-                          <span>Dictar con Voz</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      type="submit"
-                      disabled={!questionText.trim()}
-                      className="flex-1 h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Enviar al Ponente</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {qaState === 'completed' && (
-              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-center space-y-1 animate-fadeIn">
-                <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
-                <div className="text-xs font-bold text-emerald-950">¡Pregunta transmitida!</div>
-                <p className="text-[11px] text-emerald-800">
-                  Tu intervención ha sido traducida y transmitida al auricular del ponente y a los subtítulos de la sala.
-                </p>
-              </div>
-            )}
-          </div>
+              {qaState === 'completed' && (
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-center space-y-1 animate-fadeIn">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
+                  <div className="text-xs font-bold text-emerald-950">¡Pregunta transmitida!</div>
+                  <p className="text-[11px] text-emerald-800">
+                    Tu intervención ha sido traducida y transmitida al auricular del ponente y a los subtítulos de la sala.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Headphone & Screen Lock Tip */}
           <div className="text-center text-xs text-zinc-400 py-1 flex items-center justify-center gap-2">
@@ -818,11 +815,11 @@ export default function ListenerView({
         </div>
 
         {/* Right Column: Language Selector & Live Captions Feed (7 cols on LG/XL) */}
-        <div className="lg:col-span-7 space-y-5">
+        <div className="lg:col-span-7 space-y-4 sm:space-y-5">
           
           {/* Language Voice Selector */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xs text-left">
-            <div className="flex items-center justify-between">
+          <div className="bg-white border border-zinc-200 rounded-2xl p-3.5 sm:p-6 space-y-3 sm:space-y-4 shadow-2xs text-left">
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
               <div className="flex items-center gap-2">
                 <Globe className="w-4 h-4 text-zinc-800" />
                 <h3 className="font-semibold text-xs text-zinc-900 uppercase tracking-wider">

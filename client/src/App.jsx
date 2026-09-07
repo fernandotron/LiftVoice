@@ -121,7 +121,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ffffff] text-zinc-900 flex flex-col justify-between selection:bg-zinc-200 selection:text-zinc-900">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#ffffff] text-zinc-900 flex flex-col justify-between selection:bg-zinc-200 selection:text-zinc-900">
       {/* Top Navigation for Home & Listener (HostView and VoicesView render native ElevenLabs layout) */}
       {currentView !== 'host' && currentView !== 'voices' && (
         <Navbar
