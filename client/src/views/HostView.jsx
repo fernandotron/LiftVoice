@@ -31,13 +31,6 @@ export const DEFAULT_VOICES = {
   pt: 'pt-BR-FranciscaNeural'
 };
 
-const DEMO_PRESETS = [
-  { label: 'Narra una historia', text: 'En una cálida tarde de primavera, los investigadores presentaron un descubrimiento que cambiaría para siempre la medicina moderna.' },
-  { label: 'Caso clínico: Fibrilación', text: 'Paciente masculino de 64 años acude a urgencias por palpitaciones, disnea de medianos esfuerzos y ECG que evidencia fibrilación auricular con respuesta ventricular rápida.' },
-  { label: 'Keynote Internacional', text: 'Welcome everyone to the 2026 World Tech Keynote. Today we are demonstrating instantaneous neural voice translation across multiple continents simultaneously.' },
-  { label: 'Q&A: Pregunta técnica', text: '¿Podría el ponente profundizar en cómo la arquitectura Transformer gestiona el buffer temporal sin introducir latencia perceptible en la síntesis?' }
-];
-
 export default function HostView({
   roomId = 'MAIN',
   roomTitle = 'Conferencia Principal 2026',
@@ -63,7 +56,6 @@ export default function HostView({
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState(null);
   const [manualText, setManualText] = useState('');
-  const [isSendingDemo, setIsSendingDemo] = useState(false);
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState('default');
   const [monitoredLang, setMonitoredLang] = useState('none');
@@ -460,13 +452,6 @@ export default function HostView({
     const textToSend = manualText.trim();
     setManualText('');
     sendSpeechToEngines(textToSend);
-  };
-
-  const handleSendPreset = (preset) => {
-    if (!preset || isSendingDemo) return;
-    setIsSendingDemo(true);
-    sendSpeechToEngines(preset.text);
-    setTimeout(() => setIsSendingDemo(false), 1200);
   };
 
   const handleSelectVoiceFromCatalog = (lang, voiceId) => {
@@ -872,27 +857,6 @@ export default function HostView({
 
               {/* ElevenLabs Interactive Prompt Station & Broadcast Controls */}
               <div className="space-y-4 pt-2">
-                
-                {/* Suggestion Chips ("Empezar con" style ElevenLabs Image 4) */}
-                <div className="space-y-2">
-                  <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block font-mono">
-                    Empezar con
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {DEMO_PRESETS.map((preset, idx) => (
-                      <button
-                        key={idx}
-                        disabled={isSendingDemo}
-                        onClick={() => handleSendPreset(preset)}
-                        className="px-3.5 py-1.5 rounded-full bg-white hover:bg-neutral-50 border border-neutral-200 text-xs font-medium text-neutral-700 hover:text-neutral-950 shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <span className="truncate max-w-[200px]">{preset.label}</span>
-                        <Play className="w-3 h-3 text-neutral-400" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Master Studio Broadcast & Input Dock */}
                 <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 shadow-xs space-y-3">
                   <div className="flex items-center justify-between gap-4">
