@@ -1,0 +1,332 @@
+import crypto from 'crypto';
+import { roomManager } from '../roomManager.js';
+import { translationService } from './translationService.js';
+import { ttsService } from './ttsService.js';
+import { sttService } from './sttService.js';
+
+/**
+ * AI Pipeline Orchestrator for LiftVoice (2026 Edition)
+ * Mic / Speech -> STT -> Multi-target Translation -> Parallel TTS -> Monotonic Serialized Broadcast
+ */
+export class AIPipeline {
+  constructor() {
+    this.activePipelines = new Set();
+    this.roomQueues = new Map(); // roomId -> Promise chain
+    this.roomSeqCounters = new Map(); // roomId -> integer
+    this.roomContexts = new Map(); // roomId -> string of recent spoken words
+    this.openaiApiKey = process.env.OPENAI_API_KEY || '';
+  }
+
+  setApiKeys({ openaiApiKey, deepgramApiKey, elevenLabsApiKey, deeplApiKey, qwenApiKey, qwenModel, qwenEndpoint, preferredEngine, medicalMode, medicalSpecialty, customGlossary, preferredTtsEngine, voiceConfig, voiceGender, preferredSttEngine, sttEngine }) {
+    if (openaiApiKey !== undefined && openaiApiKey !== null) {
+      this.openaiApiKey = openaiApiKey;
+      translationService.setApiKey(openaiApiKey);
+    }
+    if (qwenApiKey !== undefined || qwenModel !== undefined || qwenEndpoint !== undefined || preferredEngine !== undefined) {
+      translationService.setQwenConfig({ apiKey: qwenApiKey, model: qwenModel, endpoint: qwenEndpoint, preferredEngine });
+    }
+    if (medicalMode !== undefined || medicalSpecialty !== undefined || customGlossary !== undefined) {
+      translationService.setMedicalConfig({ medicalMode, medicalSpecialty, customGlossary });
+    }
+    ttsService.setConfig({
+      openaiApiKey,
+      elevenLabsApiKey,
+      deepgramApiKey,
+      preferredTtsEngine,
+      voiceConfig,
+      voiceGender
+    });
+    if (deepgramApiKey !== undefined || openaiApiKey !== undefined) {
+      sttService.setApiKey(this.openaiApiKey, deepgramApiKey);
+    }
+    const targetStt = preferredSttEngine || sttEngine;
+    if (targetStt) {
+      sttService.setPreferredEngine(targetStt);
+    }
+  }
+
+  cleanupRoom(roomId) {
+    const key = (roomId || 'MAIN').toUpperCase();
+    this.roomQueues.delete(key);
+    this.roomSeqCounters.delete(key);
+    this.roomContexts.delete(key);
+  }
+
+  getNextSeqId(roomId) {
+    const key = (roomId || 'MAIN').toUpperCase();
+    const current = this.roomSeqCounters.get(key) || 1;
+    this.roomSeqCounters.set(key, current + 1);
+    return current;
+  }
+
+  /**
+   * Process speech chunk through a FIFO room queue to guarantee strict chronological delivery
+   * @param {Object} params
+   * @param {string} params.roomId
+   * @param {string} [params.text] - Direct transcribed text
+   * @param {Buffer} [params.audioBuffer] - Raw audio buffer from mic
+   * @param {string} [params.mimeType]
+   * @param {string} [params.sourceLanguage] - 'auto' or 'es'/'en'/'it'/'pt'
+   * @param {string[]} [params.forceLanguages] - Optional forced languages to synthesize (e.g. preview)
+   */
+  async processSpeech(params) {
+    const roomId = (params.roomId || 'MAIN').toUpperCase();
+    const seqId = this.getNextSeqId(roomId);
+    roomManager.touchRoomActivity(roomId);
+
+    // Chain to ensure FIFO sequential completion per room
+    const currentQueue = this.roomQueues.get(roomId) || Promise.resolve();
+
+    const taskPromise = currentQueue
+      .catch((err) => {
+        console.warn(`[AIPipeline] Previous chunk error in room ${roomId}:`, err);
+      })
+      .then(() => {
+        return this.executeSpeechPipeline({ ...params, roomId, seqId });
+      });
+
+    this.roomQueues.set(roomId, taskPromise);
+    return taskPromise;
+  }
+
+  async executeSpeechPipeline({ roomId, text, audioBuffer, mimeType, sourceLanguage = 'auto', seqId = 1, forceLanguages = [], medicalMode, medicalSpecialty, customGlossary }) {
+    const pipelineStart = Date.now();
+    const packetId = `pkt_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    let spokenText = (text || '').trim();
+    let sttLatency = 0;
+
+    const room = roomManager.getRoom(roomId);
+    if (!room) {
+      console.warn(`[AIPipeline] Room ${roomId} not found.`);
+      return;
+    }
+
+    // Step 1: STT (if audio buffer provided and text is empty)
+    if (!spokenText && audioBuffer) {
+      const sttStart = Date.now();
+      const sttResult = await sttService.transcribeAudio(audioBuffer, mimeType, sourceLanguage, { medicalMode });
+      sttLatency = Date.now() - sttStart;
+      if (sttResult && sttResult.text) {
+        spokenText = sttResult.text;
+        if (sttResult.detectedLanguage && sttResult.detectedLanguage !== 'auto') {
+          sourceLanguage = sttResult.detectedLanguage;
+        }
+      }
+    }
+
+    if (!spokenText) {
+      return;
+    }
+
+    console.log(`[AIPipeline] [Room: ${roomId}] [Seq: #${seqId}] Spoken text: "${spokenText}"`);
+
+    // Retrieve previous context for coherent pronouns and clinical resolution
+    const prevContext = this.roomContexts.get(roomId) || '';
+
+    // Step 2: Multi-Language Translation (Parallel to EN, ES, IT, PT)
+    const transStart = Date.now();
+    const transResult = await translationService.translateAll(spokenText, sourceLanguage, {
+      medicalMode,
+      medicalSpecialty,
+      customGlossary,
+      contextHistory: prevContext
+    });
+    const transLatency = Date.now() - transStart;
+    const detectedLang = transResult.detectedSource || sourceLanguage || 'auto';
+
+    // Update room context (sliding window of last ~25 words)
+    const newContext = (prevContext ? prevContext + ' ' : '') + spokenText;
+    const contextWords = newContext.split(/\s+/).slice(-25).join(' ');
+    this.roomContexts.set(roomId, contextWords);
+
+    const transcriptItem = {
+      id: packetId,
+      seqId,
+      timestamp: Date.now(),
+      originalText: spokenText,
+      detectedLanguage: detectedLang,
+      engineUsed: transResult.engineUsed || 'Google Neural',
+      translations: transResult.translations,
+      metrics: {
+        sttMs: sttLatency,
+        transMs: transLatency,
+        totalMs: 0
+      }
+    };
+
+    // Broadcast transcript immediately for ultra-fast live captions (<500ms)
+    roomManager.addTranscriptItem(roomId, transcriptItem);
+
+    // Step 3: Selective Parallel TTS generation & Audio Distribution
+    // Synthesize for active listener booths, or default to all 4 cabins so audio streams are immediately ready
+    const activeLangs = roomManager.getActiveLanguages(roomId);
+    const targetLangs = Array.from(new Set([
+      ...(activeLangs.length > 0 ? activeLangs : ['es', 'en', 'it', 'pt']),
+      ...(forceLanguages || [])
+    ]));
+    const ttsStart = Date.now();
+
+    const ttsPromises = targetLangs.map(async (lang) => {
+      const translatedText = transResult.translations[lang] || spokenText;
+      if (!translatedText) return;
+
+      try {
+        const audioResult = await ttsService.synthesize(translatedText, lang);
+        if (audioResult) {
+          roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
+            id: `${packetId}_${lang}`,
+            seqId,
+            lang,
+            text: translatedText,
+            audioBase64: audioResult.audioBase64,
+            useClientWebSpeech: audioResult.useClientWebSpeech,
+            mimeType: audioResult.mimeType || 'audio/mp3',
+            duration: audioResult.durationMs,
+            latencyMs: Date.now() - pipelineStart,
+            timestamp: Date.now()
+          });
+        }
+      } catch (err) {
+        console.error(`[AIPipeline] Error synthesizing TTS for lang ${lang}:`, err.message);
+      }
+    });
+
+    // Dispatch parallel TTS generation without blocking subsequent speech processing indefinitely
+    const ttsExecution = Promise.all(ttsPromises).catch((err) => {
+      console.warn('[AIPipeline] Background TTS error:', err);
+    });
+
+    // Wait at most 1800ms before unblocking the speech queue for the next sentence
+    await Promise.race([
+      ttsExecution,
+      new Promise((resolve) => setTimeout(resolve, 1800))
+    ]);
+
+    const totalPipelineLatency = Date.now() - pipelineStart;
+    transcriptItem.metrics.totalMs = totalPipelineLatency;
+
+    // Send pipeline telemetry event to host
+    if (room.hostSocket && room.hostSocket.readyState === 1) {
+      try {
+        room.hostSocket.send(JSON.stringify({
+          type: 'PIPELINE_METRIC',
+          metric: {
+            packetId,
+            seqId,
+            text: spokenText,
+            detectedSource: detectedLang,
+            engineUsed: transResult.engineUsed || 'Google Neural',
+            sttMs: sttLatency,
+            transMs: transLatency,
+            ttsMs: Date.now() - ttsStart,
+            activeChannels: targetLangs,
+            totalLatencyMs: totalPipelineLatency,
+            timestamp: Date.now()
+          }
+        }));
+      } catch (e) {}
+    }
+
+    return transcriptItem;
+  }
+
+  /**
+   * Generate AI Session Summary and Key Takeaways
+   */
+  async generateSessionSummary(roomId) {
+    const room = roomManager.getRoom(roomId);
+    if (!room) throw new Error(`Room ${roomId} not found`);
+
+    const transcripts = room.transcriptHistory || [];
+    if (transcripts.length === 0) {
+      return {
+        success: true,
+        isEmpty: true,
+        title: room.title || `Conferencia ${room.id}`,
+        summaryEs: 'No se detectaron discursos durante esta sesión para resumir.',
+        summaryEn: 'No speech was recorded during this session to summarize.',
+        keyTakeawaysEs: [],
+        keyTakeawaysEn: [],
+        conclusions: 'Sin contenido registrado.',
+        attendeeCount: room.listeners.size,
+        totalSentences: 0
+      };
+    }
+
+    const fullDialogue = transcripts.map(t => t.originalText).join(' ');
+
+    if (this.openaiApiKey) {
+      try {
+        const prompt = `Eres un asistente ejecutivo especializado en conferencias internacionales.
+A continuación tienes la transcripción completa de una conferencia o keynote:
+"${fullDialogue.slice(0, 8000)}"
+
+Genera un informe profesional con esta estructura JSON exacta:
+{
+  "title": "Título representativo de la conferencia",
+  "summaryEs": "Resumen ejecutivo en español (2 párrafos concisos)",
+  "summaryEn": "Executive summary in English (2 concise paragraphs)",
+  "keyTakeawaysEs": ["Punto clave 1", "Punto clave 2", "Punto clave 3", "Punto clave 4"],
+  "keyTakeawaysEn": ["Key point 1", "Key point 2", "Key point 3", "Key point 4"],
+  "conclusions": "Conclusiones y próximos pasos recomendados"
+}`;
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.openaiApiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' },
+            temperature: 0.3
+          }),
+          signal: AbortSignal.timeout(12000)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = JSON.parse(data.choices[0]?.message?.content || '{}');
+          return {
+            success: true,
+            ...content,
+            executiveSummary: content.summaryEs || content.summaryEn || '',
+            keyPoints: content.keyTakeawaysEs || content.keyTakeawaysEn || [],
+            actionItems: content.conclusions ? [content.conclusions] : [],
+            totalSentences: transcripts.length,
+            attendeeCount: room.registeredAttendees.size || room.listeners.size,
+            generatedAt: new Date().toISOString()
+          };
+        }
+      } catch (err) {
+        console.warn('[AIPipeline] OpenAI summary failed, using heuristic fallback:', err.message);
+      }
+    }
+
+    // Heuristic summary fallback (Out-of-the-Box mode without API keys)
+    const sentences = transcripts.map(t => t.originalText);
+    const keyTakeaways = sentences.slice(0, Math.min(5, sentences.length));
+    const summaryEs = `Durante la sesión de la sala ${room.id} se procesaron ${transcripts.length} intervenciones de voz en tiempo real con interpretación simultánea a múltiples idiomas. Los asistentes pudieron sintonizar los canales de voz desde sus teléfonos móviles.`;
+
+    return {
+      success: true,
+      title: room.title || `Conferencia ${room.id}`,
+      summaryEs,
+      summaryEn: `During the session in room ${room.id}, ${transcripts.length} speech turns were translated in real time with simultaneous multi-channel voice interpretation.`,
+      executiveSummary: summaryEs,
+      keyPoints: keyTakeaways,
+      keyTakeawaysEs: keyTakeaways,
+      keyTakeawaysEn: keyTakeaways.map(s => `Key discussion: ${s}`),
+      actionItems: ['La sesión se completó exitosamente con distribución multicanal.'],
+      conclusions: 'La sesión se completó exitosamente con distribución multicanal.',
+      totalSentences: transcripts.length,
+      attendeeCount: room.registeredAttendees.size || room.listeners.size,
+      generatedAt: new Date().toISOString()
+    };
+  }
+}
+
+export const aiPipeline = new AIPipeline();
+

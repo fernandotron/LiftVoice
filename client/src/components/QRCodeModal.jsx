@@ -1,0 +1,428 @@
+import React, { useState, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import { QrCode, Copy, Check, ExternalLink, Download, Maximize2, Minimize2, X, Headphones, Globe, Wifi, Smartphone, Sparkles, Loader2, Radio, Lock } from 'lucide-react';
+
+export default function QRCodeModal({
+  roomId = 'MAIN',
+  roomTitle = 'Keynote 2026',
+  isOpen = false,
+  onClose = () => {},
+  localIp = '192.168.1.12'
+}) {
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [networkMode, setNetworkMode] = useState('local'); // 'local' | 'public' | 'custom'
+  const [publicUrl, setPublicUrl] = useState('');
+  const [customDomain, setCustomDomain] = useState('');
+  const [isGeneratingTunnel, setIsGeneratingTunnel] = useState(false);
+  const [detectedLocalIp, setDetectedLocalIp] = useState(localIp || '192.168.1.12');
+  const [customIp, setCustomIp] = useState('');
+  const [isEditingIp, setIsEditingIp] = useState(false);
+  const [availableIps, setAvailableIps] = useState([]);
+
+  // Auto-detect local network IP and public tunnel info
+  useEffect(() => {
+    fetch('/api/network-info')
+      .then(res => res.json())
+      .then(data => {
+        if (data.localIp) setDetectedLocalIp(data.localIp);
+        if (data.publicUrl) setPublicUrl(data.publicUrl);
+        if (Array.isArray(data.interfaces)) setAvailableIps(data.interfaces);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!isOpen) return null;
+
+  const effectiveIp = customIp.trim() || detectedLocalIp || localIp || '192.168.1.12';
+
+  // Build active attendee URL based on selected network mode
+  let activeBaseUrl = '';
+  if (networkMode === 'public' && publicUrl) {
+    activeBaseUrl = publicUrl;
+  } else if (networkMode === 'custom' && customDomain.trim()) {
+    activeBaseUrl = customDomain.trim().startsWith('http') ? customDomain.trim() : `https://${customDomain.trim()}`;
+  } else {
+    const isLoopback = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const host = isLoopback ? effectiveIp : window.location.hostname;
+    const port = window.location.port ? `:${window.location.port}` : '';
+    const protocol = window.location.protocol;
+    activeBaseUrl = `${protocol}//${host}${port}`;
+  }
+
+  const listenUrl = `${activeBaseUrl}/?room=${encodeURIComponent(roomId)}`;
+
+  const handleStartTunnel = async () => {
+    setIsGeneratingTunnel(true);
+    try {
+      const res = await fetch('/api/tunnel/start', { method: 'POST' });
+      const data = await res.json();
+      if (data.publicUrl) {
+        setPublicUrl(data.publicUrl);
+        setNetworkMode('public');
+      }
+    } catch (err) {
+      console.warn('Could not start public tunnel:', err);
+    }
+    setIsGeneratingTunnel(false);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(listenUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadQR = () => {
+    const svg = document.getElementById('liftvoice-room-qr');
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = img.width + 60;
+      canvas.height = img.height + 60;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 30, 30);
+      const pngFile = canvas.toDataURL('image/png');
+      const downloadLink = document.createElement('a');
+      downloadLink.download = `LiftVoice_QR_${roomId}.png`;
+      downloadLink.href = pngFile;
+      downloadLink.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
+  return (
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-150 ${
+      isFullScreen ? 'bg-zinc-950 p-0' : 'bg-zinc-950/40 backdrop-blur-xs'
+    }`}>
+      <div className={`relative w-full transition-all duration-150 overflow-hidden shadow-2xl ${
+        isFullScreen
+          ? 'w-screen h-screen max-w-none rounded-none p-8 sm:p-12 flex flex-col justify-between bg-zinc-950 text-white'
+          : 'max-w-md rounded-2xl p-6 sm:p-7 bg-white border border-zinc-200 text-zinc-900'
+      }`}>
+        
+        {/* Header Bar */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+              isFullScreen ? 'bg-zinc-900 border border-zinc-800 text-white' : 'bg-zinc-100 border border-zinc-200 text-zinc-900'
+            }`}>
+              <QrCode className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className={`font-semibold text-sm tracking-tight ${isFullScreen ? 'text-white' : 'text-zinc-900'}`}>
+                {isFullScreen ? 'Proyección de Sala en Auditorio' : 'Acceso de Asistentes'}
+              </h3>
+              <p className={`text-[11px] ${isFullScreen ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                {isFullScreen ? 'Escaneo directo para audiencia en vivo' : 'Escaneo de sala y selección de canal de voz'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setIsFullScreen(!isFullScreen)}
+              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                isFullScreen
+                  ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-400 hover:text-white'
+                  : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-600 hover:text-zinc-900'
+              }`}
+              title={isFullScreen ? "Salir de pantalla completa" : "Modo Auditorio / Proyector"}
+            >
+              {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={onClose}
+              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                isFullScreen
+                  ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-400 hover:text-white'
+                  : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-600 hover:text-zinc-900'
+              }`}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Network Mode Switcher */}
+        {!isFullScreen && (
+          <div className="my-3.5 p-1 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center gap-1">
+            <button
+              onClick={() => setNetworkMode('local')}
+              className={`flex-1 py-1 px-2.5 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                networkMode === 'local'
+                  ? 'bg-white text-zinc-900 shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-900'
+              }`}
+            >
+              <Wifi className="w-3.5 h-3.5" />
+              <span>Red Wi-Fi</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (!publicUrl) handleStartTunnel();
+                else setNetworkMode('public');
+              }}
+              className={`flex-1 py-1 px-2.5 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                networkMode === 'public'
+                  ? 'bg-white text-zinc-900 shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-900'
+              }`}
+            >
+              {isGeneratingTunnel ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Smartphone className="w-3.5 h-3.5 text-zinc-700" />
+              )}
+              <span>Datos 4G/5G</span>
+            </button>
+          </div>
+        )}
+
+        {/* Center QR Display */}
+        {isFullScreen ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 my-auto items-center">
+            <div className="lg:col-span-6 flex flex-col items-center justify-center text-center space-y-5">
+              <div className="p-6 bg-white rounded-3xl shadow-2xl border-4 border-zinc-800">
+                <QRCodeSVG
+                  id="liftvoice-room-qr"
+                  value={listenUrl}
+                  size={300}
+                  level="H"
+                  includeMargin={false}
+                  fgColor="#000000"
+                  bgColor="#ffffff"
+                />
+              </div>
+
+              <div className="inline-flex items-center gap-3 px-5 py-2 rounded-xl bg-zinc-900 border border-zinc-800">
+                <span className="text-xs font-mono text-zinc-400 uppercase">CÓDIGO DE SALA:</span>
+                <span className="text-xl font-mono font-bold text-white tracking-widest">{roomId}</span>
+              </div>
+            </div>
+
+            <div className="lg:col-span-6 space-y-6 text-left">
+              <div>
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono font-medium mb-3">
+                  <Radio className="w-3.5 h-3.5 animate-pulse" />
+                  AUDIO NEURONAL EN DIRECTO
+                </span>
+                <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight leading-tight">
+                  {roomTitle || 'Traducción Simultánea de Voz'}
+                </h1>
+                <p className="text-sm text-zinc-400 mt-2">
+                  Escucha la conferencia en tu idioma nativo con auriculares en tiempo real.
+                </p>
+              </div>
+
+              <div className="space-y-3.5 pt-2">
+                <div className="flex items-start gap-3.5 p-3.5 rounded-xl bg-zinc-900 border border-zinc-800">
+                  <div className="w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center font-bold text-xs flex-shrink-0">
+                    1
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-white">Escanea el código QR con tu móvil</h4>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Abre la cámara de tu smartphone para acceder directamente a la sintonía.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3.5 p-3.5 rounded-xl bg-zinc-900 border border-zinc-800">
+                  <div className="w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center font-bold text-xs flex-shrink-0">
+                    2
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-white">Conecta tus auriculares</h4>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      AirPods, Bluetooth o cable. Puedes bloquear la pantalla y el audio seguirá sonando.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3.5 p-3.5 rounded-xl bg-zinc-900 border border-zinc-800">
+                  <div className="w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center font-bold text-xs flex-shrink-0">
+                    3
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-white">Elige tu canal de idioma</h4>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="px-2.5 py-1 rounded-md bg-zinc-800 text-xs text-white font-medium border border-zinc-700">
+                        🇺🇸 English
+                      </span>
+                      <span className="px-2.5 py-1 rounded-md bg-zinc-800 text-xs text-white font-medium border border-zinc-700">
+                        🇪🇸 Español
+                      </span>
+                      <span className="px-2.5 py-1 rounded-md bg-zinc-800 text-xs text-white font-medium border border-zinc-700">
+                        🇮🇹 Italiano
+                      </span>
+                      <span className="px-2.5 py-1 rounded-md bg-zinc-800 text-xs text-white font-medium border border-zinc-700">
+                        🇧🇷 Português
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center text-center space-y-3.5 my-2">
+            <div className="p-3 bg-white rounded-xl shadow-sm border border-zinc-200">
+              <QRCodeSVG
+                id="liftvoice-room-qr"
+                value={listenUrl}
+                size={180}
+                level="H"
+                includeMargin={false}
+                fgColor="#000000"
+                bgColor="#ffffff"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-zinc-100 border border-zinc-200 font-mono text-xs text-zinc-700">
+                <span className="text-zinc-400 font-semibold">SALA:</span>
+                <span className="text-zinc-900 text-sm tracking-widest font-bold">{roomId}</span>
+              </div>
+
+              <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-500 pt-1">
+                <span className="flex items-center gap-1 text-zinc-600">
+                  <Headphones className="w-3 h-3" />
+                  Usa auriculares
+                </span>
+                <span>&bull;</span>
+                <span>🇺🇸 EN</span>
+                <span>🇪🇸 ES</span>
+                <span>🇮🇹 IT</span>
+                <span>🇧🇷 PT</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Network Connection Tip */}
+        <div className={`mt-3 p-3 rounded-xl text-[11px] text-left space-y-2 ${
+          isFullScreen ? 'bg-zinc-900 border border-zinc-800 text-zinc-400' : 'bg-zinc-50 border border-zinc-200 text-zinc-600'
+        }`}>
+          {networkMode === 'local' ? (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-semibold text-zinc-900">
+                  <Wifi className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Wi-Fi: {effectiveIp}:5173</span>
+                </div>
+                {availableIps.length > 1 && (
+                  <button
+                    onClick={() => setIsEditingIp(!isEditingIp)}
+                    className="text-[10px] text-blue-600 hover:underline cursor-pointer"
+                  >
+                    {isEditingIp ? 'Cerrar' : 'Cambiar IP'}
+                  </button>
+                )}
+              </div>
+
+              {isEditingIp && (
+                <div className="pt-1 space-y-1.5 animate-fadeIn">
+                  <input
+                    type="text"
+                    value={customIp || effectiveIp}
+                    onChange={(e) => setCustomIp(e.target.value)}
+                    placeholder="Ej: 192.168.1.12"
+                    className="w-full bg-white border border-zinc-300 rounded-lg px-2.5 py-1 text-xs text-zinc-900 font-mono"
+                  />
+                  {availableIps.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {availableIps.map((iface, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setCustomIp(iface.address);
+                            setIsEditingIp(false);
+                          }}
+                          className={`text-[10px] px-2 py-0.5 rounded border cursor-pointer font-mono ${
+                            (customIp || effectiveIp) === iface.address
+                              ? 'bg-zinc-950 text-white border-zinc-950'
+                              : 'bg-white border-zinc-200 hover:bg-zinc-100 text-zinc-700'
+                          }`}
+                        >
+                          {iface.name}: {iface.address}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                El teléfono móvil debe estar conectado a la misma red Wi-Fi. Si navegas con datos móviles de tu operador (4G/5G), pulsa la pestaña <strong>Datos 4G/5G</strong> arriba.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-1.5 font-semibold text-emerald-700">
+                <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Enlace Público Seguro HTTPS</span>
+              </div>
+              <p className="text-[11px] text-zinc-600 leading-relaxed">
+                Accesible desde cualquier móvil con datos 4G/5G o cualquier red Wi-Fi sin necesidad de estar en la misma red local.
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Footer Link & Actions */}
+        <div className={`mt-4 pt-3 border-t flex flex-col sm:flex-row items-center gap-2.5 justify-between ${
+          isFullScreen ? 'border-zinc-800' : 'border-zinc-200'
+        }`}>
+          <div className="w-full sm:w-auto flex-1 truncate text-left">
+            <div className="text-[10px] text-zinc-400 font-mono uppercase flex items-center gap-1.5">
+              <span>Enlace Directo</span>
+              {networkMode === 'public' && (
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-medium">
+                  4G/5G PÚBLICO
+                </span>
+              )}
+            </div>
+            <div className={`text-xs font-mono truncate max-w-[280px] ${isFullScreen ? 'text-zinc-300' : 'text-zinc-700'}`}>
+              {listenUrl}
+            </div>
+          </div>
+
+          <div className="w-full sm:w-auto flex items-center gap-2">
+            <button
+              onClick={handleCopyLink}
+              className="h-8 px-3 rounded-lg border border-zinc-200 text-zinc-800 bg-white hover:bg-zinc-50 text-xs font-medium cursor-pointer shadow-2xs transition-colors flex items-center gap-1.5"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                  <span>Copiado</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copiar Enlace</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleDownloadQR}
+              className="h-8 px-3 rounded-lg border border-zinc-200 text-zinc-800 bg-white hover:bg-zinc-50 text-xs font-medium cursor-pointer shadow-2xs transition-colors flex items-center gap-1.5"
+              title="Descargar imagen PNG"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>PNG</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,13 @@
+{
+  "name": "liftvoice",
+  "version": "1.0.0",
+  "description": "LiftVoice - Real-time AI Simultaneous Audio Interpretation & Streaming",
+  "private": true,
+  "scripts": {
+    "dev": "node dev.js",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client run build",
+    "start": "node server/src/index.js"
+  }
+}
