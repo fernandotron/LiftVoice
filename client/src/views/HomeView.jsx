@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, Headphones, ArrowRight, AudioLines, Radio, Shield, Zap, QrCode, Play, Volume2, Globe, CheckCircle2, Waves, Activity } from 'lucide-react';
+import { Mic, Headphones, ArrowRight, AudioLines, Radio, Shield, Zap, QrCode, Play, Volume2, Globe, CheckCircle2, Waves, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from '../components/LanguageSelector.jsx';
 import { audioPlayerService } from '../services/audioPlayer.js';
 import { normalizeRoomCode } from '../App.jsx';
@@ -18,6 +18,8 @@ export default function HomeView({
   const [joinPin, setJoinPin] = useState('');
   const [customRoomName, setCustomRoomName] = useState('');
   const [playingLang, setPlayingLang] = useState(null);
+  const [mobileTab, setMobileTab] = useState('host'); // 'host' | 'join'
+  const [isVoicesExpanded, setIsVoicesExpanded] = useState(false);
 
   const handleJoinSubmit = (e) => {
     e.preventDefault();
@@ -100,19 +102,149 @@ export default function HomeView({
           </p>
         </div>
 
-        {/* Multi-Channel Voice Soundboard Deck */}
+        {/* Mobile View Switcher (Crear Sala vs Unirse) */}
+        <div className="lg:hidden flex p-1 bg-zinc-100 rounded-2xl border border-zinc-200 max-w-sm mx-auto shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setMobileTab('host')}
+            className={`flex-1 py-2.5 px-3 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              mobileTab === 'host'
+                ? 'bg-white text-zinc-950 shadow-xs'
+                : 'text-zinc-500 hover:text-zinc-900'
+            }`}
+          >
+            <Mic className="w-3.5 h-3.5 text-zinc-900" />
+            <span>Crear Sala</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('join')}
+            className={`flex-1 py-2.5 px-3 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              mobileTab === 'join'
+                ? 'bg-white text-zinc-950 shadow-xs'
+                : 'text-zinc-500 hover:text-zinc-900'
+            }`}
+          >
+            <Headphones className="w-3.5 h-3.5 text-zinc-900" />
+            <span>Unirme (Oyente)</span>
+          </button>
+        </div>
+
+        {/* Action Dual Cards (Spacious, Minimalist, High-Contrast) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          
+          {/* Card 1: Speaker Studio */}
+          <div className={`${mobileTab === 'host' ? 'flex' : 'hidden lg:flex'} bg-white border border-zinc-200 rounded-2xl p-6 sm:p-8 flex-col justify-between shadow-2xs hover:border-zinc-300 transition-all text-left`}>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-900">
+                  <Mic className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] text-zinc-400 font-mono font-medium tracking-wider">PANEL DEL PONENTE</span>
+              </div>
+
+              <div className="space-y-1.5">
+                <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">
+                  Estudio de Retransmisión
+                </h2>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Inicia una emisión en directo con tu micrófono. La plataforma detecta tu voz y emite simultáneamente en 4 cabinas de idiomas con motores neuronales.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 sm:mt-7 space-y-3">
+              <button
+                type="button"
+                onClick={handleCreateInstant}
+                className="w-full h-12 sm:h-11 rounded-xl sm:rounded-lg bg-zinc-950 hover:bg-zinc-800 text-white font-semibold sm:font-medium text-xs sm:text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+              >
+                <span>Crear Sala & Iniciar Retransmisión</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+
+              <form onSubmit={handleCreateCustom} className="flex gap-2">
+                <input
+                  type="text"
+                  value={customRoomName}
+                  onChange={(e) => setCustomRoomName(e.target.value)}
+                  placeholder="O código personalizado (ej: abc-defg-hij)"
+                  className="flex-1 h-10 sm:h-9 bg-zinc-50 border border-zinc-200 rounded-xl sm:rounded-lg px-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:border-zinc-900 font-mono transition-all"
+                />
+                <button
+                  type="submit"
+                  className="h-10 sm:h-9 px-4 rounded-xl sm:rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 text-xs font-medium cursor-pointer transition-colors"
+                >
+                  Crear
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Card 2: Attendee Receiver */}
+          <div className={`${mobileTab === 'join' ? 'flex' : 'hidden lg:flex'} bg-white border border-zinc-200 rounded-2xl p-6 sm:p-8 flex-col justify-between shadow-2xs hover:border-zinc-300 transition-all text-left`}>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-900">
+                  <Headphones className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] text-zinc-400 font-mono font-medium tracking-wider">CANAL DE OYENTE</span>
+              </div>
+
+              <div className="space-y-1.5">
+                <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">
+                  Sintonizar Conferencia
+                </h2>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  ¿Estás en el auditorio? Ingresa el código o vínculo de la reunión para escuchar la ponencia en tus auriculares con pantalla activa o bloqueada.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleJoinSubmit} className="mt-6 sm:mt-7 space-y-3">
+              <input
+                type="text"
+                value={joinPin}
+                onChange={(e) => setJoinPin(e.target.value)}
+                placeholder="Introduce un código o enlace (ej: abc-defg-hij)..."
+                className="w-full h-10 sm:h-9 bg-zinc-50 border border-zinc-200 rounded-xl sm:rounded-lg px-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:border-zinc-900 font-mono transition-all tracking-wider"
+              />
+              <button
+                type="submit"
+                disabled={!joinPin.trim()}
+                className="w-full h-12 sm:h-11 rounded-xl sm:rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-semibold sm:font-medium text-xs border border-zinc-200 flex items-center justify-center gap-2 shadow-2xs disabled:opacity-40 cursor-pointer transition-colors"
+              >
+                <span>Conectar Auriculares &bull; Escuchar en Directo</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Multi-Channel Voice Soundboard Deck (Collapsible on mobile, always visible on desktop) */}
         <div className="max-w-4xl mx-auto space-y-3">
           <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsVoicesExpanded(prev => !prev)}
+              className="flex items-center gap-2 text-left cursor-pointer group"
+            >
               <Waves className="w-3.5 h-3.5 text-zinc-700" />
               <span className="text-xs font-medium text-zinc-900 uppercase tracking-wider">
                 Audición de Voces Neuronales Multicanal
               </span>
-            </div>
-            <span className="text-[11px] text-zinc-400 font-mono">HAZ CLIC PARA ESCUCHAR</span>
+              <span className="lg:hidden text-zinc-500 font-mono text-[10px] ml-1 bg-zinc-100 px-2 py-0.5 rounded-md border border-zinc-200 flex items-center gap-1">
+                {isVoicesExpanded ? (
+                  <><span>Ocultar</span> <ChevronUp className="w-3 h-3" /></>
+                ) : (
+                  <><span>Probar (4)</span> <ChevronDown className="w-3 h-3" /></>
+                )}
+              </span>
+            </button>
+            <span className="hidden sm:inline text-[11px] text-zinc-400 font-mono">HAZ CLIC PARA ESCUCHAR</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={`${isVoicesExpanded ? 'grid' : 'hidden lg:grid'} grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 transition-all`}>
             {SUPPORTED_LANGUAGES.map((l) => {
               const isPlaying = playingLang === l.code;
 
@@ -167,97 +299,6 @@ export default function HomeView({
                 </button>
               );
             })}
-          </div>
-        </div>
-
-        {/* Action Dual Cards (Spacious, Minimalist, High-Contrast) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-4xl mx-auto">
-          
-          {/* Card 1: Speaker Studio */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-7 sm:p-8 flex flex-col justify-between shadow-2xs hover:border-zinc-300 transition-all text-left">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-900">
-                  <Mic className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] text-zinc-400 font-mono font-medium tracking-wider">PANEL DEL PONENTE</span>
-              </div>
-
-              <div className="space-y-1.5">
-                <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">
-                  Estudio de Retransmisión
-                </h2>
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  Inicia una emisión en directo con tu micrófono. La plataforma detecta tu voz y emite simultáneamente en 4 cabinas de idiomas con motores neuronales.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-7 space-y-3">
-              <button
-                type="button"
-                onClick={handleCreateInstant}
-                className="w-full h-11 rounded-lg bg-zinc-950 hover:bg-zinc-800 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-              >
-                <span>Crear Sala & Iniciar Retransmisión</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-
-              <form onSubmit={handleCreateCustom} className="flex gap-2">
-                <input
-                  type="text"
-                  value={customRoomName}
-                  onChange={(e) => setCustomRoomName(e.target.value)}
-                  placeholder="O ingresa código personalizado (ej: abc-defg-hij)"
-                  className="flex-1 h-9 bg-zinc-50 border border-zinc-200 rounded-lg px-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:border-zinc-900 font-mono transition-all"
-                />
-                <button
-                  type="submit"
-                  className="h-9 px-4 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 text-xs font-medium cursor-pointer transition-colors"
-                >
-                  Crear
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* Card 2: Attendee Receiver */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-7 sm:p-8 flex flex-col justify-between shadow-2xs hover:border-zinc-300 transition-all text-left">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-900">
-                  <Headphones className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] text-zinc-400 font-mono font-medium tracking-wider">CANAL DE OYENTE</span>
-              </div>
-
-              <div className="space-y-1.5">
-                <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">
-                  Sintonizar Conferencia
-                </h2>
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  ¿Estás en el auditorio? Ingresa el código o vínculo de la reunión para escuchar la ponencia en tus auriculares con pantalla activa o bloqueada.
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleJoinSubmit} className="mt-7 space-y-3">
-              <input
-                type="text"
-                value={joinPin}
-                onChange={(e) => setJoinPin(e.target.value)}
-                placeholder="Introduce un código o enlace (ej: abc-defg-hij)..."
-                className="w-full h-9 bg-zinc-50 border border-zinc-200 rounded-lg px-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:border-zinc-900 font-mono transition-all tracking-wider"
-              />
-              <button
-                type="submit"
-                disabled={!joinPin.trim()}
-                className="w-full h-11 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-medium text-xs border border-zinc-200 flex items-center justify-center gap-2 shadow-2xs disabled:opacity-40 cursor-pointer transition-colors"
-              >
-                <span>Conectar Auriculares &bull; Escuchar en Directo</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </form>
           </div>
         </div>
 
