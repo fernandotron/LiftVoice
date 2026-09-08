@@ -34,17 +34,20 @@ export default function QRCodeModal({
 
   if (!isOpen) return null;
 
+  const isLoopback = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const effectiveIp = customIp.trim() || detectedLocalIp || localIp || '192.168.1.12';
 
   // Build active attendee URL based on selected network mode
   let activeBaseUrl = '';
-  if (networkMode === 'public' && publicUrl) {
+  if (!isLoopback) {
+    // In cloud (Railway, production domain, etc.) the current origin IS universal
+    activeBaseUrl = window.location.origin;
+  } else if (networkMode === 'public' && publicUrl) {
     activeBaseUrl = publicUrl;
   } else if (networkMode === 'custom' && customDomain.trim()) {
     activeBaseUrl = customDomain.trim().startsWith('http') ? customDomain.trim() : `https://${customDomain.trim()}`;
   } else {
-    const isLoopback = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const host = isLoopback ? effectiveIp : window.location.hostname;
+    const host = effectiveIp;
     const port = window.location.port ? `:${window.location.port}` : '';
     const protocol = window.location.protocol;
     activeBaseUrl = `${protocol}//${host}${port}`;
@@ -148,40 +151,59 @@ export default function QRCodeModal({
           </div>
         </div>
 
-        {/* Network Mode Switcher */}
+        {/* Network Mode Switcher or Universal Cloud QR Badge */}
         {!isFullScreen && (
-          <div className="my-3.5 p-1 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center gap-1">
-            <button
-              onClick={() => setNetworkMode('local')}
-              className={`flex-1 py-1 px-2.5 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                networkMode === 'local'
-                  ? 'bg-white text-zinc-900 shadow-2xs'
-                  : 'text-zinc-500 hover:text-zinc-900'
-              }`}
-            >
-              <Wifi className="w-3.5 h-3.5" />
-              <span>Red Wi-Fi</span>
-            </button>
+          isLoopback ? (
+            <div className="my-3.5 p-1 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center gap-1">
+              <button
+                onClick={() => setNetworkMode('local')}
+                className={`flex-1 py-1 px-2.5 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  networkMode === 'local'
+                    ? 'bg-white text-zinc-900 shadow-2xs'
+                    : 'text-zinc-500 hover:text-zinc-900'
+                }`}
+              >
+                <Wifi className="w-3.5 h-3.5" />
+                <span>Red Wi-Fi</span>
+              </button>
 
-            <button
-              onClick={() => {
-                if (!publicUrl) handleStartTunnel();
-                else setNetworkMode('public');
-              }}
-              className={`flex-1 py-1 px-2.5 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                networkMode === 'public'
-                  ? 'bg-white text-zinc-900 shadow-2xs'
-                  : 'text-zinc-500 hover:text-zinc-900'
-              }`}
-            >
-              {isGeneratingTunnel ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Smartphone className="w-3.5 h-3.5 text-zinc-700" />
-              )}
-              <span>Datos 4G/5G</span>
-            </button>
-          </div>
+              <button
+                onClick={() => {
+                  if (!publicUrl) handleStartTunnel();
+                  else setNetworkMode('public');
+                }}
+                className={`flex-1 py-1 px-2.5 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  networkMode === 'public'
+                    ? 'bg-white text-zinc-900 shadow-2xs'
+                    : 'text-zinc-500 hover:text-zinc-900'
+                }`}
+              >
+                {isGeneratingTunnel ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Smartphone className="w-3.5 h-3.5 text-zinc-700" />
+                )}
+                <span>Datos 4G/5G</span>
+              </button>
+            </div>
+          ) : (
+            <div className="my-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                <Globe className="w-4 h-4" />
+              </div>
+              <div className="text-left flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-emerald-950">QR Universal para toda la sala</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 font-bold">
+                    Wi-Fi + 4G/5G
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-800/90 mt-0.5 leading-tight">
+                  Válido tanto para la Wi-Fi del auditorio como para datos móviles. Si la Wi-Fi falla o cambia a 4G/5G, la conexión se mantiene intacta.
+                </p>
+              </div>
+            </div>
+          )
         )}
 
         {/* Center QR Display */}
@@ -309,7 +331,23 @@ export default function QRCodeModal({
         <div className={`mt-3 p-3 rounded-xl text-[11px] text-left space-y-2 ${
           isFullScreen ? 'bg-zinc-900 border border-zinc-800 text-zinc-400' : 'bg-zinc-50 border border-zinc-200 text-zinc-600'
         }`}>
-          {networkMode === 'local' ? (
+          {!isLoopback ? (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-semibold text-emerald-700">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Enlace Cloud Público Seguro (HTTPS)</span>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
+                  Universal
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-600 leading-relaxed">
+                Este código QR es único y universal. La audiencia puede conectarse mediante la red Wi-Fi del evento o con sus propios datos móviles (4G/5G). Si un asistente se desconecta de la Wi-Fi o apaga y enciende la pantalla, la conexión se recupera al instante sin reiniciar la app.
+              </p>
+            </>
+          ) : networkMode === 'local' ? (
             <>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-semibold text-zinc-900">

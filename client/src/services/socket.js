@@ -15,6 +15,29 @@ class SocketService {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
     this.connectingPromise = null;
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        console.log('[Socket] Conexión de red restablecida (Wi-Fi <-> 4G/5G). Reconectando al vuelo...');
+        this.reconnectAttempts = 0;
+        this.connect().then(() => {
+          if (this.currentRoomId) {
+            if (this.currentRole === 'HOST') {
+              this.joinAsHost(this.currentRoomId);
+            } else if (this.currentRole === 'LISTENER') {
+              this.joinAsListener(this.currentRoomId, this.currentLang || 'en', this.userProfile || {});
+            }
+          }
+        }).catch(() => {});
+      });
+
+      window.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && !this.isConnected && this.currentRoomId) {
+          console.log('[Socket] Pantalla desbloqueada o pestaña activa. Verificando socket...');
+          this.attemptReconnect();
+        }
+      });
+    }
   }
 
   getSocketUrls() {
