@@ -242,6 +242,7 @@ class AudioRecorderService {
     this.restartCount = 0;
     this.lastRestartTime = 0;
     this.lastSpeechActivityTime = Date.now();
+    this.isCommitting = false;
   }
 
   setDecalageMode(modeOrVal) {
@@ -506,8 +507,19 @@ class AudioRecorderService {
 
   commitDictation() {
     this.clearSilenceTimer();
+    if (this.isCommitting) {
+      return;
+    }
+
     const text = (this.currentPendingText || '').trim();
     if (!text) return;
+
+    this.isCommitting = true;
+    const releaseLock = () => {
+      this.isCommitting = false;
+    };
+    // Auto-release lock after 2500ms safety watchdog
+    const commitTimeout = setTimeout(releaseLock, 2500);
 
     const now = Date.now();
     const normText = normalizeSpeech(text);
@@ -518,6 +530,8 @@ class AudioRecorderService {
       console.log(`[AudioRecorder] 🛡️ Suppressed duplicate emission: "${text}"`);
       this.currentPendingText = '';
       this.notifyInterim('');
+      clearTimeout(commitTimeout);
+      releaseLock();
       return;
     }
 
@@ -532,10 +546,11 @@ class AudioRecorderService {
 
     console.log(`[AudioRecorder] 🎙️ Dictation committed (${text.split(/\s+/).length} words): "${text}" (Engine: ${this.sttEngine})`);
 
-    // If STT engine is Deepgram or Whisper, capture audio slice and emit via onSpeechAudioCallback
+    // If STT engine is Deepgram or Whisper, capture audio slice and emit strictly via onSpeechAudioCallback
     if (this.sttEngine !== 'webspeech' && this.onSpeechAudioCallback && this.mediaRecorder && this.mediaRecorder.state === 'recording') {
       const recorder = this.mediaRecorder;
       recorder.onstop = () => {
+        clearTimeout(commitTimeout);
         const chunks = [...this.audioChunks];
         this.audioChunks = [];
         if (this.isRecording && this.mediaRecorder) {
@@ -544,27 +559,34 @@ class AudioRecorderService {
           } catch (e) {}
         }
         const blob = new Blob(chunks, { type: this.mediaRecorderMimeType });
-        if (blob.size > 1200) {
+        if (blob.size > 800) {
           const reader = new FileReader();
           reader.onloadend = () => {
             const base64 = (reader.result || '').split(',')[1];
             if (base64 && this.onSpeechAudioCallback) {
               this.onSpeechAudioCallback(base64, this.mediaRecorderMimeType, this.sourceLanguage);
             }
+            releaseLock();
           };
           reader.readAsDataURL(blob);
-        } else if (this.onSpeechTextCallback) {
-          // Fallback to text if audio blob too small
-          this.onSpeechTextCallback(text);
+        } else {
+          // Chunk was too small (silence), release lock without double text emission
+          releaseLock();
         }
       };
       try {
         recorder.stop();
       } catch (e) {
-        if (this.onSpeechTextCallback) this.onSpeechTextCallback(text);
+        clearTimeout(commitTimeout);
+        releaseLock();
       }
-    } else if (this.onSpeechTextCallback) {
+    } else if (this.sttEngine === 'webspeech' && this.onSpeechTextCallback) {
       this.onSpeechTextCallback(text);
+      clearTimeout(commitTimeout);
+      releaseLock();
+    } else {
+      clearTimeout(commitTimeout);
+      releaseLock();
     }
 
     // Reset acoustic window during silence pause to clear browser buffers and prevent cumulative memory leaks

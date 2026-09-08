@@ -7,7 +7,7 @@ export class TTSService {
   constructor(config = {}) {
     this.openaiApiKey = config.openaiApiKey || process.env.OPENAI_API_KEY || '';
     this.elevenLabsApiKey = config.elevenLabsApiKey || process.env.ELEVENLABS_API_KEY || '';
-    this.deepgramApiKey = config.deepgramApiKey || process.env.DEEPGRAM_API_KEY || '';
+    this.deepgramApiKey = config.deepgramApiKey || process.env.DEEPGRAM_API_KEY || '1f057415ec50bb496a86ec8d8bc9e4f627a57f7d';
     this.preferredTtsEngine = config.preferredTtsEngine || 'auto'; // 'auto' | 'deepgram' | 'elevenlabs' | 'openai' | 'google'
     
     // Voice mapping for natural multilingual personas

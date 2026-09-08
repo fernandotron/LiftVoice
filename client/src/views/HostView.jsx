@@ -146,7 +146,15 @@ export default function HostView({
     });
 
     const unsubTranscript = socketService.on('transcript_event', (item) => {
-      setTranscriptHistory(prev => [...prev, item]);
+      if (!item) return;
+      setTranscriptHistory(prev => {
+        if (prev.some(p => p.id === item.id)) return prev;
+        const last = prev[prev.length - 1];
+        if (last && last.originalText === item.originalText && Math.abs((item.timestamp || 0) - (last.timestamp || 0)) < 4000) {
+          return prev;
+        }
+        return [...prev, item];
+      });
     });
 
     const unsubLatency = socketService.on('latency', (lat) => {
@@ -387,7 +395,7 @@ export default function HostView({
   };
 
   const handleToggleMonitoring = async (langCode) => {
-    if (monitoredLang === langCode) {
+    if (langCode === 'none' || monitoredLang === langCode) {
       // Salir de la sala / Silenciar retorno
       setMonitoredLang('none');
       audioPlayerService.stopAll();
@@ -921,6 +929,53 @@ export default function HostView({
                       <Send className="w-3.5 h-3.5" />
                     </button>
                   </form>
+
+                  {/* Direct Earphone Booth Monitor Bar (Studio Audio Return) */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-neutral-200/70 text-xs">
+                    <div className="flex items-center gap-2">
+                      <Headphones className={`w-3.5 h-3.5 ${monitoredLang !== 'none' ? 'text-emerald-600 animate-pulse' : 'text-neutral-400'}`} />
+                      <span className="font-medium text-neutral-700 text-[11px]">
+                        Retorno de Audio en Auriculares:
+                      </span>
+                      {monitoredLang !== 'none' ? (
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-mono font-semibold">
+                          ACTIVO ({monitoredLang.toUpperCase()})
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-neutral-400 font-mono">SILENCIADO</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleMonitoring('none')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
+                          monitoredLang === 'none'
+                            ? 'bg-neutral-900 text-white shadow-xs'
+                            : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+                        }`}
+                      >
+                        Silencio
+                      </button>
+                      {ALL_CABINS.map(cab => (
+                        <button
+                          key={cab.code}
+                          type="button"
+                          onClick={() => handleToggleMonitoring(cab.code)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                            monitoredLang === cab.code
+                              ? 'bg-emerald-600 text-white font-semibold shadow-xs ring-1 ring-emerald-500'
+                              : 'bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-100'
+                          }`}
+                          title={`Escuchar retorno en directo para ${cab.name}`}
+                        >
+                          <span>{cab.flag}</span>
+                          <span>{cab.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
               </div>

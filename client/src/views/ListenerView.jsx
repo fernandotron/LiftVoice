@@ -77,6 +77,7 @@ export default function ListenerView({
 
   useEffect(() => {
     selectedLangRef.current = selectedLanguage;
+    audioPlayerService.setLanguage(selectedLanguage);
   }, [selectedLanguage]);
 
   const [isAudioUnlocked, setIsAudioUnlocked] = useState(() => audioPlayerService.isUnlocked);
@@ -115,12 +116,20 @@ export default function ListenerView({
 
     const unsubAudio = socketService.on('audio_chunk', (packet) => {
       if (packet.lang === selectedLangRef.current) {
-        audioPlayerService.playAudioChunk(packet);
+        audioPlayerService.playAudioChunk({ ...packet, isListenerDirect: true });
       }
     });
 
     const unsubTranscript = socketService.on('transcript_event', (item) => {
-      setTranscriptHistory(prev => [...prev, item]);
+      if (!item) return;
+      setTranscriptHistory(prev => {
+        if (prev.some(p => p.id === item.id)) return prev;
+        const last = prev[prev.length - 1];
+        if (last && last.originalText === item.originalText && Math.abs((item.timestamp || 0) - (last.timestamp || 0)) < 4000) {
+          return prev;
+        }
+        return [...prev, item];
+      });
     });
 
     const unsubStats = socketService.on('room_stats', (stats) => {

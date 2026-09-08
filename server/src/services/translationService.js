@@ -258,7 +258,8 @@ export class TranslationService {
     }
 
     // Route B: User chose Alibaba Qwen 3.8 OR auto with Qwen key
-    if (!result && (engine === 'qwen' || (engine === 'auto' && this.qwenApiKey))) {
+    const hasQwenKey = Boolean(this.qwenApiKey || (this.qwenEndpoint && (this.qwenEndpoint.includes('localhost') || this.qwenEndpoint.includes('127.0.0.1'))));
+    if (!result && (engine === 'qwen' || (engine === 'auto' && hasQwenKey)) && hasQwenKey) {
       try {
         result = await this.translateWithQwen(cleanText, detectedSource, {
           detectedTerms,
@@ -508,37 +509,94 @@ Respond ONLY with valid JSON in this exact structure:
   }
 
   /**
-   * Fast free multi-language translator using public translation API
+   * High-resilience multi-tier translator:
+   * Tier 1: Google Chrome dict-chrome-ex API (<120ms, cloud datacenter friendly)
+   * Tier 2: Google GTX with real browser headers (4000ms timeout)
+   * Tier 3: Demo dictionary / clinical glossary matcher
    */
   async translateWithFreeEngine(text, detectedSource, customTargets = null) {
     const targets = customTargets || ['en', 'es', 'it', 'pt', 'fr', 'de', 'zh', 'ja', 'ar', 'ru', 'ko', 'hi'];
     const translations = {};
     let realDetectedSource = (detectedSource && detectedSource !== 'auto') ? detectedSource.slice(0, 2).toLowerCase() : null;
 
-    // Parallel fetch for all target languages using sl=auto for universal detection
+    const BROWSER_HEADERS = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Language': 'es,en;q=0.9,it;q=0.8,pt;q=0.7'
+    };
+
+    // Parallel fetch for all target languages
     await Promise.all(
       targets.map(async (targetLang) => {
+        const normSource = (realDetectedSource || '').toLowerCase();
+        
+        // Tier 1: Google Chrome Extension API (ultra-low latency <120ms, works from cloud IPs)
         try {
-          const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
-          const response = await fetch(url, { signal: AbortSignal.timeout(2400) });
-          if (response.ok) {
-            const data = await response.json();
-            if (data && data[0] && Array.isArray(data[0])) {
-              const translatedStr = data[0].map(item => item[0]).join('').trim();
-              if (translatedStr) {
+          const slParam = normSource || 'auto';
+          const url1 = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=${slParam}&tl=${targetLang}&q=${encodeURIComponent(text)}`;
+          const res1 = await fetch(url1, {
+            headers: BROWSER_HEADERS,
+            signal: AbortSignal.timeout(3000)
+          });
+          if (res1.ok) {
+            const data1 = await res1.json();
+            if (data1 && Array.isArray(data1) && data1[0]) {
+              const item = data1[0];
+              const translatedStr = (Array.isArray(item) ? item[0] : (typeof item === 'string' ? item : '')).trim();
+              const detectedIn1 = Array.isArray(item) && item[1] ? item[1].toLowerCase() : null;
+              if (detectedIn1 && (!realDetectedSource || realDetectedSource === 'auto')) {
+                realDetectedSource = detectedIn1;
+              }
+
+              // Verify translation actually translated (not just echoed original Spanish into English/Italian)
+              const isDifferentFromInput = translatedStr.toLowerCase() !== text.trim().toLowerCase();
+              const isSameLangAsSource = realDetectedSource && realDetectedSource === targetLang;
+
+              if (translatedStr && (isDifferentFromInput || isSameLangAsSource)) {
                 translations[targetLang] = translatedStr;
+                return;
               }
-              if (data[2] && (!realDetectedSource || realDetectedSource === 'auto')) {
-                realDetectedSource = data[2].toLowerCase();
-              }
-              return;
             }
           }
         } catch (e) {
-          // ignore error and fallback
+          // Tier 1 failed or timed out, proceed to Tier 2
         }
 
-        // Fallback if fetch timed out or failed
+        // Tier 2: Google GTX with real browser headers and 4s timeout
+        try {
+          const slParam = normSource || 'auto';
+          const url2 = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${slParam}&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+          const res2 = await fetch(url2, {
+            headers: BROWSER_HEADERS,
+            signal: AbortSignal.timeout(4000)
+          });
+          if (res2.ok) {
+            const data2 = await res2.json();
+            if (data2 && data2[0] && Array.isArray(data2[0])) {
+              const translatedStr = data2[0].map(item => item[0]).join('').trim();
+              if (data2[2] && (!realDetectedSource || realDetectedSource === 'auto')) {
+                realDetectedSource = data2[2].toLowerCase();
+              }
+              if (translatedStr) {
+                translations[targetLang] = translatedStr;
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          // Tier 2 failed
+        }
+
+        // Tier 3: Demo dictionary check for common phrases
+        const lowerText = text.toLowerCase().trim();
+        for (const [dictKey, dictVal] of Object.entries(DEMO_DICTIONARY)) {
+          if ((lowerText.includes(dictKey) || dictKey.includes(lowerText)) && dictVal[targetLang]) {
+            translations[targetLang] = dictVal[targetLang];
+            return;
+          }
+        }
+
+        // Final fallback if all failed
         if (!translations[targetLang]) {
           translations[targetLang] = text;
         }
@@ -551,7 +609,7 @@ Respond ONLY with valid JSON in this exact structure:
     }
 
     return {
-      detectedSource: realDetectedSource || this.detectRoughLanguage(text) || 'auto',
+      detectedSource: realDetectedSource || this.detectRoughLanguage(text) || 'es',
       translations
     };
   }

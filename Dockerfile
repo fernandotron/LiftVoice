@@ -21,6 +21,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV DEEPGRAM_API_KEY=1f057415ec50bb496a86ec8d8bc9e4f627a57f7d
+ENV PREFERRED_ENGINE=auto
 
 # Copy built frontend assets
 COPY --from=builder /app/client/dist ./client/dist

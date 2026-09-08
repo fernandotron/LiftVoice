@@ -347,7 +347,11 @@ class AudioPlayerService {
     if (this.isMuted) return;
 
     if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && packet.lang !== this.currentLanguage) {
-      return;
+      if (packet.isListenerDirect) {
+        this.currentLanguage = packet.lang;
+      } else {
+        return;
+      }
     }
 
     // On mobile devices (iOS / Android) or when tab is backgrounded / screen is locked:

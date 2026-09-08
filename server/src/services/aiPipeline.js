@@ -14,6 +14,7 @@ export class AIPipeline {
     this.roomQueues = new Map(); // roomId -> Promise chain
     this.roomSeqCounters = new Map(); // roomId -> integer
     this.roomContexts = new Map(); // roomId -> string of recent spoken words
+    this.roomRecentEmissions = new Map(); // roomId -> Array of { text, norm, time }
     this.openaiApiKey = process.env.OPENAI_API_KEY || '';
   }
 
@@ -50,6 +51,7 @@ export class AIPipeline {
     this.roomQueues.delete(key);
     this.roomSeqCounters.delete(key);
     this.roomContexts.delete(key);
+    this.roomRecentEmissions.delete(key);
   }
 
   getNextSeqId(roomId) {
@@ -117,6 +119,68 @@ export class AIPipeline {
     if (!spokenText) {
       return;
     }
+
+    // --- SERVER-SIDE DEDUPLICATION & OVERLAP SHIELD (2026) ---
+    const now = Date.now();
+    let roomHistory = this.roomRecentEmissions.get(roomId) || [];
+    // Keep sliding window of last 45 seconds
+    roomHistory = roomHistory.filter(item => now - item.time < 45000);
+
+    const normalizePipelineSpeech = (s) =>
+      (s || '')
+        .toLowerCase()
+        .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'¡¿]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    let cleanUtterance = spokenText.trim();
+    let normUtterance = normalizePipelineSpeech(cleanUtterance);
+
+    // Defense 1: Exact or near-identical duplicate of recent utterance within 9 seconds
+    const isDuplicate = roomHistory.some(item => {
+      if (now - item.time > 9000) return false;
+      return item.norm === normUtterance;
+    });
+
+    if (isDuplicate) {
+      console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Suppressed duplicate speech emission: "${cleanUtterance}"`);
+      return;
+    }
+
+    // Defense 2: Prefix overlap stripping (Continuation Delta)
+    // If incoming speech starts with the previous utterance from last 15 seconds, strip the repeated prefix
+    for (const recent of roomHistory) {
+      if (now - recent.time > 15000) continue;
+      const recentNorm = recent.norm;
+      if (recentNorm && recentNorm.length >= 5) {
+        if (normUtterance.startsWith(recentNorm)) {
+          const originalWords = cleanUtterance.split(/\s+/);
+          const recentWords = recent.text.split(/\s+/);
+          if (originalWords.length > recentWords.length) {
+            cleanUtterance = originalWords.slice(recentWords.length).join(' ').trim();
+            normUtterance = normalizePipelineSpeech(cleanUtterance);
+            console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Stripped repeated prefix. Before: "${spokenText}", After: "${cleanUtterance}"`);
+          } else {
+            console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Discarded redundant historical repeat: "${cleanUtterance}"`);
+            return;
+          }
+        }
+      }
+    }
+
+    if (!cleanUtterance || cleanUtterance.length < 2) {
+      return;
+    }
+
+    spokenText = cleanUtterance;
+
+    // Record verified speech in room history
+    roomHistory.push({
+      text: cleanUtterance,
+      norm: normUtterance,
+      time: now
+    });
+    this.roomRecentEmissions.set(roomId, roomHistory);
 
     console.log(`[AIPipeline] [Room: ${roomId}] [Seq: #${seqId}] Spoken text: "${spokenText}"`);
 
