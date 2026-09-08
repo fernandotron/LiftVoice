@@ -136,36 +136,15 @@ export class AIPipeline {
     let cleanUtterance = spokenText.trim();
     let normUtterance = normalizePipelineSpeech(cleanUtterance);
 
-    // Defense 1: Exact or near-identical duplicate of recent utterance within 9 seconds
+    // Defense 1: Exact duplicate of recent utterance within 4 seconds (protects against rapid double socket packet events)
     const isDuplicate = roomHistory.some(item => {
-      if (now - item.time > 9000) return false;
+      if (now - item.time > 4000) return false;
       return item.norm === normUtterance;
     });
 
     if (isDuplicate) {
-      console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Suppressed duplicate speech emission: "${cleanUtterance}"`);
+      console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Suppressed rapid duplicate emission: "${cleanUtterance}"`);
       return;
-    }
-
-    // Defense 2: Prefix overlap stripping (Continuation Delta)
-    // If incoming speech starts with the previous utterance from last 15 seconds, strip the repeated prefix
-    for (const recent of roomHistory) {
-      if (now - recent.time > 15000) continue;
-      const recentNorm = recent.norm;
-      if (recentNorm && recentNorm.length >= 5) {
-        if (normUtterance.startsWith(recentNorm)) {
-          const originalWords = cleanUtterance.split(/\s+/);
-          const recentWords = recent.text.split(/\s+/);
-          if (originalWords.length > recentWords.length) {
-            cleanUtterance = originalWords.slice(recentWords.length).join(' ').trim();
-            normUtterance = normalizePipelineSpeech(cleanUtterance);
-            console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Stripped repeated prefix. Before: "${spokenText}", After: "${cleanUtterance}"`);
-          } else {
-            console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Discarded redundant historical repeat: "${cleanUtterance}"`);
-            return;
-          }
-        }
-      }
     }
 
     if (!cleanUtterance || cleanUtterance.length < 2) {
@@ -222,10 +201,12 @@ export class AIPipeline {
     roomManager.addTranscriptItem(roomId, transcriptItem);
 
     // Step 3: Selective Parallel TTS generation & Audio Distribution
-    // Synthesize for active listener booths, or default to all 4 cabins so audio streams are immediately ready
+    // Always synthesize all 4 primary cabins (es, en, it, pt) so audio streams are immediately ready
+    // for headphone booth monitoring and listeners in any language
     const activeLangs = roomManager.getActiveLanguages(roomId);
     const targetLangs = Array.from(new Set([
-      ...(activeLangs.length > 0 ? activeLangs : ['es', 'en', 'it', 'pt']),
+      'es', 'en', 'it', 'pt',
+      ...activeLangs,
       ...(forceLanguages || [])
     ]));
     const ttsStart = Date.now();

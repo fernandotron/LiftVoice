@@ -122,6 +122,16 @@ export default function HostView({
   const recentEmissionsHistoryRef = useRef([]);
   const [hasCopiedLink, setHasCopiedLink] = useState(false);
 
+  const monitoredLangRef = useRef(monitoredLang);
+  useEffect(() => {
+    monitoredLangRef.current = monitoredLang;
+  }, [monitoredLang]);
+
+  // Synchronize microphone / STT engine language dynamically
+  useEffect(() => {
+    audioRecorderService.setLanguage(sourceLanguage);
+  }, [sourceLanguage]);
+
   const handleCopyMeetingLink = () => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const url = `${origin}/?room=${roomId}`;
@@ -169,7 +179,8 @@ export default function HostView({
         audioPlayerService.playAudioChunk(packet);
       } else if (packet.isBoothAudio) {
         // Play only the cabin that the host explicitly chose to monitor in headphones
-        if (monitoredLang && monitoredLang !== 'none' && packet.lang === monitoredLang) {
+        const activeMonitored = monitoredLangRef.current;
+        if (activeMonitored && activeMonitored !== 'none' && packet.lang === activeMonitored) {
           audioPlayerService.playAudioChunk(packet);
         }
       }
@@ -218,7 +229,7 @@ export default function HostView({
       unsubQaClosed();
       unsubEarpiece();
     };
-  }, [roomId, monitoredLang]);
+  }, [roomId]);
 
   // Zero-Reflow GPU VAD listener
   useEffect(() => {
@@ -239,158 +250,44 @@ export default function HostView({
     };
   }, []);
 
-  const extractContinuationDeltaHost = (prevText, newText) => {
-    if (!prevText || !prevText.trim()) return (newText || '').trim();
-    if (!newText || !newText.trim()) return '';
-
-    const cleanPrev = prevText.trim();
-    const cleanNew = newText.trim();
-
-    const normalize = (s) =>
-      s
-        .toLowerCase()
-        .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'¡¿]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    const normPrev = normalize(cleanPrev);
-    const normNew = normalize(cleanNew);
-
-    if (normPrev === normNew) return '';
-
-    const prevWords = normPrev.split(' ').filter(Boolean);
-    const newWords = normNew.split(' ').filter(Boolean);
-    const originalWords = cleanNew.split(/\s+/).filter(Boolean);
-
-    // 1. Direct word prefix match
-    if (newWords.length > prevWords.length) {
-      let match = true;
-      for (let i = 0; i < prevWords.length; i++) {
-        if (newWords[i] !== prevWords[i]) {
-          match = false;
-          break;
-        }
-      }
-      if (match) {
-        return originalWords.slice(prevWords.length).join(' ').trim();
-      }
-    }
-
-    // 2. Substring match
-    if (normNew.startsWith(normPrev)) {
-      const rawDelta = cleanNew.slice(cleanPrev.length).trim();
-      return rawDelta.replace(/^[.,;:!?\s]+/, '').trim();
-    }
-
-    // 3. Anchor suffix match (last 2-3 words of previous text)
-    if (prevWords.length >= 2 && newWords.length > prevWords.length) {
-      const anchor = prevWords.slice(-3);
-      const anchorLen = anchor.length;
-      for (let i = Math.max(0, prevWords.length - 4); i <= prevWords.length + 2 && i + anchorLen <= newWords.length; i++) {
-        let anchorMatch = true;
-        for (let j = 0; j < anchorLen; j++) {
-          if (newWords[i + j] !== anchor[j]) {
-            anchorMatch = false;
-            break;
-          }
-        }
-        if (anchorMatch) {
-          const delta = originalWords.slice(i + anchorLen).join(' ').trim();
-          if (delta) return delta;
-        }
-      }
-    }
-
-    // If neither prefix nor anchor matched, it is a distinct utterance/sentence
-    return cleanNew;
-  };
-
   const sendSpeechToEngines = (finalText) => {
     if (!finalText || !finalText.trim()) return;
     const cleanText = finalText.trim();
     const now = Date.now();
 
     const normalize = (s) =>
-      s
+      (s || '')
         .toLowerCase()
         .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'¡¿]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 
-    let textToEmit = cleanText;
-
-    // Layer 2 Defense: check against recent emissions history (within last 90 seconds)
-    // Strip out any previously emitted sentences to guarantee that historical paragraphs NEVER re-emit!
-    const recentHistory = recentEmissionsHistoryRef.current.filter(item => now - item.time < 90000);
-    recentEmissionsHistoryRef.current = recentHistory;
-
-    for (const recent of recentHistory) {
-      const normRecent = recent.norm;
-      if (!normRecent || normRecent.length < 5) continue;
-      
-      const normCurrent = normalize(textToEmit);
-      if (normCurrent.includes(normRecent)) {
-        const originalWords = textToEmit.split(/\s+/);
-        const recentWords = recent.text.split(/\s+/);
-        
-        // If current text starts with recent utterance, strip that prefix
-        if (normCurrent.startsWith(normRecent) && originalWords.length > recentWords.length) {
-          textToEmit = originalWords.slice(recentWords.length).join(' ').trim();
-          console.log(`[HostView] 🛡️ Stripped recent prefix from speech: "${recent.text}"`);
-        } else if (normCurrent === normRecent) {
-          console.log(`[HostView] 🛡️ Discarded duplicate historical speech: "${recent.text}"`);
-          return;
-        }
-      }
-    }
-
-    // Layer 2.1: Continuation delta against immediate previous utterance
-    const prevCumulative = lastCumulativeSpeechRef.current.text;
-    const prevTime = lastCumulativeSpeechRef.current.time;
-
-    if (prevCumulative && (now - prevTime < 12000)) {
-      const delta = extractContinuationDeltaHost(prevCumulative, textToEmit);
-      if (delta !== textToEmit) {
-        console.log(`[HostView] 🛡️ Layer 2 stripped repeated sentence prefix. Previous: "${prevCumulative}", Delta: "${delta}"`);
-        if (!delta || !delta.trim()) {
-          console.log('[HostView] 🛡️ Layer 2 suppressed duplicate emission (empty delta).');
-          return;
-        }
-        textToEmit = delta.trim();
-      }
-    }
-
-    // Deduplication guard: ignore identical utterances within 8 seconds with robust normalization
-    const normEmit = normalize(textToEmit);
+    const normEmit = normalize(cleanText);
     const normLastSent = normalize(lastSentSpeechRef.current.text || '');
 
+    // Deduplication guard: ignore identical utterances within 4 seconds (prevent rapid duplicate loops)
     if (
       normLastSent &&
       normEmit === normLastSent &&
-      now - lastSentSpeechRef.current.time < 8000
+      now - lastSentSpeechRef.current.time < 4000
     ) {
-      console.log('[HostView] 🛡️ Suppressed duplicate speech emission:', textToEmit);
+      console.log('[HostView] 🛡️ Suppressed rapid duplicate speech emission:', cleanText);
       return;
     }
 
-    if (!textToEmit || !textToEmit.trim()) return;
-
-    lastSentSpeechRef.current = { text: textToEmit, time: now };
+    lastSentSpeechRef.current = { text: cleanText, time: now };
     recentEmissionsHistoryRef.current.push({
-      text: textToEmit,
-      norm: normalize(textToEmit),
+      text: cleanText,
+      norm: normEmit,
       time: now
     });
-    
-    // Accumulate clean cumulative transcript across continuous speech
-    const prevHistory = (now - prevTime < 12000 && lastCumulativeSpeechRef.current.text) ? lastCumulativeSpeechRef.current.text : '';
-    const newCumulative = prevHistory ? `${prevHistory} ${textToEmit}` : textToEmit;
-    lastCumulativeSpeechRef.current = { text: newCumulative, time: now };
 
     setLiveInterimSpeech('');
 
+    const sendLang = (!sourceLanguage || sourceLanguage === 'auto') ? 'auto' : sourceLanguage.slice(0, 2);
+
     // Transmit strictly ONE single socket event to server AI pipeline for translation and multi-booth TTS
-    socketService.sendSpeechText(textToEmit, sourceLanguage.slice(0, 2), ['es', 'en', 'it', 'pt'], {
+    socketService.sendSpeechText(cleanText, sendLang, ['es', 'en', 'it', 'pt'], {
       medicalMode: medicalConfig.medicalMode,
       medicalSpecialty: medicalConfig.medicalSpecialty,
       customGlossary: medicalConfig.customGlossary
@@ -439,7 +336,10 @@ export default function HostView({
           },
           onSpeechAudio: (audioBase64, mimeType, lang) => {
             // When Deepgram / server STT is selected, send audio to server AI pipeline
-            socketService.sendSpeechAudio(audioBase64, mimeType, lang || sourceLanguage.slice(0, 2), {
+            const targetLang = (lang && lang !== 'auto') 
+              ? (lang.length > 2 ? lang.slice(0, 2) : lang)
+              : (sourceLanguage === 'auto' ? 'auto' : (sourceLanguage ? sourceLanguage.slice(0, 2) : 'auto'));
+            socketService.sendSpeechAudio(audioBase64, mimeType, targetLang, {
               medicalMode: medicalConfig.medicalMode,
               medicalSpecialty: medicalConfig.medicalSpecialty,
               customGlossary: medicalConfig.customGlossary
@@ -902,9 +802,13 @@ export default function HostView({
             </label>
             <select
               value={sourceLanguage}
-              onChange={(e) => setSourceLanguage(e.target.value)}
+              onChange={(e) => {
+                setSourceLanguage(e.target.value);
+                audioRecorderService.setLanguage(e.target.value);
+              }}
               className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs text-neutral-800 focus:outline-none focus:border-neutral-950 transition-colors shadow-xs cursor-pointer"
             >
+              <option value="auto">🌐 Detección Automática (Multilingüe Nova)</option>
               <option value="es-ES">🇪🇸 Español (Ponente)</option>
               <option value="en-US">🇺🇸 English (Speaker)</option>
               <option value="it-IT">🇮🇹 Italiano (Relatore)</option>
@@ -942,20 +846,28 @@ export default function HostView({
                 : 'Por defecto los audífonos están silenciados para no escuchar retorno ni eco mientras hablas al micrófono.'}
             </p>
 
-            <div className="pt-0.5">
+            <div className="pt-0.5 flex gap-2">
               {monitoredLang !== 'none' ? (
                 <button
                   onClick={handleStopMonitoring}
-                  className="w-full py-2 px-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2 px-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <Volume2 className="w-3.5 h-3.5" />
                   <span>Salir de la sala (Silenciar)</span>
                 </button>
               ) : (
-                <div className="text-[10px] text-neutral-400 italic">
+                <div className="flex-1 text-[10px] text-neutral-400 italic flex items-center">
                   Pulsa &quot;Escuchar&quot; en cualquier idioma para comprobar su calidad.
                 </div>
               )}
+              <button
+                type="button"
+                onClick={() => audioPlayerService.playAudioTestTone()}
+                className="py-2 px-3 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1 flex-shrink-0"
+                title="Probar sonido de altavoz o auriculares locales"
+              >
+                <span>🔔 Probar</span>
+              </button>
             </div>
           </div>
 
@@ -1500,6 +1412,20 @@ export default function HostView({
                     </div>
 
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await audioPlayerService.playAudioTestTone();
+                          } catch (e) {
+                            console.error('[HostView] Error playing test tone:', e);
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 transition-colors cursor-pointer flex items-center gap-1 flex-shrink-0"
+                        title="Probar sonido de altavoz o auriculares locales"
+                      >
+                        <span>🔔 Probar</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleToggleMonitoring('none')}

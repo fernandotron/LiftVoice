@@ -115,17 +115,7 @@ function extractContinuationDelta(committedText, rawSessionText) {
     }
   }
 
-  // 6. Anti-leak safeguard: If cleanRaw contains more words than committedText,
-  // and committedText has 3+ words, NEVER return cleanRaw! Slicing avoids historical leak.
-  if (commWords.length >= 3 && originalRawWords.length > commWords.length) {
-    return originalRawWords.slice(commWords.length).join(' ').trim();
-  }
-
-  // 7. If raw has fewer or equal words than committed, return empty to prevent prefix re-emission
-  if (commWords.length >= 3 && originalRawWords.length <= commWords.length) {
-    return '';
-  }
-
+  // If neither prefix, substring nor anchor matched, it is a new distinct sentence
   return cleanRaw;
 }
 
@@ -274,7 +264,7 @@ class AudioRecorderService {
   }
 
   setLanguage(lang) {
-    const targetLang = lang === 'auto' ? 'es-ES' : lang;
+    const targetLang = lang || 'es-ES';
     if (this.sourceLanguage === targetLang) return;
     this.sourceLanguage = targetLang;
 
@@ -315,7 +305,7 @@ class AudioRecorderService {
     this.onSpeechTextCallback = onSpeech;
     this.onSpeechAudioCallback = onAudio;
     if (onInterim) this.onInterim(onInterim);
-    this.sourceLanguage = lang === 'auto' ? 'es-ES' : lang;
+    this.sourceLanguage = lang || 'es-ES';
     this.accumulatedDictation = '';
     this.currentInterim = '';
     this.committedSessionTranscript = '';
@@ -416,7 +406,7 @@ class AudioRecorderService {
     rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
-    rec.lang = this.sourceLanguage;
+    rec.lang = (this.sourceLanguage && this.sourceLanguage !== 'auto') ? this.sourceLanguage : 'es-ES';
 
     rec.onresult = (event) => {
       if (this.recognition !== rec || !this.isRecording) return;
@@ -559,7 +549,7 @@ class AudioRecorderService {
           } catch (e) {}
         }
         const blob = new Blob(chunks, { type: this.mediaRecorderMimeType });
-        if (blob.size > 800) {
+        if (blob.size > 500) {
           const reader = new FileReader();
           reader.onloadend = () => {
             const base64 = (reader.result || '').split(',')[1];
@@ -569,14 +559,19 @@ class AudioRecorderService {
             releaseLock();
           };
           reader.readAsDataURL(blob);
+        } else if (text && this.onSpeechTextCallback) {
+          this.onSpeechTextCallback(text);
+          releaseLock();
         } else {
-          // Chunk was too small (silence), release lock without double text emission
           releaseLock();
         }
       };
       try {
         recorder.stop();
       } catch (e) {
+        if (text && this.onSpeechTextCallback) {
+          this.onSpeechTextCallback(text);
+        }
         clearTimeout(commitTimeout);
         releaseLock();
       }

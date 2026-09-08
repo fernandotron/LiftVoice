@@ -37,7 +37,9 @@ export class STTService {
     if (!key) throw new Error('No Deepgram API key configured');
 
     const cleanLang = (language && language !== 'auto') ? language.slice(0, 2).toLowerCase() : null;
-    let url = 'https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&punctuate=true';
+    // Nova-2 is Deepgram's multi-lingual model supporting auto-detection across 30+ languages
+    const model = (cleanLang === 'en') ? 'nova-3' : 'nova-2';
+    let url = `https://api.deepgram.com/v1/listen?model=${model}&smart_format=true&punctuate=true`;
     if (cleanLang) {
       url += `&language=${cleanLang}`;
     } else {
@@ -81,7 +83,7 @@ export class STTService {
     const data = await res.json();
     const alt = data.results?.channels?.[0]?.alternatives?.[0];
     const transcript = (alt?.transcript || '').trim();
-    const detected = data.results?.channels?.[0]?.detected_language || cleanLang || 'auto';
+    const detected = data.results?.channels?.[0]?.detected_language || cleanLang || 'es';
 
     return {
       text: transcript,

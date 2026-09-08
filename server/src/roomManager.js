@@ -299,9 +299,11 @@ class RoomManager {
       if (listener.lang) activeSet.add(listener.lang.toLowerCase());
     }
 
-    // Always keep primary language channels ('en' and 'es') warm so hot-switching is instantaneous
+    // Always keep all 4 primary cabins warm so hot-switching and host headphone monitoring is instantaneous
     activeSet.add('en');
     activeSet.add('es');
+    activeSet.add('it');
+    activeSet.add('pt');
 
     return Array.from(activeSet);
   }
