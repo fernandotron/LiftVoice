@@ -670,8 +670,25 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n======================================================`);
   console.log(`🎙️  LiftVoice Real-time Audio Translation Server 2026`);
   console.log(`======================================================`);
-  console.log(`📡 Local Network IP: http://${localIp}:${PORT}`);
+  console.log(`📡 Primary Server listening on http://0.0.0.0:${PORT}`);
   console.log(`⚡ WebSocket Server ready on ws://${localIp}:${PORT}`);
-  console.log(`🚀 Client will connect at http://${localIp}:5173`);
   console.log(`======================================================\n`);
 });
+
+// Bind alternate common cloud ports (8080, 3001, 3000) so Railway connects regardless of domain port configuration
+const altPorts = [8080, 3001, 3000].filter(p => p !== Number(PORT));
+for (const altPort of altPorts) {
+  try {
+    const altServer = http.createServer(app);
+    altServer.on('upgrade', (request, socket, head) => {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    });
+    altServer.listen(altPort, '0.0.0.0', () => {
+      console.log(`📡 Alternate listener active on http://0.0.0.0:${altPort}`);
+    }).on('error', () => {
+      // Ignored if port already in use
+    });
+  } catch (err) {}
+}
