@@ -115,7 +115,9 @@ export default function ListenerView({
     });
 
     const unsubAudio = socketService.on('audio_chunk', (packet) => {
-      if (packet.lang === selectedLangRef.current) {
+      const pktLang = (packet?.lang || '').toLowerCase().trim();
+      const myLang = (selectedLangRef.current || '').toLowerCase().trim();
+      if (!pktLang || pktLang === myLang) {
         audioPlayerService.playAudioChunk({ ...packet, isListenerDirect: true });
       }
     });
@@ -209,12 +211,14 @@ export default function ListenerView({
   };
 
   const handleSelectLanguage = async (langCode) => {
-    if (selectedLanguage === langCode) return;
     const cleanLang = (langCode || 'en').toLowerCase();
-    setSelectedLanguage(cleanLang);
-    selectedLangRef.current = cleanLang;
-    audioPlayerService.setLanguage(cleanLang);
-    socketService.switchLanguage(roomId, cleanLang);
+    const isDifferent = selectedLanguage !== cleanLang;
+    if (isDifferent) {
+      setSelectedLanguage(cleanLang);
+      selectedLangRef.current = cleanLang;
+      audioPlayerService.setLanguage(cleanLang);
+      socketService.switchLanguage(roomId, cleanLang);
+    }
 
     // Direct user tap: immediately unlock and resume Web Audio in OS
     try {
@@ -223,6 +227,17 @@ export default function ListenerView({
       setIsAudioSuspended(false);
     } catch (e) {
       console.warn('[ListenerView] Unlock audio on language change notice:', e);
+    }
+  };
+
+  const handleTestAudio = async () => {
+    try {
+      if (!isAudioUnlocked) {
+        await handleUnlockAudio();
+      }
+      audioPlayerService.playAudioTestTone();
+    } catch (e) {
+      console.warn('[ListenerView] Test audio notice:', e);
     }
   };
 
@@ -599,14 +614,30 @@ export default function ListenerView({
 
             {/* Tactile Voice Ring with animated glow */}
             <div className="py-2 sm:py-3 flex items-center justify-center">
-              <div className="p-3 sm:p-4 rounded-full transition-all duration-300">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-zinc-50 border border-zinc-200 flex flex-col items-center justify-center shadow-xs">
+              <button
+                type="button"
+                onClick={handleUnlockAudio}
+                className="p-3 sm:p-4 rounded-full transition-all duration-300 cursor-pointer active:scale-95 focus:outline-none"
+                title={!isAudioUnlocked ? 'Toca para activar audio' : 'Canal sintonizado'}
+              >
+                <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full border flex flex-col items-center justify-center shadow-xs transition-all ${
+                  !isAudioUnlocked
+                    ? 'bg-amber-50 border-amber-300 ring-4 ring-amber-100 animate-pulse'
+                    : isPlayingAudio
+                    ? 'bg-emerald-50 border-emerald-300 ring-4 ring-emerald-100'
+                    : 'bg-zinc-50 border-zinc-200'
+                }`}>
                   <span className="text-3xl sm:text-4xl">{currentLangObj.flag}</span>
                   <span className="text-[11px] sm:text-xs font-mono text-zinc-700 mt-1 uppercase font-semibold tracking-wider">
                     {currentLangObj.code} &bull; {currentLangObj.nativeName}
                   </span>
+                  {!isAudioUnlocked && (
+                    <span className="text-[9px] font-bold text-amber-700 uppercase tracking-tight mt-0.5 animate-bounce">
+                      Toca para oír
+                    </span>
+                  )}
                 </div>
-              </div>
+              </button>
             </div>
 
             {/* Waveform Spectrum (Minimalist Monochromatic) */}
@@ -627,6 +658,14 @@ export default function ListenerView({
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                   <span>Voz neuronal sintetizada sonando en vivo</span>
                 </span>
+              ) : !isAudioUnlocked ? (
+                <button
+                  onClick={handleUnlockAudio}
+                  className="text-amber-700 font-semibold hover:underline inline-flex items-center gap-1.5 cursor-pointer text-xs"
+                >
+                  <Volume2 className="w-3.5 h-3.5" />
+                  <span>Pulsa aquí o en el círculo para activar el sonido</span>
+                </button>
               ) : (
                 <span className="text-zinc-500">
                   Sintonizado &bull; Listo para reproducir voz en tiempo real
@@ -638,17 +677,29 @@ export default function ListenerView({
           {/* Audio Controls: Volume & Playback Rate */}
           <div className="bg-white border border-zinc-200 rounded-2xl p-4 sm:p-5 space-y-3.5 sm:space-y-4 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <button
-                onClick={handleToggleMute}
-                className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                  isMuted
-                    ? 'bg-red-50 text-red-700 border border-red-200'
-                    : 'bg-zinc-50 text-zinc-800 hover:bg-zinc-100 border border-zinc-200'
-                }`}
-              >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-zinc-800" />}
-                <span>{isMuted ? 'Silenciado' : 'Sonido Activo'}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleToggleMute}
+                  className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                    isMuted
+                      ? 'bg-red-50 text-red-700 border border-red-200'
+                      : 'bg-zinc-50 text-zinc-800 hover:bg-zinc-100 border border-zinc-200'
+                  }`}
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-zinc-800" />}
+                  <span>{isMuted ? 'Silenciado' : 'Sonido Activo'}</span>
+                </button>
+
+                <button
+                  onClick={handleTestAudio}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 transition-all cursor-pointer"
+                  title="Reproduce un tono breve para verificar tus auriculares"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="hidden xs:inline sm:inline">Probar Sonido</span>
+                  <span className="xs:hidden sm:hidden">Probar</span>
+                </button>
+              </div>
 
               {/* Playback Rate Selector */}
               <div className="flex items-center gap-1 bg-zinc-50 border border-zinc-200 p-1 rounded-xl">

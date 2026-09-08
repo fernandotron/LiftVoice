@@ -64,6 +64,8 @@ class AudioPlayerService {
     // Playout Queue & Jitter Buffer
     this.decodeQueue = Promise.resolve();
     this.playoutLeadTime = 0.05; // 50ms smooth lead-time
+    this.suspendedChunks = [];
+    this.isUnlocking = false;
 
     this.activeUtterances = new Set();
 
@@ -84,21 +86,25 @@ class AudioPlayerService {
 
     // Auto-resume audio context when tab visibility changes or device wakes up
     if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => {
+      const handleWakeResume = () => {
         if (this.audioCtx && this.audioCtx.state === 'suspended' && this.isUnlocked && !this.isMuted) {
           this.audioCtx.resume().catch(() => {});
         }
         if (document.visibilityState === 'visible') {
           this.requestWakeLock();
         }
-      });
+      };
+
+      document.addEventListener('visibilitychange', handleWakeResume);
+      window.addEventListener('pageshow', handleWakeResume);
+      window.addEventListener('focus', handleWakeResume);
 
       // iOS Safari / Android touch recovery: unlock and resume audio on first physical touch
       const handleUserGestureResume = () => {
         if (!this.isUnlocked) {
           this.unlockAudio(this.currentRoomId, this.currentLanguage).catch(() => {});
         } else if (this.audioCtx && this.audioCtx.state === 'suspended' && !this.isMuted) {
-          this.audioCtx.resume().catch(() => {});
+          this.audioCtx.resume().then(() => this.flushSuspendedChunks()).catch(() => {});
         }
       };
       window.addEventListener('touchstart', handleUserGestureResume, { passive: true });
@@ -110,6 +116,7 @@ class AudioPlayerService {
   async resumeAudio() {
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
       await this.audioCtx.resume();
+      this.flushSuspendedChunks();
       this.notifyState();
     }
   }
@@ -122,60 +129,138 @@ class AudioPlayerService {
     return Boolean(this.audioCtx && this.audioCtx.state === 'suspended');
   }
 
+  flushSuspendedChunks() {
+    if (this.suspendedChunks && this.suspendedChunks.length > 0) {
+      const chunks = [...this.suspendedChunks];
+      this.suspendedChunks = [];
+      for (const pkt of chunks) {
+        this.playAudioChunk(pkt);
+      }
+    }
+  }
+
+  /**
+   * Universal Web Audio decoder supporting legacy and modern Safari / WebKit and Android
+   */
+  decodeAudioDataSafe(arrayBuffer) {
+    return new Promise((resolve, reject) => {
+      if (!this.audioCtx) {
+        return reject(new Error('No AudioContext initialized'));
+      }
+      // Clone buffer to avoid detachment issues in WebKit
+      const bufferCopy = arrayBuffer.slice(0);
+      let settled = false;
+
+      const onSuccess = (decoded) => {
+        if (!settled) {
+          settled = true;
+          resolve(decoded);
+        }
+      };
+
+      const onError = (err) => {
+        if (!settled) {
+          settled = true;
+          reject(err || new Error('decodeAudioData failed'));
+        }
+      };
+
+      try {
+        const promise = this.audioCtx.decodeAudioData(bufferCopy, onSuccess, onError);
+        if (promise && typeof promise.then === 'function') {
+          promise.then(onSuccess).catch(onError);
+        }
+      } catch (e) {
+        onError(e);
+      }
+    });
+  }
+
+  /**
+   * Plays a pleasant brief chime to test audio output on headphones/speakers
+   */
+  playAudioTestTone() {
+    if (!this.audioCtx) {
+      this.unlockAudio(this.currentRoomId, this.currentLanguage);
+    }
+    if (this.audioCtx) {
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+      const now = this.audioCtx.currentTime;
+      const osc = this.audioCtx.createOscillator();
+      const testGain = this.audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now); // D5
+      osc.frequency.setValueAtTime(880, now + 0.12); // A5
+      testGain.gain.setValueAtTime(0.001, now);
+      testGain.gain.linearRampToValueAtTime(0.12, now + 0.03);
+      testGain.gain.linearRampToValueAtTime(0.001, now + 0.38);
+      osc.connect(testGain);
+      testGain.connect(this.gainNode || this.audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.38);
+    }
+  }
+
   /**
    * Initialize background audio keeper and unlock Web Audio Context
    */
   async unlockAudio(roomId = 'MAIN', lang = 'es') {
+    if (this.isUnlocking) return true;
+    this.isUnlocking = true;
     this.currentRoomId = roomId;
     this.currentLanguage = lang;
 
-    // 1. Initialize Web Audio Context
-    if (!this.audioCtx) {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      this.audioCtx = new AudioContextClass();
+    try {
+      // 1. Initialize Web Audio Context
+      if (!this.audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        this.audioCtx = new AudioContextClass();
 
-      this.gainNode = this.audioCtx.createGain();
-      this.gainNode.gain.setValueAtTime(this.volume, this.audioCtx.currentTime);
+        this.gainNode = this.audioCtx.createGain();
+        this.gainNode.gain.setValueAtTime(this.volume, this.audioCtx.currentTime);
 
-      this.analyserNode = this.audioCtx.createAnalyser();
-      this.analyserNode.fftSize = 64;
-      this.analyserNode.smoothingTimeConstant = 0.8;
+        this.analyserNode = this.audioCtx.createAnalyser();
+        this.analyserNode.fftSize = 64;
+        this.analyserNode.smoothingTimeConstant = 0.8;
 
-      this.gainNode.connect(this.analyserNode);
-      this.analyserNode.connect(this.audioCtx.destination);
-    }
-
-    if (this.audioCtx.state === 'suspended') {
-      await this.audioCtx.resume();
-    }
-
-    // 2. Initialize Dedicated HTML5 Audio Tag for Mobile Screen-Lock Playback
-    if (!this.htmlAudioTag && typeof document !== 'undefined') {
-      this.htmlAudioTag = document.createElement('audio');
-      this.htmlAudioTag.setAttribute('playsinline', 'true');
-      this.htmlAudioTag.setAttribute('webkit-playsinline', 'true');
-      this.htmlAudioTag.style.display = 'none';
-      document.body.appendChild(this.htmlAudioTag);
-
-      const silentUrl = getSilentAudioUrl();
-      if (silentUrl) {
-        this.htmlAudioTag.src = silentUrl;
-        this.htmlAudioTag.play().catch(() => {});
+        this.gainNode.connect(this.analyserNode);
+        this.analyserNode.connect(this.audioCtx.destination);
       }
+
+      if (this.audioCtx.state === 'suspended') {
+        await this.audioCtx.resume();
+      }
+
+      // 2. Hardware Output Priming (Wakes up iOS Safari / Android media hardware routes synchronously)
+      try {
+        const silentBuf = this.audioCtx.createBuffer(1, 1, 22050);
+        const dummySource = this.audioCtx.createBufferSource();
+        dummySource.buffer = silentBuf;
+        dummySource.connect(this.audioCtx.destination);
+        dummySource.start(0);
+      } catch (e) {}
+
+      // 3. Start HTML5 Background Audio Keeper for Screen-Lock Playback
+      this.initBackgroundAudioKeeper();
+
+      // 4. Register Native Lock Screen Controls via MediaSession API
+      this.setupMediaSession();
+
+      // 5. Request Screen WakeLock (optional, when in foreground)
+      this.requestWakeLock();
+
+      this.isUnlocked = true;
+      this.flushSuspendedChunks();
+      this.notifyState();
+      return true;
+    } catch (err) {
+      console.warn('[AudioPlayer] unlockAudio error:', err);
+      return false;
+    } finally {
+      this.isUnlocking = false;
     }
-
-    // 3. Start HTML5 Background Audio Keeper for Screen-Lock Playback
-    this.initBackgroundAudioKeeper();
-
-    // 4. Register Native Lock Screen Controls via MediaSession API
-    this.setupMediaSession();
-
-    // 5. Request Screen WakeLock (optional, when in foreground)
-    this.requestWakeLock();
-
-    this.isUnlocked = true;
-    this.notifyState();
-    return true;
   }
 
   initBackgroundAudioKeeper() {
@@ -341,10 +426,10 @@ class AudioPlayerService {
   }
 
   /**
-   * Queue and play incoming audio packet in strict sequential order
+   * Queue and play incoming audio packet in strict sequential order (Universal Web Audio API)
    */
   playAudioChunk(packet) {
-    if (this.isMuted) return;
+    if (this.isMuted || !packet) return;
 
     if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && packet.lang !== this.currentLanguage) {
       if (packet.isListenerDirect) {
@@ -354,14 +439,7 @@ class AudioPlayerService {
       }
     }
 
-    // On mobile devices (iOS / Android) or when tab is backgrounded / screen is locked:
-    // Route through dedicated HTML5 Audio element queue for resilient background playback!
-    if (packet.audioBase64 && (this.isMobileDevice() || this.isBackgrounded())) {
-      this.playMobileChunk(packet);
-      return;
-    }
-
-    // Sequence through FIFO decode queue on desktop Web Audio API
+    // Sequence through FIFO decode queue on Web Audio API (Universal for Desktop, iOS Safari & Android)
     this.decodeQueue = this.decodeQueue
       .catch((err) => console.warn('[AudioPlayer] Previous decode error:', err))
       .then(async () => {
@@ -370,94 +448,14 @@ class AudioPlayerService {
             await this.processAndScheduleBase64Chunk(packet);
           } catch (err) {
             console.warn('[AudioPlayer] Decode failed, falling back to Web Speech:', err);
-            await this.playSpeechSynthesisAsync(packet.text, packet.lang);
+            if (packet.text) {
+              await this.playSpeechSynthesisAsync(packet.text, packet.lang);
+            }
           }
         } else if (packet.text) {
           await this.playSpeechSynthesisAsync(packet.text, packet.lang);
         }
       });
-  }
-
-  playMobileChunk(packet) {
-    if (this.isMuted) return;
-    try {
-      const binaryStr = window.atob(packet.audioBase64);
-      const bytes = new Uint8Array(binaryStr.length);
-      for (let i = 0; i < binaryStr.length; i++) {
-        bytes[i] = binaryStr.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { type: packet.mimeType || 'audio/mp3' });
-      const blobUrl = URL.createObjectURL(blob);
-
-      this.mobileAudioQueue.push({
-        url: blobUrl,
-        text: packet.text,
-        lang: packet.lang
-      });
-
-      if (!this.isMobilePlaying) {
-        this.processNextMobileChunk();
-      }
-    } catch (err) {
-      console.warn('[AudioPlayer] Mobile chunk queue error:', err);
-    }
-  }
-
-  processNextMobileChunk() {
-    if (this.mobileAudioQueue.length === 0) {
-      this.isMobilePlaying = false;
-      this.isPlaying = false;
-      this.notifyState();
-      return;
-    }
-
-    const currentItem = this.mobileAudioQueue.shift();
-    if (!this.htmlAudioTag && typeof document !== 'undefined') {
-      this.htmlAudioTag = document.createElement('audio');
-      this.htmlAudioTag.setAttribute('playsinline', 'true');
-      this.htmlAudioTag.setAttribute('webkit-playsinline', 'true');
-      this.htmlAudioTag.style.display = 'none';
-      document.body.appendChild(this.htmlAudioTag);
-    }
-
-    this.isMobilePlaying = true;
-    this.isPlaying = true;
-    this.notifyState();
-
-    if (this.htmlAudioTag) {
-      this.htmlAudioTag.src = currentItem.url;
-      this.htmlAudioTag.volume = this.isMuted ? 0 : Math.min(1.0, this.volume);
-      this.htmlAudioTag.playbackRate = this.playbackRate;
-
-      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = 'playing';
-      }
-
-      const handleDone = () => {
-        if (this.htmlAudioTag) {
-          this.htmlAudioTag.onended = null;
-          this.htmlAudioTag.onerror = null;
-        }
-        try {
-          URL.revokeObjectURL(currentItem.url);
-        } catch (e) {}
-        this.processNextMobileChunk();
-      };
-
-      this.htmlAudioTag.onended = handleDone;
-      this.htmlAudioTag.onerror = (e) => {
-        console.warn('[AudioPlayer] Mobile HTML audio error:', e);
-        handleDone();
-      };
-
-      const playPromise = this.htmlAudioTag.play();
-      if (playPromise) {
-        playPromise.catch((err) => {
-          console.warn('[AudioPlayer] Mobile tag play rejected:', err);
-          handleDone();
-        });
-      }
-    }
   }
 
   async processAndScheduleBase64Chunk(packet) {
@@ -466,17 +464,30 @@ class AudioPlayerService {
     }
 
     if (this.audioCtx.state === 'suspended') {
-      await this.audioCtx.resume();
+      try {
+        await this.audioCtx.resume();
+      } catch (e) {}
     }
 
-    const binaryStr = window.atob(packet.audioBase64);
+    // If context is still suspended (waiting for user gesture on mobile), buffer packet so it plays when touched
+    if (this.audioCtx.state === 'suspended') {
+      if (!this.suspendedChunks) this.suspendedChunks = [];
+      this.suspendedChunks.push(packet);
+      if (this.suspendedChunks.length > 2) this.suspendedChunks.shift();
+      return;
+    }
+
+    // Clean whitespace/newlines from base64
+    const cleanBase64 = String(packet.audioBase64).replace(/\s/g, '');
+    const binaryStr = window.atob(cleanBase64);
     const bytes = new Uint8Array(binaryStr.length);
     for (let i = 0; i < binaryStr.length; i++) {
       bytes[i] = binaryStr.charCodeAt(i);
     }
 
-    // Decode audio data safely
-    const audioBuffer = await this.audioCtx.decodeAudioData(bytes.buffer.slice(0));
+    // Decode audio data safely across all browsers
+    const audioBuffer = await this.decodeAudioDataSafe(bytes.buffer);
+    if (!audioBuffer) return;
     
     const sourceNode = this.audioCtx.createBufferSource();
     sourceNode.buffer = audioBuffer;
@@ -488,20 +499,25 @@ class AudioPlayerService {
     chunkGain.connect(this.gainNode);
 
     const now = this.audioCtx.currentTime;
-    // If starting a fresh speech stream, give 150ms lead time; if chaining, attach at nextStartTime
+    // Clean up stale nextStartTime if it drifted into the past or wildly ahead
+    if (this.activeSources.size === 0 && (this.nextStartTime < now || this.nextStartTime > now + 1.0)) {
+      this.nextStartTime = now;
+    }
+
+    // If chaining onto an existing active stream, start precisely at nextStartTime; otherwise give 60ms lead time
     const isChaining = this.activeSources.size > 0 && this.nextStartTime > now;
-    const startTime = isChaining ? this.nextStartTime : Math.max(now + 0.15, this.nextStartTime);
+    const startTime = isChaining ? this.nextStartTime : Math.max(now + 0.06, this.nextStartTime);
     const duration = audioBuffer.duration / this.playbackRate;
 
-    // Apply smooth 15ms fade-in and fade-out with collision prevention
-    const fade = Math.min(0.015, duration / 4);
+    // Apply smooth linear 12ms fade-in and fade-out with collision prevention
+    const fade = Math.min(0.012, duration / 4);
     if (fade > 0.002 && duration > fade * 2) {
       chunkGain.gain.setValueAtTime(0.001, startTime);
-      chunkGain.gain.exponentialRampToValueAtTime(1.0, startTime + fade);
+      chunkGain.gain.linearRampToValueAtTime(1.0, startTime + fade);
       const sustainEnd = Math.max(startTime + fade + 0.002, startTime + duration - fade);
       if (sustainEnd < startTime + duration) {
         chunkGain.gain.setValueAtTime(1.0, sustainEnd);
-        chunkGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        chunkGain.gain.linearRampToValueAtTime(0.001, startTime + duration);
       }
     }
 
@@ -562,13 +578,15 @@ class AudioPlayerService {
       await this.audioCtx.resume();
     }
 
-    const binaryStr = window.atob(audioBase64);
+    const cleanBase64 = String(audioBase64).replace(/\s/g, '');
+    const binaryStr = window.atob(cleanBase64);
     const bytes = new Uint8Array(binaryStr.length);
     for (let i = 0; i < binaryStr.length; i++) {
       bytes[i] = binaryStr.charCodeAt(i);
     }
 
-    const audioBuffer = await this.audioCtx.decodeAudioData(bytes.buffer.slice(0));
+    const audioBuffer = await this.decodeAudioDataSafe(bytes.buffer);
+    if (!audioBuffer) return;
     const sourceNode = this.audioCtx.createBufferSource();
     sourceNode.buffer = audioBuffer;
     
