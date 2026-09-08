@@ -4,10 +4,17 @@ import { WebSocketServer, WebSocket } from 'ws';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { roomManager } from './roomManager.js';
 import { aiPipeline } from './services/aiPipeline.js';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const clientDistPath = path.resolve(__dirname, '../../client/dist');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -46,36 +53,41 @@ function getLocalIpAddress() {
 
 import { tunnelService } from './tunnelService.js';
 
-// REST API Endpoints
-app.get('/', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-      <meta charset="UTF-8">
-      <title>LiftVoice Server</title>
-      <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .card { background: #1e293b; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 480px; width: 90%; text-align: center; border: 1px solid #334155; }
-        h1 { color: #38bdf8; margin-top: 0; }
-        p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; }
-        .btn { display: inline-block; background: #2563eb; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; margin-top: 1rem; transition: background 0.2s; }
-        .btn:hover { background: #1d4ed8; }
-        .badge { display: inline-block; background: #059669; color: #ecfdf5; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: bold; margin-bottom: 1rem; }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <span class="badge">● SERVIDOR ONLINE</span>
-        <h1>🎙️ LiftVoice Backend</h1>
-        <p>El servidor API y WebSocket está funcionando correctamente en el puerto ${PORT}.</p>
-        <p>Para ver y usar la aplicación completa (interfaz de usuario), abre el cliente frontend:</p>
-        <a class="btn" href="http://localhost:5173">Abrir Aplicación LiftVoice (Puerto 5173)</a>
-      </div>
-    </body>
-    </html>
-  `);
-});
+// Serve static client assets in production if built
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+} else {
+  // REST API Endpoints / Dev splash
+  app.get('/', (req, res) => {
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <title>LiftVoice Server</title>
+        <style>
+          body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+          .card { background: #1e293b; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 480px; width: 90%; text-align: center; border: 1px solid #334155; }
+          h1 { color: #38bdf8; margin-top: 0; }
+          p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; }
+          .btn { display: inline-block; background: #2563eb; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; margin-top: 1rem; transition: background 0.2s; }
+          .btn:hover { background: #1d4ed8; }
+          .badge { display: inline-block; background: #059669; color: #ecfdf5; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: bold; margin-bottom: 1rem; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <span class="badge">● SERVIDOR ONLINE</span>
+          <h1>🎙️ LiftVoice Backend</h1>
+          <p>El servidor API y WebSocket está funcionando correctamente en el puerto ${PORT}.</p>
+          <p>Para ver y usar la aplicación completa (interfaz de usuario), abre el cliente frontend:</p>
+          <a class="btn" href="http://localhost:5173">Abrir Aplicación LiftVoice (Puerto 5173)</a>
+        </div>
+      </body>
+      </html>
+    `);
+  });
+}
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -306,6 +318,16 @@ app.post('/api/rooms/:roomId/voices', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// SPA Fallback: for any non-API GET request, serve client index.html when built
+if (fs.existsSync(clientDistPath)) {
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
 
 // Create HTTP and WebSocket Server
 const server = http.createServer(app);
