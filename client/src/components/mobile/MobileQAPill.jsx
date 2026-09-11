@@ -102,7 +102,7 @@ export default function MobileQAPill({
             qaState === 'speaking'
               ? 'bg-emerald-600 text-white animate-pulse ring-4 ring-emerald-500/25'
               : qaState === 'requested'
-              ? 'bg-amber-400 text-zinc-950 font-bold ring-4 ring-amber-400/30'
+              ? 'bg-zinc-900 text-white font-bold ring-2 ring-amber-400/40 border border-amber-400/80'
               : 'bg-zinc-900/90 hover:bg-zinc-900 text-white border border-white/15'
           }`}
           aria-label={

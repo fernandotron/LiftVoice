@@ -72,7 +72,7 @@ export default function MobileAudioDock({
             onClick={handlePlayClick}
             className={`relative w-full max-w-[220px] h-14 rounded-full font-semibold text-xs tracking-tight flex items-center justify-center gap-2.5 shadow-md transition-all cursor-pointer active:scale-95 touch-manipulation select-none whitespace-nowrap ${
               !isUnlocked
-                ? 'bg-amber-400 hover:bg-amber-500 text-zinc-950 font-bold ring-4 ring-amber-400/30 animate-pulse'
+                ? 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 shadow-zinc-950/20'
                 : isMuted
                 ? 'bg-zinc-800 hover:bg-zinc-700 text-white shadow-zinc-950/20'
                 : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 shadow-zinc-950/20'
@@ -81,7 +81,7 @@ export default function MobileAudioDock({
           >
             {!isUnlocked ? (
               <>
-                <Volume2 className="w-5 h-5 animate-pulse" />
+                <Volume2 className="w-5 h-5 text-amber-400 dark:text-amber-500 animate-pulse" />
                 <span>Sintonizar audio</span>
               </>
             ) : isMuted ? (
@@ -111,7 +111,7 @@ export default function MobileAudioDock({
           </button>
         </div>
 
-        {/* Satélite Derecho: Pedir la palabra / Q&A */}
+        {/* Satélite Derecho: Preguntar al ponente (Q&A) */}
         <button
           type="button"
           onClick={handleQAClick}
@@ -119,15 +119,15 @@ export default function MobileAudioDock({
             qaState === 'speaking'
               ? 'bg-emerald-600 text-white border-emerald-500 animate-pulse ring-4 ring-emerald-500/30'
               : qaState === 'requested'
-              ? 'bg-amber-400 text-zinc-950 border-amber-300 font-bold ring-4 ring-amber-400/30'
-              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+              ? 'bg-zinc-900 dark:bg-zinc-900 border-amber-400/90 text-white ring-2 ring-amber-400/30'
+              : 'bg-zinc-900/90 dark:bg-zinc-900 border-zinc-700/60 dark:border-zinc-800 text-white hover:bg-zinc-800'
           }`}
-          title="Pedir la palabra / Q&A"
-          aria-label="Pedir la palabra al ponente"
+          title="Preguntar al ponente"
+          aria-label="Preguntar al ponente en vivo"
         >
-          <Hand className={`w-4 h-4 ${qaState === 'requested' ? 'animate-bounce text-zinc-950' : ''}`} />
-          <span className="text-[10px] font-mono font-medium mt-0.5 leading-none">
-            {qaState === 'speaking' ? 'Hablas' : qaState === 'requested' ? 'Espera' : 'Pedir'}
+          <Hand className={`w-4 h-4 text-amber-400 ${qaState === 'requested' ? 'animate-bounce' : ''}`} />
+          <span className="text-[9px] font-medium text-white dark:text-zinc-200 mt-0.5 leading-none">
+            {qaState === 'speaking' ? 'Hablas' : qaState === 'requested' ? 'Espera' : 'Preguntar'}
           </span>
         </button>
 
