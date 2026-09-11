@@ -8,14 +8,16 @@ export class TTSService {
     this.openaiApiKey = config.openaiApiKey || process.env.OPENAI_API_KEY || '';
     this.elevenLabsApiKey = config.elevenLabsApiKey || process.env.ELEVENLABS_API_KEY || '';
     this.deepgramApiKey = config.deepgramApiKey || process.env.DEEPGRAM_API_KEY || '';
-    this.preferredTtsEngine = config.preferredTtsEngine || 'auto'; // 'auto' | 'deepgram' | 'elevenlabs' | 'openai' | 'google'
+    this.qwenApiKey = config.qwenApiKey || process.env.DASHSCOPE_API_KEY || '';
+    this.qwenTtsEndpoint = config.qwenTtsEndpoint || process.env.QWEN_TTS_ENDPOINT || '';
+    this.preferredTtsEngine = config.preferredTtsEngine || 'auto'; // 'auto' | 'deepgram' | 'google' | 'qwen_tts' | 'elevenlabs' | 'openai'
     
     // Voice mapping for natural multilingual personas
     this.voiceMap = {
-      en: { openai: 'alloy', edge: 'en-US-JennyNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en' },
-      es: { openai: 'nova', edge: 'es-ES-ElviraNeural', eleven: 'AZnzlk1XvdvUeBnXmlld', deepgram: 'aura-asteria-en' },
-      it: { openai: 'shimmer', edge: 'it-IT-ElsaNeural', eleven: 'EXAVITQu4vr4xnSDxMaL', deepgram: 'aura-asteria-en' },
-      pt: { openai: 'echo', edge: 'pt-BR-FranciscaNeural', eleven: 'ErXwobaYiN019PkySvjV', deepgram: 'aura-asteria-en' },
+      en: { openai: 'alloy', edge: 'en-US-JennyNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en', qwen_tts: 'qwen3-tts-en' },
+      es: { openai: 'nova', edge: 'es-ES-ElviraNeural', eleven: 'AZnzlk1XvdvUeBnXmlld', deepgram: 'aura-asteria-en', qwen_tts: 'qwen3-tts-es' },
+      it: { openai: 'shimmer', edge: 'it-IT-ElsaNeural', eleven: 'EXAVITQu4vr4xnSDxMaL', deepgram: 'aura-asteria-en', qwen_tts: 'qwen3-tts-it' },
+      pt: { openai: 'echo', edge: 'pt-BR-FranciscaNeural', eleven: 'ErXwobaYiN019PkySvjV', deepgram: 'aura-asteria-en', qwen_tts: 'qwen3-tts-pt' },
       fr: { openai: 'shimmer', edge: 'fr-FR-DeniseNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en' },
       de: { openai: 'alloy', edge: 'de-DE-KatjaNeural', eleven: 'pNInz6obpgDQGcFmaJgB', deepgram: 'aura-asteria-en' },
       zh: { openai: 'nova', edge: 'zh-CN-XiaoxiaoNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en' },
@@ -62,29 +64,63 @@ export class TTSService {
     // Bounded in-memory cache to prevent memory leaks (Max 120 entries)
     this.cache = new Map();
     this.maxCacheSize = 120;
+
+    // Circuit Breakers for cloud TTS providers (ElevenLabs & OpenAI) to prevent timeout storms on 401, 402, 429
+    this.circuitBreakers = new Map(); // provider -> timestamp ms when cooldown expires
   }
 
-  setConfig({ openaiApiKey, elevenLabsApiKey, deepgramApiKey, preferredTtsEngine, voiceConfig, voiceGender }) {
-    if (openaiApiKey !== undefined) this.openaiApiKey = openaiApiKey;
-    if (elevenLabsApiKey !== undefined) this.elevenLabsApiKey = elevenLabsApiKey;
+  isCircuitOpen(provider) {
+    const cooldownUntil = this.circuitBreakers?.get(provider) || 0;
+    return Date.now() < cooldownUntil;
+  }
+
+  tripCircuit(provider, status, durationMs = 4 * 60 * 1000) {
+    const until = Date.now() + durationMs;
+    if (!this.circuitBreakers) this.circuitBreakers = new Map();
+    this.circuitBreakers.set(provider, until);
+    console.warn(`[TTSService] 🚨 Circuit breaker tripped for ${provider} (HTTP ${status}). Cooling down for ${Math.round(durationMs / 60000)} minutes.`);
+  }
+
+  resetCircuit(provider) {
+    if (provider) {
+      this.circuitBreakers?.delete(provider);
+    } else {
+      this.circuitBreakers?.clear();
+    }
+  }
+
+  setConfig({ openaiApiKey, elevenLabsApiKey, deepgramApiKey, qwenApiKey, preferredTtsEngine, voiceConfig, voiceGender, qwenTtsEndpoint }) {
+    if (openaiApiKey !== undefined) {
+      this.openaiApiKey = openaiApiKey;
+      this.resetCircuit('openai');
+    }
+    if (elevenLabsApiKey !== undefined) {
+      this.elevenLabsApiKey = elevenLabsApiKey;
+      this.resetCircuit('elevenlabs');
+    }
     if (deepgramApiKey !== undefined) this.deepgramApiKey = deepgramApiKey;
+    if (qwenApiKey !== undefined) this.qwenApiKey = qwenApiKey;
+    if (qwenTtsEndpoint !== undefined) this.qwenTtsEndpoint = qwenTtsEndpoint;
     if (preferredTtsEngine !== undefined) this.preferredTtsEngine = preferredTtsEngine;
     if (voiceConfig !== undefined) this.voiceConfig = { ...this.voiceConfig, ...voiceConfig };
     if (voiceGender !== undefined) this.voiceGender = { ...this.voiceGender, ...voiceGender };
-    console.log(`[TTSService] 🎙️ Config updated: Engine=${this.preferredTtsEngine}, Deepgram=${!!this.deepgramApiKey}, ElevenLabs=${!!this.elevenLabsApiKey}, OpenAI=${!!this.openaiApiKey}`);
+    console.log(`[TTSService] 🎙️ Config updated: Engine=${this.preferredTtsEngine}, Deepgram=${!!this.deepgramApiKey}, ElevenLabs=${!!this.elevenLabsApiKey}, OpenAI=${!!this.openaiApiKey}, QwenTTS=${!!this.qwenTtsEndpoint}`);
   }
 
   setApiKey(openaiKey, elevenLabsKey = null) {
     if (openaiKey !== undefined && openaiKey !== null) {
       this.openaiApiKey = openaiKey;
+      this.resetCircuit('openai');
     }
     if (elevenLabsKey !== undefined && elevenLabsKey !== null) {
       this.elevenLabsApiKey = elevenLabsKey;
+      this.resetCircuit('elevenlabs');
     }
   }
 
   setElevenLabsApiKey(key) {
     this.elevenLabsApiKey = key;
+    this.resetCircuit('elevenlabs');
   }
 
   setDeepgramApiKey(key) {
@@ -115,33 +151,52 @@ export class TTSService {
     if (!text || typeof text !== 'string') return '';
     let cleaned = text.trim();
 
-    // 1. Remove XML/HTML tags
+    // 1. Remove invisible zero-width and non-breaking space characters (\u200B-\u200D\uFEFF\u00A0)
+    cleaned = cleaned.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ');
+
+    // 2. Remove direct URLs
+    cleaned = cleaned.replace(/https?:\/\/[^\s]+/gi, ' ');
+
+    // 3. Remove XML/HTML tags
     cleaned = cleaned.replace(/<[^>]+>/g, ' ');
 
-    // 2. Remove markdown links [text](url) -> text
+    // 4. Remove markdown links [text](url) -> text
     cleaned = cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
 
-    // 3. Remove bracketed speaker or meta tags like [Speaker]:, [Audience]:, [Nota: ...], (Pausa), etc.
+    // 5. Remove bracketed speaker or meta tags like [Speaker]:, [Audience]:, [Nota: ...], (Pausa), etc.
     cleaned = cleaned.replace(/\[[^\]]*\]/g, ' ');
     cleaned = cleaned.replace(/\([^\)]*(?:pausa|silencio|nota|risas|aplausos)[^\)]*\)/gi, ' ');
 
-    // 4. Remove markdown syntax: asterisks (*bold*, **bold**), underscores (_italic_), hashtags (### header), backticks (`code`)
+    // 6. Remove markdown syntax: asterisks (*bold*, **bold**), underscores (_italic_), hashtags (### header), backticks (`code`)
     cleaned = cleaned.replace(/[*_#`~]/g, '');
 
-    // 5. Strip emojis and non-standard symbols that TTS engines read out phonetically
+    // 7. Strip emojis and non-standard symbols that TTS engines read out phonetically
     cleaned = cleaned.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
 
-    // 6. Strip typical translation, conversational preambles or speaker tags (iterative)
+    // 8. Replace mathematical symbols, bullets and redundant slashes (e.g. "headache / cephalea" -> "headache, cephalea")
+    cleaned = cleaned.replace(/(?<=\p{L})\s*\/\s*(?=\p{L})/gu, ', ');
+    cleaned = cleaned.replace(/\s+\/\s+/g, ', ');
+    cleaned = cleaned.replace(/[±≠≈×÷∑√≤≥=<>\u2022•§©®™|\\^~]/g, ' ');
+
+    // 9. Strip typical translation, conversational preambles or speaker tags (iterative)
     const preambleRegex = /^(?:[:\s\-–—]*)(?:traducci[oó]n|translation|traduzione|tradu[cç][aã]o|en espa[nñ]ol|in english|in italiano|em portugu[eê]s|here is the translation|respuesta|speaker|host|asistente|ponente)\s*:\s*/i;
     while (preambleRegex.test(cleaned)) {
       cleaned = cleaned.replace(preambleRegex, '');
     }
 
-    // 7. Strip any remaining leading punctuation
-    cleaned = cleaned.replace(/^[:\s\-–—]+/, '');
+    // 10. Strip any remaining leading punctuation
+    cleaned = cleaned.replace(/^[:\s\-–—,]+/, '');
 
-    // 8. Collapse spaces and normalize punctuation
+    // 11. Normalize commas and collapse spaces
+    cleaned = cleaned.replace(/,\s*,+/g, ',');
     cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+    // 12. Must have at least 2 alphanumeric characters, otherwise return empty string
+    const alphaNumMatches = cleaned.match(/[\p{L}\p{N}]/gu);
+    if (!alphaNumMatches || alphaNumMatches.length < 2) {
+      return '';
+    }
+
     return cleaned;
   }
 
@@ -171,22 +226,75 @@ export class TTSService {
       };
     }
 
-    // 1. Try Deepgram Aura TTS (Ultra-low latency <150ms, English acoustic model)
-    if ((engine === 'deepgram' || (engine === 'auto' && this.deepgramApiKey)) && this.deepgramApiKey && lang === 'en') {
+    // 1. Google Neural Universal (Selected directly by admin)
+    if (engine === 'google') {
       try {
-        const result = await this.synthesizeWithDeepgram(cleanText, lang, { voice, gender });
+        const result = await this.synthesizeWithFastEngine(cleanText, lang);
+        if (result && result.audioBase64) {
+          result.latencyMs = Date.now() - startTime;
+          result.provider = 'google';
+          this.setCache(cacheKey, result);
+          return result;
+        }
+      } catch (err) {
+        console.warn(`[TTSService] Google Neural TTS failed for ${lang}:`, err.message);
+      }
+    }
+
+    // 2. Qwen3-TTS / CosyVoice (Alibaba Speech API or OpenAI-compatible endpoint)
+    if (engine === 'qwen_tts') {
+      try {
+        const result = await this.synthesizeWithQwenTTS(cleanText, lang, { voice, gender });
         if (result && result.audioBase64) {
           result.latencyMs = Date.now() - startTime;
           this.setCache(cacheKey, result);
           return result;
         }
       } catch (err) {
-        console.warn(`[TTSService] Deepgram Aura synthesis failed for ${lang}:`, err.message);
+        console.warn(`[TTSService] Qwen3-TTS synthesis failed for ${lang}:`, err.message);
       }
     }
 
-    // 2. Try ElevenLabs TTS if API key is configured or requested
-    if ((engine === 'elevenlabs' || (engine === 'auto' && this.elevenLabsApiKey)) && this.elevenLabsApiKey) {
+    // 3. Deepgram Aura / Aura-2 TTS (Ultra-low latency <150ms, consumes user's $200 free credit)
+    if ((engine === 'deepgram' || (engine === 'auto' && this.deepgramApiKey)) && this.deepgramApiKey) {
+      if (lang !== 'en') {
+        // Deepgram Aura v1 models are native English. For non-English cabins (es, it, pt),
+        // synthesize instantly with Google Neural without 400 failure or penalty latency
+        try {
+          const result = await this.synthesizeWithFastEngine(cleanText, lang);
+          if (result && result.audioBase64) {
+            result.latencyMs = Date.now() - startTime;
+            result.provider = 'deepgram-companion-google';
+            this.setCache(cacheKey, result);
+            return result;
+          }
+        } catch (e) {}
+      } else {
+        try {
+          // Deepgram Aura has native high-fidelity English models (aura-asteria-en / aura-orion-en)
+          const result = await this.synthesizeWithDeepgram(cleanText, lang, { voice, gender });
+          if (result && result.audioBase64) {
+            result.latencyMs = Date.now() - startTime;
+            this.setCache(cacheKey, result);
+            return result;
+          }
+        } catch (err) {
+          console.warn(`[TTSService] Deepgram Aura synthesis warning for ${lang} (${err.message}), falling back to Google Neural`);
+          try {
+            const result = await this.synthesizeWithFastEngine(cleanText, lang);
+            if (result && result.audioBase64) {
+              result.latencyMs = Date.now() - startTime;
+              result.provider = 'deepgram-fallback-google';
+              this.setCache(cacheKey, result);
+              return result;
+            }
+          } catch (e2) {}
+        }
+      }
+    }
+
+    // 4. ElevenLabs TTS if API key is configured or requested and circuit is closed
+    if ((engine === 'elevenlabs' || (engine === 'auto' && this.elevenLabsApiKey)) && this.elevenLabsApiKey && !this.isCircuitOpen('elevenlabs')) {
       try {
         const result = await this.synthesizeWithElevenLabs(cleanText, lang, { voice, gender });
         if (result && result.audioBase64) {
@@ -195,12 +303,15 @@ export class TTSService {
           return result;
         }
       } catch (err) {
+        if (err.status === 401 || err.status === 402 || err.status === 429) {
+          this.tripCircuit('elevenlabs', err.status);
+        }
         console.warn(`[TTSService] ElevenLabs synthesis failed for ${lang}:`, err.message);
       }
     }
 
-    // 3. Try OpenAI TTS if API key is provided or requested
-    if ((engine === 'openai' || (engine === 'auto' && this.openaiApiKey)) && this.openaiApiKey) {
+    // 5. OpenAI TTS if API key is provided or requested and circuit is closed
+    if ((engine === 'openai' || (engine === 'auto' && this.openaiApiKey)) && this.openaiApiKey && !this.isCircuitOpen('openai')) {
       try {
         const result = await this.synthesizeWithOpenAI(cleanText, lang, { voice, gender });
         if (result && result.audioBase64) {
@@ -209,11 +320,14 @@ export class TTSService {
           return result;
         }
       } catch (err) {
+        if (err.status === 401 || err.status === 402 || err.status === 429) {
+          this.tripCircuit('openai', err.status);
+        }
         console.warn(`[TTSService] OpenAI TTS failed for lang ${lang}:`, err.message);
       }
     }
 
-    // 4. Try Google Translate TTS / public rapid audio generator
+    // 6. Fast engine fallback (Google Neural Universal)
     try {
       const result = await this.synthesizeWithFastEngine(cleanText, lang);
       if (result && result.audioBase64) {
@@ -226,10 +340,69 @@ export class TTSService {
       console.warn(`[TTSService] Fast engine TTS failed for lang ${lang}:`, err.message);
     }
 
-    // 5. Fallback client-synthesized indicator packet
+    // 7. Fallback client-synthesized indicator packet
     const fallback = this.generateFallbackPayload(cleanText, lang);
     fallback.latencyMs = Date.now() - startTime;
     return fallback;
+  }
+
+  async synthesizeWithQwenTTS(text, lang, options = {}) {
+    const endpoint = (this.qwenTtsEndpoint || process.env.QWEN_TTS_ENDPOINT || 'http://localhost:8000/v1/audio/speech').trim();
+    if (endpoint) {
+      try {
+        const u = new URL(endpoint);
+        if (!['http:', 'https:'].includes(u.protocol)) {
+          throw new Error('Protocol must be http: or https:');
+        }
+        const host = u.hostname.toLowerCase();
+        if (host === '169.254.169.254' || host === 'metadata.google.internal' || host.endsWith('.internal')) {
+          throw new Error('Cloud metadata endpoints are prohibited');
+        }
+      } catch (e) {
+        throw new Error(`Invalid Qwen TTS endpoint: ${e.message}`);
+      }
+    }
+    const apiKey = this.qwenApiKey || this.openaiApiKey || process.env.DASHSCOPE_API_KEY || '';
+
+    // Sanitize voice ID: if voice belongs to another engine, fall back to language default
+    let voice = options.voice;
+    if (!voice || voice.startsWith('aura-') || voice.includes('Neural') || (typeof voice === 'string' && voice.length >= 18 && !voice.includes('-'))) {
+      voice = this.voiceMap[lang]?.qwen_tts || (options.gender === 'male' ? 'cosyvoice-male' : 'cosyvoice-female');
+    }
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: 'qwen3-tts',
+        input: text,
+        voice: voice,
+        response_format: 'mp3'
+      }),
+      signal: AbortSignal.timeout(2800)
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Qwen3-TTS error HTTP ${response.status}: ${err}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const audioBase64 = buffer.toString('base64');
+
+    return {
+      audioBase64,
+      mimeType: 'audio/mpeg',
+      text,
+      lang,
+      provider: 'qwen_tts',
+      model: 'qwen3-tts',
+      durationMs: Math.round((text.length / 15) * 1000)
+    };
   }
 
   async synthesizeWithDeepgram(text, lang, options = {}) {
@@ -249,7 +422,7 @@ export class TTSService {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ text }),
-      signal: AbortSignal.timeout(6000)
+      signal: AbortSignal.timeout(2200)
     });
 
     if (!response.ok) {
@@ -263,7 +436,7 @@ export class TTSService {
 
     return {
       audioBase64,
-      mimeType: 'audio/mp3',
+      mimeType: 'audio/mpeg',
       text,
       lang,
       provider: 'deepgram',
@@ -273,8 +446,10 @@ export class TTSService {
   }
 
   async synthesizeWithElevenLabs(text, lang, options = {}) {
-    const requestedVoice = (options.voice && options.voice.length > 15) ? options.voice : null;
-    const configuredVoice = (this.voiceConfig[lang] && this.voiceConfig[lang].length > 15) ? this.voiceConfig[lang] : null;
+    // ElevenLabs voice IDs are 20-21 character alphanumeric base58 strings (e.g. 21m00Tcm4TlvDq8ikWAM, AZnzlk1XvdvUeBnXmlld)
+    const isElevenId = (id) => typeof id === 'string' && /^[a-zA-Z0-9]{20,22}$/.test(id.trim());
+    const requestedVoice = (options.voice && isElevenId(options.voice)) ? options.voice.trim() : null;
+    const configuredVoice = (this.voiceConfig[lang] && isElevenId(this.voiceConfig[lang])) ? this.voiceConfig[lang].trim() : null;
     const voiceId = requestedVoice || configuredVoice || this.voiceMap[lang]?.eleven || '21m00Tcm4TlvDq8ikWAM';
     const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
 
@@ -293,12 +468,18 @@ export class TTSService {
           similarity_boost: 0.8
         }
       }),
-      signal: AbortSignal.timeout(8000)
+      signal: AbortSignal.timeout(3500)
     });
 
     if (!response.ok) {
+      if (response.status === 404 && voiceId !== '21m00Tcm4TlvDq8ikWAM') {
+        console.warn(`[TTSService] Voice ID "${voiceId}" not found in ElevenLabs (HTTP 404). Auto-recovering with default Rachel...`);
+        return this.synthesizeWithElevenLabs(text, lang, { ...options, voice: '21m00Tcm4TlvDq8ikWAM' });
+      }
       const errText = await response.text();
-      throw new Error(`ElevenLabs HTTP ${response.status}: ${errText}`);
+      const err = new Error(`ElevenLabs HTTP ${response.status}: ${errText}`);
+      err.status = response.status;
+      throw err;
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -307,7 +488,7 @@ export class TTSService {
 
     return {
       audioBase64,
-      mimeType: 'audio/mp3',
+      mimeType: 'audio/mpeg',
       text,
       lang,
       provider: 'elevenlabs',
@@ -339,12 +520,14 @@ export class TTSService {
         response_format: 'mp3',
         speed: 1.05
       }),
-      signal: AbortSignal.timeout(8000)
+      signal: AbortSignal.timeout(2800)
     });
 
     if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`OpenAI TTS Error ${response.status}: ${err}`);
+      const errText = await response.text();
+      const err = new Error(`OpenAI TTS Error ${response.status}: ${errText}`);
+      err.status = response.status;
+      throw err;
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -353,7 +536,7 @@ export class TTSService {
 
     return {
       audioBase64,
-      mimeType: 'audio/mp3',
+      mimeType: 'audio/mpeg',
       text,
       lang,
       provider: 'openai',
@@ -409,33 +592,50 @@ export class TTSService {
     };
     const code = langCodes[lang] || 'en';
     const textChunks = this.splitTextIntoChunks(text, 160);
-    const audioBuffers = [];
 
-    for (const chunk of textChunks) {
-      const encoded = encodeURIComponent(chunk);
-      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=${code}&client=tw-ob`;
+    const audioBuffers = await Promise.all(
+      textChunks.map(async (chunk) => {
+        const encoded = encodeURIComponent(chunk);
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=${code}&client=tw-ob`;
 
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        },
-        signal: AbortSignal.timeout(3500)
-      });
+        let chunkBuffer = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const response = await fetch(url, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+              },
+              signal: AbortSignal.timeout(3500)
+            });
 
-      if (!response.ok) {
-        throw new Error(`Public TTS error ${response.status}`);
-      }
+            if (response.ok) {
+              const arrayBuffer = await response.arrayBuffer();
+              chunkBuffer = Buffer.from(arrayBuffer);
+              break;
+            } else if (attempt === 2) {
+              console.warn(`[TTSService] Public TTS chunk attempt ${attempt} returned HTTP ${response.status}`);
+            }
+          } catch (e) {
+            if (attempt === 2) {
+              console.warn(`[TTSService] Public TTS chunk attempt ${attempt} failed for lang ${lang}:`, e.message);
+            }
+          }
+        }
+        return chunkBuffer;
+      })
+    );
 
-      const arrayBuffer = await response.arrayBuffer();
-      audioBuffers.push(Buffer.from(arrayBuffer));
+    const validBuffers = audioBuffers.filter(b => b && Buffer.isBuffer(b) && b.length > 0);
+    if (validBuffers.length === 0) {
+      throw new Error(`All public TTS chunks failed for ${lang}`);
     }
 
-    const combinedBuffer = Buffer.concat(audioBuffers);
+    const combinedBuffer = Buffer.concat(validBuffers);
     const audioBase64 = combinedBuffer.toString('base64');
 
     return {
       audioBase64,
-      mimeType: 'audio/mp3',
+      mimeType: 'audio/mpeg',
       text,
       lang,
       durationMs: Math.round((text.length / 15) * 1000)

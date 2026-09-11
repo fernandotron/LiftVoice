@@ -18,13 +18,22 @@ export class AIPipeline {
     this.openaiApiKey = process.env.OPENAI_API_KEY || '';
   }
 
-  setApiKeys({ openaiApiKey, deepgramApiKey, elevenLabsApiKey, deeplApiKey, qwenApiKey, qwenModel, qwenEndpoint, preferredEngine, medicalMode, medicalSpecialty, customGlossary, preferredTtsEngine, voiceConfig, voiceGender, preferredSttEngine, sttEngine }) {
+  setApiKeys({ openaiApiKey, deepgramApiKey, elevenLabsApiKey, deeplApiKey, geminiApiKey, geminiModel, qwenApiKey, qwenModel, qwenEndpoint, qwenTtsEndpoint, preferredEngine, medicalMode, medicalSpecialty, customGlossary, preferredTtsEngine, voiceConfig, voiceGender, preferredSttEngine, sttEngine }) {
     if (openaiApiKey !== undefined && openaiApiKey !== null) {
       this.openaiApiKey = openaiApiKey;
       translationService.setApiKey(openaiApiKey);
     }
+    if (deeplApiKey !== undefined && typeof translationService.setDeeplConfig === 'function') {
+      translationService.setDeeplConfig({ apiKey: deeplApiKey });
+    }
+    if (geminiApiKey !== undefined || geminiModel !== undefined) {
+      translationService.setGeminiConfig({ apiKey: geminiApiKey, model: geminiModel, preferredEngine });
+    }
     if (qwenApiKey !== undefined || qwenModel !== undefined || qwenEndpoint !== undefined || preferredEngine !== undefined) {
       translationService.setQwenConfig({ apiKey: qwenApiKey, model: qwenModel, endpoint: qwenEndpoint, preferredEngine });
+    }
+    if (preferredEngine !== undefined) {
+      translationService.preferredEngine = preferredEngine;
     }
     if (medicalMode !== undefined || medicalSpecialty !== undefined || customGlossary !== undefined) {
       translationService.setMedicalConfig({ medicalMode, medicalSpecialty, customGlossary });
@@ -33,12 +42,14 @@ export class AIPipeline {
       openaiApiKey,
       elevenLabsApiKey,
       deepgramApiKey,
+      qwenApiKey,
+      qwenTtsEndpoint,
       preferredTtsEngine,
       voiceConfig,
       voiceGender
     });
-    if (deepgramApiKey !== undefined || openaiApiKey !== undefined) {
-      sttService.setApiKey(this.openaiApiKey, deepgramApiKey);
+    if (deepgramApiKey !== undefined || openaiApiKey !== undefined || geminiApiKey !== undefined) {
+      sttService.setApiKey(this.openaiApiKey, deepgramApiKey, geminiApiKey);
     }
     const targetStt = preferredSttEngine || sttEngine;
     if (targetStt) {
@@ -59,6 +70,10 @@ export class AIPipeline {
     const current = this.roomSeqCounters.get(key) || 1;
     this.roomSeqCounters.set(key, current + 1);
     return current;
+  }
+
+  getActiveLanguages(roomId) {
+    return (roomManager.getActiveLanguages && roomManager.getActiveLanguages(roomId)) || [];
   }
 
   /**
@@ -85,13 +100,29 @@ export class AIPipeline {
       })
       .then(() => {
         return this.executeSpeechPipeline({ ...params, roomId, seqId });
+      })
+      .finally(() => {
+        if (this.roomQueues.get(roomId) === taskPromise) {
+          this.roomQueues.set(roomId, Promise.resolve());
+        }
       });
 
     this.roomQueues.set(roomId, taskPromise);
     return taskPromise;
   }
 
-  async executeSpeechPipeline({ roomId, text, audioBuffer, mimeType, sourceLanguage = 'auto', seqId = 1, forceLanguages = [], medicalMode, medicalSpecialty, customGlossary }) {
+  async executeSpeechPipeline(arg1, arg2, arg3, ...rest) {
+    let opts = {};
+    if (typeof arg1 === 'object' && arg1 !== null && !Array.isArray(arg1)) {
+      opts = arg1;
+    } else {
+      opts = {
+        roomId: arg1,
+        text: arg2,
+        sourceLanguage: arg3 || 'auto'
+      };
+    }
+    const { roomId, text, audioBuffer, mimeType, sourceLanguage = 'auto', seqId = 1, forceLanguages = [], medicalMode, medicalSpecialty, customGlossary } = opts;
     const pipelineStart = Date.now();
     const packetId = `pkt_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     let spokenText = (text || '').trim();
@@ -133,7 +164,9 @@ export class AIPipeline {
         .replace(/\s+/g, ' ')
         .trim();
 
-    let cleanUtterance = spokenText.trim();
+    let cleanText = spokenText.trim();
+    if (cleanText.length > 1500) cleanText = cleanText.slice(0, 1500);
+    let cleanUtterance = cleanText;
     let normUtterance = normalizePipelineSpeech(cleanUtterance);
 
     // Defense 1: Exact duplicate of recent utterance within 4 seconds (protects against rapid double socket packet events)
@@ -166,21 +199,97 @@ export class AIPipeline {
     // Retrieve previous context for coherent pronouns and clinical resolution
     const prevContext = this.roomContexts.get(roomId) || '';
 
-    // Step 2: Multi-Language Translation (Parallel to EN, ES, IT, PT)
-    const transStart = Date.now();
-    const transResult = await translationService.translateAll(spokenText, sourceLanguage, {
-      medicalMode,
-      medicalSpecialty,
-      customGlossary,
-      contextHistory: prevContext
-    });
-    const transLatency = Date.now() - transStart;
-    const detectedLang = transResult.detectedSource || sourceLanguage || 'auto';
-
     // Update room context (sliding window of last ~25 words)
     const newContext = (prevContext ? prevContext + ' ' : '') + spokenText;
     const contextWords = newContext.split(/\s+/).slice(-25).join(' ');
     this.roomContexts.set(roomId, contextWords);
+
+    // FIN-01: Cost Protection / Lazy Cabins
+    // Obtain active listening languages BEFORE LLM translation to avoid wasting tokens/quota
+    const activeLangs = this.getActiveLanguages(roomId);
+    const targetLangs = (forceLanguages && forceLanguages.length > 0)
+      ? Array.from(new Set(forceLanguages))
+      : activeLangs;
+
+    // If 0 active listeners and host is not monitoring any booth: skip LLM translation & TTS completely
+    if (targetLangs.length === 0) {
+      console.log(`[AIPipeline] 💤 [Room: ${roomId}] 0 active listeners or monitored booths. Skipping LLM translation & TTS.`);
+      const detectedLang = sourceLanguage || 'auto';
+      const transcriptItem = {
+        id: packetId,
+        seqId,
+        timestamp: Date.now(),
+        originalText: spokenText,
+        detectedLanguage: detectedLang,
+        engineUsed: 'Native Only (Lazy)',
+        translations: {
+          [detectedLang !== 'auto' ? detectedLang : 'es']: spokenText
+        },
+        metrics: {
+          sttMs: sttLatency,
+          transMs: 0,
+          ttsMs: 0,
+          totalMs: Date.now() - pipelineStart
+        }
+      };
+
+      // Broadcast transcript immediately for native captions (<500ms)
+      roomManager.addTranscriptItem(roomId, transcriptItem);
+
+      if (room.hostSocket && room.hostSocket.readyState === 1) {
+        try {
+          room.hostSocket.send(JSON.stringify({
+            type: 'PIPELINE_METRIC',
+            metric: {
+              packetId,
+              seqId,
+              text: spokenText,
+              detectedSource: detectedLang,
+              engineUsed: 'Native Only (Lazy)',
+              sttMs: sttLatency,
+              transMs: 0,
+              ttsMs: 0,
+              activeChannels: [],
+              totalLatencyMs: Date.now() - pipelineStart,
+              timestamp: Date.now()
+            }
+          }));
+        } catch (e) {}
+      }
+      return transcriptItem;
+    }
+
+    // Step 2: Multi-Language Translation (Parallel to EN, ES, IT, PT)
+    const transStart = Date.now();
+    let transResult;
+    try {
+      const transPromise = translationService.translateAll(spokenText, sourceLanguage, {
+        roomId,
+        medicalMode,
+        medicalSpecialty,
+        customGlossary,
+        contextHistory: prevContext
+      });
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('TRANSLATION_TIMEOUT')), 5000)
+      );
+      transResult = await Promise.race([transPromise, timeoutPromise]);
+    } catch (err) {
+      console.warn(`[AIPipeline] ⚠️ Translation error or timeout in room ${roomId}: ${err.message}. Using Emergency Verbatim Fallback.`);
+      const fallbackTranslations = {};
+      for (const lang of targetLangs) {
+        fallbackTranslations[lang] = spokenText;
+      }
+      fallbackTranslations[sourceLanguage !== 'auto' ? sourceLanguage : 'es'] = spokenText;
+      transResult = {
+        originalText: spokenText,
+        detectedSource: sourceLanguage !== 'auto' ? sourceLanguage : 'auto',
+        engineUsed: 'Emergency Verbatim Fallback',
+        translations: fallbackTranslations
+      };
+    }
+    const transLatency = Date.now() - transStart;
+    const detectedLang = transResult.detectedSource || sourceLanguage || 'auto';
 
     const transcriptItem = {
       id: packetId,
@@ -200,15 +309,7 @@ export class AIPipeline {
     // Broadcast transcript immediately for ultra-fast live captions (<500ms)
     roomManager.addTranscriptItem(roomId, transcriptItem);
 
-    // Step 3: Selective Parallel TTS generation & Audio Distribution
-    // Always synthesize all 4 primary cabins (es, en, it, pt) so audio streams are immediately ready
-    // for headphone booth monitoring and listeners in any language
-    const activeLangs = roomManager.getActiveLanguages(roomId);
-    const targetLangs = Array.from(new Set([
-      'es', 'en', 'it', 'pt',
-      ...activeLangs,
-      ...(forceLanguages || [])
-    ]));
+    // Step 3: Selective Parallel TTS generation & Audio Distribution (Lazy Cabins)
     const ttsStart = Date.now();
 
     const ttsPromises = targetLangs.map(async (lang) => {
@@ -225,7 +326,7 @@ export class AIPipeline {
             text: translatedText,
             audioBase64: audioResult.audioBase64,
             useClientWebSpeech: audioResult.useClientWebSpeech,
-            mimeType: audioResult.mimeType || 'audio/mp3',
+            mimeType: audioResult.mimeType || 'audio/mpeg',
             duration: audioResult.durationMs,
             latencyMs: Date.now() - pipelineStart,
             timestamp: Date.now()
@@ -236,16 +337,20 @@ export class AIPipeline {
       }
     });
 
-    // Dispatch parallel TTS generation without blocking subsequent speech processing indefinitely
-    const ttsExecution = Promise.all(ttsPromises).catch((err) => {
-      console.warn('[AIPipeline] Background TTS error:', err);
-    });
-
-    // Wait at most 1800ms before unblocking the speech queue for the next sentence
-    await Promise.race([
-      ttsExecution,
-      new Promise((resolve) => setTimeout(resolve, 1800))
-    ]);
+    // Wait for parallel TTS synthesis of the current sentence to preserve chronological seqId order
+    // Uses 4500ms safety limit to prevent hangs while avoiding out-of-order packet drops
+    try {
+      await Promise.race([
+        Promise.all(ttsPromises),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TTS_TIMEOUT')), 4500))
+      ]);
+    } catch (ttsErr) {
+      if (ttsErr?.message === 'TTS_TIMEOUT') {
+        console.warn(`[AIPipeline] ⏱️ TTS synthesis timed out for packet ${packetId} (seq ${seqId}) after 4500ms`);
+      } else {
+        console.warn('[AIPipeline] Background TTS error:', ttsErr);
+      }
+    }
 
     const totalPipelineLatency = Date.now() - pipelineStart;
     transcriptItem.metrics.totalMs = totalPipelineLatency;

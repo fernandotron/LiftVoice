@@ -41,17 +41,16 @@ export default function MobileQAPill({
 
   useEffect(() => {
     if (isSheetOpen) {
+      const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       const handleKeyDown = (e) => {
         if (e.key === 'Escape') handleClose();
       };
       window.addEventListener('keydown', handleKeyDown);
       return () => {
-        document.body.style.overflow = '';
+        document.body.style.overflow = originalOverflow;
         window.removeEventListener('keydown', handleKeyDown);
       };
-    } else {
-      document.body.style.overflow = '';
     }
   }, [isSheetOpen]);
 
@@ -142,7 +141,7 @@ export default function MobileQAPill({
             <button
               type="button"
               onClick={handleClose}
-              className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center justify-center cursor-pointer transition-colors shrink-0 -mr-1 mt-0.5"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center justify-center cursor-pointer transition-colors shrink-0 -mr-1 mt-0.5"
               aria-label="Cerrar ventana de preguntas"
             >
               <X className="w-4 h-4" />
@@ -228,7 +227,7 @@ export default function MobileQAPill({
                 desc="El ponente ha recibido tu consulta. Se te notificará cuando se te conceda la palabra."
               />
               {questionText && (
-                <div className="p-3.5 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60 text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium text-left">
+                <div className="p-3.5 rounded-2xl border border-zinc-200/60 dark:border-zinc-700/60 text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium text-left">
                   <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block mb-1">Tu consulta enviada:</span>
                   &ldquo;{questionText}&rdquo;
                 </div>
@@ -246,7 +245,7 @@ export default function MobileQAPill({
                 desc={`Habla en ${langName}. El ponente te escuchará traducido en tiempo real en su auricular.`}
               />
               {questionText && (
-                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-200 leading-relaxed font-medium text-left">
+                <div className="p-3.5 rounded-2xl border border-emerald-500/30 text-xs text-emerald-800 dark:text-emerald-200 leading-relaxed font-medium text-left">
                   <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 block mb-1">Tu consulta:</span>
                   &ldquo;{questionText}&rdquo;
                 </div>
@@ -265,7 +264,7 @@ export default function MobileQAPill({
 
           {/* Form Input for Question: Only shown when idle */}
           {qaState === 'idle' && (
-            <div className="p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-800/40 focus-within:border-zinc-400 dark:focus-within:border-zinc-600 transition-colors shadow-2xs space-y-2 text-left">
+            <div className="p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-transparent focus-within:border-zinc-400 dark:focus-within:border-zinc-600 transition-colors shadow-2xs space-y-2 text-left">
               <div className="flex items-center justify-between">
                 <label htmlFor="mobile-qa-text" className="text-xs block cursor-pointer transition-colors">
                   {isRecording ? (

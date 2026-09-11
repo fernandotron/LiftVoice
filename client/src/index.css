@@ -62,6 +62,8 @@
   --color-primary: var(--color-text-primary);
   --color-secondary: var(--color-text-secondary);
   --color-muted: var(--color-text-muted);
+  --color-zinc-850: #1c1c20;
+  --color-zinc-750: #333338;
 }
 
 @source "../index.html";
@@ -573,4 +575,11 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+@keyframes backdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
+.animate-backdrop-in {
+  animation: backdropIn 0.2s ease-out forwards;
+}

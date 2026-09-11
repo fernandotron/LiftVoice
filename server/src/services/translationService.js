@@ -31,13 +31,13 @@ export const CLINICAL_LEXICON = {
   'ekg': { term: 'EKG', en: 'ECG', es: 'ECG', it: 'ECG', pt: 'ECG' },
   'epoc': { term: 'EPOC', en: 'COPD', es: 'EPOC', it: 'BPCO', pt: 'DPOC' },
   'copd': { term: 'COPD', en: 'COPD', es: 'EPOC', it: 'BPCO', pt: 'DPOC' },
-  'ta': { term: 'TA', en: 'BP (blood pressure)', es: 'TA (tensión arterial)', it: 'PA (pressione arteriosa)', pt: 'PA (pressão arterial)' },
+  'ta': { term: 'TA', en: 'BP', es: 'TA', it: 'PA', pt: 'PA' },
   'bp': { term: 'BP', en: 'BP', es: 'TA', it: 'PA', pt: 'PA' },
-  'fc': { term: 'FC', en: 'HR (heart rate)', es: 'FC (frecuencia cardíaca)', it: 'FC (frequenza cardiaca)', pt: 'FC (frequência cardíaca)' },
+  'fc': { term: 'FC', en: 'HR', es: 'FC', it: 'FC', pt: 'FC' },
   'hr': { term: 'HR', en: 'HR', es: 'FC', it: 'FC', pt: 'FC' },
-  'iam': { term: 'IAM', en: 'AMI (acute myocardial infarction)', es: 'IAM (infarto agudo de miocardio)', it: 'IMA (infarto miocardico acuto)', pt: 'IAM (infarto agudo do miocárdio)' },
+  'iam': { term: 'IAM', en: 'AMI', es: 'IAM', it: 'IMA', pt: 'IAM' },
   'ami': { term: 'AMI', en: 'AMI', es: 'IAM', it: 'IMA', pt: 'IAM' },
-  'pvc': { term: 'PVC', en: 'PVC (premature ventricular contraction)', es: 'CPV', it: 'CPV', pt: 'CPV' },
+  'pvc': { term: 'PVC', en: 'PVC', es: 'CPV', it: 'CPV', pt: 'CPV' },
   'fio2': { term: 'FiO2', en: 'FiO2', es: 'FiO2', it: 'FiO2', pt: 'FiO2' },
   'uci': { term: 'UCI', en: 'ICU', es: 'UCI', it: 'TI', pt: 'UTI' },
   'icu': { term: 'ICU', en: 'ICU', es: 'UCI', it: 'TI', pt: 'UTI' },
@@ -59,7 +59,7 @@ export const CLINICAL_LEXICON = {
   'metformina': { term: 'metformina', en: 'metformin', es: 'metformina', it: 'metformina', pt: 'metformina' },
   'ceftriaxona': { term: 'ceftriaxona', en: 'ceftriaxone', es: 'ceftriaxone', it: 'ceftriaxone', pt: 'ceftriaxona' },
   'amoxicilina': { term: 'amoxicilina', en: 'amoxicillin', es: 'amoxicilina', it: 'amoxicillina', pt: 'amoxicilina' },
-  'clavulanico': { term: 'ácido clavulánico', en: 'clavulanic acid', es: 'ácido clavulánico', it: 'acido clavulanico', pt: 'ácido clavulânico' },
+  'clavulanico': { term: 'ácido clavulánico', en: 'clavulanic acid', es: 'ácido clavulánico', it: 'acido clavulanico', pt: 'ácido clavulánico' },
   'losartan': { term: 'losartán', en: 'losartan', es: 'losartán', it: 'losartan', pt: 'losartana' },
 
   // Key Clinical Pathologies (SNOMED-CT / ICD-11)
@@ -71,38 +71,124 @@ export const CLINICAL_LEXICON = {
   'bradicardia': { term: 'bradicardia', en: 'bradycardia', es: 'bradicardia', it: 'bradicardia', pt: 'bradicardia' },
   'arritmia': { term: 'arritmia', en: 'arrhythmia', es: 'arritmia', it: 'aritmia', pt: 'arritmia' },
   'disnea': { term: 'disnea', en: 'dyspnea', es: 'disnea', it: 'dispnea', pt: 'dispneia' },
-  'cefalea': { term: 'cefalea', en: 'headache / cephalea', es: 'cefalea', it: 'cefalea', pt: 'cefaleia' },
+  'cefalea': { term: 'cefalea', en: 'headache', es: 'cefalea', it: 'cefalea', pt: 'cefaleia' },
   'isquemia': { term: 'isquemia', en: 'ischemia', es: 'isquemia', it: 'ischemia', pt: 'isquemia' }
 };
+
+export const COMMON_COGNATES = new Set([
+  'doctor', 'hospital', 'spo2', 'covid', 'covid-19', 'covid19', 'ecg', 'ekg', 'fio2',
+  'pvc', 'ami', 'cpr', 'icu', 'uci', 'virus', 'shock', 'trauma', 'plasma',
+  'diabetes', 'cancer', 'abdomen', 'colon', 'radio', 'monitor', 'propofol',
+  'midazolam', 'hotel', 'motor', 'bar', 'club', 'idea', 'animal', 'area',
+  'base', 'canal', 'central', 'general', 'natural', 'original', 'simple',
+  'normal', 'total', 'crisis', 'gas', 'metro', 'taxi', 'clínica', 'clinica',
+  'edema', 'sepsis', 'cateter', 'catéter', 'insulina', 'aspirina', 'morfina',
+  'hematoma', 'biopsia', 'coma', 'fentanilo', 'atropina', 'metformina'
+]);
+
+export function isKnownCognateOrAcronym(text) {
+  const clean = (text || '').trim().toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()?"'¡¿]/g, '');
+  if (!clean) return false;
+  if (COMMON_COGNATES.has(clean)) return true;
+  if (CLINICAL_LEXICON[clean]) return true;
+  if (/^(spo2|fio2|ecg|ekg|pvc|ami|rcp|cpr|icu|uci|bp|hr|ta|fc|covid|covid-?19)$/i.test(clean)) return true;
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length > 0 && words.length <= 4 && words.every(w => COMMON_COGNATES.has(w) || CLINICAL_LEXICON[w])) {
+    return true;
+  }
+  return false;
+}
 
 /**
  * Rapidly scans text for clinical terms and matches with custom glossaries (< 0.5ms)
  */
 export function extractDetectedMedicalTerms(text, customGlossary = []) {
   if (!text) return [];
-  const normalized = text.toLowerCase().replace(/[,.?!;:()]/g, ' ');
-  const words = normalized.split(/\s+/).filter(Boolean);
   const found = new Map();
 
+  // 1. Scan single words & terms in CLINICAL_LEXICON
+  const words = text.match(/[\p{L}\p{N}]+/gu) || [];
   for (const word of words) {
-    if (CLINICAL_LEXICON[word]) {
-      found.set(CLINICAL_LEXICON[word].term, CLINICAL_LEXICON[word]);
+    const lower = word.toLowerCase();
+    const stripped = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const entry = CLINICAL_LEXICON[lower] || CLINICAL_LEXICON[stripped];
+    if (entry) {
+      found.set(entry.term, { ...entry });
     }
   }
 
-  // Also check custom conference terms if provided
+  // Also check if any multi-word term in CLINICAL_LEXICON exists in text using word boundaries
+  for (const [key, entry] of Object.entries(CLINICAL_LEXICON)) {
+    if (key.includes(' ') || (entry.term && entry.term.includes(' '))) {
+      const termToMatch = entry.term || key;
+      const escaped = escapeRegExp(termToMatch);
+      const regex = new RegExp(`(?<=^|[^\\p{L}\\p{N}])${escaped}(?=[^\\p{L}\\p{N}]|$)`, 'iu');
+      if (regex.test(text)) {
+        found.set(entry.term, { ...entry });
+      }
+    }
+  }
+
+  // 2. Also check custom conference terms if provided
   if (Array.isArray(customGlossary)) {
     for (const item of customGlossary) {
-      const termStr = typeof item === 'string' ? item.trim() : (item.term || '').trim();
+      const isString = typeof item === 'string';
+      const termStr = (isString ? item : (item?.term || '')).trim();
       if (!termStr) continue;
-      if (normalized.includes(termStr.toLowerCase())) {
+
+      // Use Unicode word boundaries to prevent false positives for substrings
+      const escaped = escapeRegExp(termStr);
+      const wordBoundaryRegex = new RegExp(`(?<=^|[^\\p{L}\\p{N}])${escaped}(?=[^\\p{L}\\p{N}]|$)`, 'iu');
+      if (!wordBoundaryRegex.test(text)) {
+        continue;
+      }
+
+      // Check if term already exists in CLINICAL_LEXICON
+      const lower = termStr.toLowerCase();
+      const stripped = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const lexiconEntry = CLINICAL_LEXICON[lower] || CLINICAL_LEXICON[stripped];
+
+      const hasMultilingual = !isString && Boolean(item.en || item.es || item.it || item.pt);
+
+      if (lexiconEntry) {
+        // If user provides custom multilingual translations, allow them to augment
+        // Otherwise preserve the rich CLINICAL_LEXICON translations (so Spanish isn't forced to EN/IT/PT)
+        if (hasMultilingual) {
+          found.set(lexiconEntry.term, {
+            ...lexiconEntry,
+            term: item.term || lexiconEntry.term,
+            en: item.en || lexiconEntry.en,
+            es: item.es || lexiconEntry.es,
+            it: item.it || lexiconEntry.it,
+            pt: item.pt || lexiconEntry.pt,
+            isTermHintOnly: false
+          });
+        } else {
+          found.set(lexiconEntry.term, { ...lexiconEntry });
+        }
+      } else if (hasMultilingual) {
         found.set(termStr, {
           term: termStr,
-          en: typeof item === 'object' && item.en ? item.en : termStr,
-          es: typeof item === 'object' && item.es ? item.es : termStr,
-          it: typeof item === 'object' && item.it ? item.it : termStr,
-          pt: typeof item === 'object' && item.pt ? item.pt : termStr
+          en: item.en || undefined,
+          es: item.es || undefined,
+          it: item.it || undefined,
+          pt: item.pt || undefined,
+          isTermHintOnly: false
         });
+      } else {
+        // String simple or object without translations: treat as term hint only
+        // Do not degrade or force Spanish into EN/IT/PT cabins
+        const existing = found.get(termStr);
+        if (!existing) {
+          found.set(termStr, {
+            term: termStr,
+            en: undefined,
+            es: undefined,
+            it: undefined,
+            pt: undefined,
+            isTermHintOnly: true
+          });
+        }
       }
     }
   }
@@ -114,46 +200,295 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+export function makeDiacriticFlexiblePattern(string) {
+  const diacriticMap = {
+    'a': '[aáàâäãåā]',
+    'e': '[eéèêëē]',
+    'i': '[iíìîïī]',
+    'o': '[oóòôöõō]',
+    'u': '[uúùûüū]',
+    'c': '[cç]',
+    'n': '[nñ]'
+  };
+  const stripped = (string || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  let pattern = '';
+  for (const ch of stripped) {
+    const lower = ch.toLowerCase();
+    if (diacriticMap[lower]) {
+      pattern += diacriticMap[lower];
+    } else {
+      pattern += escapeRegExp(ch);
+    }
+  }
+  return pattern;
+}
+
+export function buildSecureGlossaryInstructions(detectedTerms = []) {
+  if (!detectedTerms || detectedTerms.length === 0) return '';
+  const formatted = [];
+  for (const t of detectedTerms) {
+    if (t.isTermHintOnly) {
+      formatted.push(`- Term hint: ${JSON.stringify(t.term || '')}`);
+      continue;
+    }
+    const term = JSON.stringify(t.term || '');
+    const parts = [];
+    if (t.en) parts.push(`EN=${JSON.stringify(t.en)}`);
+    if (t.es) parts.push(`ES=${JSON.stringify(t.es)}`);
+    if (t.it) parts.push(`IT=${JSON.stringify(t.it)}`);
+    if (t.pt) parts.push(`PT=${JSON.stringify(t.pt)}`);
+    if (parts.length > 0) {
+      formatted.push(`- ${term}: ${parts.join(', ')}`);
+    } else {
+      formatted.push(`- Term hint: ${term}`);
+    }
+  }
+  if (formatted.length === 0) return '';
+  return `\nMANDATORY CLINICAL GLOSSARY RESTRICTIONS:\n` + formatted.join('\n');
+}
+
+/**
+ * Lightweight LRU Translation Cache (Max 1000 entries, 20-minute TTL)
+ */
+export class TranslationLRUCache {
+  constructor(maxSize = 1000, ttlMs = 20 * 60 * 1000) {
+    this.maxSize = maxSize;
+    this.ttlMs = ttlMs;
+    this.cache = new Map();
+  }
+
+  _parseRoomAndMode(arg1, arg2) {
+    let roomId = 'GLOBAL';
+    let medicalMode = false;
+    if (typeof arg1 === 'object' && arg1 !== null) {
+      roomId = (arg1.roomId || 'GLOBAL').trim().toUpperCase();
+      medicalMode = Boolean(arg1.medicalMode);
+    } else {
+      if (typeof arg1 === 'boolean') {
+        medicalMode = arg1;
+        if (typeof arg2 === 'string') roomId = (arg2 || 'GLOBAL').trim().toUpperCase();
+      } else if (typeof arg1 === 'string') {
+        roomId = (arg1 || 'GLOBAL').trim().toUpperCase();
+        if (typeof arg2 === 'boolean') medicalMode = arg2;
+      }
+      if (typeof arg2 === 'boolean') medicalMode = arg2;
+      else if (typeof arg2 === 'string') roomId = (arg2 || 'GLOBAL').trim().toUpperCase();
+    }
+    return { roomId: roomId || 'GLOBAL', medicalMode: Boolean(medicalMode) };
+  }
+
+  _makeKey(text, source, specialty, glossary = [], arg1 = 'global', arg2 = false) {
+    const { roomId, medicalMode } = this._parseRoomAndMode(arg1, arg2);
+    const safeRoomId = (roomId || 'global').trim().toUpperCase();
+    const medFlag = `med:${Boolean(medicalMode)}`;
+    const normText = (text || '').toLowerCase().trim();
+    const glossaryKey = Array.isArray(glossary)
+      ? glossary.map(g => typeof g === 'string' ? g : (g.term || '')).sort().join(',')
+      : '';
+    return `${safeRoomId}:${medFlag}:${source || 'auto'}:${specialty || 'general'}:${glossaryKey}:${normText}`;
+  }
+
+  get(text, source, specialty, glossary, arg1 = 'global', arg2 = false) {
+    const { roomId, medicalMode } = this._parseRoomAndMode(arg1, arg2);
+    const key = this._makeKey(text, source, specialty, glossary, roomId, medicalMode);
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp > this.ttlMs) {
+      this.cache.delete(key);
+      return null;
+    }
+    // Refresh MRU position
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+    try {
+      return JSON.parse(JSON.stringify(entry.value));
+    } catch (e) {
+      return entry.value;
+    }
+  }
+
+  set(text, source, specialty, glossary, value, arg1 = 'global', arg2 = false) {
+    const { roomId, medicalMode } = this._parseRoomAndMode(arg1, arg2);
+    const key = this._makeKey(text, source, specialty, glossary, roomId, medicalMode);
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      // Evict oldest entry
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+    let storedValue = value;
+    try {
+      storedValue = JSON.parse(JSON.stringify(value));
+    } catch (e) {}
+    this.cache.set(key, { value: storedValue, timestamp: Date.now() });
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
 /**
  * Post-processes translations to guarantee that clinical abbreviations (SpO2, ECG, etc.)
- * maintain canonical uppercase formatting regardless of translation engine
+ * maintain canonical formatting and DCI drug names are accurately matched
  */
 export function postProcessClinicalTerms(translations, detectedTerms = []) {
-  if (!translations || detectedTerms.length === 0) return translations;
+  if (!translations) return translations;
   const processed = { ...translations };
 
-  for (const item of detectedTerms) {
-    for (const lang of Object.keys(processed)) {
-      if (processed[lang] && item[lang]) {
-        // Enforce exact case on standard acronyms like SpO2, ECG, EPOC, IAM
-        if (item[lang].toUpperCase() === item[lang] || item[lang] === 'SpO2' || item[lang] === 'FiO2') {
-          const escaped = escapeRegExp(item[lang]);
-          const regex = new RegExp(`(?<!\\w)${escaped}(?!\\w)`, 'gi');
-          processed[lang] = processed[lang].replace(regex, item[lang]);
+  if (Array.isArray(detectedTerms) && detectedTerms.length > 0) {
+    for (const item of detectedTerms) {
+      if (item.isTermHintOnly) continue;
+
+      for (const lang of Object.keys(processed)) {
+        if (typeof processed[lang] !== 'string') continue;
+        const targetReplacement = item[lang];
+        if (!targetReplacement) continue;
+
+        // Collect all variants of this clinical term (canonical term and translations in other languages)
+        const variants = new Set();
+        if (item.term) variants.add(item.term.trim());
+        if (item.es) variants.add(item.es.trim());
+        if (item.en) variants.add(item.en.trim());
+        if (item.it) variants.add(item.it.trim());
+        if (item.pt) variants.add(item.pt.trim());
+
+        // Sort descending by length so longer phrases match before sub-parts
+        const sortedVariants = Array.from(variants)
+          .filter(v => typeof v === 'string' && v.trim().length > 0)
+          .sort((a, b) => b.length - a.length);
+
+        for (const variant of sortedVariants) {
+          const diacriticPattern = makeDiacriticFlexiblePattern(variant);
+          const regex = new RegExp(`(?<=^|[^\\p{L}\\p{N}])${diacriticPattern}(?=[^\\p{L}\\p{N}]|$)`, 'giu');
+
+          processed[lang] = processed[lang].replace(regex, (match, offset, str) => {
+            // Determine replacement preserving initial capitalization if match starts with uppercase
+            let replacement = targetReplacement;
+            if (/^\p{Lu}/u.test(match)) {
+              replacement = replacement.charAt(0).toUpperCase() + replacement.slice(1);
+            }
+
+            // If already exact replacement, keep it
+            if (match === replacement) return match;
+
+            // If replacement has a parenthetical suffix, e.g. "BP (blood pressure)"
+            const parenMatch = replacement.match(/^(.+?)\s*(\([^)]+\))$/);
+            if (parenMatch) {
+              const [, baseTerm, parenPart] = parenMatch;
+              const afterText = str.slice(offset + match.length).trimStart();
+              if (afterText.toLowerCase().startsWith(parenPart.toLowerCase())) {
+                // The subsequent text already has the parenthetical! Do not duplicate it
+                return /^\p{Lu}/u.test(match) ? (baseTerm.charAt(0).toUpperCase() + baseTerm.slice(1)) : baseTerm;
+              }
+            }
+
+            // Prevent duplicating parenthetical suffix if text already starts with replacement at offset
+            if (str.slice(offset).toLowerCase().startsWith(replacement.toLowerCase())) {
+              return match;
+            }
+
+            return replacement;
+          });
         }
       }
+    }
+  }
+
+  // Universal normalization for clinical acronyms across all cabins
+  const universalAcronyms = [
+    { regex: /(?<=^|[^\p{L}\p{N}])(?:spo2|sat\s*o2|sato2)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'SpO2' },
+    { regex: /(?<=^|[^\p{L}\p{N}])fio2(?=[^\p{L}\p{N}]|$)/giu, replacement: 'FiO2' },
+    { regex: /(?<=^|[^\p{L}\p{N}])(?:ecg|ekg)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'ECG' }
+  ];
+
+  // Cabin-specific concise clinical acronym normalization optimized for TTS
+  const cabinAcronyms = {
+    en: [
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:ta|bp)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'BP' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:fc|hr)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'HR' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:epoc|copd|bpco|dpoc)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'COPD' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:iam|ami|ima)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'AMI' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:rcp|cpr)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'CPR' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:uci|icu)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'ICU' }
+    ],
+    es: [
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:ta|bp|pa)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'TA' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:fc|hr)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'FC' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:epoc|copd|bpco|dpoc)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'EPOC' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:iam|ami|ima)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'IAM' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:rcp|cpr)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'RCP' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:uci|icu|uti)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'UCI' }
+    ],
+    it: [
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:ta|bp|pa)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'PA' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:fc|hr)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'FC' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:epoc|copd|bpco|dpoc)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'BPCO' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:iam|ami|ima)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'IMA' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:rcp|cpr)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'RCP' }
+    ],
+    pt: [
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:ta|bp|pa)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'PA' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:fc|hr)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'FC' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:epoc|copd|bpco|dpoc)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'DPOC' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:iam|ami|ima)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'IAM' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:rcp|cpr)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'RCP' },
+      { regex: /(?<=^|[^\p{L}\p{N}])(?:uci|icu|uti)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'UTI' }
+    ]
+  };
+
+  for (const lang of Object.keys(processed)) {
+    if (typeof processed[lang] === 'string') {
+      // Apply universal acronyms
+      for (const { regex, replacement } of universalAcronyms) {
+        processed[lang] = processed[lang].replace(regex, replacement);
+      }
+
+      // Apply cabin-specific acronyms
+      const langRules = cabinAcronyms[lang];
+      if (langRules) {
+        for (const { regex, replacement } of langRules) {
+          processed[lang] = processed[lang].replace(regex, replacement);
+        }
+      }
+
+      // Safeguard against duplicate parenthetical phrases like "BP (blood pressure) (blood pressure)"
+      processed[lang] = processed[lang].replace(/(\([^)]+\))\s*\1+/giu, '$1');
+      processed[lang] = processed[lang].replace(/\b(BP|TA|PA|HR|FC|AMI|IAM)\s*\(([^)]+)\)\s*\(\2\)/giu, '$1 ($2)');
     }
   }
 
   return processed;
 }
 
+export function sanitizeMedicalSpecialty(specialty) {
+  if (!specialty || typeof specialty !== 'string') return 'general';
+  const clean = specialty.trim().toLowerCase();
+  const ALLOWED_SPECIALTIES = new Set([
+    'general', 'cardiology', 'pharmacology', 'surgery', 'neurology',
+    'pediatrics', 'oncology', 'intensive_care', 'icu', 'emergency',
+    'anesthesiology', 'radiology', 'psychiatry', 'internal_medicine',
+    'orthopedics', 'pulmonology', 'nephrology', 'gastroenterology', 'dermatology'
+  ]);
+  if (ALLOWED_SPECIALTIES.has(clean)) return clean;
+  if (/^[a-z0-9_-]{2,30}$/i.test(clean)) return clean;
+  return 'general';
+}
+
 /**
  * Builds high-fidelity clinical prompt for Qwen 3.8 / 2.5
  */
 export function buildQwenMedicalPrompt(speechText, detectedTerms = [], contextHistory = '', medicalSpecialty = 'general') {
-  let glossaryRule = '';
-  if (detectedTerms && detectedTerms.length > 0) {
-    glossaryRule = `\nMANDATORY CLINICAL GLOSSARY RESTRICTIONS:\n` +
-      detectedTerms.map(t => `- "${t.term}": EN="${t.en}", ES="${t.es}", IT="${t.it}", PT="${t.pt}"`).join('\n');
-  }
+  const safeSpecialty = sanitizeMedicalSpecialty(medicalSpecialty);
 
-  let contextSnippet = '';
-  if (contextHistory) {
-    contextSnippet = `\nPREVIOUS SPOKEN CONTEXT (for coreference, pronoun resolution, and clinical continuity):\n"${contextHistory}"\n`;
-  }
+  const glossaryRule = buildSecureGlossaryInstructions(detectedTerms);
+  const safeContextHistory = typeof contextHistory === 'string' ? contextHistory.trim() : '';
+  const contextSnippet = safeContextHistory
+    ? `\nPREVIOUS SPOKEN CONTEXT (for coreference, pronoun resolution, and clinical continuity):\n${JSON.stringify(safeContextHistory)}\n`
+    : '';
 
-  return `You are Alibaba Qwen 3.8 (Sept 2026), the world's leading open-weights simultaneous medical interpreter specialized in clinical medicine (${medicalSpecialty}), pharmacology, ICD-11, and SNOMED-CT.
+  return `You are Alibaba Qwen 3.8 (Sept 2026), the world's leading open-weights simultaneous medical interpreter specialized in clinical medicine (${safeSpecialty}), pharmacology, ICD-11, and SNOMED-CT.
 Accurately and idiomatically translate the live spoken text into English (en), Spanish (es), Italian (it), and Portuguese (pt).
 
 CRITICAL MEDICAL & CLINICAL RULES:
@@ -162,7 +497,7 @@ CRITICAL MEDICAL & CLINICAL RULES:
 3. ICD-11 & SNOMED-CT Fidelity: Maintain clinical nomenclature (e.g. "dyspnea", "acute myocardial infarction", "cholecystectomy"). Do not trivialize into overly colloquial slang.
 4. Natural Spoken Rhythm: Ensure fluent phrasing suitable for real-time Text-to-Speech audio streaming.${glossaryRule}${contextSnippet}
 
-Input text: "${speechText}"
+Input text: ${JSON.stringify(speechText)}
 
 Respond ONLY with valid JSON in this exact structure:
 {
@@ -180,19 +515,36 @@ export class TranslationService {
   constructor(config = {}) {
     this.openaiApiKey = config.openaiApiKey || process.env.OPENAI_API_KEY || '';
     this.deeplApiKey = config.deeplApiKey || process.env.DEEPL_API_KEY || '';
+    this.geminiApiKey = config.geminiApiKey || process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || '';
+    this.geminiModel = config.geminiModel || 'google/gemini-3.1-flash-lite';
     this.qwenApiKey = config.qwenApiKey || process.env.DASHSCOPE_API_KEY || process.env.OPENROUTER_API_KEY || '';
     this.qwenModel = config.qwenModel || 'qwen/qwen-3.8-27b';
     this.qwenEndpoint = config.qwenEndpoint || process.env.QWEN_ENDPOINT || '';
-    this.preferredEngine = config.preferredEngine || 'auto'; // 'qwen' | 'openai' | 'google' | 'auto'
+    this.preferredEngine = config.preferredEngine || 'gemini'; // 'gemini' | 'qwen' | 'openai' | 'google' | 'auto'
 
     // Medical Mode & Clinical Glossary configuration
     this.medicalMode = Boolean(config.medicalMode || process.env.MEDICAL_MODE === 'true');
     this.medicalSpecialty = config.medicalSpecialty || 'general'; // 'general' | 'cardiology' | 'pharmacology' | 'surgery'
     this.customGlossary = Array.isArray(config.customGlossary) ? config.customGlossary : [];
+
+    // High-performance LRU cache (1000 entries, 20 min TTL)
+    this.cache = new TranslationLRUCache(1000, 20 * 60 * 1000);
   }
 
   setApiKey(key) {
     this.openaiApiKey = key;
+  }
+
+  setDeeplConfig({ apiKey }) {
+    if (apiKey !== undefined) this.deeplApiKey = apiKey;
+    console.log(`[TranslationService] 🌐 DeepL configured (Key: ${this.deeplApiKey ? 'SET' : 'NONE'})`);
+  }
+
+  setGeminiConfig({ apiKey, model, preferredEngine }) {
+    if (apiKey !== undefined) this.geminiApiKey = apiKey;
+    if (model !== undefined) this.geminiModel = model;
+    if (preferredEngine !== undefined) this.preferredEngine = preferredEngine;
+    console.log(`[TranslationService] ⚡ Google Gemini 3.1 Flash-Lite configured (Model: ${this.geminiModel || 'google/gemini-3.1-flash-lite'}, Engine: ${this.preferredEngine})`);
   }
 
   setMedicalConfig({ medicalMode, medicalSpecialty, customGlossary }) {
@@ -232,10 +584,21 @@ export class TranslationService {
       };
     }
 
+    const roomId = options.roomId || 'global';
     const isMedical = options.medicalMode !== undefined ? Boolean(options.medicalMode) : this.medicalMode;
     const specialty = options.medicalSpecialty || this.medicalSpecialty || 'general';
     const customGlossary = options.customGlossary || this.customGlossary || [];
     const contextHistory = options.contextHistory || '';
+
+    // Check LRU cache first for instant hits (<0.2ms)
+    const cached = this.cache.get(cleanText, detectedSource, specialty, customGlossary, roomId, isMedical);
+    if (cached) {
+      return {
+        ...cached,
+        latencyMs: Date.now() - startTime,
+        engineUsed: `${cached.engineUsed} (Cached)`
+      };
+    }
 
     // Extract clinical terms & custom abbreviations in <0.5ms
     const detectedTerms = extractDetectedMedicalTerms(cleanText, customGlossary);
@@ -246,59 +609,101 @@ export class TranslationService {
     const engine = this.preferredEngine || 'auto';
     let result = null;
 
-    // Route A: User explicitly chose Google Neural (Instant, free, no API key needed)
-    if (engine === 'google') {
-      try {
-        result = await this.translateWithFreeEngine(cleanText, detectedSource);
-        result.latencyMs = Date.now() - startTime;
-        result.engineUsed = 'Google Neural Universal';
-      } catch (err) {
-        console.warn('[TranslationService] Google engine failed, falling back:', err.message);
-      }
-    }
-
-    // Route B: User chose Alibaba Qwen 3.8 OR auto with Qwen key
+    const hasDeeplKey = Boolean(this.deeplApiKey || process.env.DEEPL_API_KEY);
+    const hasGeminiKey = Boolean(this.geminiApiKey || process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY);
     const hasQwenKey = Boolean(this.qwenApiKey || (this.qwenEndpoint && (this.qwenEndpoint.includes('localhost') || this.qwenEndpoint.includes('127.0.0.1'))));
-    if (!result && (engine === 'qwen' || (engine === 'auto' && hasQwenKey)) && hasQwenKey) {
-      try {
-        result = await this.translateWithQwen(cleanText, detectedSource, {
-          detectedTerms,
-          medicalMode: isMedical,
-          medicalSpecialty: specialty,
-          contextHistory
-        });
-        result.latencyMs = Date.now() - startTime;
-        result.engineUsed = isMedical ? 'Alibaba Qwen 3.8 (Clinical)' : 'Alibaba Qwen 3.8 (Sept 2026)';
-        console.log(`[TranslationService] ⚡ Translated with Alibaba Qwen in ${result.latencyMs}ms`);
-      } catch (err) {
-        console.warn('[TranslationService] Alibaba Qwen 3.8 translation error, falling back:', err.message);
-      }
-    }
+    const hasOpenaiKey = Boolean(this.openaiApiKey || process.env.OPENAI_API_KEY);
 
-    // Route C: User chose OpenAI GPT-4o-mini OR auto with OpenAI key
-    if (!result && (engine === 'openai' || (engine === 'auto' && this.openaiApiKey))) {
-      try {
-        result = await this.translateWithOpenAI(cleanText, detectedSource, {
-          detectedTerms,
-          medicalMode: isMedical,
-          medicalSpecialty: specialty,
-          contextHistory
-        });
-        result.latencyMs = Date.now() - startTime;
-        result.engineUsed = isMedical ? 'OpenAI GPT-4o-mini (Clinical)' : 'OpenAI GPT-4o-mini';
-      } catch (err) {
-        console.warn('[TranslationService] OpenAI translation failed, falling back:', err.message);
-      }
+    // Build hierarchical execution order: preferred engine first, then: DeepL -> Gemini -> Qwen -> OpenAI -> Google Free
+    const candidateEngines = [];
+    if (engine && engine !== 'auto') {
+      candidateEngines.push(engine);
     }
+    ['deepl', 'gemini', 'qwen', 'openai', 'google'].forEach(eng => {
+      if (!candidateEngines.includes(eng)) {
+        candidateEngines.push(eng);
+      }
+    });
 
-    // Default Fallback: Ultra-Fast Free Web Translation Engine (Google Neural with sl=auto)
-    if (!result) {
-      try {
-        result = await this.translateWithFreeEngine(cleanText, detectedSource);
-        result.latencyMs = Date.now() - startTime;
-        result.engineUsed = 'Google Neural Universal';
-      } catch (err) {
-        console.warn('[TranslationService] Free engine fallback failed, using built-in matcher:', err.message);
+    for (const eng of candidateEngines) {
+      if (result) break;
+
+      // 1. DeepL API
+      if (eng === 'deepl' && hasDeeplKey) {
+        try {
+          result = await this.translateWithDeepL(cleanText, detectedSource, {
+            detectedTerms,
+            medicalMode: isMedical,
+            medicalSpecialty: specialty,
+            contextHistory
+          });
+          result.latencyMs = Date.now() - startTime;
+          result.engineUsed = 'DeepL API';
+          console.log(`[TranslationService] ⚡ Translated with DeepL in ${result.latencyMs}ms`);
+        } catch (err) {
+          console.warn('[TranslationService] DeepL translation error, falling back:', err.message);
+        }
+      }
+
+      // 2. Google Gemini 3.1 Flash-Lite
+      else if (eng === 'gemini' && hasGeminiKey) {
+        try {
+          result = await this.translateWithGemini(cleanText, detectedSource, {
+            detectedTerms,
+            medicalMode: isMedical,
+            medicalSpecialty: specialty,
+            contextHistory
+          });
+          result.latencyMs = Date.now() - startTime;
+          result.engineUsed = isMedical ? 'Google Gemini 3.1 Flash-Lite (Clinical)' : 'Google Gemini 3.1 Flash-Lite';
+          console.log(`[TranslationService] ⚡ Translated with Gemini 3.1 Flash-Lite in ${result.latencyMs}ms`);
+        } catch (err) {
+          console.warn('[TranslationService] Gemini 3.1 Flash-Lite translation error, falling back:', err.message);
+        }
+      }
+
+      // 3. Alibaba Qwen 3.8
+      else if (eng === 'qwen' && hasQwenKey) {
+        try {
+          result = await this.translateWithQwen(cleanText, detectedSource, {
+            detectedTerms,
+            medicalMode: isMedical,
+            medicalSpecialty: specialty,
+            contextHistory
+          });
+          result.latencyMs = Date.now() - startTime;
+          result.engineUsed = isMedical ? 'Alibaba Qwen 3.8 (Clinical)' : 'Alibaba Qwen 3.8 (Sept 2026)';
+          console.log(`[TranslationService] ⚡ Translated with Alibaba Qwen in ${result.latencyMs}ms`);
+        } catch (err) {
+          console.warn('[TranslationService] Alibaba Qwen 3.8 translation error, falling back:', err.message);
+        }
+      }
+
+      // 4. OpenAI GPT-4o-mini
+      else if (eng === 'openai' && hasOpenaiKey) {
+        try {
+          result = await this.translateWithOpenAI(cleanText, detectedSource, {
+            detectedTerms,
+            medicalMode: isMedical,
+            medicalSpecialty: specialty,
+            contextHistory
+          });
+          result.latencyMs = Date.now() - startTime;
+          result.engineUsed = isMedical ? 'OpenAI GPT-4o-mini (Clinical)' : 'OpenAI GPT-4o-mini';
+        } catch (err) {
+          console.warn('[TranslationService] OpenAI translation failed, falling back:', err.message);
+        }
+      }
+
+      // 5. Google Neural Universal (Instant, free, no API key required)
+      else if (eng === 'google' || eng === 'google_free') {
+        try {
+          result = await this.translateWithFreeEngine(cleanText, detectedSource);
+          result.latencyMs = Date.now() - startTime;
+          result.engineUsed = 'Google Neural Universal';
+        } catch (err) {
+          console.warn('[TranslationService] Google Neural translation failed, falling back:', err.message);
+        }
       }
     }
 
@@ -308,16 +713,246 @@ export class TranslationService {
       result.engineUsed = 'Offline Fallback';
     }
 
+    // Identity short-circuit: speaker's source language must match the cleanText verbatim
+    const realSource = (result.detectedSource || detectedSource || 'es').slice(0, 2).toLowerCase();
+    if (result && result.translations && result.translations[realSource] !== undefined) {
+      result.translations[realSource] = cleanText;
+    }
+
     // Post-process to guarantee canonical uppercase for medical acronyms
     if (detectedTerms.length > 0 && result && result.translations) {
       result.translations = postProcessClinicalTerms(result.translations, detectedTerms);
     }
 
+    // Save to LRU Cache for subsequent calls
+    if (result && result.translations) {
+      this.cache.set(cleanText, detectedSource, specialty, customGlossary, result, roomId, isMedical);
+    }
+
     return result;
+  }
+
+  /**
+   * DeepL Simultaneous Translation Engine (api.deepl.com or api-free.deepl.com)
+   * High-accuracy translations into [EN-US, ES, IT, PT-BR] with 2800ms timeout
+   */
+  async translateWithDeepL(text, detectedSource, options = {}) {
+    const key = (this.deeplApiKey || process.env.DEEPL_API_KEY || '').trim();
+    if (!key) {
+      throw new Error('No API key configured for DeepL. Please configure your key in Settings.');
+    }
+
+    const isFreeKey = key.endsWith(':fx') || key.endsWith(':FX');
+    const endpoint = isFreeKey
+      ? 'https://api-free.deepl.com/v2/translate'
+      : 'https://api.deepl.com/v2/translate';
+
+    const targetLangMap = {
+      en: 'EN-US',
+      es: 'ES',
+      it: 'IT',
+      pt: 'PT-BR'
+    };
+
+    const sourceLangMap = {
+      en: 'EN',
+      es: 'ES',
+      it: 'IT',
+      pt: 'PT'
+    };
+
+    const targets = options.targets || ['en', 'es', 'it', 'pt'];
+    const translations = {};
+    let realDetectedSource = (detectedSource && detectedSource !== 'auto')
+      ? detectedSource.slice(0, 2).toLowerCase()
+      : null;
+
+    const normSourceCode = realDetectedSource ? sourceLangMap[realDetectedSource] : null;
+
+    await Promise.all(
+      targets.map(async (target) => {
+        // Identity short-circuit if target matches detected source
+        if (realDetectedSource && target === realDetectedSource) {
+          translations[target] = text;
+          return;
+        }
+
+        const deepLTarget = targetLangMap[target];
+        if (!deepLTarget) {
+          translations[target] = text;
+          return;
+        }
+
+        const payload = {
+          text: [text],
+          target_lang: deepLTarget
+        };
+        if (normSourceCode) {
+          payload.source_lang = normSourceCode;
+        }
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `DeepL-Auth-Key ${key}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(2800)
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`DeepL API error ${res.status}: ${errText}`);
+        }
+
+        const data = await res.json();
+        const translatedText = data.translations?.[0]?.text;
+        const detected = data.translations?.[0]?.detected_source_language?.toLowerCase();
+        if (detected && !realDetectedSource) {
+          realDetectedSource = detected;
+        }
+
+        translations[target] = translatedText || text;
+      })
+    );
+
+    // Fallback for any missing targets
+    for (const t of targets) {
+      if (!translations[t]) translations[t] = text;
+    }
+
+    return {
+      detectedSource: realDetectedSource || detectedSource || 'auto',
+      translations
+    };
+  }
+
+  async translateWithGemini(text, detectedSource, options = {}) {
+    const key = this.geminiApiKey || process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || '';
+    if (!key) {
+      throw new Error('No API key provided for Google Gemini (Google AI Studio or OpenRouter). Please configure in Settings.');
+    }
+
+    const { detectedTerms = [], medicalMode = false, medicalSpecialty = 'general', contextHistory = '' } = options;
+
+    const safeSpecialty = sanitizeMedicalSpecialty(medicalSpecialty);
+
+    const glossaryRule = buildSecureGlossaryInstructions(detectedTerms);
+    const safeContextHistory = typeof contextHistory === 'string' ? contextHistory.trim() : '';
+    const contextSnippet = safeContextHistory
+      ? `\nPREVIOUS SPOKEN CONTEXT:\n${JSON.stringify(safeContextHistory)}\n`
+      : '';
+
+    const systemPrompt = `You are Google Gemini 3.1 Flash-Lite (Sept 2026), an ultra-low latency simultaneous conference interpreter${medicalMode ? ` specialized in clinical medicine (${safeSpecialty})` : ''}.
+Translate the live spoken text accurately and naturally into English (en), Spanish (es), Italian (it), and Portuguese (pt).
+Maintain natural conversational rhythm suitable for real-time speech synthesis.${glossaryRule}${contextSnippet}
+
+Input text: ${JSON.stringify(text)}
+
+Respond ONLY with valid JSON in this exact structure:
+{
+  "detectedSource": "en" (or "es", "it", "pt"),
+  "translations": {
+    "en": "English translation",
+    "es": "Spanish translation",
+    "it": "Italian translation",
+    "pt": "Portuguese translation"
+  }
+}`;
+
+    const isGoogleStudio = key.startsWith('AIza');
+    let endpoint;
+    let headers = { 'Content-Type': 'application/json' };
+    let body;
+
+    if (isGoogleStudio) {
+      let studioModel = this.geminiModel ? this.geminiModel.replace(/^google\//, '') : 'gemini-2.0-flash';
+      if (!studioModel.startsWith('gemini-')) studioModel = 'gemini-2.0-flash';
+      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${studioModel}:generateContent?key=${key}`;
+      body = JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: systemPrompt }] }],
+        generationConfig: {
+          response_mime_type: 'application/json',
+          temperature: 0.2,
+          maxOutputTokens: 500
+        }
+      });
+    } else {
+      endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+      headers['Authorization'] = `Bearer ${key}`;
+      headers['HTTP-Referer'] = 'https://liftvoice.ai';
+      headers['X-Title'] = 'LiftVoice Simultaneous';
+      body = JSON.stringify({
+        model: this.geminiModel || 'google/gemini-3.1-flash-lite',
+        messages: [{ role: 'user', content: systemPrompt }],
+        temperature: 0.2,
+        max_tokens: 500
+      });
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body,
+      signal: AbortSignal.timeout(2800)
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Gemini API error ${res.status}: ${errText}`);
+    }
+
+    const data = await res.json();
+    let rawContent = '{}';
+    if (isGoogleStudio) {
+      rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    } else {
+      rawContent = data.choices?.[0]?.message?.content || '{}';
+    }
+
+    const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+    const jsonClean = jsonMatch ? jsonMatch[0] : rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonClean);
+    } catch (e) {
+      throw new Error(`[TranslationService] Gemini JSON parsing failed: ${e.message}`);
+    }
+
+    if (!parsed || typeof parsed.translations !== 'object' || Object.keys(parsed.translations).length === 0) {
+      throw new Error('[TranslationService] Gemini returned no translations in JSON');
+    }
+
+    const defaultTranslations = {
+      en: text, es: text, it: text, pt: text
+    };
+
+    return {
+      detectedSource: parsed.detectedSource || detectedSource || 'auto',
+      translations: {
+        ...defaultTranslations,
+        ...parsed.translations
+      }
+    };
   }
 
   async translateWithQwen(text, detectedSource, options = {}) {
     const customEndpoint = (this.qwenEndpoint || process.env.QWEN_ENDPOINT || '').trim();
+    if (customEndpoint) {
+      try {
+        const u = new URL(customEndpoint);
+        if (!['http:', 'https:'].includes(u.protocol)) {
+          throw new Error('Protocol must be http: or https:');
+        }
+        const host = u.hostname.toLowerCase();
+        if (host === '169.254.169.254' || host === 'metadata.google.internal' || host.endsWith('.internal')) {
+          throw new Error('Cloud metadata endpoints are prohibited');
+        }
+      } catch (e) {
+        throw new Error(`Invalid Qwen endpoint: ${e.message}`);
+      }
+    }
     const key = this.qwenApiKey || process.env.DASHSCOPE_API_KEY || process.env.OPENROUTER_API_KEY || '';
     const isLocal = customEndpoint && (customEndpoint.includes('localhost') || customEndpoint.includes('127.0.0.1'));
 
@@ -349,16 +984,19 @@ export class TranslationService {
 
     const { detectedTerms = [], medicalMode = false, medicalSpecialty = 'general', contextHistory = '' } = options;
 
+    const safeSpecialty = sanitizeMedicalSpecialty(medicalSpecialty);
+
     let systemPrompt;
     if (medicalMode || detectedTerms.length > 0) {
-      systemPrompt = buildQwenMedicalPrompt(text, detectedTerms, contextHistory, medicalSpecialty);
+      systemPrompt = buildQwenMedicalPrompt(text, detectedTerms, contextHistory, safeSpecialty);
     } else {
-      let contextLine = contextHistory ? `\nContext: "${contextHistory}"\n` : '';
+      const safeContext = typeof contextHistory === 'string' ? contextHistory.trim() : '';
+      const contextLine = safeContext ? `\nContext: ${JSON.stringify(safeContext)}\n` : '';
       systemPrompt = `You are Alibaba Qwen 3.8 (Sept 2026), the world's leading open-weights simultaneous conference interpreter.
 Accurately and idiomatically translate the spoken text into English (en), Spanish (es), Italian (it), and Portuguese (pt).
 Maintain natural conversational spoken rhythm.${contextLine}
 
-Input text: "${text}"
+Input text: ${JSON.stringify(text)}
 
 Respond ONLY with valid JSON in this exact structure:
 {
@@ -390,9 +1028,9 @@ Respond ONLY with valid JSON in this exact structure:
         model,
         messages: [{ role: 'user', content: systemPrompt }],
         temperature: 0.2,
-        max_tokens: 300
+        max_tokens: 500
       }),
-      signal: AbortSignal.timeout(5500)
+      signal: AbortSignal.timeout(2800)
     });
 
     if (!res.ok) {
@@ -401,48 +1039,50 @@ Respond ONLY with valid JSON in this exact structure:
     }
 
     const data = await res.json();
-    const rawContent = data.choices[0]?.message?.content || '{}';
+    const rawContent = data.choices?.[0]?.message?.content || data.output?.text || '{}';
     const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
     const jsonClean = jsonMatch ? jsonMatch[0] : rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    let parsed = {};
+    let parsed;
     try {
       parsed = JSON.parse(jsonClean);
     } catch (e) {
-      console.warn('[TranslationService] Qwen JSON parsing error:', e.message);
+      throw new Error(`[TranslationService] Qwen JSON parsing failed: ${e.message}`);
+    }
+
+    if (!parsed || typeof parsed.translations !== 'object' || Object.keys(parsed.translations).length === 0) {
+      throw new Error('[TranslationService] Qwen returned no translations in JSON');
     }
 
     const defaultTranslations = {
-      en: text, es: text, it: text, pt: text, fr: text, de: text, zh: text, ja: text, ar: text, ru: text, ko: text, hi: text
+      en: text, es: text, it: text, pt: text
     };
 
     return {
       detectedSource: parsed.detectedSource || detectedSource || 'auto',
       translations: {
         ...defaultTranslations,
-        ...(parsed.translations || {})
+        ...parsed.translations
       }
     };
   }
 
   async translateWithOpenAI(text, detectedSource, options = {}) {
     const { detectedTerms = [], medicalMode = false, medicalSpecialty = 'general', contextHistory = '' } = options;
+    const safeSpecialty = sanitizeMedicalSpecialty(medicalSpecialty);
+    const safeContext = typeof contextHistory === 'string' ? contextHistory.trim() : '';
 
     let prompt;
     if (medicalMode || detectedTerms.length > 0) {
-      let glossaryRule = '';
-      if (detectedTerms.length > 0) {
-        glossaryRule = `\nMANDATORY CLINICAL GLOSSARY RESTRICTIONS:\n` +
-          detectedTerms.map(t => `- "${t.term}": EN="${t.en}", ES="${t.es}", IT="${t.it}", PT="${t.pt}"`).join('\n');
-      }
-      let contextSnippet = contextHistory ? `\nPREVIOUS SPOKEN CONTEXT: "${contextHistory}"\n` : '';
+      const glossaryRule = buildSecureGlossaryInstructions(detectedTerms);
+      const contextSnippet = safeContext ? `\nPREVIOUS SPOKEN CONTEXT:\n${JSON.stringify(safeContext)}\n` : '';
 
-      prompt = `You are an elite simultaneous medical conference interpreter specialized in clinical medicine (${medicalSpecialty}), pharmacology, ICD-11, and SNOMED-CT.
+      prompt = `You are an elite simultaneous medical conference interpreter specialized in clinical medicine (${safeSpecialty}), pharmacology, ICD-11, and SNOMED-CT.
 Accurately translate the spoken text into English (en), Spanish (es), Italian (it), and Portuguese (pt).
 Preserve standardized clinical acronyms (e.g. ECG, SpO2, BP/TA, HR/FC, COPD/EPOC, AMI/IAM).
 Translate all drugs using the official International Nonproprietary Name (INN / DCI).
 Maintain spoken rhythm suitable for immediate Text-to-Speech audio streaming.${glossaryRule}${contextSnippet}
 
-Input text: "${text}"
+Input text: ${JSON.stringify(text)}
 
 Respond ONLY with valid JSON in this exact structure:
 {
@@ -453,13 +1093,13 @@ Respond ONLY with valid JSON in this exact structure:
     "it": "Italian translation",
     "pt": "Portuguese translation"
   }
-}`;
+} `;
     } else {
-      let contextLine = contextHistory ? `\nContext: "${contextHistory}"\n` : '';
+      const contextLine = safeContext ? `\nContext: ${JSON.stringify(safeContext)}\n` : '';
       prompt = `You are a real-time conference simultaneous interpreter. Translate the following speech text accurately and naturally into English (en), Spanish (es), Italian (it), and Portuguese (pt).
 Maintain tone, context, and brevity suitable for immediate speech-to-speech audio synthesis.${contextLine}
 
-Input text: "${text}"
+Input text: ${JSON.stringify(text)}
 
 Respond ONLY with valid JSON in this exact structure:
 {
@@ -486,7 +1126,7 @@ Respond ONLY with valid JSON in this exact structure:
         temperature: 0.2,
         max_tokens: 300
       }),
-      signal: AbortSignal.timeout(6000)
+      signal: AbortSignal.timeout(2800)
     });
 
     if (!res.ok) {
@@ -495,15 +1135,27 @@ Respond ONLY with valid JSON in this exact structure:
     }
 
     const data = await res.json();
-    const content = data.choices[0]?.message?.content;
-    const parsed = JSON.parse(content);
+    const content = data.choices?.[0]?.message?.content || '{}';
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const jsonClean = jsonMatch ? jsonMatch[0] : content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonClean);
+    } catch (e) {
+      throw new Error(`[TranslationService] OpenAI JSON parsing failed: ${e.message}`);
+    }
+
+    if (!parsed || typeof parsed.translations !== 'object' || Object.keys(parsed.translations).length === 0) {
+      throw new Error('[TranslationService] OpenAI returned no translations in JSON');
+    }
+
     return {
       detectedSource: parsed.detectedSource || detectedSource || 'auto',
       translations: {
-        en: parsed.translations?.en || text,
-        es: parsed.translations?.es || text,
-        it: parsed.translations?.it || text,
-        pt: parsed.translations?.pt || text
+        en: parsed.translations.en || text,
+        es: parsed.translations.es || text,
+        it: parsed.translations.it || text,
+        pt: parsed.translations.pt || text
       }
     };
   }
@@ -515,9 +1167,11 @@ Respond ONLY with valid JSON in this exact structure:
    * Tier 3: Demo dictionary / clinical glossary matcher
    */
   async translateWithFreeEngine(text, detectedSource, customTargets = null) {
-    const targets = customTargets || ['en', 'es', 'it', 'pt', 'fr', 'de', 'zh', 'ja', 'ar', 'ru', 'ko', 'hi'];
+    const targets = customTargets || ['en', 'es', 'it', 'pt'];
     const translations = {};
-    let realDetectedSource = (detectedSource && detectedSource !== 'auto') ? detectedSource.slice(0, 2).toLowerCase() : null;
+    let realDetectedSource = (detectedSource && detectedSource !== 'auto')
+      ? detectedSource.slice(0, 2).toLowerCase()
+      : (this.detectRoughLanguage(text) || 'es');
 
     const BROWSER_HEADERS = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -525,18 +1179,25 @@ Respond ONLY with valid JSON in this exact structure:
       'Accept-Language': 'es,en;q=0.9,it;q=0.8,pt;q=0.7'
     };
 
-    // Parallel fetch for all target languages
+    // Pre-execution short-circuit: if targets include the detected source language, assign text immediately
+    if (targets.includes(realDetectedSource)) {
+      translations[realDetectedSource] = text;
+    }
+
+    const pendingTargets = targets.filter(t => t !== realDetectedSource);
+
+    // Parallel fetch for pending target languages only
     await Promise.all(
-      targets.map(async (targetLang) => {
+      pendingTargets.map(async (targetLang) => {
         const normSource = (realDetectedSource || '').toLowerCase();
-        
+
         // Tier 1: Google Chrome Extension API (ultra-low latency <120ms, works from cloud IPs)
         try {
           const slParam = normSource || 'auto';
           const url1 = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=${slParam}&tl=${targetLang}&q=${encodeURIComponent(text)}`;
           const res1 = await fetch(url1, {
             headers: BROWSER_HEADERS,
-            signal: AbortSignal.timeout(3000)
+            signal: AbortSignal.timeout(1200)
           });
           if (res1.ok) {
             const data1 = await res1.json();
@@ -549,10 +1210,12 @@ Respond ONLY with valid JSON in this exact structure:
               }
 
               // Verify translation actually translated (not just echoed original Spanish into English/Italian)
+              // Allow recognized cognates ("Doctor", "Hospital", "SpO2", "COVID") to be accepted in Tier 1
               const isDifferentFromInput = translatedStr.toLowerCase() !== text.trim().toLowerCase();
               const isSameLangAsSource = realDetectedSource && realDetectedSource === targetLang;
+              const isCognate = isKnownCognateOrAcronym(text);
 
-              if (translatedStr && (isDifferentFromInput || isSameLangAsSource)) {
+              if (translatedStr && (isDifferentFromInput || isSameLangAsSource || isCognate)) {
                 translations[targetLang] = translatedStr;
                 return;
               }
@@ -562,13 +1225,13 @@ Respond ONLY with valid JSON in this exact structure:
           // Tier 1 failed or timed out, proceed to Tier 2
         }
 
-        // Tier 2: Google GTX with real browser headers and 4s timeout
+        // Tier 2: Google GTX with real browser headers and 1.8s timeout
         try {
           const slParam = normSource || 'auto';
           const url2 = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${slParam}&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
           const res2 = await fetch(url2, {
             headers: BROWSER_HEADERS,
-            signal: AbortSignal.timeout(4000)
+            signal: AbortSignal.timeout(1800)
           });
           if (res2.ok) {
             const data2 = await res2.json();

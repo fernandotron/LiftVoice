@@ -84,37 +84,72 @@ class AudioPlayerService {
       hi: 'hi-IN'
     };
 
+    this.isDisposed = false;
+    this._listenersBound = false;
+    this.handleWakeResume = null;
+    this.handleUserGestureResume = null;
+
+    this._bindGlobalListeners();
+  }
+
+  _bindGlobalListeners() {
+    if (typeof window === 'undefined' || typeof document === 'undefined' || this._listenersBound) return;
+
     // Auto-resume audio context when tab visibility changes or device wakes up
-    if (typeof document !== 'undefined') {
-      const handleWakeResume = () => {
-        if (this.audioCtx && this.audioCtx.state === 'suspended' && this.isUnlocked && !this.isMuted) {
-          this.audioCtx.resume().catch(() => {});
-        }
-        if (document.visibilityState === 'visible') {
-          this.requestWakeLock();
-        }
-      };
+    this.handleWakeResume = () => {
+      if (this.isDisposed) return;
+      if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted') && this.isUnlocked && !this.isMuted) {
+        this.audioCtx.resume().catch(() => {});
+      }
+      if (document.visibilityState === 'visible' && !this.isDisposed && this.isUnlocked) {
+        this.requestWakeLock();
+      }
+    };
 
-      document.addEventListener('visibilitychange', handleWakeResume);
-      window.addEventListener('pageshow', handleWakeResume);
-      window.addEventListener('focus', handleWakeResume);
+    document.addEventListener('visibilitychange', this.handleWakeResume);
+    window.addEventListener('pageshow', this.handleWakeResume);
+    window.addEventListener('focus', this.handleWakeResume);
 
-      // iOS Safari / Android touch recovery: unlock and resume audio on first physical touch
-      const handleUserGestureResume = () => {
-        if (!this.isUnlocked) {
-          this.unlockAudio(this.currentRoomId, this.currentLanguage).catch(() => {});
-        } else if (this.audioCtx && this.audioCtx.state === 'suspended' && !this.isMuted) {
-          this.audioCtx.resume().then(() => this.flushSuspendedChunks()).catch(() => {});
-        }
-      };
-      window.addEventListener('touchstart', handleUserGestureResume, { passive: true });
-      window.addEventListener('touchend', handleUserGestureResume, { passive: true });
-      window.addEventListener('click', handleUserGestureResume, { passive: true });
+    // iOS Safari / Android touch recovery: unlock and resume audio on first physical touch
+    this.handleUserGestureResume = () => {
+      if (this.isDisposed) return;
+      if (!this.isUnlocked) {
+        this.unlockAudio(this.currentRoomId, this.currentLanguage).catch(() => {});
+      } else if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted') && !this.isMuted) {
+        this.audioCtx.resume().then(() => this.flushSuspendedChunks()).catch(() => {});
+      }
+    };
+    window.addEventListener('touchstart', this.handleUserGestureResume, { passive: true });
+    window.addEventListener('touchend', this.handleUserGestureResume, { passive: true });
+    window.addEventListener('click', this.handleUserGestureResume, { passive: true });
+
+    this._listenersBound = true;
+  }
+
+  _unbindGlobalListeners() {
+    if (typeof window === 'undefined' || !this._listenersBound) return;
+
+    if (this.handleWakeResume) {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', this.handleWakeResume);
+      }
+      window.removeEventListener('pageshow', this.handleWakeResume);
+      window.removeEventListener('focus', this.handleWakeResume);
+      this.handleWakeResume = null;
     }
+
+    if (this.handleUserGestureResume) {
+      window.removeEventListener('touchstart', this.handleUserGestureResume);
+      window.removeEventListener('touchend', this.handleUserGestureResume);
+      window.removeEventListener('click', this.handleUserGestureResume);
+      this.handleUserGestureResume = null;
+    }
+
+    this._listenersBound = false;
   }
 
   async resumeAudio() {
-    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+    if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted')) {
       await this.audioCtx.resume();
       this.flushSuspendedChunks();
       this.notifyState();
@@ -126,7 +161,7 @@ class AudioPlayerService {
   }
 
   isContextSuspended() {
-    return Boolean(this.audioCtx && this.audioCtx.state === 'suspended');
+    return Boolean(this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted'));
   }
 
   flushSuspendedChunks() {
@@ -207,6 +242,8 @@ class AudioPlayerService {
    * Initialize background audio keeper and unlock Web Audio Context
    */
   async unlockAudio(roomId = 'MAIN', lang = 'es') {
+    this.isDisposed = false;
+    this._bindGlobalListeners();
     if (this.isUnlocking) return true;
     this.isUnlocking = true;
     this.currentRoomId = roomId;
@@ -214,7 +251,7 @@ class AudioPlayerService {
 
     try {
       // 1. Initialize Web Audio Context
-      if (!this.audioCtx) {
+      if (!this.audioCtx || this.audioCtx.state === 'closed') {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         this.audioCtx = new AudioContextClass();
 
@@ -229,7 +266,7 @@ class AudioPlayerService {
         this.analyserNode.connect(this.audioCtx.destination);
       }
 
-      if (this.audioCtx.state === 'suspended') {
+      if (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted') {
         await this.audioCtx.resume();
       }
 
@@ -264,8 +301,9 @@ class AudioPlayerService {
   }
 
   initBackgroundAudioKeeper() {
+    if (this.isDisposed) return;
     // Keep an inaudible background audio loop running to preserve OS audio session on mobile
-    if (typeof navigator === 'undefined' || !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    if (!this.isMobileDevice()) {
       return;
     }
 
@@ -315,6 +353,7 @@ class AudioPlayerService {
   }
 
   async requestWakeLock() {
+    if (this.isDisposed) return;
     try {
       if ('wakeLock' in navigator && this.isUnlocked && !this.wakeLock) {
         this.wakeLock = await navigator.wakeLock.request('screen');
@@ -380,7 +419,9 @@ class AudioPlayerService {
 
   isMobileDevice() {
     if (typeof navigator === 'undefined') return false;
-    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+    const isMobileUA = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+    const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    return Boolean(isMobileUA || isIPadOS);
   }
 
   isBackgrounded() {
@@ -406,10 +447,17 @@ class AudioPlayerService {
       try {
         const src = item.sourceNode || item;
         const gain = item.chunkGain;
+        if (src) src.onended = null;
         if (typeof src.stop === 'function') src.stop();
         if (typeof src.disconnect === 'function') src.disconnect();
         if (gain && typeof gain.disconnect === 'function') gain.disconnect();
-      } catch (e) {}
+      } catch (e) {
+      } finally {
+        if (typeof item.resolvePromise === 'function') {
+          item.resolvePromise();
+          item.resolvePromise = null;
+        }
+      }
     }
     this.activeSources.clear();
     if (this.audioCtx) {
@@ -460,21 +508,32 @@ class AudioPlayerService {
   }
 
   async processAndScheduleBase64Chunk(packet) {
-    if (!this.audioCtx) {
+    if (!this.audioCtx || this.audioCtx.state === 'closed') {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        this.audioCtx = new AudioContextClass();
+        this.gainNode = this.audioCtx.createGain();
+        this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : this.volume, this.audioCtx.currentTime);
+        this.analyserNode = this.audioCtx.createAnalyser();
+        this.analyserNode.fftSize = 64;
+        this.analyserNode.smoothingTimeConstant = 0.8;
+        this.gainNode.connect(this.analyserNode);
+        this.analyserNode.connect(this.audioCtx.destination);
+      }
       await this.unlockAudio(this.currentRoomId, this.currentLanguage);
     }
 
-    if (this.audioCtx.state === 'suspended') {
+    if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted')) {
       try {
         await this.audioCtx.resume();
       } catch (e) {}
     }
 
     // If context is still suspended (waiting for user gesture on mobile), buffer packet so it plays when touched
-    if (this.audioCtx.state === 'suspended') {
+    if (this.isContextSuspended()) {
       if (!this.suspendedChunks) this.suspendedChunks = [];
       this.suspendedChunks.push(packet);
-      if (this.suspendedChunks.length > 2) this.suspendedChunks.shift();
+      if (this.suspendedChunks.length > 6) this.suspendedChunks.shift();
       return;
     }
 
@@ -530,12 +589,13 @@ class AudioPlayerService {
     this.notifyState();
 
     sourceNode.onended = () => {
+      sourceNode.onended = null; // Break circular closure immediately to allow GC
       this.activeSources.delete(activeItem);
       try {
         sourceNode.disconnect();
         chunkGain.disconnect();
       } catch (e) {}
-      if (this.activeSources.size === 0 && this.audioCtx.currentTime >= this.nextStartTime) {
+      if (this.activeSources.size === 0 && this.audioCtx && this.audioCtx.currentTime >= this.nextStartTime) {
         this.isPlaying = false;
         this.notifyState();
       }
@@ -572,10 +632,21 @@ class AudioPlayerService {
   }
 
   async playDetunedAudioBase64(audioBase64, detuneCents = 0) {
-    if (!this.audioCtx) {
+    if (!this.audioCtx || this.audioCtx.state === 'closed') {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        this.audioCtx = new AudioContextClass();
+        this.gainNode = this.audioCtx.createGain();
+        this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : this.volume, this.audioCtx.currentTime);
+        this.analyserNode = this.audioCtx.createAnalyser();
+        this.analyserNode.fftSize = 64;
+        this.analyserNode.smoothingTimeConstant = 0.8;
+        this.gainNode.connect(this.analyserNode);
+        this.analyserNode.connect(this.audioCtx.destination);
+      }
       await this.unlockAudio(this.currentRoomId, this.currentLanguage);
     }
-    if (this.audioCtx.state === 'suspended') {
+    if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted')) {
       await this.audioCtx.resume();
     }
 
@@ -602,32 +673,49 @@ class AudioPlayerService {
     chunkGain.connect(this.gainNode);
 
     const now = this.audioCtx.currentTime;
-    const duration = audioBuffer.duration / this.playbackRate;
+    const duration = Math.max(0.01, audioBuffer.duration / this.playbackRate);
+
+    const rampIn = Math.min(0.02, duration * 0.25);
+    const rampOut = Math.min(0.03, duration * 0.25);
+    const rampInTime = now + rampIn;
+    const sustainTime = Math.max(rampInTime, now + duration - rampOut);
+    const rampEndTime = Math.max(sustainTime + 0.001, now + Math.max(0.01, duration));
 
     chunkGain.gain.setValueAtTime(0.001, now);
-    chunkGain.gain.exponentialRampToValueAtTime(1.0, now + 0.02);
-    chunkGain.gain.setValueAtTime(1.0, Math.max(now + 0.02, now + duration - 0.03));
-    chunkGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    chunkGain.gain.exponentialRampToValueAtTime(1.0, rampInTime);
+    chunkGain.gain.setValueAtTime(1.0, sustainTime);
+    chunkGain.gain.exponentialRampToValueAtTime(0.001, rampEndTime);
+
+    let resolvePromise;
+    const promise = new Promise((resolve) => {
+      resolvePromise = resolve;
+    });
+
+    const activeItem = { sourceNode, chunkGain, resolvePromise };
 
     sourceNode.start(now);
-    this.activeSources.add(sourceNode);
+    this.activeSources.add(activeItem);
     this.isPlaying = true;
     this.notifyState();
 
-    return new Promise((resolve) => {
-      sourceNode.onended = () => {
-        this.activeSources.delete(sourceNode);
-        try {
-          sourceNode.disconnect();
-          chunkGain.disconnect();
-        } catch (e) {}
-        if (this.activeSources.size === 0) {
-          this.isPlaying = false;
-          this.notifyState();
-        }
-        resolve();
-      };
-    });
+    sourceNode.onended = () => {
+      sourceNode.onended = null;
+      this.activeSources.delete(activeItem);
+      try {
+        sourceNode.disconnect();
+        chunkGain.disconnect();
+      } catch (e) {}
+      if (this.activeSources.size === 0) {
+        this.isPlaying = false;
+        this.notifyState();
+      }
+      if (resolvePromise) {
+        resolvePromise();
+        resolvePromise = null;
+      }
+    };
+
+    return promise;
   }
 
   playWebSpeechWithPersona(text, lang = 'es', profile = {}) {
@@ -718,6 +806,48 @@ class AudioPlayerService {
   onStateChange(cb) {
     this.onStateChangeCallbacks.add(cb);
     return () => this.onStateChangeCallbacks.delete(cb);
+  }
+
+  async disposeSession() {
+    this.isDisposed = true;
+    this._unbindGlobalListeners();
+    this.stopAll();
+    this.suspendedChunks = [];
+    if (this.wakeLock) {
+      try {
+        await this.wakeLock.release();
+      } catch (e) {}
+      this.wakeLock = null;
+    }
+    if (this.bgAudioElement) {
+      try {
+        this.bgAudioElement.pause();
+        this.bgAudioElement.src = '';
+        if (this.bgAudioElement.parentNode) {
+          this.bgAudioElement.parentNode.removeChild(this.bgAudioElement);
+        }
+      } catch (e) {}
+      this.bgAudioElement = null;
+    }
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+        navigator.mediaSession.metadata = null;
+        const actions = ['play', 'pause', 'stop', 'seekbackward', 'seekforward'];
+        for (const action of actions) {
+          try {
+            navigator.mediaSession.setActionHandler(action, null);
+          } catch (e) {}
+        }
+      } catch (e) {}
+    }
+    if (this.audioCtx && this.audioCtx.state !== 'closed') {
+      try {
+        await this.audioCtx.suspend();
+      } catch (e) {}
+    }
+    this.isUnlocked = false;
+    this.notifyState();
   }
 
   notifyState() {

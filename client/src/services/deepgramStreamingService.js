@@ -44,6 +44,7 @@ export class DeepgramStreamingService {
     this.lastCallbacks = null;
     this.reconnectTimer = null;
     this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 8;
     this.wasActiveBeforeHidden = false;
 
     this.firstByteSentAt = null;
@@ -139,6 +140,10 @@ export class DeepgramStreamingService {
    * Reconexión in-place: reabre únicamente el canal WebSocket reutilizando el grafo de audio vivo
    */
   async reconnect(config = {}, callbacks = {}) {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (!this.audioContext || !this.workletNode) {
       throw new Error('reconnect() sin grafo de audio activo — usar start()');
     }
@@ -290,6 +295,10 @@ export class DeepgramStreamingService {
   }
 
   handlePcm(buffer) {
+    if (!buffer) return;
+    if (buffer.byteLength % 2 !== 0) {
+      buffer = buffer.slice(0, buffer.byteLength - 1);
+    }
     const ws = this.ws;
     if (ws && ws.readyState === WebSocket.OPEN) {
       if (this.backlog.size > 0) {
@@ -367,7 +376,17 @@ export class DeepgramStreamingService {
     const ws = new WebSocket(`${listenUrl}?${params.toString()}`, subprotocol);
     this.ws = ws;
 
+    const connectTimer = setTimeout(() => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        console.warn('[DeepgramStreaming] WebSocket connection timed out after 8000ms');
+        try {
+          ws.close();
+        } catch (e) {}
+      }
+    }, 8000);
+
     ws.onopen = () => {
+      clearTimeout(connectTimer);
       this.setStatus('listening');
       this.reconnectAttempts = 0;
       if (callbacks.onOpen) callbacks.onOpen();
@@ -381,6 +400,7 @@ export class DeepgramStreamingService {
     };
 
     ws.onmessage = (event) => {
+      if (!this.isActive || this.ws !== ws) return;
       if (typeof event.data !== 'string') return;
       let data;
       try {
@@ -412,31 +432,53 @@ export class DeepgramStreamingService {
     };
 
     ws.onerror = () => {
+      clearTimeout(connectTimer);
       // ws.onclose maneja la reconexión
     };
 
     ws.onclose = (event) => {
+      clearTimeout(connectTimer);
       this.clearKeepAlive();
       this.clearFirstPartialTimer();
       if (this.isActive) {
         this.setStatus('reconnecting');
-        if (event.code !== 1000 && this.reconnectAttempts < 5) {
-          const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 8000);
-          this.reconnectAttempts++;
-          console.warn(`[DeepgramStreaming] Cierre anormal (${event.code}). Auto-reconexión #${this.reconnectAttempts} en ${delay}ms`);
-          this.reconnectTimer = setTimeout(() => {
-            if (this.isActive) {
-              this.reconnect(this.lastConfig, this.lastCallbacks).catch((err) => {
-                console.error('[DeepgramStreaming] Auto-reconnect falló:', err);
-              });
-            }
-          }, delay);
-        }
+        this.scheduleReconnect(event.code !== 1000 ? `Cierre anormal (${event.code})` : 'Cierre de socket (1000)');
       }
       if (callbacks.onClose) {
         callbacks.onClose({ code: event.code, wasClean: event.wasClean });
       }
     };
+  }
+
+  scheduleReconnect(reason = '') {
+    if (!this.isActive) return;
+    const maxAttempts = this.maxReconnectAttempts || 8;
+
+    if (this.reconnectAttempts < maxAttempts) {
+      this.reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(1.4, this.reconnectAttempts - 1), 6000);
+      console.warn(`[DeepgramStreaming] ${reason}. Auto-reconexión #${this.reconnectAttempts}/${maxAttempts} en ${delay}ms`);
+
+      if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = setTimeout(() => {
+        if (!this.isActive) return;
+        this.reconnect(this.lastConfig, this.lastCallbacks).catch((err) => {
+          console.error(`[DeepgramStreaming] Intento de reconexión #${this.reconnectAttempts} falló:`, err);
+          this.scheduleReconnect(err.message || 'Error en reconexión');
+        });
+      }, delay);
+    } else {
+      console.error(`[DeepgramStreaming] Máximo de reintentos alcanzado (${maxAttempts}). Activando fallback de emergencia.`);
+      this.isActive = false;
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+      this.setStatus('error');
+      if (this.lastCallbacks && this.lastCallbacks.onError) {
+        this.lastCallbacks.onError(new Error(`Deepgram reconnection exhausted after ${maxAttempts} attempts`));
+      }
+    }
   }
 
   closeSocketOnly() {

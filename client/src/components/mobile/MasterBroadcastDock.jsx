@@ -12,6 +12,7 @@ import { Mic, MicOff, Headphones, SlidersHorizontal } from 'lucide-react';
 export default function MasterBroadcastDock({
   isBroadcasting = false,
   onToggleBroadcast = () => {},
+  isToggling = false,
   monitoredLang = 'none',
   onToggleMonitoring = () => {},
   onOpenCabinsSheet = () => {},
@@ -36,6 +37,7 @@ export default function MasterBroadcastDock({
   }, [audioRecorderService]);
 
   const handleBroadcastClick = () => {
+    if (isToggling) return;
     try {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate(isBroadcasting ? 25 : [20, 40, 20]);
@@ -56,7 +58,7 @@ export default function MasterBroadcastDock({
           type="button"
           onClick={() => onToggleMonitoring(monitoredLang === 'none' ? 'es' : 'none')}
           aria-pressed={monitoredLang !== 'none'}
-          className={`w-12 h-12 rounded-full border flex flex-col items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${
+          className={`w-12 h-12 rounded-full border flex flex-col items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 ${
             monitoredLang !== 'none'
               ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
               : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
@@ -84,7 +86,10 @@ export default function MasterBroadcastDock({
             <button
               type="button"
               onClick={handleBroadcastClick}
+              disabled={isToggling}
               className={`relative w-full h-14 rounded-full font-semibold text-xs tracking-tight flex items-center justify-center gap-2.5 shadow-md transition-all cursor-pointer active:scale-95 touch-manipulation select-none whitespace-nowrap ${
+                isToggling ? 'opacity-70 cursor-wait' : ''
+              } ${
                 isBroadcasting
                   ? 'gemini-gradient-bg text-white border border-white/20 shadow-lg shadow-purple-500/25'
                   : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 shadow-zinc-950/20'
@@ -115,7 +120,7 @@ export default function MasterBroadcastDock({
         <button
           type="button"
           onClick={onOpenCabinsSheet}
-          className="relative w-12 h-12 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 flex items-center justify-center shadow-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-95 cursor-pointer"
+          className="relative w-12 h-12 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 flex items-center justify-center shadow-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-95 cursor-pointer flex-shrink-0"
           title="Abrir panel de cabinas y configuración rápida"
           aria-label={pendingQACount > 0 ? `Panel de cabinas, ${pendingQACount} preguntas pendientes` : 'Panel de cabinas'}
         >

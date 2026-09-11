@@ -36,7 +36,7 @@ export default function QABannerAlert({
             <button
               type="button"
               onClick={() => onCloseQuestion(activeQuestion.questionId)}
-              className="w-full h-9 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+              className="w-full min-h-[44px] rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
             >
               <XCircle className="w-4 h-4" />
               <span>Finalizar turno y retomar oratoria</span>
@@ -66,7 +66,7 @@ export default function QABannerAlert({
               <button
                 type="button"
                 onClick={() => onApprove(nextQ.questionId)}
-                className="h-8.5 px-3.5 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                className="min-h-[44px] min-w-[44px] px-3.5 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
                 <span>Dar palabra</span>
@@ -74,7 +74,7 @@ export default function QABannerAlert({
               <button
                 type="button"
                 onClick={() => onCloseQuestion(nextQ.questionId)}
-                className="w-8.5 h-8.5 rounded-full hover:bg-zinc-200/70 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center justify-center transition-colors cursor-pointer"
+                className="min-w-[44px] min-h-[44px] rounded-full hover:bg-zinc-200/70 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center justify-center transition-colors cursor-pointer"
                 title="Descartar solicitud"
                 aria-label={`Descartar solicitud de ${nextQ.name || 'oyente'}`}
               >

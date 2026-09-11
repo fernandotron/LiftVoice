@@ -4,7 +4,7 @@ import {
   RefreshCw, Check, Globe, ChevronRight, Activity, Users, QrCode, Play,
   Send, Layers, ArrowRight, Shield, Download, FileText, Stethoscope, Home,
   Search, ExternalLink, Headphones, Hand, HelpCircle, CheckCircle2, XCircle, MessageSquare,
-  Menu, X, SlidersHorizontal, Copy, ChevronDown
+  Menu, X, SlidersHorizontal, Copy, ChevronDown, PanelRight
 } from 'lucide-react';
 import AudioVisualizer from '../components/AudioVisualizer.jsx';
 import LiveCaptions from '../components/LiveCaptions.jsx';
@@ -13,8 +13,6 @@ import VoiceCatalogModal from '../components/VoiceCatalogModal.jsx';
 import QRCodeModal from '../components/QRCodeModal.jsx';
 import AttendeesModal from '../components/AttendeesModal.jsx';
 import SessionSummaryModal from '../components/SessionSummaryModal.jsx';
-import SettingsModal from '../components/SettingsModal.jsx';
-import DynamicIslandBar from '../components/mobile/DynamicIslandBar.jsx';
 import MasterBroadcastDock from '../components/mobile/MasterBroadcastDock.jsx';
 import CabinsBottomSheet from '../components/mobile/CabinsBottomSheet.jsx';
 import QABannerAlert from '../components/mobile/QABannerAlert.jsx';
@@ -49,7 +47,13 @@ export default function HostView({
 }) {
   const { resolvedTheme, toggleTheme } = useTheme();
   const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [isTogglingBroadcast, setIsTogglingBroadcast] = useState(false);
+  const [broadcastError, setBroadcastError] = useState(null);
   const [sourceLanguage, setSourceLanguage] = useState('es-ES');
+  const sourceLanguageRef = useRef(sourceLanguage);
+  useEffect(() => {
+    sourceLanguageRef.current = sourceLanguage;
+  }, [sourceLanguage]);
   const [targetLanguages, setTargetLanguages] = useState(['es', 'en', 'it', 'pt']);
   const [transcriptHistory, setTranscriptHistory] = useState([]);
   const [liveInterimSpeech, setLiveInterimSpeech] = useState('');
@@ -59,7 +63,6 @@ export default function HostView({
   const [isVoiceCatalogOpen, setIsVoiceCatalogOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isAttendeesModalOpen, setIsAttendeesModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
@@ -131,8 +134,15 @@ export default function HostView({
     }
   });
 
-  const meterBarRef = useRef(null);
-  const meterTextRef = useRef(null);
+  const medicalConfigRef = useRef(medicalConfig);
+  useEffect(() => {
+    medicalConfigRef.current = medicalConfig;
+  }, [medicalConfig]);
+
+  const sidebarMeterBarRef = useRef(null);
+  const sidebarMeterTextRef = useRef(null);
+  const dockMeterBarRef = useRef(null);
+  const dockMeterTextRef = useRef(null);
   const lastSentSpeechRef = useRef({ text: '', time: 0 });
   const lastCumulativeSpeechRef = useRef({ text: '', time: 0 });
   const recentEmissionsHistoryRef = useRef([]);
@@ -166,11 +176,21 @@ export default function HostView({
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+    const initTimer = setTimeout(() => {
+      if (isMounted) setIsInitializing(false);
+    }, 1200);
+
     socketService.connect().then(() => {
+      if (!isMounted) return;
       socketService.joinAsHost(roomId);
+      setIsInitializing(false);
+    }).catch(() => {
+      if (isMounted) setIsInitializing(false);
     });
 
     const unsubStats = socketService.on('room_stats', (stats) => {
+      if (!isMounted) return;
       if (stats) {
         setRoomStats(stats);
         if (Array.isArray(stats.qaQueue)) {
@@ -186,7 +206,7 @@ export default function HostView({
     });
 
     const unsubTranscript = socketService.on('transcript_event', (item) => {
-      if (!item) return;
+      if (!isMounted || !item) return;
       setTranscriptHistory(prev => {
         if (prev.some(p => p.id === item.id)) return prev;
         const last = prev[prev.length - 1];
@@ -198,10 +218,12 @@ export default function HostView({
     });
 
     const unsubLatency = socketService.on('latency', (lat) => {
+      if (!isMounted) return;
       setSocketLatency(lat);
     });
 
     const unsubAudio = socketService.on('audio_chunk', (packet) => {
+      if (!isMounted) return;
       if (packet.isHostPreview) {
         audioPlayerService.playAudioChunk(packet);
       } else if (packet.isBoothAudio) {
@@ -215,6 +237,7 @@ export default function HostView({
 
     // Q&A Backchannel socket handlers
     const handleIncomingQaRequest = (msg) => {
+      if (!isMounted) return;
       const item = msg?.request || msg;
       if (!item) return;
       const normalized = {
@@ -235,6 +258,7 @@ export default function HostView({
     const unsubQaRaised = socketService.on('qa_hand_raised', handleIncomingQaRequest);
 
     const unsubQaSpeaker = socketService.on('qa_active_speaker', (msg) => {
+      if (!isMounted) return;
       const speaker = msg?.speaker || msg;
       if (speaker) {
         const normalized = {
@@ -247,6 +271,7 @@ export default function HostView({
     });
 
     const unsubQaClosed = socketService.on('qa_question_closed', (msg) => {
+      if (!isMounted) return;
       const qId = msg?.questionId;
       setActiveQuestion(prev => (prev && (!qId || prev.questionId === qId) ? null : prev));
       if (qId) {
@@ -256,7 +281,18 @@ export default function HostView({
       }
     });
 
+    const unsubQaLowered = socketService.on('qa_hand_lowered', (msg) => {
+      if (!isMounted) return;
+      const attId = msg?.attendeeId;
+      if (attId) {
+        setQaQueue(prev => prev.filter(q => q.attendeeId !== attId && q.questionId !== attId && q.socketId !== attId));
+        setActiveQuestion(prev => (prev && (prev.attendeeId === attId || prev.questionId === attId || prev.socketId === attId) ? null : prev));
+        setIncomingQuestionAudio(prev => (prev && (prev.attendeeId === attId || prev.socketId === attId) ? null : prev));
+      }
+    });
+
     const unsubEarpiece = socketService.on('host_earpiece_audio', (data) => {
+      if (!isMounted) return;
       setIncomingQuestionAudio(data);
       if (data && data.audioBase64) {
         audioPlayerService.playAudioChunk({
@@ -269,6 +305,13 @@ export default function HostView({
     });
 
     return () => {
+      isMounted = false;
+      clearTimeout(initTimer);
+      audioRecorderService.stopRecording();
+      audioPlayerService.disposeSession();
+      socketService.send({ type: 'host_broadcast_state', roomId, isBroadcasting: false });
+      socketService.setMonitoredBooth(roomId, 'none');
+      socketService.leaveRoom(roomId);
       unsubStats();
       unsubTranscript();
       unsubLatency();
@@ -277,9 +320,34 @@ export default function HostView({
       unsubQaRaised();
       unsubQaSpeaker();
       unsubQaClosed();
+      unsubQaLowered();
       unsubEarpiece();
     };
   }, [roomId]);
+
+  // Reactive listener for global SettingsModal updates
+  useEffect(() => {
+    const handleConfigSaved = (e) => {
+      const cfg = e.detail;
+      if (!cfg) return;
+      if (cfg.sttEngine) setSttEngine(cfg.sttEngine);
+      if (cfg.voiceConfig) setSelectedVoices(cfg.voiceConfig);
+      if (cfg.preferredEngine) setPreferredEngine(cfg.preferredEngine);
+      if (cfg.medicalMode !== undefined) {
+        setMedicalConfig({
+          medicalMode: Boolean(cfg.medicalMode),
+          medicalSpecialty: cfg.medicalSpecialty || 'general',
+          customGlossary: Array.isArray(cfg.customGlossary)
+            ? cfg.customGlossary
+            : (typeof cfg.customGlossary === 'string'
+                ? cfg.customGlossary.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean)
+                : [])
+        });
+      }
+    };
+    window.addEventListener('liftvoice_config_saved', handleConfigSaved);
+    return () => window.removeEventListener('liftvoice_config_saved', handleConfigSaved);
+  }, []);
 
   // Zero-Reflow GPU VAD listener
   useEffect(() => {
@@ -287,11 +355,17 @@ export default function HostView({
       // lvl is 0 to 100 from audioRecorderService
       const pct = Math.min(100, Math.max(0, Math.round(lvl)));
       const norm = pct / 100;
-      if (meterBarRef.current) {
-        meterBarRef.current.style.transform = `scaleX(${norm})`;
+      if (sidebarMeterBarRef.current) {
+        sidebarMeterBarRef.current.style.transform = `scaleX(${norm})`;
       }
-      if (meterTextRef.current) {
-        meterTextRef.current.textContent = `${pct}%`;
+      if (sidebarMeterTextRef.current) {
+        sidebarMeterTextRef.current.textContent = `${pct}%`;
+      }
+      if (dockMeterBarRef.current) {
+        dockMeterBarRef.current.style.transform = `scaleX(${norm})`;
+      }
+      if (dockMeterTextRef.current) {
+        dockMeterTextRef.current.textContent = `${pct}%`;
       }
     });
 
@@ -341,13 +415,16 @@ export default function HostView({
 
     setLiveInterimSpeech('');
 
-    const sendLang = (!sourceLanguage || sourceLanguage === 'auto') ? 'auto' : sourceLanguage.slice(0, 2);
+    const currentSrc = sourceLanguageRef.current;
+    const sendLang = (!currentSrc || currentSrc === 'auto') ? 'auto' : currentSrc.slice(0, 2);
 
     // Transmit strictly ONE single socket event to server AI pipeline for translation and multi-booth TTS
-    socketService.sendSpeechText(cleanText, sendLang, ['es', 'en', 'it', 'pt'], {
-      medicalMode: medicalConfig.medicalMode,
-      medicalSpecialty: medicalConfig.medicalSpecialty,
-      customGlossary: medicalConfig.customGlossary
+    // Pass empty array [] so Lazy Cabins only synthesizes audio for active listeners or host-monitored booth
+    const currentMedConfig = medicalConfigRef.current || {};
+    socketService.sendSpeechText(cleanText, sendLang, [], {
+      medicalMode: currentMedConfig.medicalMode,
+      medicalSpecialty: currentMedConfig.medicalSpecialty,
+      customGlossary: currentMedConfig.customGlossary
     });
   };
 
@@ -356,9 +433,11 @@ export default function HostView({
       // Salir de la sala / Silenciar retorno
       setMonitoredLang('none');
       audioPlayerService.stopAll();
+      socketService.setMonitoredBooth(roomId, 'none');
     } else {
       audioPlayerService.stopAll();
       setMonitoredLang(langCode);
+      socketService.setMonitoredBooth(roomId, langCode);
       try {
         await audioPlayerService.unlockAudio(roomId, langCode);
       } catch (e) {}
@@ -368,22 +447,28 @@ export default function HostView({
   const handleStopMonitoring = () => {
     setMonitoredLang('none');
     audioPlayerService.stopAll();
+    socketService.setMonitoredBooth(roomId, 'none');
   };
 
   const handleToggleBroadcast = async () => {
-    if (isBroadcasting) {
-      audioRecorderService.stopRecording();
-      setIsBroadcasting(false);
-      setLiveInterimSpeech('');
-      socketService.send({ type: 'host_broadcast_state', roomId, isBroadcasting: false });
-    } else {
-      try {
+    if (isTogglingBroadcast) return;
+    setIsTogglingBroadcast(true);
+    setBroadcastError(null);
+
+    try {
+      if (isBroadcasting) {
+        audioRecorderService.stopRecording();
+        setIsBroadcasting(false);
+        setLiveInterimSpeech('');
+        socketService.send({ type: 'host_broadcast_state', roomId, isBroadcasting: false });
+      } else {
         await audioPlayerService.unlockAudio(roomId, 'es');
         const activeStt = localStorage.getItem('lv_stt_engine') || sttEngine || 'deepgram';
+        const currentSrcLang = sourceLanguageRef.current;
         await audioRecorderService.startRecording({
           deviceId: selectedDevice === 'default' ? null : selectedDevice,
-          lang: sourceLanguage,
-          language: sourceLanguage,
+          lang: currentSrcLang,
+          language: currentSrcLang,
           sttEngine: activeStt,
           medicalMode: medicalConfig.medicalMode,
           medicalSpecialty: medicalConfig.medicalSpecialty,
@@ -393,13 +478,14 @@ export default function HostView({
           },
           onSpeechAudio: (audioBase64, mimeType, lang) => {
             // When Deepgram / server STT is selected, send audio to server AI pipeline
+            const activeLang = sourceLanguageRef.current;
             const targetLang = (lang && lang !== 'auto') 
               ? (lang.length > 2 ? lang.slice(0, 2) : lang)
-              : (sourceLanguage === 'auto' ? 'auto' : (sourceLanguage ? sourceLanguage.slice(0, 2) : 'auto'));
+              : (activeLang === 'auto' ? 'auto' : (activeLang ? activeLang.slice(0, 2) : 'auto'));
             socketService.sendSpeechAudio(audioBase64, mimeType, targetLang, {
-              medicalMode: medicalConfig.medicalMode,
-              medicalSpecialty: medicalConfig.medicalSpecialty,
-              customGlossary: medicalConfig.customGlossary
+              medicalMode: medicalConfigRef.current.medicalMode,
+              medicalSpecialty: medicalConfigRef.current.medicalSpecialty,
+              customGlossary: medicalConfigRef.current.customGlossary
             });
           },
           onSpeechText: (finalText) => {
@@ -408,9 +494,12 @@ export default function HostView({
         });
         setIsBroadcasting(true);
         socketService.send({ type: 'host_broadcast_state', roomId, isBroadcasting: true });
-      } catch (err) {
-        alert('No se pudo acceder al micrófono: ' + err.message);
       }
+    } catch (err) {
+      console.error('[HostView] Error al alternar emisión:', err);
+      setBroadcastError(err?.message || 'No se pudo acceder al micrófono o iniciar la emisión.');
+    } finally {
+      setIsTogglingBroadcast(false);
     }
   };
 
@@ -1203,10 +1292,10 @@ export default function HostView({
                 ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-200 dark:border-zinc-700 shadow-2xs'
                 : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800'
             }`}
-            title="Alternar Inspector de Sala"
-            aria-label="Alternar Inspector de Sala"
+            title={isDesktopInspectorOpen ? "Ocultar Inspector de Sala" : "Mostrar Inspector de Sala"}
+            aria-label={isDesktopInspectorOpen ? "Ocultar Inspector de Sala" : "Mostrar Inspector de Sala"}
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <PanelRight className="w-4 h-4" />
           </button>
         </div>
       </header>
@@ -1293,7 +1382,7 @@ export default function HostView({
 
           <button
             type="button"
-            onClick={() => setIsSettingsModalOpen(true)}
+            onClick={() => onOpenSettings && onOpenSettings()}
             className="w-9 h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
             title="Configuración avanzada"
           >
@@ -1450,12 +1539,12 @@ export default function HostView({
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[10px] text-zinc-400">{socketLatency}ms</span>
-                <span ref={meterTextRef} className="font-mono font-bold text-xs text-zinc-900 dark:text-zinc-100 tabular-numbers">0%</span>
+                <span ref={sidebarMeterTextRef} className="font-mono font-bold text-xs text-zinc-900 dark:text-zinc-100 tabular-numbers">0%</span>
               </div>
             </div>
             <div className="w-full h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
               <div
-                ref={meterBarRef}
+                ref={sidebarMeterBarRef}
                 className="h-full w-full bg-emerald-500 rounded-full origin-left will-change-transform"
                 style={{ transform: 'scaleX(0)', transition: 'transform 0.05s linear' }}
               />
@@ -1470,7 +1559,10 @@ export default function HostView({
             <button
               type="button"
               onClick={handleToggleBroadcast}
+              disabled={isTogglingBroadcast}
               className={`relative w-full h-12 rounded-xl font-bold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] z-10 ${
+                isTogglingBroadcast ? 'opacity-70 cursor-wait' : ''
+              } ${
                 isBroadcasting
                   ? 'gemini-gradient-bg text-white border border-white/20'
                   : 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200'
@@ -1606,12 +1698,12 @@ export default function HostView({
 
             {/* STT engine badge (desktop only) */}
             <button
-              onClick={() => setIsSettingsModalOpen(true)}
+              onClick={() => onOpenSettings && onOpenSettings()}
               className="hidden md:flex h-8 px-3 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-[11px] font-medium items-center gap-1.5 transition-colors cursor-pointer shadow-2xs flex-shrink-0"
               title="Haz clic para cambiar el transcriptor o las voces"
             >
               <Mic className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-              <span>STT: <strong className="text-zinc-950 dark:white font-semibold">{sttEngine === 'deepgram' ? 'Deepgram ⚡' : sttEngine === 'webspeech' ? 'Web Speech 🌐' : 'Whisper 🤖'}</strong></span>
+              <span>STT: <strong className="text-zinc-950 dark:text-white font-semibold">{sttEngine === 'deepgram' ? 'Deepgram ⚡' : sttEngine === 'webspeech' ? 'Web Speech 🌐' : 'Whisper 🤖'}</strong></span>
             </button>
 
             {/* QR button */}
@@ -1729,6 +1821,27 @@ export default function HostView({
                 </div>
               </div>
 
+              {/* Broadcast Error Friendly Banner */}
+              {broadcastError && (
+                <div className="flex-shrink-0 px-1">
+                  <Banner
+                    icon={<XCircle className="w-4 h-4 text-white" strokeWidth={2.4} />}
+                    color="#ef4444"
+                    title="Error al acceder al micrófono"
+                    desc={broadcastError}
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => setBroadcastError(null)}
+                        className="h-8 px-3 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        Cerrar
+                      </button>
+                    }
+                  />
+                </div>
+              )}
+
               {/* Main Subtitles Stream Canvas — 100% Full Area (Sin contenedor artificial ni recortes) */}
               <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
                 <LiveCaptions
@@ -1754,8 +1867,12 @@ export default function HostView({
                         <div className="absolute -inset-2 rounded-xl sm:rounded-full gemini-aura-glow opacity-65 pointer-events-none" aria-hidden="true" />
                       )}
                       <button
+                        type="button"
                         onClick={handleToggleBroadcast}
+                        disabled={isTogglingBroadcast}
                         className={`relative w-full sm:w-auto h-12 sm:h-11 px-6 rounded-xl sm:rounded-full flex items-center justify-center gap-2.5 transition-all cursor-pointer font-semibold text-xs sm:text-xs shadow-xs active:scale-[0.99] ${
+                          isTogglingBroadcast ? 'opacity-70 cursor-wait' : ''
+                        } ${
                           isBroadcasting
                             ? 'gemini-gradient-bg text-white border border-white/20'
                             : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950'
@@ -1786,11 +1903,11 @@ export default function HostView({
                           <Activity className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                           Señal VAD
                         </span>
-                        <span ref={meterTextRef} className="font-bold text-zinc-900 dark:text-zinc-100 tabular-numbers">0%</span>
+                        <span ref={dockMeterTextRef} className="font-bold text-zinc-900 dark:text-zinc-100 tabular-numbers">0%</span>
                       </div>
                       <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden">
                         <div
-                          ref={meterBarRef}
+                          ref={dockMeterBarRef}
                           className="h-full w-full bg-emerald-500 rounded-full origin-left will-change-transform"
                           style={{ transform: 'scaleX(0)', transition: 'transform 0.05s linear' }}
                         />
@@ -1894,23 +2011,13 @@ export default function HostView({
             <aside className="hidden lg:flex w-88 h-full border-l border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 flex-shrink-0 flex-col overflow-hidden animate-fadeIn select-none">
               {/* Header: Title + Subtitle + Menú de pestañas dentro del Header */}
               <div className="px-5 pt-3.5 pb-2.5 flex flex-col gap-3 bg-white dark:bg-zinc-950 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                      Inspector de Sala
-                    </h2>
-                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
-                      Control acústico, cabinas y audiencia
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsDesktopInspectorOpen(false)}
-                    className="w-7 h-7 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center justify-center transition-colors cursor-pointer"
-                    title="Cerrar panel"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                <div>
+                  <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                    Inspector de Sala
+                  </h2>
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+                    Control acústico, cabinas y audiencia
+                  </p>
                 </div>
 
                 {/* Menú de pestañas dentro del header (estilo exacto app-salud / Tabs.tsx) */}
@@ -2001,6 +2108,7 @@ export default function HostView({
         <MasterBroadcastDock
           isBroadcasting={isBroadcasting}
           onToggleBroadcast={handleToggleBroadcast}
+          isToggling={isTogglingBroadcast}
           monitoredLang={monitoredLang}
           onToggleMonitoring={handleToggleMonitoring}
           onOpenCabinsSheet={() => setIsCabinsSheetOpen(true)}
@@ -2060,17 +2168,6 @@ export default function HostView({
         summaryData={summaryData}
         isLoading={isGeneratingSummary}
         error={summaryError}
-      />
-
-      <SettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        roomId={roomId}
-        onSaveConfig={(cfg) => {
-          if (cfg.sttEngine) setSttEngine(cfg.sttEngine);
-          if (cfg.voiceConfig) setSelectedVoices(cfg.voiceConfig);
-          if (cfg.preferredEngine) setPreferredEngine(cfg.preferredEngine);
-        }}
       />
 
     </div>

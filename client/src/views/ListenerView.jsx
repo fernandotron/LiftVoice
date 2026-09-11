@@ -14,7 +14,7 @@ import {
   Copy,
   X,
   Type,
-  SlidersHorizontal,
+  PanelRight,
   ChevronDown,
   Sparkles,
   Menu,
@@ -83,6 +83,10 @@ export default function ListenerView({
   const [isProfilePopoverOpen, setIsProfilePopoverOpen] = useState(false);
   const [participantSearch, setParticipantSearch] = useState('');
   const profilePopoverRef = useRef(null);
+  const profileNameRef = useRef(profile.name);
+  useEffect(() => {
+    profileNameRef.current = profile.name;
+  }, [profile.name]);
 
   useEffect(() => {
     if (!isProfilePopoverOpen) return;
@@ -97,6 +101,7 @@ export default function ListenerView({
 
   const handleSaveProfileName = () => {
     const trimmed = editName.trim() || 'Oyente';
+    profileNameRef.current = trimmed;
     const updated = { ...profile, name: trimmed };
     setProfile(updated);
     setEditName(trimmed);
@@ -104,6 +109,7 @@ export default function ListenerView({
     try {
       localStorage.setItem('lv_attendee_profile', JSON.stringify(updated));
     } catch (e) {}
+    socketService.registerAttendeeLead(roomId, updated);
   };
 
   const [selectedLanguage, setSelectedLanguage] = useState(() => {
@@ -181,7 +187,7 @@ export default function ListenerView({
     socketService.connect().then(() => {
       const activeProfile = {
         attendeeId: profile.attendeeId,
-        name: profile.name.trim() || 'Oyente',
+        name: (profileNameRef.current || profile.name || '').trim() || 'Oyente',
         email: profile.email.trim() || '',
         phone: profile.phone.trim() || ''
       };
@@ -242,7 +248,7 @@ export default function ListenerView({
 
     const unsubQaSpeaker = socketService.on('qa_active_speaker', (msg) => {
       const speaker = msg.speaker || msg;
-      if (speaker && (speaker.attendeeId === profile.attendeeId || speaker.name === profile.name)) {
+      if (speaker && (speaker.attendeeId === profile.attendeeId || speaker.name === profileNameRef.current || speaker.name === profile.name)) {
         setQaState('speaking');
       }
     });
@@ -255,6 +261,7 @@ export default function ListenerView({
     const unsubKicked = socketService.on('kicked_by_host', (data) => {
       console.warn('[ListenerView] Attendee was kicked by host.');
       audioPlayerService.stopAll();
+      audioPlayerService.disposeSession();
       onLeave({
         reason: 'kicked',
         message: data?.reason || 'Has sido expulsado de la sala por el anfitrión.'
@@ -268,6 +275,16 @@ export default function ListenerView({
     return () => {
       isMounted = false;
       clearTimeout(fallbackTimer);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.onresult = null;
+          recognitionRef.current.onerror = null;
+          recognitionRef.current.onend = null;
+          recognitionRef.current.abort();
+        } catch (e) {}
+        recognitionRef.current = null;
+      }
+      socketService.leaveRoom(roomId);
       unsubAudio();
       unsubTranscript();
       unsubStats();
@@ -278,8 +295,9 @@ export default function ListenerView({
       unsubQaClosed();
       unsubKicked();
       audioPlayerService.stopAll();
+      audioPlayerService.disposeSession();
     };
-  }, [roomId, profile.attendeeId, profile.name]);
+  }, [roomId, profile.attendeeId]);
 
   // Periodic check for audio suspension on iOS Safari
   useEffect(() => {
@@ -338,6 +356,7 @@ export default function ListenerView({
 
   const handleExit = () => {
     audioPlayerService.stopAll();
+    socketService.leaveRoom(roomId);
     onLeave({ reason: 'voluntary', selectedLanguage });
   };
 
@@ -461,7 +480,7 @@ export default function ListenerView({
           <button
             type="button"
             onClick={handleExit}
-            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
             title="Salir de la sala"
             aria-label="Salir de la sala"
           >
@@ -474,7 +493,7 @@ export default function ListenerView({
           <button
             type="button"
             onClick={handleCopyMeetingLink}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 border border-zinc-200 dark:border-zinc-700 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition-all cursor-pointer truncate shadow-2xs active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 border border-zinc-200 dark:border-zinc-700 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition-all cursor-pointer truncate shadow-2xs active:scale-95"
             title="Toca para copiar vínculo de la reunión"
           >
             <span className="truncate">{roomId}</span>
@@ -491,8 +510,9 @@ export default function ListenerView({
           <button
             type="button"
             onClick={toggleTheme}
-            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
             title={resolvedTheme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            aria-label={resolvedTheme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           >
             {resolvedTheme === 'dark' ? <Sun className="w-4 h-4 text-zinc-600 dark:text-zinc-400" /> : <Moon className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />}
           </button>
@@ -527,7 +547,7 @@ export default function ListenerView({
                 <button
                   type="button"
                   onClick={handleUnlockAudio}
-                  className="h-9 px-4 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+                  className="min-h-[44px] px-4 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
                 >
                   Sintonizar
                 </button>
@@ -668,10 +688,10 @@ export default function ListenerView({
                   ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-200 dark:border-zinc-700 shadow-2xs'
                   : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800'
               }`}
-              title="Alternar panel Asistente"
-              aria-label="Alternar panel Asistente"
+              title={isRightDrawerOpen ? "Ocultar panel Asistente" : "Mostrar panel Asistente"}
+              aria-label={isRightDrawerOpen ? "Ocultar panel Asistente" : "Mostrar panel Asistente"}
             >
-              <SlidersHorizontal className="w-4 h-4" />
+              <PanelRight className="w-4 h-4" />
             </button>
           </div>
         </header>
@@ -718,7 +738,7 @@ export default function ListenerView({
                         key={lang.code}
                         type="button"
                         onClick={() => handleSelectLanguage(lang.code)}
-                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        className={`p-3 min-w-[44px] min-h-[44px] rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                           isSelected
                             ? 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-600 ring-1 ring-zinc-400/30 dark:ring-zinc-600/30 shadow-2xs'
                             : 'bg-white dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/40'
@@ -800,7 +820,7 @@ export default function ListenerView({
               <button
                 type="button"
                 onClick={!isAudioUnlocked ? handleUnlockAudio : handleToggleMute}
-                className={`w-full h-11 rounded-full font-semibold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] border ${
+                className={`w-full h-11 min-h-[44px] min-w-[44px] rounded-full font-semibold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] border ${
                   !isAudioUnlocked
                     ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-transparent'
                     : isMuted
@@ -875,23 +895,13 @@ export default function ListenerView({
           <aside className="w-88 border-l border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 flex flex-col flex-shrink-0 select-none overflow-hidden animate-fadeIn">
             {/* Inspector Header: Title + Subtitle + Menú de pestañas dentro del Header */}
             <div className="px-5 pt-3.5 pb-2.5 flex flex-col gap-2.5 bg-white dark:bg-zinc-950 flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    Asistente
-                  </h2>
-                  <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
-                    Intervenciones en tiempo real
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsRightDrawerOpen(false)}
-                  className="w-7 h-7 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center justify-center transition-colors cursor-pointer"
-                  title="Cerrar panel"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+              <div>
+                <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                  Asistente
+                </h2>
+                <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+                  Intervenciones en tiempo real
+                </p>
               </div>
 
               {/* Menú de pestañas dentro del header (estilo exacto app-salud / media_1789147633077.png) */}
@@ -965,7 +975,7 @@ export default function ListenerView({
                               value={questionText}
                               onChange={(e) => setQuestionText(e.target.value)}
                               placeholder="Escribe aquí tu duda o consulta..."
-                              className="w-full bg-white dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 rounded-xl p-2.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 resize-none transition-all leading-relaxed"
+                              className="w-full bg-transparent border border-zinc-200/80 dark:border-zinc-800 rounded-xl p-2.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 resize-none transition-all leading-relaxed"
                             />
                           </div>
 
@@ -1019,7 +1029,7 @@ export default function ListenerView({
                             desc="El ponente ha recibido tu consulta. Se te notificará cuando se te conceda la palabra."
                           />
                           {questionText && (
-                            <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/50 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-200 leading-relaxed font-medium">
+                            <div className="p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-200 leading-relaxed font-medium">
                               <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block mb-1">Tu consulta enviada:</span>
                               &ldquo;{questionText}&rdquo;
                             </div>
@@ -1043,7 +1053,7 @@ export default function ListenerView({
                             desc="El ponente te ha dado paso en directo."
                           />
                           {questionText && (
-                            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-200 leading-relaxed font-medium">
+                            <div className="p-3 rounded-xl border border-emerald-500/30 text-xs text-emerald-800 dark:text-emerald-200 leading-relaxed font-medium">
                               <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 block mb-1">Tu consulta:</span>
                               &ldquo;{questionText}&rdquo;
                             </div>

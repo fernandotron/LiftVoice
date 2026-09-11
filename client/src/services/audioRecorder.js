@@ -234,6 +234,7 @@ class AudioRecorderService {
     this.lastRestartTime = 0;
     this.lastSpeechActivityTime = Date.now();
     this.isCommitting = false;
+    this.acousticResetTimer = null;
 
     // Deepgram Ultra-Low Latency Streaming Service Integration
     this.deepgramStreamingService = deepgramStreamingService;
@@ -300,6 +301,15 @@ class AudioRecorderService {
         keyterms: this.currentKeyterms || []
       }, {
         onTranscript: ({ transcript, isFinal, detectedLanguage }) => {
+          if (this.recognition) {
+            try {
+              this.recognition.onend = null;
+              this.recognition.onerror = null;
+              this.recognition.onresult = null;
+              this.recognition.abort();
+            } catch (e) {}
+            this.recognition = null;
+          }
           if (!this.isRecording && !isFinal) return;
           const clean = (transcript || '').trim();
           if (!clean) return;
@@ -318,6 +328,7 @@ class AudioRecorderService {
         },
         onError: (err) => {
           console.warn('[AudioRecorder] Deepgram reconnect error, falling back to WebSpeech:', err);
+          this.deepgramStreamingService.stop().catch(() => {});
           this.sttEngine = 'webspeech';
           if (this.isRecording && !this.recognition) {
             this.initSpeechRecognition();
@@ -392,7 +403,27 @@ class AudioRecorderService {
         }
       };
 
-      this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      try {
+        this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (deviceErr) {
+        if (
+          (deviceErr.name === 'OverconstrainedError' || deviceErr.name === 'NotFoundError') &&
+          this.selectedDeviceId &&
+          this.selectedDeviceId !== 'default'
+        ) {
+          console.warn(`[AudioRecorder] Dispositivo "${this.selectedDeviceId}" no disponible (${deviceErr.name}). Reintentando con default:`, deviceErr);
+          this.selectedDeviceId = 'default';
+          this.mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+        } else {
+          throw deviceErr;
+        }
+      }
 
       // Web Audio Analyser for VU meter
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -440,6 +471,16 @@ class AudioRecorderService {
             },
             {
               onTranscript: ({ transcript, isFinal, detectedLanguage }) => {
+                if (this.recognition) {
+                  try {
+                    this.recognition.onend = null;
+                    this.recognition.onerror = null;
+                    this.recognition.onresult = null;
+                    this.recognition.abort();
+                  } catch (e) {}
+                  this.recognition = null;
+                }
+
                 // Allow final transcript during CloseStream drain even after stopRecording()
                 if (!this.isRecording && !isFinal) return;
                 const clean = (transcript || '').trim();
@@ -459,6 +500,7 @@ class AudioRecorderService {
               },
               onError: (err) => {
                 console.warn('[AudioRecorder] Deepgram streaming error, falling back to WebSpeech:', err);
+                this.deepgramStreamingService.stop().catch(() => {});
                 this.sttEngine = 'webspeech';
                 if (this.isRecording && !this.recognition) {
                   this.initSpeechRecognition();
@@ -471,6 +513,7 @@ class AudioRecorderService {
           );
         } catch (dgErr) {
           console.warn('[AudioRecorder] Failed to start Deepgram streaming, falling back to WebSpeech:', dgErr);
+          this.deepgramStreamingService.stop().catch(() => {});
           this.sttEngine = 'webspeech';
           this.initSpeechRecognition();
         }
@@ -722,7 +765,12 @@ class AudioRecorderService {
 
   resetAcousticWindow() {
     if (!this.isRecording) return;
-    setTimeout(() => {
+    if (this.acousticResetTimer) {
+      clearTimeout(this.acousticResetTimer);
+      this.acousticResetTimer = null;
+    }
+    this.acousticResetTimer = setTimeout(() => {
+      this.acousticResetTimer = null;
       if (!this.isRecording || this.currentPendingText) return;
       try {
         if (this.recognition) {
@@ -779,6 +827,11 @@ class AudioRecorderService {
   stopRecording() {
     this.isRecording = false;
     this.clearSilenceTimer();
+
+    if (this.acousticResetTimer) {
+      clearTimeout(this.acousticResetTimer);
+      this.acousticResetTimer = null;
+    }
 
     if (this.deepgramStreamingService && this.deepgramStreamingService.active) {
       this.deepgramStreamingService.stop().catch(() => {});

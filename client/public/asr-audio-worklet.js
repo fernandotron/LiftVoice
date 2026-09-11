@@ -35,11 +35,56 @@ class ASRAudioWorkletProcessor extends AudioWorkletProcessor {
     this.hangoverSamples = Math.round(hangoverSeconds * sampleRate);
     this.cursor = 0;
     this.silenceRun = 0;
+    this.lastInputSample = 0;
+
+    // 2nd-order Butterworth IIR Low-Pass filter (fc = 7.2 kHz) para suprimir aliasing
+    const cutoff = Math.min(7200, (this.targetRate / 2) * 0.9);
+    const nyquist = sampleRate / 2;
+    if (cutoff < nyquist && sampleRate > this.targetRate) {
+      const w0 = (2 * Math.PI * cutoff) / sampleRate;
+      const alpha = Math.sin(w0) / (2 * Math.SQRT1_2); // Q = 1/sqrt(2) = 0.7071
+      const cosw0 = Math.cos(w0);
+      const a0 = 1 + alpha;
+      this.b0 = (1 - cosw0) / (2 * a0);
+      this.b1 = (1 - cosw0) / a0;
+      this.b2 = (1 - cosw0) / (2 * a0);
+      this.a1 = (-2 * cosw0) / a0;
+      this.a2 = (1 - alpha) / a0;
+      this.hasFilter = true;
+    } else {
+      this.hasFilter = false;
+    }
+    this.x1 = 0;
+    this.x2 = 0;
+    this.y1 = 0;
+    this.y2 = 0;
+    this.filterBuf = new Float32Array(128);
 
     const chunkMs = typeof opts.chunkMs === 'number' && opts.chunkMs > 0 ? opts.chunkMs : DEFAULT_CHUNK_MS;
     this.chunkSamples = Math.max(1, Math.round((this.targetRate * chunkMs) / 1000));
     this.chunkBuf = new Int16Array(this.chunkSamples);
     this.pending = 0;
+  }
+
+  resetFilterState() {
+    this.x1 = 0;
+    this.x2 = 0;
+    this.y1 = 0;
+    this.y2 = 0;
+    this.lastInputSample = 0;
+  }
+
+  // Filtrado IIR biquad paso bajo en línea
+  filterSample(x) {
+    if (!this.hasFilter) return x;
+    const safeX = Number.isFinite(x) ? x : 0;
+    let y = this.b0 * safeX + this.b1 * this.x1 + this.b2 * this.x2 - this.a1 * this.y1 - this.a2 * this.y2;
+    if (Math.abs(y) < 1e-15) y = 0;
+    this.x2 = this.x1;
+    this.x1 = safeX;
+    this.y2 = Math.abs(this.y1) < 1e-15 ? 0 : this.y1;
+    this.y1 = y;
+    return y;
   }
 
   pushSample(sample) {
@@ -52,7 +97,9 @@ class ASRAudioWorkletProcessor extends AudioWorkletProcessor {
 
   flush() {
     if (this.pending === 0) return;
-    const out = this.chunkBuf.slice(0, this.pending);
+    // Buffer transferible exacto para zero-copy sin fragmentación
+    const out = new Int16Array(this.pending);
+    out.set(this.chunkBuf.subarray(0, this.pending));
     this.pending = 0;
     this.port.postMessage(out.buffer, [out.buffer]);
   }
@@ -73,7 +120,11 @@ class ASRAudioWorkletProcessor extends AudioWorkletProcessor {
     const rms = Math.sqrt(sumSq / n);
     const voiced = rms >= this.silenceThreshold;
 
+    const wasInSilence = this.silenceRun > this.hangoverSamples;
     if (voiced) {
+      if (wasInSilence) {
+        this.resetFilterState();
+      }
       this.silenceRun = 0;
     } else {
       this.silenceRun += n;
@@ -81,18 +132,32 @@ class ASRAudioWorkletProcessor extends AudioWorkletProcessor {
 
     const shouldSend = voiced || this.silenceRun <= this.hangoverSamples;
 
-    // --- Downsample a 16 kHz por interpolación lineal ---
-    while (this.cursor < n) {
+    // --- H1: Filtrado Butterworth LPF (fc = 7.2 kHz) a frecuencia nativa ANTES del diezmado ---
+    let filteredChannel = channel;
+    if (this.hasFilter) {
+      if (!this.filterBuf || this.filterBuf.length < n) {
+        this.filterBuf = new Float32Array(n);
+      }
+      for (let i = 0; i < n; i++) {
+        this.filterBuf[i] = this.filterSample(channel[i]);
+      }
+      filteredChannel = this.filterBuf;
+    }
+
+    // --- Downsample a 16 kHz con interpolación continua ---
+    while (this.cursor < n - 1) {
       const i = Math.floor(this.cursor);
       const frac = this.cursor - i;
-      const s0 = channel[i];
-      const s1 = i + 1 < n ? channel[i + 1] : s0;
+      const s0 = i >= 0 ? filteredChannel[i] : this.lastInputSample;
+      const s1 = filteredChannel[i + 1];
+      const rawSample = s0 + (s1 - s0) * frac;
       if (shouldSend) {
-        this.pushSample(s0 + (s1 - s0) * frac);
+        this.pushSample(rawSample);
       }
       this.cursor += this.ratio;
     }
-    this.cursor -= n; // arrastrar el remanente al siguiente bloque
+    this.cursor -= n;
+    this.lastInputSample = filteredChannel[n - 1];
 
     // Al entrar en silencio (fin del hangover), vaciar la cola acumulada
     if (!shouldSend) {

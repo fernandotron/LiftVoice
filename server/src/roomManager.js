@@ -26,12 +26,48 @@ class RoomManager {
     // Inactive room reaper (runs every 2 minutes, cleans rooms idle for > 20 mins)
     const reaperInterval = setInterval(() => {
       const now = Date.now();
+      const reapedRooms = new Set();
       for (const [id, room] of this.rooms.entries()) {
-        const isAbandoned = !room.hostSocket && room.listeners.size === 0;
+        if (!room || reapedRooms.has(room)) continue;
+        const isAbandoned = !room.hostSocket && (!room.listeners || room.listeners.size === 0);
         const isIdle = (now - (room.lastActivity || room.createdAt)) > 20 * 60 * 1000;
         if (isAbandoned && isIdle) {
+          reapedRooms.add(room);
           console.log(`[RoomManager] Reaped inactive room ${id}`);
-          this.rooms.delete(id);
+
+          // MEM-02: Close all sockets with code 1000 ('Room closed')
+          if (room.hostSocket && room.hostSocket.readyState === 1) {
+            try { room.hostSocket.close(1000, 'Room closed'); } catch (e) {}
+          }
+          room.hostSocket = null;
+          room.hostSocketId = null;
+
+          if (room.listeners) {
+            for (const listener of room.listeners.values()) {
+              if (listener.socket && listener.socket.readyState === 1) {
+                try { listener.socket.close(1000, 'Room closed'); } catch (e) {}
+              }
+            }
+            room.listeners.clear();
+          }
+
+          // MEM-02: Empty arrays and state
+          if (room.transcriptHistory) room.transcriptHistory.length = 0;
+          if (room.qaQueue) room.qaQueue.length = 0;
+          room.activeSpeaker = null;
+          room.monitoredBooth = null;
+
+          if (room.registeredAttendees) room.registeredAttendees.clear();
+          if (room.kickedAttendees) room.kickedAttendees.clear();
+          if (room.kickedIps) room.kickedIps.clear();
+          if (room.lastBroadcastSeqByLang) room.lastBroadcastSeqByLang.clear();
+          if (room.lastAudioByLang) room.lastAudioByLang.clear();
+
+          for (const [key, r] of this.rooms.entries()) {
+            if (r === room) {
+              this.rooms.delete(key);
+            }
+          }
           import('./services/aiPipeline.js').then(m => m.aiPipeline.cleanupRoom(id)).catch(() => {});
         }
       }
@@ -41,7 +77,7 @@ class RoomManager {
     }
   }
 
-  createRoom(customId = null, title = 'Conferencia Principal 2026') {
+  createRoom(customId = null, title = 'Conferencia Principal 2026', hostKey = null) {
     const rawId = customId ? String(customId).trim() : generateMeetCode();
     const normalizedKey = normalizeRoomId(rawId);
 
@@ -57,13 +93,16 @@ class RoomManager {
     const room = {
       id: roomId,
       title,
+      hostKey: hostKey || null,
       createdAt: Date.now(),
       lastActivity: Date.now(),
       hostSocket: null,
       hostSocketId: null,
+      monitoredBooth: null, // Track which language booth the host is monitoring in headphones
       listeners: new Map(), // socketId -> { socket, name, email, phone, lang, joinedAt, ip, userAgent }
       registeredAttendees: new Map(), // email or socketId -> { id, name, email, phone, initialLang, currentLang, joinedAt, ip, isKicked }
-      kickedAttendees: new Map(), // attendeeId -> { attendeeId, name, email, kickedAt, reason }
+      kickedAttendees: new Map(), // attendeeId -> { attendeeId, name, email, kickedAt, reason, ip }
+      kickedIps: new Set(), // Set of IP addresses banned from this room
       qaQueue: [], // [ { socketId, attendeeId, name, lang, timestamp } ]
       activeSpeaker: null, // { socketId, attendeeId, name, lang, startedAt }
       metrics: {
@@ -91,16 +130,60 @@ class RoomManager {
 
   deleteRoom(roomId) {
     if (!roomId) return false;
-    const normalized = normalizeRoomId(roomId);
-    let deleted = false;
-    if (this.rooms.has(normalized)) {
-      this.rooms.delete(normalized);
-      deleted = true;
+    const room = this.getRoom(roomId);
+    if (room) {
+      // MEM-02: Close all sockets with code 1000 ('Room closed')
+      if (room.hostSocket && room.hostSocket.readyState === 1) {
+        try { room.hostSocket.close(1000, 'Room closed'); } catch (e) {}
+      }
+      room.hostSocket = null;
+      room.hostSocketId = null;
+
+      if (room.listeners) {
+        for (const listener of room.listeners.values()) {
+          if (listener.socket && listener.socket.readyState === 1) {
+            try { listener.socket.close(1000, 'Room closed'); } catch (e) {}
+          }
+        }
+        room.listeners.clear();
+      }
+
+      // MEM-02: Empty arrays and state
+      if (room.transcriptHistory) room.transcriptHistory.length = 0;
+      if (room.qaQueue) room.qaQueue.length = 0;
+      room.activeSpeaker = null;
+      room.monitoredBooth = null;
+
+      if (room.registeredAttendees) room.registeredAttendees.clear();
+      if (room.kickedAttendees) room.kickedAttendees.clear();
+      if (room.kickedIps) room.kickedIps.clear();
+      if (room.lastBroadcastSeqByLang) room.lastBroadcastSeqByLang.clear();
+      if (room.lastAudioByLang) room.lastAudioByLang.clear();
     }
-    const upper = String(roomId).toUpperCase();
-    if (this.rooms.has(upper)) {
-      this.rooms.delete(upper);
-      deleted = true;
+
+    let deleted = false;
+    if (room) {
+      for (const [key, r] of this.rooms.entries()) {
+        if (r === room) {
+          this.rooms.delete(key);
+          deleted = true;
+        }
+      }
+    } else {
+      const normalized = normalizeRoomId(roomId);
+      if (this.rooms.has(normalized)) {
+        this.rooms.delete(normalized);
+        deleted = true;
+      }
+      const upper = String(roomId).toUpperCase();
+      if (this.rooms.has(upper)) {
+        this.rooms.delete(upper);
+        deleted = true;
+      }
+      if (this.rooms.has(roomId)) {
+        this.rooms.delete(roomId);
+        deleted = true;
+      }
     }
     if (deleted) {
       console.log(`[RoomManager] Room deleted: ${roomId}`);
@@ -123,20 +206,42 @@ class RoomManager {
     if (room) room.lastActivity = Date.now();
   }
 
-  getOrCreateRoom(roomId, title) {
-    const existing = this.getRoom(roomId);
-    if (existing) return existing;
-    return this.createRoom(roomId, title);
+  getActiveLanguages(roomId) {
+    const room = this.getRoom(roomId);
+    if (!room || !room.listeners) return [];
+    const langs = new Set();
+    for (const listener of room.listeners.values()) {
+      if (listener.lang) langs.add(String(listener.lang).toLowerCase().trim());
+    }
+    if (room.monitoredBooth) {
+      langs.add(String(room.monitoredBooth).toLowerCase().trim());
+    }
+    return Array.from(langs);
   }
 
-  setHost(roomId, socket, socketId) {
-    const room = this.getOrCreateRoom(roomId);
+  getOrCreateRoom(roomId, title = 'Conferencia Principal 2026', hostKey = null) {
+    const existing = this.getRoom(roomId);
+    if (existing) return existing;
+    return this.createRoom(roomId, title, hostKey);
+  }
+
+  setHost(roomId, socket, socketId, hostKey = null) {
+    const room = this.getOrCreateRoom(roomId, 'Conferencia Principal 2026', hostKey);
+    if (room.hostKey && room.hostKey !== hostKey) {
+      return { success: false, error: 'INVALID_HOST_KEY' };
+    }
+    if (room.hostSocket && room.hostSocket.readyState === 1 && room.hostSocketId !== socketId) {
+      return { success: false, error: 'HOST_ALREADY_CONNECTED' };
+    }
+    if (!room.hostKey && hostKey) {
+      room.hostKey = hostKey;
+    }
     room.hostSocket = socket;
     room.hostSocketId = socketId;
     room.lastActivity = Date.now();
     console.log(`[RoomManager] Host connected to room ${room.id} (socket: ${socketId})`);
     this.broadcastStats(room.id);
-    return room;
+    return { success: true, room };
   }
 
   removeHost(socketId) {
@@ -144,6 +249,7 @@ class RoomManager {
       if (room.hostSocketId === socketId) {
         room.hostSocket = null;
         room.hostSocketId = null;
+        room.monitoredBooth = null; // Reset monitored booth so lazy cabins sleep immediately (MEM-01)
         room.lastActivity = Date.now();
         console.log(`[RoomManager] Host disconnected from room ${room.id}`);
         this.broadcastToRoom(room.id, {
@@ -151,21 +257,28 @@ class RoomManager {
           isOnline: false,
           message: 'El ponente se ha desconectado temporalmente'
         });
+        this.broadcastStats(room.id);
         break;
       }
     }
   }
 
-  isAttendeeKicked(roomId, attendeeId, email = '') {
+  isAttendeeKicked(roomId, attendeeId, email = '', ip = '') {
     const room = this.getRoom(roomId);
-    if (!room || !room.kickedAttendees) return false;
+    if (!room) return false;
     const attId = attendeeId ? String(attendeeId) : '';
     const attEmail = email ? String(email).toLowerCase() : '';
-    if (attId && room.kickedAttendees.has(attId)) return true;
-    if (attEmail && room.kickedAttendees.has(attEmail)) return true;
-    for (const record of room.kickedAttendees.values()) {
-      if (attId && record.attendeeId === attId) return true;
-      if (attEmail && record.email && record.email.toLowerCase() === attEmail) return true;
+    const attIp = ip ? String(ip).trim() : '';
+
+    if (attIp && room.kickedIps && room.kickedIps.has(attIp)) return true;
+    if (attId && room.kickedAttendees && room.kickedAttendees.has(attId)) return true;
+    if (attEmail && room.kickedAttendees && room.kickedAttendees.has(attEmail)) return true;
+    if (room.kickedAttendees) {
+      for (const record of room.kickedAttendees.values()) {
+        if (attId && record.attendeeId === attId) return true;
+        if (attEmail && record.email && record.email.toLowerCase() === attEmail) return true;
+        if (attIp && record.ip && record.ip === attIp) return true;
+      }
     }
     return false;
   }
@@ -174,32 +287,31 @@ class RoomManager {
     const room = this.getRoom(roomId);
     if (!room) return false;
     if (!room.kickedAttendees) room.kickedAttendees = new Map();
+    if (!room.kickedIps) room.kickedIps = new Set();
 
     const kickedKey = String(attendeeId);
     let foundEmail = '';
     let foundName = name;
+    let foundIp = '';
 
     for (const [key, att] of room.registeredAttendees.entries()) {
       if (att.id === attendeeId || key === attendeeId || (att.email && att.email.toLowerCase() === attendeeId.toLowerCase())) {
         att.isKicked = true;
         foundEmail = att.email || foundEmail;
         foundName = att.name || foundName;
+        foundIp = att.ip || foundIp;
         break;
       }
     }
 
-    room.kickedAttendees.set(kickedKey, {
-      attendeeId: kickedKey,
-      name: foundName || 'Asistente',
-      email: foundEmail,
-      kickedAt: new Date().toISOString(),
-      reason
-    });
-
-    // Terminate matching listener sockets
+    // Terminate matching listener sockets and extract IP
     for (const [socketId, listener] of room.listeners.entries()) {
       const match = (listener.attendeeId === attendeeId) || (socketId === attendeeId) || (foundEmail && listener.email && listener.email.toLowerCase() === foundEmail.toLowerCase());
       if (match) {
+        if (listener.ip && listener.ip !== 'unknown') {
+          foundIp = listener.ip;
+          room.kickedIps.add(listener.ip);
+        }
         if (listener.socket && listener.socket.readyState === 1) {
           try {
             listener.socket.send(JSON.stringify({
@@ -214,8 +326,21 @@ class RoomManager {
       }
     }
 
+    if (foundIp && foundIp !== 'unknown') {
+      room.kickedIps.add(foundIp);
+    }
+
+    room.kickedAttendees.set(kickedKey, {
+      attendeeId: kickedKey,
+      name: foundName || 'Asistente',
+      email: foundEmail,
+      ip: foundIp,
+      kickedAt: new Date().toISOString(),
+      reason
+    });
+
     this.removeHandRaise(roomId, attendeeId);
-    console.log(`[RoomManager] Attendee ${attendeeId} (${foundName}) kicked from room ${room.id}`);
+    console.log(`[RoomManager] Attendee ${attendeeId} (${foundName}) kicked from room ${room.id} (IP: ${foundIp || 'unknown'})`);
     this.broadcastStats(room.id);
     return true;
   }
@@ -225,9 +350,15 @@ class RoomManager {
     if (!room || !room.kickedAttendees) return false;
 
     const idStr = String(attendeeId);
+    const existing = room.kickedAttendees.get(idStr);
+    if (existing && existing.ip && room.kickedIps) {
+      room.kickedIps.delete(existing.ip);
+    }
+
     room.kickedAttendees.delete(idStr);
     for (const [key, record] of room.kickedAttendees.entries()) {
       if (record.attendeeId === idStr || key === idStr) {
+        if (record.ip && room.kickedIps) room.kickedIps.delete(record.ip);
         room.kickedAttendees.delete(key);
       }
     }
@@ -235,6 +366,7 @@ class RoomManager {
     for (const [key, att] of room.registeredAttendees.entries()) {
       if (att.id === idStr || key === idStr) {
         att.isKicked = false;
+        if (att.ip && room.kickedIps) room.kickedIps.delete(att.ip);
       }
     }
 
@@ -245,15 +377,23 @@ class RoomManager {
 
   addListener(roomId, socket, socketId, lang = 'en', metadata = {}) {
     const room = this.getOrCreateRoom(roomId);
-    const targetLang = (lang || 'en').toLowerCase();
-    const name = metadata.name || 'Asistente Anónimo';
-    const email = metadata.email || '';
-    const phone = metadata.phone || '';
-    const attendeeId = metadata.attendeeId || socketId;
+    let targetLang = 'en';
+    let safeMetadata = metadata || {};
+    if (typeof lang === 'string') {
+      targetLang = lang.toLowerCase();
+    } else if (typeof lang === 'object' && lang !== null) {
+      safeMetadata = lang;
+      targetLang = (safeMetadata.lang || safeMetadata.language || 'en').toLowerCase();
+    }
+    const name = safeMetadata.name || 'Asistente Anónimo';
+    const email = safeMetadata.email || '';
+    const phone = safeMetadata.phone || '';
+    const attendeeId = safeMetadata.attendeeId || socketId;
+    const ip = safeMetadata.ip || 'unknown';
 
-    // Check if attendee is kicked/banned from this room
-    if (this.isAttendeeKicked(room.id, attendeeId, email)) {
-      console.log(`[RoomManager] Connection rejected: Attendee ${attendeeId} (${name}) is banned from room ${room.id}`);
+    // Check if attendee is kicked/banned from this room (by ID, email, or IP)
+    if (this.isAttendeeKicked(room.id, attendeeId, email, ip)) {
+      console.log(`[RoomManager] Connection rejected: Attendee ${attendeeId} (${name}) is banned from room ${room.id} (IP: ${ip})`);
       if (socket && socket.readyState === 1) {
         try {
           socket.send(JSON.stringify({
@@ -267,6 +407,18 @@ class RoomManager {
       return { isKicked: true };
     }
 
+    // Purge any preexisting socket for the same attendeeId to prevent ghost/zombie duplication
+    for (const [sId, l] of room.listeners.entries()) {
+      if (l.attendeeId === attendeeId && sId !== socketId) {
+        try {
+          if (l.socket && l.socket.readyState === 1) {
+            l.socket.close(4001, 'Reconnected with new socket');
+          }
+        } catch (e) {}
+        room.listeners.delete(sId);
+      }
+    }
+
     const listenerObj = {
       socket,
       socketId,
@@ -276,11 +428,23 @@ class RoomManager {
       phone,
       lang: targetLang,
       joinedAt: Date.now(),
-      ip: metadata.ip || 'unknown',
+      ip,
       userAgent: metadata.userAgent || ''
     };
 
     room.listeners.set(socketId, listenerObj);
+
+    // MEM-01: If attendee is reconnecting and was already in Q&A queue, update socketId to keep queue valid
+    if (room.qaQueue && room.qaQueue.length > 0) {
+      for (const q of room.qaQueue) {
+        if (q.attendeeId === attendeeId || (email && q.email && q.email.toLowerCase() === email.toLowerCase())) {
+          q.socketId = socketId;
+        }
+      }
+    }
+    if (room.activeSpeaker && (room.activeSpeaker.attendeeId === attendeeId || (email && room.activeSpeaker.email && room.activeSpeaker.email.toLowerCase() === email.toLowerCase()))) {
+      room.activeSpeaker.socketId = socketId;
+    }
 
     // Save/Update in persistent registered leads list for this session
     const leadKey = email ? email.toLowerCase() : attendeeId;
@@ -296,8 +460,16 @@ class RoomManager {
       lastSeenAt: new Date().toISOString(),
       reconnectCount: existing ? (existing.reconnectCount || 1) + 1 : 1,
       isKicked: existing ? Boolean(existing.isKicked) : false,
-      ip: metadata.ip || 'unknown'
+      ip
     });
+
+    // MED-03: Limit registered attendees to 3000 max
+    if (room.registeredAttendees.size > 3000) {
+      const oldestKey = room.registeredAttendees.keys().next().value;
+      if (oldestKey !== undefined) {
+        room.registeredAttendees.delete(oldestKey);
+      }
+    }
 
     console.log(`[RoomManager] Listener joined room ${room.id} (${name}, ${email}) [Lang: ${lang}] (Total: ${room.listeners.size})`);
     this.broadcastStats(room.id);
@@ -327,8 +499,31 @@ class RoomManager {
 
   removeListener(socketId) {
     for (const room of this.rooms.values()) {
-      if (room.listeners.has(socketId)) {
-        room.listeners.delete(socketId);
+      const hasListener = room.listeners && room.listeners.has(socketId);
+      const isActiveSpeaker = room.activeSpeaker && room.activeSpeaker.socketId === socketId;
+      const isInQueue = room.qaQueue && room.qaQueue.some(q => q.socketId === socketId);
+
+      if (hasListener || isActiveSpeaker || isInQueue) {
+        if (hasListener) {
+          room.listeners.delete(socketId);
+        }
+        // If queued question has a persistent attendeeId, keep it so reconnect restores socketId;
+        // if anonymous without attendeeId, remove from queue
+        if (room.qaQueue && room.qaQueue.length > 0) {
+          room.qaQueue = room.qaQueue.map(q => {
+            if (q.socketId === socketId) {
+              return q.attendeeId ? { ...q, socketId: null } : null;
+            }
+            return q;
+          }).filter(Boolean);
+        }
+        // MEM-01: If disconnected listener was activeSpeaker, reset and broadcast qa_question_closed
+        if (isActiveSpeaker) {
+          room.activeSpeaker = null;
+          this.broadcastToRoom(room.id, {
+            type: 'QA_QUESTION_CLOSED'
+          });
+        }
         console.log(`[RoomManager] Listener ${socketId} left room ${room.id} (Remaining: ${room.listeners.size})`);
         this.broadcastStats(room.id);
         break;
@@ -345,14 +540,23 @@ class RoomManager {
   getAttendeesCsv(roomId) {
     const attendees = this.getAttendeesList(roomId);
     const headers = ['Nombre', 'Email', 'Telefono', 'Idioma Inicial', 'Idioma Actual', 'Fecha Registro', 'IP'];
+
+    const sanitizeCsvCell = (val) => {
+      let str = val !== null && val !== undefined ? String(val) : '';
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
     const rows = attendees.map(a => [
-      `"${(a.name || '').replace(/"/g, '""')}"`,
-      `"${(a.email || '').replace(/"/g, '""')}"`,
-      `"${(a.phone || '').replace(/"/g, '""')}"`,
-      `"${(a.initialLang || '').toUpperCase()}"`,
-      `"${(a.currentLang || '').toUpperCase()}"`,
-      `"${a.joinedAt || ''}"`,
-      `"${a.ip || ''}"`
+      sanitizeCsvCell(a.name),
+      sanitizeCsvCell(a.email),
+      sanitizeCsvCell(a.phone),
+      sanitizeCsvCell((a.initialLang || '').toUpperCase()),
+      sanitizeCsvCell((a.currentLang || '').toUpperCase()),
+      sanitizeCsvCell(a.joinedAt),
+      sanitizeCsvCell(a.ip)
     ]);
 
     return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -426,26 +630,6 @@ class RoomManager {
     };
   }
 
-  /**
-   * Returns an array of language codes currently active in the room (at least 1 listener or preview)
-   */
-  getActiveLanguages(roomId) {
-    const room = this.getRoom(roomId);
-    if (!room) return ['es', 'en'];
-
-    const activeSet = new Set();
-    for (const listener of room.listeners.values()) {
-      if (listener.lang) activeSet.add(listener.lang.toLowerCase());
-    }
-
-    // Always keep all 4 primary cabins warm so hot-switching and host headphone monitoring is instantaneous
-    activeSet.add('en');
-    activeSet.add('es');
-    activeSet.add('it');
-    activeSet.add('pt');
-
-    return Array.from(activeSet);
-  }
 
   addHandRaise(roomId, socketId, profile = {}) {
     const room = this.getRoom(roomId);
@@ -503,11 +687,12 @@ class RoomManager {
     const room = this.getRoom(roomId);
     if (!room) return false;
     const initialLen = room.qaQueue.length;
+    const hadActiveSpeaker = !!room.activeSpeaker && (room.activeSpeaker.attendeeId === attendeeIdOrSocketId || room.activeSpeaker.socketId === attendeeIdOrSocketId);
     room.qaQueue = room.qaQueue.filter(q => q.attendeeId !== attendeeIdOrSocketId && q.socketId !== attendeeIdOrSocketId);
-    if (room.activeSpeaker && (room.activeSpeaker.attendeeId === attendeeIdOrSocketId || room.activeSpeaker.socketId === attendeeIdOrSocketId)) {
+    if (hadActiveSpeaker) {
       room.activeSpeaker = null;
     }
-    if (room.qaQueue.length !== initialLen) {
+    if (room.qaQueue.length !== initialLen || hadActiveSpeaker) {
       this.broadcastStats(roomId);
       return true;
     }
@@ -518,15 +703,19 @@ class RoomManager {
     const room = this.getRoom(roomId);
     if (!room) return;
 
+    const MAX_BUFFERED_STATS = 256 * 1024; // 256 KB backpressure limit (RES-01)
+
     // 1. Send private stats (with attendees) ONLY to the host
     if (room.hostSocket && room.hostSocket.readyState === 1) {
-      const hostStats = this.getHostStats(roomId);
-      try {
-        room.hostSocket.send(JSON.stringify({
-          type: 'ROOM_STATS',
-          stats: hostStats
-        }));
-      } catch (e) { /* ignore */ }
+      if (room.hostSocket.bufferedAmount <= MAX_BUFFERED_STATS) {
+        const hostStats = this.getHostStats(roomId);
+        try {
+          room.hostSocket.send(JSON.stringify({
+            type: 'ROOM_STATS',
+            stats: hostStats
+          }));
+        } catch (e) { /* ignore */ }
+      }
     }
 
     // 2. Send sanitized public stats (NO PII) to all listeners
@@ -540,9 +729,11 @@ class RoomManager {
 
     for (const listener of room.listeners.values()) {
       if (listener.socket && listener.socket.readyState === 1) {
-        try {
-          listener.socket.send(publicPayload);
-        } catch (e) { /* ignore */ }
+        if (listener.socket.bufferedAmount <= MAX_BUFFERED_STATS) {
+          try {
+            listener.socket.send(publicPayload);
+          } catch (e) { /* ignore */ }
+        }
       }
     }
   }
@@ -552,16 +743,21 @@ class RoomManager {
     if (!room) return;
 
     const payload = JSON.stringify(data);
+    const MAX_BUFFERED_BYTES = 512 * 1024;
     
-    // Send to host
+    // Send to host with backpressure check
     if (room.hostSocket && room.hostSocket.readyState === 1) {
-      try { room.hostSocket.send(payload); } catch (e) { /* ignore */ }
+      if (room.hostSocket.bufferedAmount <= MAX_BUFFERED_BYTES) {
+        try { room.hostSocket.send(payload); } catch (e) { /* ignore */ }
+      }
     }
 
-    // Send to all listeners
+    // Send to all listeners with backpressure check
     for (const listener of room.listeners.values()) {
       if (listener.socket && listener.socket.readyState === 1) {
-        try { listener.socket.send(payload); } catch (e) { /* ignore */ }
+        if (listener.socket.bufferedAmount <= MAX_BUFFERED_BYTES) {
+          try { listener.socket.send(payload); } catch (e) { /* ignore */ }
+        }
       }
     }
   }
@@ -571,14 +767,27 @@ class RoomManager {
     if (!room) return;
 
     const targetLang = lang.toLowerCase();
+    const currentSeq = audioPacket.seqId || 0;
+
+    // Defense against out-of-order playback: drop audio packets older than the latest broadcasted sequence
+    if (!room.lastBroadcastSeqByLang) room.lastBroadcastSeqByLang = new Map();
+    const lastSeq = room.lastBroadcastSeqByLang.get(targetLang) || 0;
+    if (currentSeq > 0 && currentSeq < lastSeq) {
+      console.warn(`[RoomManager] ⚠️ Dropping out-of-order audio packet for lang ${targetLang}: seq ${currentSeq} < lastSeq ${lastSeq}`);
+      return;
+    }
+    if (currentSeq > 0) {
+      room.lastBroadcastSeqByLang.set(targetLang, currentSeq);
+    }
+
     const payloadData = {
       type: 'AUDIO_CHUNK',
       lang: targetLang,
       audioBase64: audioPacket.audioBase64,
       useClientWebSpeech: audioPacket.useClientWebSpeech,
-      mimeType: audioPacket.mimeType || 'audio/mp3',
+      mimeType: audioPacket.mimeType || 'audio/mpeg',
       id: audioPacket.id,
-      seqId: audioPacket.seqId || 1,
+      seqId: currentSeq || 1,
       text: audioPacket.text,
       timestamp: audioPacket.timestamp || Date.now(),
       duration: audioPacket.duration || 0,
@@ -594,9 +803,16 @@ class RoomManager {
 
     const payload = JSON.stringify(payloadData);
 
+    const MAX_BUFFERED_BYTES = 512 * 1024; // 512 KB backpressure threshold
     let sentCount = 0;
     for (const listener of room.listeners.values()) {
       if (listener.lang === targetLang && listener.socket && listener.socket.readyState === 1) {
+        // Backpressure defense against slow mobile clients
+        if (listener.socket.bufferedAmount > MAX_BUFFERED_BYTES) {
+          console.warn(`[RoomManager] ⚠️ Client buffer saturated (${listener.socket.bufferedAmount} bytes). Skipping chunk to prevent buffer bloat.`);
+          continue;
+        }
+
         try {
           listener.socket.send(payload);
           sentCount++;
@@ -606,14 +822,19 @@ class RoomManager {
       }
     }
 
-    // Also send to host for headphone booth monitoring & live telemetry
+    // Send to host ONLY if host is actively monitoring this specific booth or if it's preview
     if (room.hostSocket && room.hostSocket.readyState === 1) {
-      try {
-        room.hostSocket.send(JSON.stringify({
-          ...payloadData,
-          isBoothAudio: true
-        }));
-      } catch (err) {}
+      const isMonitoredByHost = room.monitoredBooth && room.monitoredBooth.toLowerCase() === targetLang;
+      if (isMonitoredByHost || audioPacket.isHostPreview) {
+        if (room.hostSocket.bufferedAmount <= MAX_BUFFERED_BYTES) {
+          try {
+            room.hostSocket.send(JSON.stringify({
+              ...payloadData,
+              isBoothAudio: true
+            }));
+          } catch (err) {}
+        }
+      }
     }
 
     room.metrics.audioPacketsBroadcast += sentCount;

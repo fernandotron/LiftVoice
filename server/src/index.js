@@ -20,7 +20,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json({ limit: '25mb' }));
+app.use(express.json({ limit: '512kb' }));
 
 // Helper to get local Wi-Fi / Ethernet IPv4 address (prioritizing real physical adapters over WSL/Hyper-V/Docker)
 function getNetworkInterfacesList() {
@@ -49,6 +49,28 @@ function getNetworkInterfacesList() {
 function getLocalIpAddress() {
   const candidates = getNetworkInterfacesList();
   return candidates[0]?.address || '192.168.1.12';
+}
+
+/**
+ * SEC-01 / LOW-01: Extract client IP with trusted reverse proxy verification.
+ * Normalizes IPv4-mapped IPv6 prefixes (::ffff:) and safely handles string or array x-forwarded-for.
+ */
+export function getClientIp(req) {
+  let remoteAddress = req?.socket?.remoteAddress || '';
+  if (remoteAddress.startsWith('::ffff:')) {
+    remoteAddress = remoteAddress.replace(/^::ffff:/, '');
+  }
+  const trustedProxies = ['127.0.0.1', '::1'];
+  if (trustedProxies.includes(remoteAddress) && req?.headers && req.headers['x-forwarded-for']) {
+    const xForwardedFor = req.headers['x-forwarded-for'];
+    const rawIp = Array.isArray(xForwardedFor) ? xForwardedFor[0] : String(xForwardedFor).split(',')[0];
+    let ip = (rawIp || '').trim();
+    if (ip.startsWith('::ffff:')) {
+      ip = ip.replace(/^::ffff:/, '');
+    }
+    return ip || remoteAddress;
+  }
+  return remoteAddress;
 }
 
 import { tunnelService } from './tunnelService.js';
@@ -158,8 +180,31 @@ app.post('/api/rooms/:roomId/decalage', (req, res) => {
   res.json({ success: true });
 });
 
-// Attendee Leads endpoints
-app.get('/api/rooms/:roomId/attendees', (req, res) => {
+// CRIT-03: Middleware to protect host PII data (attendees and CSV export)
+export function requireHostAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+  const token = bearerToken || req.query.token || req.query.hostKey || req.headers['x-host-token'] || req.headers['x-admin-token'] || null;
+
+  const roomId = req.params.roomId;
+  const room = roomId ? roomManager.getRoom(roomId) : null;
+
+  const validTokens = [
+    process.env.ADMIN_TOKEN,
+    process.env.HOST_SECRET,
+    room?.hostKey
+  ].filter(Boolean);
+
+  if (validTokens.length > 0) {
+    if (!token || !validTokens.includes(token)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or missing host authentication token' });
+    }
+  }
+  next();
+}
+
+// Attendee Leads endpoints (CRIT-03)
+app.get('/api/rooms/:roomId/attendees', requireHostAuth, (req, res) => {
   const attendees = roomManager.getAttendeesList(req.params.roomId);
   res.json({
     roomId: req.params.roomId.toUpperCase(),
@@ -168,7 +213,7 @@ app.get('/api/rooms/:roomId/attendees', (req, res) => {
   });
 });
 
-app.get('/api/rooms/:roomId/export-csv', (req, res) => {
+app.get('/api/rooms/:roomId/export-csv', requireHostAuth, (req, res) => {
   const roomId = req.params.roomId.toUpperCase();
   const csvData = roomManager.getAttendeesCsv(roomId);
   
@@ -186,16 +231,22 @@ app.get('/api/config', async (req, res) => {
     res.json({
       success: true,
       preferredSttEngine: sttService.preferredSttEngine || 'deepgram',
-      preferredTtsEngine: ttsService.preferredTtsEngine || 'auto',
-      preferredTranslationEngine: translationService.preferredEngine || 'qwen',
+      preferredTtsEngine: ttsService.preferredTtsEngine || 'deepgram',
+      preferredTranslationEngine: translationService.preferredEngine || 'gemini',
+      geminiModel: translationService.geminiModel || 'google/gemini-3.1-flash-lite',
+      qwenModel: translationService.qwenModel || 'qwen/qwen-3.8-27b',
+      qwenEndpoint: translationService.qwenEndpoint || '',
+      qwenTtsEndpoint: ttsService.qwenTtsEndpoint || '',
       voiceConfig: ttsService.voiceConfig,
       voiceGender: ttsService.voiceGender,
       medicalMode: translationService.medicalMode,
       medicalSpecialty: translationService.medicalSpecialty,
       customGlossary: translationService.customGlossary,
-      hasDeepgramKey: Boolean(sttService.deepgramApiKey || ttsService.deepgramApiKey),
-      hasElevenLabsKey: Boolean(ttsService.elevenLabsApiKey),
-      hasOpenAiKey: Boolean(sttService.openaiApiKey || ttsService.openaiApiKey)
+      hasGeminiKey: Boolean(translationService.geminiApiKey || sttService.geminiApiKey || process.env.GEMINI_API_KEY),
+      hasQwenKey: Boolean(translationService.qwenApiKey || process.env.DASHSCOPE_API_KEY || process.env.OPENROUTER_API_KEY),
+      hasDeepgramKey: Boolean(sttService.deepgramApiKey || ttsService.deepgramApiKey || process.env.DEEPGRAM_API_KEY),
+      hasElevenLabsKey: Boolean(ttsService.elevenLabsApiKey || process.env.ELEVENLABS_API_KEY),
+      hasOpenAiKey: Boolean(sttService.openaiApiKey || ttsService.openaiApiKey || process.env.OPENAI_API_KEY)
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -203,15 +254,83 @@ app.get('/api/config', async (req, res) => {
 });
 
 app.post('/api/config', (req, res) => {
-  const openaiApiKey = req.body.openaiApiKey || req.body.openaiKey;
-  const deepgramApiKey = req.body.deepgramApiKey || req.body.deepgramKey;
-  const elevenLabsApiKey = req.body.elevenLabsApiKey || req.body.elevenLabsKey;
-  const deeplApiKey = req.body.deeplApiKey || req.body.deeplKey;
-  const qwenApiKey = req.body.qwenApiKey || req.body.qwenKey;
+  // HIGH-02: Check admin token if configured in env
+  const adminTokenEnv = process.env.ADMIN_TOKEN;
+  const hostSecretEnv = process.env.HOST_SECRET;
+  if (adminTokenEnv || hostSecretEnv) {
+    const authHeader = req.headers.authorization;
+    const bearerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+    const suppliedToken = bearerToken || req.body.adminToken || req.headers['x-admin-token'] || null;
+
+    const validTokens = [adminTokenEnv, hostSecretEnv].filter(Boolean);
+    if (!suppliedToken || !validTokens.includes(suppliedToken)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or missing admin token' });
+    }
+  }
+  const resolveKey = (val, alt, keyName) => {
+    const raw = val !== undefined ? val : alt;
+    if (raw === undefined || raw === null) return undefined;
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed.length > 0) return trimmed;
+      // Only clear if client explicitly requested clearing this key
+      if (raw === '__CLEAR__' || (Array.isArray(req.body.clearKeys) && req.body.clearKeys.includes(keyName))) {
+        return '';
+      }
+      return undefined; // Untouched empty string -> do not overwrite
+    }
+    return undefined;
+  };
+
+  const sanitizeEndpoint = (urlStr) => {
+    if (!urlStr || typeof urlStr !== 'string') return '';
+    const trimmed = urlStr.trim();
+    if (!trimmed) return '';
+    try {
+      const u = new URL(trimmed);
+      if (!['http:', 'https:'].includes(u.protocol)) return '';
+      const host = u.hostname.toLowerCase();
+      // Block cloud metadata endpoints
+      if (
+        host === '169.254.169.254' ||
+        host === '100.100.100.200' ||
+        host === 'metadata.google.internal' ||
+        host.endsWith('.internal')
+      ) {
+        return '';
+      }
+      // In production, block private IP address ranges (SSRF defense)
+      if (process.env.NODE_ENV === 'production') {
+        if (
+          host === 'localhost' ||
+          host === '127.0.0.1' ||
+          host === '::1' ||
+          host === '0.0.0.0' ||
+          /^10\./.test(host) ||
+          /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
+          /^192\.168\./.test(host) ||
+          /^169\.254\./.test(host)
+        ) {
+          return '';
+        }
+      }
+      return trimmed;
+    } catch {
+      return '';
+    }
+  };
+
+  const openaiApiKey = resolveKey(req.body.openaiApiKey, req.body.openaiKey, 'openai');
+  const deepgramApiKey = resolveKey(req.body.deepgramApiKey, req.body.deepgramKey, 'deepgram');
+  const elevenLabsApiKey = resolveKey(req.body.elevenLabsApiKey, req.body.elevenLabsKey, 'elevenlabs');
+  const deeplApiKey = resolveKey(req.body.deeplApiKey, req.body.deeplKey, 'deepl');
+  const geminiApiKey = resolveKey(req.body.geminiApiKey, req.body.geminiKey, 'gemini');
+  const qwenApiKey = resolveKey(req.body.qwenApiKey, req.body.qwenKey, 'qwen');
   const {
+    geminiModel,
     qwenModel,
-    qwenEndpoint,
     preferredEngine,
+    preferredTranslationEngine,
     medicalMode,
     medicalSpecialty,
     customGlossary,
@@ -222,15 +341,21 @@ app.post('/api/config', (req, res) => {
     voiceGender
   } = req.body;
 
+  const qwenEndpoint = sanitizeEndpoint(req.body.qwenEndpoint);
+  const qwenTtsEndpoint = sanitizeEndpoint(req.body.qwenTtsEndpoint);
+
   aiPipeline.setApiKeys({
     openaiApiKey,
     deepgramApiKey,
     elevenLabsApiKey,
     deeplApiKey,
+    geminiApiKey,
+    geminiModel,
     qwenApiKey,
     qwenModel,
     qwenEndpoint,
-    preferredEngine,
+    qwenTtsEndpoint,
+    preferredEngine: preferredEngine || preferredTranslationEngine,
     medicalMode,
     medicalSpecialty,
     customGlossary,
@@ -383,20 +508,21 @@ app.get('/api/voices', async (req, res) => {
 // Quick Voice Preview Sampler (for UI voice selector & demo)
 app.post('/api/rooms/:roomId/preview-voice', async (req, res) => {
   const { lang, sampleText, voice, gender, engine } = req.body;
-  const targetLang = (lang || 'en').toLowerCase();
-  const text = sampleText || req.body.text || 'Hello, this is a real-time simultaneous voice preview from LiftVoice.';
+  const targetLang = (lang || 'en').toLowerCase().slice(0, 5);
+  const text = String(sampleText || req.body.text || 'Hello, this is a real-time simultaneous voice preview from LiftVoice.').slice(0, 300);
   try {
     const { ttsService } = await import('./services/ttsService.js');
     const result = await ttsService.synthesize(text, targetLang, { voice, gender, engine });
     res.json({
       success: true,
       audioBase64: result?.audioBase64,
-      mimeType: result?.mimeType || 'audio/mp3',
+      mimeType: result?.mimeType || 'audio/mpeg',
       lang: targetLang,
       provider: result?.provider || 'google'
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.warn(`[Preview-Voice Error]: ${err.message}`);
+    res.status(500).json({ error: 'No fue posible generar la muestra de voz en el servidor' });
   }
 });
 
@@ -426,7 +552,12 @@ if (fs.existsSync(clientDistPath)) {
 
 // Create HTTP and WebSocket Server
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, maxPayload: 4 * 1024 * 1024 });
+wss.on('error', (err) => {
+  if (err.code !== 'EADDRINUSE') {
+    console.error('[WSS] WebSocketServer error:', err);
+  }
+});
 
 // Active Heartbeat to terminate dead/half-open mobile connections
 const heartbeatInterval = setInterval(() => {
@@ -451,7 +582,7 @@ wss.on('connection', (ws, req) => {
   let clientRole = null; // 'HOST' | 'LISTENER'
   let currentRoomId = null;
   const socketId = `sock_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  const clientIp = req.socket.remoteAddress;
+  const clientIp = getClientIp(req);
 
   console.log(`[WS] New connection: ${socketId} from ${clientIp}`);
 
@@ -480,9 +611,25 @@ wss.on('connection', (ws, req) => {
 
       switch (msg.type) {
         case 'HOST_JOIN': {
-          currentRoomId = (msg.roomId || 'MAIN').toUpperCase();
+          if (clientRole === 'LISTENER') {
+            ws.send(JSON.stringify({
+              type: 'HOST_JOIN_FAILED',
+              reason: 'No puedes cambiar de rol a HOST en la misma conexión'
+            }));
+            break;
+          }
+          const targetRoom = (msg.roomId || 'MAIN').toUpperCase();
+          const hostKey = msg.hostKey || msg.token || null;
+          const result = roomManager.setHost(targetRoom, ws, socketId, hostKey);
+          if (!result.success) {
+            ws.send(JSON.stringify({
+              type: 'HOST_JOIN_FAILED',
+              reason: result.error || 'Autenticación como HOST fallida'
+            }));
+            break;
+          }
+          currentRoomId = targetRoom;
           clientRole = 'HOST';
-          roomManager.setHost(currentRoomId, ws, socketId);
           
           ws.send(JSON.stringify({
             type: 'HOST_JOINED_SUCCESS',
@@ -536,10 +683,20 @@ wss.on('connection', (ws, req) => {
 
         case 'HOST_KICK_ATTENDEE': {
           if (clientRole !== 'HOST') {
+            console.warn(`[WS] [RBAC] Unauthorized HOST_KICK_ATTENDEE attempt from socket ${socketId} (role: ${clientRole})`);
             ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can moderate attendees.' }));
             break;
           }
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. No active room joined.' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Host attempted to manage room ${msg.roomId} but active room is ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only manage your own active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
           if (targetRoom && msg.attendeeId) {
             roomManager.kickAttendee(targetRoom, msg.attendeeId, msg.name, msg.reason);
           }
@@ -548,10 +705,20 @@ wss.on('connection', (ws, req) => {
 
         case 'HOST_UNBAN_ATTENDEE': {
           if (clientRole !== 'HOST') {
+            console.warn(`[WS] [RBAC] Unauthorized HOST_UNBAN_ATTENDEE attempt from socket ${socketId} (role: ${clientRole})`);
             ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can unban attendees.' }));
             break;
           }
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. No active room joined.' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Host attempted to manage room ${msg.roomId} but active room is ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only manage your own active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
           if (targetRoom && msg.attendeeId) {
             roomManager.unbanAttendee(targetRoom, msg.attendeeId);
           }
@@ -561,6 +728,8 @@ wss.on('connection', (ws, req) => {
         case 'REGISTER_ATTENDEE_LEAD': {
           const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
           if (targetRoom && msg.profile) {
+            clientRole = 'LISTENER';
+            currentRoomId = targetRoom;
             roomManager.addListener(targetRoom, ws, socketId, msg.profile.lang || msg.profile.currentLang || 'es', {
               attendeeId: msg.profile.attendeeId,
               name: msg.profile.name,
@@ -599,7 +768,16 @@ wss.on('connection', (ws, req) => {
         case 'AUDIENCE_LOWER_HAND': {
           const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
           if (targetRoom) {
-            roomManager.removeHandRaise(targetRoom, msg.attendeeId || socketId);
+            const attId = msg.attendeeId || socketId;
+            roomManager.removeHandRaise(targetRoom, attId);
+            const room = roomManager.getRoom(targetRoom);
+            if (room && room.hostSocket && room.hostSocket.readyState === 1) {
+              room.hostSocket.send(JSON.stringify({
+                type: 'QA_HAND_LOWERED',
+                attendeeId: attId,
+                stats: roomManager.getHostStats(targetRoom)
+              }));
+            }
             ws.send(JSON.stringify({
               type: 'QA_HAND_LOWERED',
               status: 'idle'
@@ -609,82 +787,112 @@ wss.on('connection', (ws, req) => {
         }
 
         case 'HOST_APPROVE_QUESTION': {
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (clientRole !== 'HOST') {
+            console.warn(`[WS] [RBAC] Unauthorized HOST_APPROVE_QUESTION attempt from socket ${socketId} (role: ${clientRole})`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can approve questions.' }));
+            break;
+          }
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. No active room joined.' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Host attempted to manage room ${msg.roomId} but active room is ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only manage your own active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
           if (targetRoom && msg.attendeeId) {
             const approved = roomManager.approveHandRaise(targetRoom, msg.attendeeId);
             if (approved) {
-              const room = roomManager.getRoom(targetRoom);
-              if (room) {
-                const activeSpeakerPayload = JSON.stringify({
-                  type: 'QA_ACTIVE_SPEAKER',
-                  speaker: approved
-                });
-                for (const listener of room.listeners.values()) {
-                  if (listener.socket && listener.socket.readyState === 1) {
-                    listener.socket.send(activeSpeakerPayload);
-                  }
-                }
-                if (room.hostSocket && room.hostSocket.readyState === 1) {
-                  room.hostSocket.send(activeSpeakerPayload);
-                }
-              }
+              roomManager.broadcastToRoom(targetRoom, {
+                type: 'QA_ACTIVE_SPEAKER',
+                speaker: approved
+              });
             }
           }
           break;
         }
 
         case 'AUDIENCE_AUDIO_QUESTION': {
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
-          if (targetRoom) {
-            let spokenText = msg.text;
-            if (!spokenText && msg.audioBase64) {
-              const buffer = Buffer.from(msg.audioBase64, 'base64');
-              const { sttService } = await import('./services/sttService.js');
-              const sttRes = await sttService.transcribeAudio(buffer, msg.mimeType || 'audio/webm', msg.lang || 'auto');
-              if (sttRes && sttRes.text) spokenText = sttRes.text;
-            }
-            if (spokenText) {
-              const { translationService } = await import('./services/translationService.js');
-              const trans = await translationService.translateAll(spokenText, msg.lang || 'auto');
-              const hostTargetLang = 'es';
-              const translatedToHost = trans.translations[hostTargetLang] || trans.translations['en'] || spokenText;
+          const targetRoom = currentRoomId;
+          if (!targetRoom) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'No estás unido a ninguna sala activa' }));
+            break;
+          }
 
-              const { ttsService } = await import('./services/ttsService.js');
-              const audioRes = await ttsService.synthesize(translatedToHost, hostTargetLang);
+          const room = roomManager.getRoom(targetRoom);
+          if (!room || !room.activeSpeaker || room.activeSpeaker.socketId !== socketId) {
+            console.warn(`[WS] [RBAC] Unauthorized AUDIENCE_AUDIO_QUESTION attempt from socket ${socketId} in room ${targetRoom}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'No estás autorizado para hablar' }));
+            break;
+          }
 
-              const room = roomManager.getRoom(targetRoom);
-              if (room) {
-                if (room.hostSocket && room.hostSocket.readyState === 1) {
-                  room.hostSocket.send(JSON.stringify({
-                    type: 'HOST_EARPIECE_AUDIO',
-                    isAudienceQuestion: true,
-                    attendeeName: msg.attendeeName || 'Asistente',
-                    originalText: spokenText,
-                    translatedText: translatedToHost,
-                    audioBase64: audioRes?.audioBase64,
-                    mimeType: audioRes?.mimeType || 'audio/mp3',
-                    lang: hostTargetLang
-                  }));
-                }
-                roomManager.addTranscriptItem(targetRoom, {
-                  id: `qa_${Date.now()}`,
-                  seqId: 0,
-                  timestamp: Date.now(),
-                  originalText: `[Pregunta de ${msg.attendeeName || 'Audiencia'}]: "${spokenText}"`,
-                  detectedLanguage: trans.detectedSource || msg.lang || 'auto',
-                  engineUsed: 'Audience Backchannel Live',
-                  translations: trans.translations,
-                  isAudienceQuestion: true,
-                  attendeeName: msg.attendeeName || 'Audiencia'
-                });
-              }
+          let spokenText = typeof msg.text === 'string' ? msg.text.trim().slice(0, 500) : '';
+          if (!spokenText && msg.audioBase64) {
+            if (typeof msg.audioBase64 !== 'string' || msg.audioBase64.length > 2 * 1024 * 1024) {
+              console.warn(`[WS] [SECURITY] audioBase64 invalid or exceeds 2MB limit from socket ${socketId}`);
+              ws.send(JSON.stringify({ type: 'ERROR', message: 'Payload de audio inválido o excede 2MB' }));
+              break;
             }
+            const buffer = Buffer.from(msg.audioBase64, 'base64');
+            const { sttService } = await import('./services/sttService.js');
+            const sttRes = await sttService.transcribeAudio(buffer, msg.mimeType || 'audio/webm', msg.lang || 'auto');
+            if (sttRes && sttRes.text) spokenText = sttRes.text.trim().slice(0, 500);
+          }
+
+          if (spokenText) {
+            const { translationService } = await import('./services/translationService.js');
+            const trans = await translationService.translateAll(spokenText, msg.lang || 'auto');
+            const hostTargetLang = 'es';
+            const translatedToHost = trans.translations[hostTargetLang] || trans.translations['en'] || spokenText;
+
+            const { ttsService } = await import('./services/ttsService.js');
+            const audioRes = await ttsService.synthesize(translatedToHost, hostTargetLang);
+
+            if (room.hostSocket && room.hostSocket.readyState === 1) {
+              room.hostSocket.send(JSON.stringify({
+                type: 'HOST_EARPIECE_AUDIO',
+                isAudienceQuestion: true,
+                attendeeName: msg.attendeeName || 'Asistente',
+                originalText: spokenText,
+                translatedText: translatedToHost,
+                audioBase64: audioRes?.audioBase64,
+                mimeType: audioRes?.mimeType || 'audio/mp3',
+                lang: hostTargetLang
+              }));
+            }
+            roomManager.addTranscriptItem(targetRoom, {
+              id: `qa_${Date.now()}`,
+              seqId: 0,
+              timestamp: Date.now(),
+              originalText: `[Pregunta de ${msg.attendeeName || 'Audiencia'}]: "${spokenText}"`,
+              detectedLanguage: trans.detectedSource || msg.lang || 'auto',
+              engineUsed: 'Audience Backchannel Live',
+              translations: trans.translations,
+              isAudienceQuestion: true,
+              attendeeName: msg.attendeeName || 'Audiencia'
+            });
           }
           break;
         }
 
         case 'HOST_CLOSE_QUESTION': {
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (clientRole !== 'HOST') {
+            console.warn(`[WS] [RBAC] Unauthorized HOST_CLOSE_QUESTION attempt from socket ${socketId} (role: ${clientRole})`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can close questions.' }));
+            break;
+          }
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. No active room joined.' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Host attempted to manage room ${msg.roomId} but active room is ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only manage your own active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
           if (targetRoom) {
             if (msg.questionId || msg.attendeeId) {
               roomManager.removeHandRaise(targetRoom, msg.questionId || msg.attendeeId);
@@ -721,8 +929,22 @@ wss.on('connection', (ws, req) => {
         }
 
         case 'HOST_PREVIEW_CHANNEL': {
+          if (clientRole !== 'HOST') {
+            console.warn(`[WS] [RBAC] Unauthorized HOST_PREVIEW_CHANNEL attempt from socket ${socketId} (role: ${clientRole})`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can preview channels.' }));
+            break;
+          }
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. No active room joined.' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Host attempted to manage room ${msg.roomId} but active room is ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only manage your own active room' }));
+            break;
+          }
           // Host asks to preview/synthesize a test voice chunk in a specific channel
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          const targetRoom = currentRoomId;
           if (targetRoom && msg.lang && msg.text) {
             const { ttsService } = await import('./services/ttsService.js');
             const result = await ttsService.synthesize(msg.text, msg.lang);
@@ -744,7 +966,21 @@ wss.on('connection', (ws, req) => {
         }
 
         case 'host_broadcast_state': {
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (clientRole !== 'HOST') {
+            console.warn(`[WS] [RBAC] Unauthorized host_broadcast_state attempt from socket ${socketId} (role: ${clientRole})`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can change broadcast state.' }));
+            break;
+          }
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. No active room joined.' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Host attempted to manage room ${msg.roomId} but active room is ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only manage your own active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
           if (targetRoom) {
             roomManager.touchRoomActivity(targetRoom);
             console.log(`[WS] Room ${targetRoom} broadcast state changed: ${msg.isBroadcasting ? 'ON AIR' : 'PAUSED'}`);
@@ -752,15 +988,67 @@ wss.on('connection', (ws, req) => {
           break;
         }
 
+        case 'HOST_MONITOR_BOOTH': {
+          if (clientRole !== 'HOST') {
+            console.warn(`[WS] [RBAC] Unauthorized HOST_MONITOR_BOOTH attempt from socket ${socketId} (role: ${clientRole})`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can monitor booths.' }));
+            break;
+          }
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. No active room joined.' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Host attempted to manage room ${msg.roomId} but active room is ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only manage your own active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
+          if (targetRoom) {
+            const room = roomManager.getRoom(targetRoom);
+            if (room) {
+              const cleanLang = (msg.lang && msg.lang !== 'none') ? String(msg.lang).toLowerCase().trim() : null;
+              room.monitoredBooth = cleanLang;
+              console.log(`[WS] 🎧 Host monitoring booth updated to: "${cleanLang || 'none'}" in room ${targetRoom}`);
+              roomManager.broadcastStats(targetRoom);
+            }
+          }
+          break;
+        }
+
+        case 'LISTENER_LEAVE':
+        case 'LEAVE_ROOM': {
+          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (targetRoom) {
+            roomManager.removeListener(socketId);
+            console.log(`[WS] 🚪 Listener ${socketId} explicitly left room ${targetRoom}`);
+          }
+          break;
+        }
+
         case 'speaker_sentence':
         case 'SPEECH_CHUNK_TEXT': {
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (clientRole !== 'HOST') {
+            console.warn(`[WS] [RBAC] Unauthorized ${msg.type} attempt from socket ${socketId} (role: ${clientRole})`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can broadcast speech text.' }));
+            break;
+          }
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. No active room joined.' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Host attempted to manage room ${msg.roomId} but active room is ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only manage your own active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
           if (targetRoom && msg.text) {
             await aiPipeline.processSpeech({
               roomId: targetRoom,
               text: msg.text,
               sourceLanguage: msg.sourceLanguage || msg.sourceLang || 'auto',
-              forceLanguages: msg.forceLanguages || ['es', 'en', 'it', 'pt'],
+              forceLanguages: (Array.isArray(msg.forceLanguages) && msg.forceLanguages.length > 0) ? msg.forceLanguages : [],
               medicalMode: msg.medicalMode,
               medicalSpecialty: msg.medicalSpecialty,
               customGlossary: msg.customGlossary
@@ -770,7 +1058,21 @@ wss.on('connection', (ws, req) => {
         }
 
         case 'SPEECH_CHUNK_AUDIO': {
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (clientRole !== 'HOST') {
+            console.warn(`[WS] [RBAC] Unauthorized SPEECH_CHUNK_AUDIO attempt from socket ${socketId} (role: ${clientRole})`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can broadcast speech audio.' }));
+            break;
+          }
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. No active room joined.' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Host attempted to manage room ${msg.roomId} but active room is ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only manage your own active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
           if (targetRoom && msg.audioBase64) {
             const buffer = Buffer.from(msg.audioBase64, 'base64');
             await aiPipeline.processSpeech({
@@ -778,7 +1080,7 @@ wss.on('connection', (ws, req) => {
               audioBuffer: buffer,
               mimeType: msg.mimeType || 'audio/webm',
               sourceLanguage: msg.sourceLanguage || 'auto',
-              forceLanguages: msg.forceLanguages || ['es', 'en', 'it', 'pt'],
+              forceLanguages: (Array.isArray(msg.forceLanguages) && msg.forceLanguages.length > 0) ? msg.forceLanguages : [],
               medicalMode: msg.medicalMode,
               medicalSpecialty: msg.medicalSpecialty,
               customGlossary: msg.customGlossary
@@ -806,17 +1108,25 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    console.log(`[WS] Connection closed: ${socketId} (${clientRole})`);
+    console.log(`[WS] Connection closed: ${socketId} (${clientRole || 'UNSPECIFIED'})`);
     if (clientRole === 'HOST') {
       roomManager.removeHost(socketId);
-    } else if (clientRole === 'LISTENER') {
-      roomManager.removeListener(socketId);
     }
+    // Unconditionally remove listener reference to avoid any socket memory leak
+    roomManager.removeListener(socketId);
   });
 
   ws.on('error', (err) => {
     console.error(`[WS] Socket error on ${socketId}:`, err);
   });
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(`[Server] Port ${PORT} already in use. Primary listener skipped or running in test mode.`);
+  } else {
+    console.error('[Server] Server error:', err);
+  }
 });
 
 server.listen(PORT, '0.0.0.0', () => {

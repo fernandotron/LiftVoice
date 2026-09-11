@@ -117,9 +117,9 @@ export default function MobileAudioDock({
   return (
     <nav 
       aria-label="Controles de audio del oyente"
-      className="fixed bottom-0 inset-x-0 z-40 sm:hidden pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-10 px-4 bg-gradient-to-t from-white via-white/95 via-45% to-transparent dark:from-zinc-950 dark:via-zinc-950/95 dark:via-45% dark:to-transparent pointer-events-none"
+      className="fixed bottom-0 inset-x-0 z-40 sm:hidden pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-10 px-2.5 sm:px-4 bg-gradient-to-t from-white via-white/95 via-45% to-transparent dark:from-zinc-950 dark:via-zinc-950/95 dark:via-45% dark:to-transparent pointer-events-none"
     >
-      <div className="flex items-center justify-center gap-2 pointer-events-auto">
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto">
         
         {/* Satélite Izquierdo: Selector de Idioma con Menú de Acciones Superior */}
         <div className="relative flex-shrink-0">
@@ -241,8 +241,8 @@ export default function MobileAudioDock({
         </div>
 
         {/* Centro: Master Audio Visualizer (Gemini Live 2026 Pure Living AI Pill) */}
-        <div className="flex items-center justify-center">
-          <div className="relative w-24 sm:w-28 h-11 flex items-center justify-center">
+        <div className="flex items-center justify-center flex-shrink min-w-0">
+          <div className="relative w-20 sm:w-28 flex-shrink min-w-0 h-11 flex items-center justify-center">
             {isLive && (
               <div
                 className="absolute -inset-1.5 rounded-full gemini-aura-glow opacity-60 pointer-events-none"
@@ -253,7 +253,7 @@ export default function MobileAudioDock({
             <button
               type="button"
               onClick={handleMuteClick}
-              className={`relative w-24 sm:w-28 h-11 rounded-full font-medium text-xs tracking-tight flex items-center justify-center transition-all cursor-pointer active:scale-95 touch-manipulation select-none overflow-hidden ${
+              className={`relative w-20 sm:w-28 flex-shrink min-w-0 h-11 rounded-full font-medium text-xs tracking-tight flex items-center justify-center transition-all cursor-pointer active:scale-95 touch-manipulation select-none overflow-hidden ${
                 !isUnlocked
                   ? 'bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-500 shadow-xs'
                   : isMuted

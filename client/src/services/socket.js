@@ -384,6 +384,24 @@ class SocketService {
     });
   }
 
+  setMonitoredBooth(roomId, lang) {
+    return this.send({
+      type: 'HOST_MONITOR_BOOTH',
+      roomId: (roomId || this.currentRoomId || 'MAIN').toUpperCase(),
+      lang: lang || 'none'
+    });
+  }
+
+  leaveRoom(roomId) {
+    const rId = (roomId || this.currentRoomId || 'MAIN').toUpperCase();
+    this.send({
+      type: 'LISTENER_LEAVE',
+      roomId: rId
+    });
+    this.currentRoomId = null;
+    this.currentRole = null;
+  }
+
   sendSpeechText(text, sourceLanguage = 'auto', forceLanguages = [], options = {}) {
     return this.send({
       type: 'SPEECH_CHUNK_TEXT',

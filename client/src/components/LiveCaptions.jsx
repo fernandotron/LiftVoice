@@ -234,7 +234,7 @@ export default function LiveCaptions({
 
         {/* Scroll anchor at the bottom of the feed */}
         {(transcriptHistory.length > 0 || displayedInterim) && (
-          <div ref={bottomRef} className="h-28 sm:h-2 w-full pointer-events-none flex-shrink-0" />
+          <div ref={bottomRef} className="h-4 sm:h-2 w-full pointer-events-none flex-shrink-0" />
         )}
       </div>
 
