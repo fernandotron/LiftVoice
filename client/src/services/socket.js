@@ -299,12 +299,19 @@ class SocketService {
     });
   }
 
-  // Q&A Backchannel Protocol Methods (2026-2029)
   raiseHand(roomId, profile) {
     return this.send({
       type: 'AUDIENCE_RAISE_HAND',
       roomId: (roomId || this.currentRoomId || 'MAIN').toUpperCase(),
       profile: profile || this.userProfile || {}
+    });
+  }
+
+  lowerHand(roomId, attendeeId) {
+    return this.send({
+      type: 'AUDIENCE_LOWER_HAND',
+      roomId: (roomId || this.currentRoomId || 'MAIN').toUpperCase(),
+      attendeeId
     });
   }
 
@@ -329,10 +336,11 @@ class SocketService {
     });
   }
 
-  closeQuestion(roomId) {
+  closeQuestion(roomId, questionId = null) {
     return this.send({
       type: 'HOST_CLOSE_QUESTION',
-      roomId: (roomId || this.currentRoomId || 'MAIN').toUpperCase()
+      roomId: (roomId || this.currentRoomId || 'MAIN').toUpperCase(),
+      questionId
     });
   }
 

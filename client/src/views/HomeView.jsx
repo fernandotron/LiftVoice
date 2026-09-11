@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, Headphones, X } from 'lucide-react';
+import { Mic, Headphones } from 'lucide-react';
 import { normalizeRoomCode } from '../App.jsx';
 import { SUPPORTED_LANGUAGES } from '../components/LanguageSelector.jsx';
 
@@ -58,11 +58,7 @@ export default function HomeView({
     onJoinRoom(normalizeRoomCode(joinPin.trim()));
   };
 
-  const handleCreateInstant = () => {
-    onCreateRoom(null);
-  };
-
-  const handleCreateCustom = (e) => {
+  const handleCreateSubmit = (e) => {
     e.preventDefault();
     onCreateRoom(customRoomName.trim() ? normalizeRoomCode(customRoomName.trim()) : null);
   };
@@ -90,15 +86,17 @@ export default function HomeView({
 
         {/* Píldora Minimalista de Reingreso a Última Sala (Estilo Dynamic Island) */}
         {recentRoom && (
-          <div className="max-w-md mx-auto w-full animate-fadeIn">
-            <div className="p-2 pl-4 pr-2 rounded-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-2xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">Última sala:</span>
-                <span className="font-mono font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 truncate">
-                  {recentRoom.roomId}
-                </span>
-                <span className="text-xs text-zinc-400 dark:text-zinc-500 font-mono hidden sm:inline">
-                  &bull; hace {recentRoom.timeAgo}
+          <div className="max-w-md mx-auto w-full animate-fadeIn pt-1.5 sm:pt-2">
+            <div className="py-2.5 pl-4.5 pr-2 rounded-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-2xs flex items-center justify-between gap-3">
+              <div className="flex flex-col justify-center min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">Última sala:</span>
+                  <span className="font-mono font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 truncate">
+                    {recentRoom.roomId}
+                  </span>
+                </div>
+                <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono leading-none mt-1">
+                  hace {recentRoom.timeAgo}
                 </span>
               </div>
 
@@ -113,11 +111,11 @@ export default function HomeView({
                 <button
                   type="button"
                   onClick={handleDismissRecentRoom}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  className="h-9 px-3.5 rounded-full text-xs font-medium bg-zinc-200/80 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white border border-zinc-300/60 dark:border-zinc-700/60 transition-all cursor-pointer flex items-center justify-center shadow-2xs active:scale-95"
                   title="Descartar"
                   aria-label="Descartar sala reciente"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <span>Descartar</span>
                 </button>
               </div>
             </div>
@@ -184,12 +182,12 @@ export default function HomeView({
                   value={joinPin}
                   onChange={(e) => setJoinPin(e.target.value)}
                   placeholder="Código de sala (ej: abc-defg-hij)"
-                  className="w-full h-12 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all tracking-wider"
+                  className="w-full h-12 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-full px-5 text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all"
                 />
                 <button
                   type="submit"
                   disabled={!joinPin.trim()}
-                  className="w-full h-12 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm disabled:opacity-40 cursor-pointer transition-all active:scale-[0.99]"
+                  className="w-full h-12 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm disabled:opacity-40 cursor-pointer transition-all active:scale-[0.99]"
                 >
                   <span>Entrar a la sala</span>
                 </button>
@@ -205,7 +203,7 @@ export default function HomeView({
 
                 <div className="space-y-1.5">
                   <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    Crear sala (Ponente)
+                    Crear sala
                   </h2>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                     Inicia una sala para retransmitir tu conferencia desde tu micrófono en directo a los asistentes.
@@ -213,31 +211,21 @@ export default function HomeView({
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <form onSubmit={handleCreateSubmit} className="space-y-3">
+                <input
+                  type="text"
+                  value={customRoomName}
+                  onChange={(e) => setCustomRoomName(e.target.value)}
+                  placeholder="Código personalizado (opcional)"
+                  className="w-full h-12 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-full px-5 text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all"
+                />
                 <button
-                  type="button"
-                  onClick={handleCreateInstant}
-                  className="w-full h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-semibold text-sm border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shadow-2xs transition-colors cursor-pointer active:scale-[0.99]"
+                  type="submit"
+                  className="w-full h-12 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm cursor-pointer transition-all active:scale-[0.99]"
                 >
-                  <span>Crear sala instantánea</span>
+                  <span>{customRoomName.trim() ? 'Crear sala con código' : 'Crear sala instantánea'}</span>
                 </button>
-
-                <form onSubmit={handleCreateCustom} className="flex gap-2.5">
-                  <input
-                    type="text"
-                    value={customRoomName}
-                    onChange={(e) => setCustomRoomName(e.target.value)}
-                    placeholder="O código personalizado"
-                    className="flex-1 h-12 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all"
-                  />
-                  <button
-                    type="submit"
-                    className="h-12 px-5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 text-sm font-semibold cursor-pointer active:scale-95 transition-all"
-                  >
-                    Crear
-                  </button>
-                </form>
-              </div>
+              </form>
             </div>
 
           </div>
@@ -250,7 +238,7 @@ export default function HomeView({
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-6 text-xs sm:text-sm">
           {/* Brand Identity & Mission */}
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3 text-center sm:text-left">
-            <span className="font-bold text-zinc-900 dark:text-zinc-100 tracking-tight text-xs sm:text-sm">
+            <span className="font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight text-xs sm:text-sm">
               LiftVoice
             </span>
             <span className="text-zinc-300 dark:text-zinc-700 select-none">&bull;</span>

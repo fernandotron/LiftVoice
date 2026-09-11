@@ -221,10 +221,10 @@ export default function VoicesView({
         <div className="h-14 px-5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80">
           <div className="flex items-center gap-2.5">
             <div className="flex items-center gap-1">
-              <div className="w-1.5 h-4.5 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
-              <div className="w-1.5 h-3 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
+              <div className="w-1 h-4.5 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
+              <div className="w-1 h-3 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
             </div>
-            <span className="font-bold text-sm text-zinc-950 dark:text-zinc-100 tracking-tight">LiftVoice</span>
+            <span className="font-medium text-sm text-zinc-950 dark:text-zinc-100 tracking-tight">LiftVoice</span>
             <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/60">Studio</span>
           </div>
           {isMobile && (

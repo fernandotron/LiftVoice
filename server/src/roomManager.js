@@ -368,9 +368,34 @@ class RoomManager {
     if (!room) return null;
 
     const langCounts = {};
+    const sanitizedAttendees = [];
+
+    // 1. Host presence (if connected)
+    if (room.hostSocket) {
+      sanitizedAttendees.push({
+        id: 'host',
+        name: room.hostName || 'Ponente Principal',
+        lang: room.sourceLang || 'es',
+        isHost: true
+      });
+    }
+
+    // 2. Connected Listeners (Strictly GDPR compliant: NO email, NO phone, NO IP)
+    const seenAttendeeIds = new Set();
     for (const listener of room.listeners.values()) {
       const l = listener.lang || 'en';
       langCounts[l] = (langCounts[l] || 0) + 1;
+
+      const attId = listener.attendeeId || listener.socketId;
+      if (!seenAttendeeIds.has(attId)) {
+        seenAttendeeIds.add(attId);
+        sanitizedAttendees.push({
+          id: attId,
+          name: listener.name || 'Oyente',
+          lang: l,
+          isHost: false
+        });
+      }
     }
 
     return {
@@ -381,6 +406,7 @@ class RoomManager {
       languageBreakdown: langCounts,
       qaQueueCount: (room.qaQueue || []).length,
       activeSpeaker: room.activeSpeaker ? { attendeeId: room.activeSpeaker.attendeeId, name: room.activeSpeaker.name, lang: room.activeSpeaker.lang } : null,
+      attendees: sanitizedAttendees,
       metrics: room.metrics
     };
   }
@@ -426,14 +452,19 @@ class RoomManager {
     if (!room) return null;
     const attendeeId = profile.attendeeId || socketId;
     const name = profile.name || 'Asistente';
-    const lang = (profile.lang || profile.currentLang || 'es').toLowerCase();
+    const lang = (profile.lang || profile.nativeLang || profile.currentLang || 'es').toLowerCase();
+    const questionText = (profile.questionText || '').trim();
 
     const existingIdx = room.qaQueue.findIndex(q => q.socketId === socketId || q.attendeeId === attendeeId);
     const item = {
+      questionId: profile.questionId || (existingIdx >= 0 ? room.qaQueue[existingIdx].questionId : `q_${Math.random().toString(36).slice(2, 8)}`),
       socketId,
       attendeeId,
       name,
+      nativeLang: lang,
       lang,
+      questionText,
+      status: 'pending',
       timestamp: Date.now()
     };
 
@@ -449,10 +480,10 @@ class RoomManager {
   approveHandRaise(roomId, attendeeIdOrSocketId) {
     const room = this.getRoom(roomId);
     if (!room) return null;
-    const idx = room.qaQueue.findIndex(q => q.attendeeId === attendeeIdOrSocketId || q.socketId === attendeeIdOrSocketId);
+    const idx = room.qaQueue.findIndex(q => q.questionId === attendeeIdOrSocketId || q.attendeeId === attendeeIdOrSocketId || q.socketId === attendeeIdOrSocketId);
     if (idx >= 0) {
       const item = room.qaQueue.splice(idx, 1)[0];
-      room.activeSpeaker = { ...item, startedAt: Date.now() };
+      room.activeSpeaker = { ...item, status: 'speaking', startedAt: Date.now() };
       this.broadcastStats(roomId);
       return room.activeSpeaker;
     }

@@ -3,6 +3,7 @@ import {
   Volume2,
   VolumeX,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   AlertCircle,
   Check,
@@ -18,7 +19,10 @@ import {
   Sparkles,
   Menu,
   Sun,
-  Moon
+  Moon,
+  Pencil,
+  Users,
+  Search
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import LanguageSelector, { SUPPORTED_LANGUAGES } from '../components/LanguageSelector.jsx';
@@ -54,7 +58,7 @@ export default function ListenerView({
   };
 
   // Anonymous attendee profile by default (retrieves stored profile if previously saved)
-  const [profile] = useState(() => {
+  const [profile, setProfile] = useState(() => {
     try {
       const saved = localStorage.getItem('lv_attendee_profile');
       if (saved) {
@@ -74,6 +78,33 @@ export default function ListenerView({
       phone: ''
     };
   });
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState(profile.name || 'Oyente');
+  const [isProfilePopoverOpen, setIsProfilePopoverOpen] = useState(false);
+  const [participantSearch, setParticipantSearch] = useState('');
+  const profilePopoverRef = useRef(null);
+
+  useEffect(() => {
+    if (!isProfilePopoverOpen) return;
+    const handleClickOutside = (e) => {
+      if (profilePopoverRef.current && !profilePopoverRef.current.contains(e.target)) {
+        setIsProfilePopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isProfilePopoverOpen]);
+
+  const handleSaveProfileName = () => {
+    const trimmed = editName.trim() || 'Oyente';
+    const updated = { ...profile, name: trimmed };
+    setProfile(updated);
+    setEditName(trimmed);
+    setIsEditingName(false);
+    try {
+      localStorage.setItem('lv_attendee_profile', JSON.stringify(updated));
+    } catch (e) {}
+  };
 
   const [selectedLanguage, setSelectedLanguage] = useState(() => {
     try {
@@ -157,7 +188,7 @@ export default function ListenerView({
       socketService.joinAsListener(roomId, selectedLangRef.current, activeProfile);
 
       const elapsed = Date.now() - startTime;
-      const minWait = Math.max(0, 300 - elapsed);
+      const minWait = Math.max(0, 500 - elapsed);
       setTimeout(() => {
         if (isMounted) setIsInitializing(false);
       }, minWait);
@@ -310,19 +341,36 @@ export default function ListenerView({
     onLeave({ reason: 'voluntary', selectedLanguage });
   };
 
-  const handleRaiseHand = () => {
-    setQaState('requested');
+  const handleRaiseHand = (overrideText = null) => {
+    const textToSend = (overrideText !== null ? overrideText : questionText).trim();
+    if (!textToSend) return;
+
+    handleStopRecordingQuestion();
+
     socketService.raiseHand(roomId, {
       attendeeId: profile.attendeeId,
       name: profile.name.trim() || 'Oyente',
       email: profile.email || '',
       phone: profile.phone || '',
-      nativeLang: selectedLanguage
+      nativeLang: selectedLanguage,
+      questionText: textToSend
     });
+
+    socketService.sendQuestionAudio(
+      roomId,
+      null,
+      'audio/webm',
+      selectedLanguage,
+      profile.name.trim() || 'Oyente',
+      textToSend
+    );
+
+    setQaState('requested');
   };
 
   const handleCancelRaiseHand = () => {
     setQaState('idle');
+    socketService.lowerHand(roomId, profile.attendeeId);
   };
 
   const handleStartRecordingQuestion = () => {
@@ -370,24 +418,7 @@ export default function ListenerView({
 
   const handleSendQuestion = (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!questionText.trim()) return;
-
-    handleStopRecordingQuestion();
-
-    socketService.sendQuestionAudio(
-      roomId,
-      null,
-      'audio/webm',
-      selectedLanguage,
-      profile.name.trim() || 'Oyente',
-      questionText.trim()
-    );
-
-    setQaState('completed');
-    setQuestionText('');
-    setTimeout(() => {
-      setQaState('idle');
-    }, 4500);
+    handleRaiseHand();
   };
 
   // Desktop Studio Layout States
@@ -400,8 +431,19 @@ export default function ListenerView({
 
   if (isInitializing) {
     return (
-      <div className="h-dvh min-h-dvh w-full flex items-center justify-center bg-white dark:bg-zinc-950">
-        <div className="w-5 h-5 border-2 border-zinc-200 dark:border-zinc-800 border-t-zinc-900 dark:border-t-zinc-100 rounded-full animate-spin" />
+      <div className="h-dvh min-h-dvh w-full flex flex-col items-center justify-center bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6 space-y-4 text-center select-none animate-fadeIn">
+        <div className="relative flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full border-2 border-zinc-200 dark:border-zinc-800 border-t-zinc-900 dark:border-t-zinc-100 animate-spin" />
+          <Volume2 className="w-5 h-5 text-zinc-600 dark:text-zinc-400 absolute" />
+        </div>
+        <div className="space-y-1 max-w-xs">
+          <h3 className="font-semibold text-xs sm:text-sm tracking-tight text-zinc-900 dark:text-zinc-100">
+            Sintonizando sala <span className="font-mono text-zinc-600 dark:text-zinc-400">{roomId}</span>
+          </h3>
+          <p className="text-[11px] sm:text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
+            Conectando con la cabina de audio e interpretación en directo...
+          </p>
+        </div>
       </div>
     );
   }
@@ -538,8 +580,86 @@ export default function ListenerView({
             </button>
           </div>
 
-          {/* Derecha: Botón para alternar panel Asistente */}
+          {/* Derecha: Perfil de usuario + Botón para alternar panel Asistente */}
           <div className="flex items-center gap-2">
+            {/* Píldora de Perfil interactiva con popover */}
+            <div className="relative" ref={profilePopoverRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditName(profile.name || 'Oyente');
+                  setIsProfilePopoverOpen(prev => !prev);
+                }}
+                className="flex items-center gap-1.5 h-8 pl-1.5 pr-2.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 transition-colors cursor-pointer shadow-2xs"
+                title="Tu perfil en la sala"
+                aria-label="Tu perfil en la sala"
+              >
+                <div className="w-5.5 h-5.5 rounded-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center text-[10px] font-bold">
+                  {profile.name ? profile.name.slice(0, 1).toUpperCase() : 'O'}
+                </div>
+                <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 max-w-[80px] sm:max-w-[110px] truncate">
+                  {profile.name || 'Oyente'}
+                </span>
+              </button>
+
+              {/* Popover flotante para renombrarse */}
+              {isProfilePopoverOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 p-3.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 animate-fadeIn space-y-3 select-none">
+                  <div className="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-zinc-800">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center text-xs font-bold">
+                        {profile.name ? profile.name.slice(0, 1).toUpperCase() : 'O'}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                          Identidad en Sala
+                        </div>
+                        <div className="text-[10px] text-zinc-400 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span>Audiencia conectada</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsProfilePopoverOpen(false)}
+                      className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSaveProfileName();
+                      setIsProfilePopoverOpen(false);
+                    }}
+                    className="space-y-2.5"
+                  >
+                    <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block">
+                      Nombre para preguntas al ponente:
+                    </label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Tu nombre..."
+                      maxLength={30}
+                      autoFocus
+                      className="w-full h-8 px-3 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-100"
+                    />
+                    <button
+                      type="submit"
+                      className="w-full h-8 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold transition-all cursor-pointer shadow-xs"
+                    >
+                      Guardar Nombre
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={() => setIsRightDrawerOpen(prev => !prev)}
@@ -579,104 +699,71 @@ export default function ListenerView({
           <div className="mx-5 border-b border-zinc-200 dark:border-zinc-800/80 flex-shrink-0" />
 
           {/* Left Sidebar Scrollable Body */}
-          <div className="flex-1 overflow-y-auto px-5 pt-4 pb-5 flex flex-col justify-between">
-            <div className="space-y-5">
-              {/* Configuración Section */}
-              <div className="space-y-4">
-                <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                  Configuración
-                </div>
+          <div className="flex-1 overflow-y-auto px-5 pt-4 pb-5 flex flex-col space-y-5">
+            <div className="space-y-4">
+              <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                Configuración
+              </div>
 
-                {/* Canal de Recepción (4 bloques directos en cuadrícula 2x2 - Inspirado en media_1789145385636.png) */}
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
-                    Canal de recepción
-                  </label>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {SUPPORTED_LANGUAGES.map(lang => {
-                      const isSelected = selectedLanguage === lang.code;
-                      return (
-                        <button
-                          key={lang.code}
-                          type="button"
-                          onClick={() => handleSelectLanguage(lang.code)}
-                          className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                            isSelected
-                              ? 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-600 ring-1 ring-zinc-400/30 dark:ring-zinc-600/30 shadow-2xs'
-                              : 'bg-white dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/40'
-                          }`}
-                        >
-                          {/* Fila superior: Bandera a la izquierda, Badge a la derecha */}
-                          <div className="flex items-center justify-between mb-2.5">
-                            <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60 overflow-hidden shadow-2xs">
-                              <CountryFlag code={lang.code} className="w-4.5 h-4.5 rounded-full object-cover" />
-                            </div>
-                            {isSelected ? (
-                              <span className="w-6 h-6 rounded-full bg-emerald-500 text-white border border-emerald-500 inline-flex items-center justify-center shadow-2xs">
-                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                              </span>
-                            ) : (
-                              <span className="h-6 px-2 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 text-[10px] font-mono font-medium text-zinc-400 dark:text-zinc-500 inline-flex items-center justify-center">
-                                {lang.code.toUpperCase()}
-                              </span>
-                            )}
+              {/* Canal de Recepción (4 bloques directos en cuadrícula 2x2 - Inspirado en media_1789145385636.png) */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+                  Canal de recepción
+                </label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {SUPPORTED_LANGUAGES.map(lang => {
+                    const isSelected = selectedLanguage === lang.code;
+                    return (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        onClick={() => handleSelectLanguage(lang.code)}
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-600 ring-1 ring-zinc-400/30 dark:ring-zinc-600/30 shadow-2xs'
+                            : 'bg-white dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/40'
+                        }`}
+                      >
+                        {/* Fila superior: Bandera a la izquierda, Badge a la derecha */}
+                        <div className="flex items-center justify-between mb-2.5">
+                          <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60 overflow-hidden shadow-2xs">
+                            <CountryFlag code={lang.code} className="w-4.5 h-4.5 rounded-full object-cover" />
                           </div>
+                          {isSelected ? (
+                            <span className="w-6 h-6 rounded-full bg-emerald-500 text-white border border-emerald-500 inline-flex items-center justify-center shadow-2xs">
+                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </span>
+                          ) : (
+                            <span className="h-6 px-2 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 text-[10px] font-mono font-medium text-zinc-400 dark:text-zinc-500 inline-flex items-center justify-center">
+                              {lang.code.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
 
-                          {/* Fila inferior: Nombre de idioma y voz */}
-                          <div>
-                            <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
-                              {lang.nativeName}
-                            </div>
-                            <div className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">
-                              {lang.voice}
-                            </div>
+                        {/* Fila inferior: Nombre de idioma y voz */}
+                        <div>
+                          <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
+                            {lang.nativeName}
                           </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          <div className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">
+                            {lang.voice}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-
-                {/* Identidad en Sala */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
-                    Identidad en Sala
-                  </label>
-                  <div className="h-10 px-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between text-xs text-zinc-700 dark:text-zinc-300 font-medium shadow-2xs">
-                    <span className="truncate">{profile.name}</span>
-                    <span className="text-[10px] font-mono text-zinc-400">Oyente</span>
-                  </div>
-                </div>
-
-                {/* Copy Link Secondary Button */}
-                <button
-                  type="button"
-                  onClick={handleCopyMeetingLink}
-                  className="w-full h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
-                >
-                  {hasCopiedLink ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      <span className="text-emerald-600 dark:text-emerald-400">Enlace Copiado al Portapapeles</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-zinc-400" />
-                      <span>Copiar Enlace de Oyente</span>
-                    </>
-                  )}
-                </button>
               </div>
             </div>
 
-            {/* Section: Estado + Primary Button */}
-            <div className="space-y-3 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+            {/* Section: Estado + Primary Button (Flujo continuo y compacto sin líneas divisorias) */}
+            <div className="space-y-3">
               <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                 Estado de recepción
               </div>
 
               {/* Latency & Audio state card */}
-              <div className="p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between text-xs shadow-2xs">
+              <div className="p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 flex items-center justify-between text-xs shadow-2xs">
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${
                     isMuted
@@ -697,14 +784,14 @@ export default function ListenerView({
                       : 'Audio en espera'}
                   </span>
                 </div>
-                <span className="font-mono text-[11px] text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">
+                <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500 bg-zinc-200/70 dark:bg-zinc-800/80 px-2 py-0.5 rounded-full">
                   {socketLatency}ms
                 </span>
               </div>
 
               {/* Visualizer wave if playing and not muted */}
               {isPlayingAudio && !isMuted && (
-                <div className="h-10 rounded-xl overflow-hidden bg-zinc-900/10 dark:bg-zinc-900">
+                <div className="h-10 rounded-xl overflow-hidden bg-zinc-900/10 dark:bg-zinc-900/60">
                   <GeminiFluidWave className="w-full h-full" />
                 </div>
               )}
@@ -713,7 +800,7 @@ export default function ListenerView({
               <button
                 type="button"
                 onClick={!isAudioUnlocked ? handleUnlockAudio : handleToggleMute}
-                className={`w-full h-11 rounded-2xl font-semibold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] border ${
+                className={`w-full h-11 rounded-full font-semibold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] border ${
                   !isAudioUnlocked
                     ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-transparent'
                     : isMuted
@@ -853,41 +940,96 @@ export default function ListenerView({
                 {activeInspectorTab === 'actions' && (
                   <div className="space-y-4 animate-fadeIn">
                     {/* Q&A Backchannel Card */}
-                    <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-3 shadow-xs">
+                    <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-3 shadow-2xs">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
                           Preguntas al Ponente
                         </span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-200/60 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400">
                           {qaState === 'idle' ? 'Inactivo' : qaState === 'requested' ? 'En espera' : 'En directo'}
                         </span>
                       </div>
 
                       {qaState === 'idle' && (
-                        <button
-                          type="button"
-                          onClick={handleRaiseHand}
-                          className="w-full h-10 rounded-xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
-                        >
-                          <Hand className="w-4 h-4" />
-                          <span>Pedir la Palabra</span>
-                        </button>
+                        <form onSubmit={handleSendQuestion} className="space-y-3">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+                              <label htmlFor="desktop-qa-question" className="font-medium">
+                                Escribe tu consulta para pedir turno:
+                              </label>
+                              <span className="text-[10px] font-mono text-zinc-400">{currentLangObj.nativeName}</span>
+                            </div>
+                            <textarea
+                              id="desktop-qa-question"
+                              rows={3}
+                              value={questionText}
+                              onChange={(e) => setQuestionText(e.target.value)}
+                              placeholder="Escribe aquí tu duda o consulta..."
+                              className="w-full bg-white dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 rounded-xl p-2.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 resize-none transition-all leading-relaxed"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={isRecordingQuestion ? handleStopRecordingQuestion : handleStartRecordingQuestion}
+                              className={`h-9 px-3.5 rounded-full border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                                isRecordingQuestion
+                                  ? 'bg-rose-600 text-white border-transparent animate-pulse'
+                                  : 'bg-white dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                              }`}
+                              title={isRecordingQuestion ? 'Detener dictado por voz' : 'Dictar consulta por voz'}
+                            >
+                              <Mic className="w-3.5 h-3.5" />
+                              <span>{isRecordingQuestion ? 'Detener' : 'Dictar'}</span>
+                            </button>
+
+                            <button
+                              type="submit"
+                              disabled={!questionText.trim()}
+                              className="flex-1 h-9 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                            >
+                              <Hand className="w-3.5 h-3.5" />
+                              <span>Pedir la Palabra</span>
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between px-0.5 text-[11px] text-zinc-400 dark:text-zinc-500 pt-0.5">
+                            <span className="truncate">Nombre visible: <strong className="text-zinc-700 dark:text-zinc-300 font-medium">{profile.name}</strong></span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditName(profile.name || 'Oyente');
+                                setIsProfilePopoverOpen(true);
+                              }}
+                              className="text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 underline cursor-pointer flex-shrink-0"
+                            >
+                              cambiar
+                            </button>
+                          </div>
+                        </form>
                       )}
 
                       {qaState === 'requested' && (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           <Banner
                             icon={<Hand className="w-4 h-4 text-white animate-bounce" strokeWidth={2.4} />}
                             color="#f59e0b"
                             title="Turno solicitado"
-                            desc="El anfitrión ha recibido tu solicitud. Se te notificará cuando se te conceda la palabra."
+                            desc="El ponente ha recibido tu consulta. Se te notificará cuando se te conceda la palabra."
                           />
+                          {questionText && (
+                            <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/50 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-200 leading-relaxed font-medium">
+                              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block mb-1">Tu consulta enviada:</span>
+                              &ldquo;{questionText}&rdquo;
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={handleCancelRaiseHand}
-                            className="w-full h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
+                            className="w-full h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
                           >
-                            Bajar la mano
+                            Cancelar turno y bajar la mano
                           </button>
                         </div>
                       )}
@@ -898,39 +1040,25 @@ export default function ListenerView({
                             icon={<CheckCircle2 className="w-4 h-4 text-white" strokeWidth={2.4} />}
                             color="#10b981"
                             title="¡Tienes la palabra!"
-                            desc="Escribe o dicta tu pregunta con voz. Se traducirá en tiempo real para el ponente."
+                            desc="El ponente te ha dado paso en directo."
                           />
-                          <form onSubmit={handleSendQuestion} className="space-y-2.5">
-                            <textarea
-                              rows={2}
-                              value={questionText}
-                              onChange={(e) => setQuestionText(e.target.value)}
-                              placeholder="Escribe aquí tu pregunta..."
-                              className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none resize-none"
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={isRecordingQuestion ? handleStopRecordingQuestion : handleStartRecordingQuestion}
-                                className={`h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                                  isRecordingQuestion
-                                    ? 'bg-rose-600 text-white border-transparent animate-pulse'
-                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
-                                }`}
-                              >
-                                <Mic className="w-3.5 h-3.5" />
-                                <span>{isRecordingQuestion ? 'Detener' : 'Dictar'}</span>
-                              </button>
-                              <button
-                                type="submit"
-                                disabled={!questionText.trim()}
-                                className="flex-1 h-9 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold disabled:opacity-40 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                              >
-                                <Send className="w-3.5 h-3.5" />
-                                <span>Enviar</span>
-                              </button>
+                          {questionText && (
+                            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-200 leading-relaxed font-medium">
+                              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 block mb-1">Tu consulta:</span>
+                              &ldquo;{questionText}&rdquo;
                             </div>
-                          </form>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQaState('idle');
+                              setQuestionText('');
+                              socketService.lowerHand(roomId, profile.attendeeId);
+                            }}
+                            className="w-full h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer"
+                          >
+                            Finalizar intervención
+                          </button>
                         </div>
                       )}
                     </div>
@@ -940,7 +1068,7 @@ export default function ListenerView({
                 {/* Tab Content: Sugerencias */}
                 {activeInspectorTab === 'suggestions' && (
                   <div className="space-y-3 animate-fadeIn">
-                    <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-1.5 shadow-2xs">
+                    <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-1.5 shadow-2xs">
                       <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
                         Preguntas recomendadas
                       </div>
@@ -959,9 +1087,8 @@ export default function ListenerView({
                         onClick={() => {
                           setQuestionText(phrase);
                           setActiveInspectorTab('actions');
-                          if (qaState === 'idle') handleRaiseHand();
                         }}
-                        className="w-full p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-left text-xs text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
+                        className="w-full p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/60 text-left text-xs text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
                       >
                         &ldquo;{phrase}&rdquo;
                       </button>
@@ -970,24 +1097,181 @@ export default function ListenerView({
                 )}
 
                 {/* Tab Content: Sala */}
-                {activeInspectorTab === 'room' && (
-                  <div className="space-y-3 animate-fadeIn">
-                    <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2 text-xs shadow-2xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-zinc-500 dark:text-zinc-400">Total Oyentes:</span>
-                        <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{roomStats.totalListeners}</span>
+                {activeInspectorTab === 'room' && (() => {
+                  const rawParticipants = roomStats.attendees || [];
+                  const hasSelf = rawParticipants.some(p => p.id === profile.attendeeId);
+                  const fullParticipants = hasSelf
+                    ? rawParticipants
+                    : [
+                        ...rawParticipants,
+                        {
+                          id: profile.attendeeId,
+                          name: profile.name || 'Oyente',
+                          lang: selectedLanguage,
+                          isHost: false
+                        }
+                      ];
+
+                  const filteredParticipants = fullParticipants.filter(p => {
+                    if (!participantSearch.trim()) return true;
+                    const term = participantSearch.toLowerCase();
+                    return (
+                      (p.name && p.name.toLowerCase().includes(term)) ||
+                      (p.lang && p.lang.toLowerCase().includes(term))
+                    );
+                  });
+
+                  const sortedParticipants = [...filteredParticipants].sort((a, b) => {
+                    if (a.isHost) return -1;
+                    if (b.isHost) return 1;
+                    if (a.id === profile.attendeeId) return -1;
+                    if (b.id === profile.attendeeId) return 1;
+                    return (a.name || '').localeCompare(b.name || '');
+                  });
+
+                  return (
+                    <div className="space-y-3 animate-fadeIn">
+                      {/* Resumen Técnico */}
+                      <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-2 text-xs shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-500 dark:text-zinc-400">Total Oyentes:</span>
+                          <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
+                            {roomStats.totalListeners || fullParticipants.filter(p => !p.isHost).length || 1}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-500 dark:text-zinc-400">Canal de Escucha:</span>
+                          <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100 uppercase">{selectedLanguage}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-500 dark:text-zinc-400">Latencia WebSocket:</span>
+                          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{socketLatency}ms</span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-zinc-500 dark:text-zinc-400">Canal de Escucha:</span>
-                        <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100 uppercase">{selectedLanguage}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-zinc-500 dark:text-zinc-400">Latencia WebSocket:</span>
-                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{socketLatency}ms</span>
+
+                      {/* Directorio de Participantes */}
+                      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 shadow-2xs overflow-hidden">
+                        <div className="px-3.5 py-2.5 border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Users className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                            <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                              Participantes en Sala
+                            </span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-zinc-800/70 text-[10px] font-mono font-semibold text-zinc-700 dark:text-zinc-300">
+                            {fullParticipants.length}
+                          </span>
+                        </div>
+
+                        {/* Buscador si hay más de 5 participantes */}
+                        {fullParticipants.length > 5 && (
+                          <div className="p-2 border-b border-zinc-200/60 dark:border-zinc-800/60">
+                            <div className="relative">
+                              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                              <input
+                                type="text"
+                                value={participantSearch}
+                                onChange={(e) => setParticipantSearch(e.target.value)}
+                                placeholder="Buscar participante..."
+                                className="w-full h-7 pl-8 pr-3 rounded-full bg-white dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Lista de usuarios conectados */}
+                        <div className="max-h-60 overflow-y-auto p-1.5 space-y-1">
+                          {sortedParticipants.length === 0 ? (
+                            <div className="py-4 text-center text-xs text-zinc-400 dark:text-zinc-500">
+                              No hay participantes que coincidan
+                            </div>
+                          ) : (
+                            sortedParticipants.map((p) => {
+                              const isSelf = p.id === profile.attendeeId;
+                              const isHost = p.isHost;
+                              const initials = (p.name || 'O')
+                                .split(' ')
+                                .map(w => w[0])
+                                .filter(Boolean)
+                                .slice(0, 2)
+                                .join('')
+                                .toUpperCase() || 'O';
+
+                              if (isHost) {
+                                return (
+                                  <div
+                                    key="host"
+                                    className="flex items-center justify-between p-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-800/40"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div className="relative shrink-0">
+                                        <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-bold">
+                                          P
+                                        </div>
+                                        <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-zinc-900" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                                          {p.name || 'Ponente'}
+                                        </div>
+                                        <div className="text-[10px] text-indigo-600 dark:text-indigo-400">
+                                          Anfitrión
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1 shrink-0">
+                                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                                      EN VIVO
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div
+                                  key={p.id}
+                                  className={`flex items-center justify-between p-2 rounded-xl transition-colors ${
+                                    isSelf
+                                      ? 'bg-zinc-200/60 dark:bg-zinc-800/60'
+                                      : 'hover:bg-zinc-200/40 dark:hover:bg-zinc-800/40'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div
+                                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                        isSelf
+                                          ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                                          : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                                      }`}
+                                    >
+                                      {initials}
+                                    </div>
+                                    <div className="min-w-0 flex items-center gap-1.5">
+                                      <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                        {p.name || 'Oyente'}
+                                      </span>
+                                      {isSelf && (
+                                        <span className="px-1 py-0.2 rounded text-[9px] font-medium bg-zinc-300/70 dark:bg-zinc-700/70 text-zinc-700 dark:text-zinc-300 shrink-0">
+                                          Tú
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/70 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs shrink-0">
+                                    <CountryFlag code={p.lang || 'es'} className="w-3 h-3 rounded-full object-cover shrink-0" />
+                                    <span className="text-[9px] font-mono font-medium text-zinc-500 uppercase">
+                                      {p.lang || 'es'}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Bottom Tip Card (Matching Reference Screenshot 2) */}
@@ -1024,7 +1308,6 @@ export default function ListenerView({
         onToggleMute={handleToggleMute}
         onOpenLanguageSheet={() => setIsLanguageSheetOpen(true)}
         onOpenQA={() => {
-          if (qaState === 'idle') handleRaiseHand();
           setIsQASheetOpen(true);
         }}
       />
@@ -1054,7 +1337,6 @@ export default function ListenerView({
         onStopRecord={handleStopRecordingQuestion}
         onSendQuestion={handleSendQuestion}
       />
-
     </div>
   );
 }

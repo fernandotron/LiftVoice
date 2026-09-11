@@ -37,12 +37,12 @@ export default function Navbar({
           >
             {/* Minimalist "II" Soundwave Bars Icon mimicking ElevenLabs logo */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              <div className="w-1.5 h-5 bg-zinc-900 dark:bg-zinc-100 rounded-full group-hover:bg-zinc-700 dark:group-hover:bg-zinc-300 transition-colors" />
-              <div className="w-1.5 h-3.5 bg-zinc-900 dark:bg-zinc-100 rounded-full group-hover:bg-zinc-700 dark:group-hover:bg-zinc-300 transition-colors" />
+              <div className="w-1 h-5 bg-zinc-900 dark:bg-zinc-100 rounded-full group-hover:bg-zinc-700 dark:group-hover:bg-zinc-300 transition-colors" />
+              <div className="w-1 h-3.5 bg-zinc-900 dark:bg-zinc-100 rounded-full group-hover:bg-zinc-700 dark:group-hover:bg-zinc-300 transition-colors" />
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <span className="font-semibold text-base text-zinc-900 dark:text-zinc-50 tracking-tight">
+              <span className="font-medium text-base text-zinc-900 dark:text-zinc-50 tracking-tight">
                 LiftVoice
               </span>
               <span className="text-[10px] font-medium px-1.5 sm:px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 text-zinc-600 dark:text-zinc-400 hidden sm:inline-block">

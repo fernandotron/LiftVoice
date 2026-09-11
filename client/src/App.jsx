@@ -7,7 +7,22 @@ import HostView from './views/HostView.jsx';
 import ListenerView from './views/ListenerView.jsx';
 import VoicesView from './views/VoicesView.jsx';
 import PostLeaveView from './views/PostLeaveView.jsx';
+import AttendeeLobbyView from './views/AttendeeLobbyView.jsx';
 import { socketService } from './services/socket.js';
+import { audioPlayerService } from './services/audioPlayer.js';
+
+export function hasValidAttendeeProfile() {
+  try {
+    const saved = localStorage.getItem('lv_attendee_profile');
+    if (saved) {
+      const p = JSON.parse(saved);
+      const hasValidName = p.name && p.name.trim().length >= 2 && p.name.trim() !== 'Oyente';
+      const hasValidEmail = p.email && p.email.trim().includes('@');
+      return Boolean(hasValidName && hasValidEmail);
+    }
+  } catch (e) {}
+  return false;
+}
 
 export function generateMeetRoomCode() {
   const chars = 'abcdefghijklmnopqrstuvwxyz';
@@ -35,6 +50,7 @@ export default function App() {
   const [leaveDetails, setLeaveDetails] = useState(null); // { roomId, selectedLanguage, reason, message }
   const [roomId, setRoomId] = useState(null);
   const [roomTitle, setRoomTitle] = useState('Conferencia Principal 2026');
+  const [pendingJoinRoom, setPendingJoinRoom] = useState(null); // { roomId, lang }
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -64,10 +80,26 @@ export default function App() {
 
       if (roomParam) {
         const normalized = normalizeRoomCode(roomParam);
-        setRoomId(normalized);
-        localStorage.setItem('lv_active_room_id', normalized);
-        setRoomTitle(`Sala ${normalized}`);
-        setCurrentView(isHostParam ? 'host' : 'listener');
+        if (isHostParam) {
+          setRoomId(normalized);
+          localStorage.setItem('lv_active_room_id', normalized);
+          setRoomTitle(`Sala ${normalized}`);
+          setCurrentView('host');
+        } else {
+          // Listener entry via direct URL/QR: check if identified first
+          if (hasValidAttendeeProfile()) {
+            setRoomId(normalized);
+            localStorage.setItem('lv_active_room_id', normalized);
+            setRoomTitle(`Sala ${normalized}`);
+            setCurrentView('listener');
+          } else {
+            // Unidentified listener: show Lobby screen BEFORE entering room!
+            setPendingJoinRoom({ roomId: normalized, lang: params.get('lang') });
+            setRoomId(normalized);
+            setRoomTitle(`Sala ${normalized}`);
+            setCurrentView('lobby');
+          }
+        }
       } else {
         setRoomId(null);
         setCurrentView('home');
@@ -108,17 +140,69 @@ export default function App() {
 
   const handleJoinRoom = (id, lang = null) => {
     const cleanId = normalizeRoomCode(id);
+    if (hasValidAttendeeProfile()) {
+      // Returning identified listener: enter directly into room
+      setRoomId(cleanId);
+      localStorage.setItem('lv_active_room_id', cleanId);
+      if (lang) {
+        try {
+          localStorage.setItem('lv_preferred_lang', lang);
+        } catch (e) {}
+      }
+      setRoomTitle(`Sala ${cleanId}`);
+      setCurrentView('listener');
+      const query = lang ? `?room=${cleanId}&lang=${lang}` : `?room=${cleanId}`;
+      window.history.pushState({}, '', query);
+    } else {
+      // First-time listener: open Lobby screen BEFORE entering room!
+      setPendingJoinRoom({ roomId: cleanId, lang });
+      setRoomId(cleanId);
+      setRoomTitle(`Sala ${cleanId}`);
+      setCurrentView('lobby');
+      const query = lang ? `?room=${cleanId}&lang=${lang}` : `?room=${cleanId}`;
+      window.history.pushState({}, '', query);
+    }
+  };
+
+  const handleCheckInComplete = (profileData) => {
+    if (!pendingJoinRoom) return;
+    const { roomId: targetRoomId, lang: targetLang } = pendingJoinRoom;
+    const cleanId = normalizeRoomCode(targetRoomId);
+
+    try {
+      const existing = JSON.parse(localStorage.getItem('lv_attendee_profile') || '{}');
+      const updated = {
+        attendeeId: existing.attendeeId || `att_${Math.random().toString(36).slice(2, 9)}_${Date.now()}`,
+        name: profileData.name.trim(),
+        email: profileData.email.trim(),
+        phone: (profileData.phone || '').trim()
+      };
+      localStorage.setItem('lv_attendee_profile', JSON.stringify(updated));
+    } catch (e) {}
+
+    // Unlock Web Audio context via user gesture immediately
+    audioPlayerService.unlockAudio(cleanId, targetLang || 'es').catch(() => {});
+
+    setPendingJoinRoom(null);
     setRoomId(cleanId);
     localStorage.setItem('lv_active_room_id', cleanId);
-    if (lang) {
+    if (targetLang) {
       try {
-        localStorage.setItem('lv_preferred_lang', lang);
+        localStorage.setItem('lv_preferred_lang', targetLang);
       } catch (e) {}
     }
     setRoomTitle(`Sala ${cleanId}`);
     setCurrentView('listener');
-    const query = lang ? `?room=${cleanId}&lang=${lang}` : `?room=${cleanId}`;
+    const query = targetLang ? `?room=${cleanId}&lang=${targetLang}` : `?room=${cleanId}`;
     window.history.pushState({}, '', query);
+  };
+
+  const handleCheckInClose = () => {
+    setPendingJoinRoom(null);
+    setCurrentView('home');
+    if (window.location.search.includes('room=')) {
+      window.history.replaceState({}, '', window.location.pathname || '/');
+    }
   };
 
   const handleLeave = (options = {}) => {
@@ -172,7 +256,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-dvh w-full max-w-full overflow-x-hidden bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between selection:bg-zinc-200 dark:selection:bg-zinc-800 selection:text-zinc-900 dark:selection:text-zinc-100 transition-colors duration-150">
+    <div className="min-h-dvh w-full max-w-full overflow-x-hidden bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-150">
       {/* Top Navigation for Home only (Host, Voices and Listener render their own native studio layout) */}
       {(currentView === 'home' || currentView === 'post-leave') && (
         <Navbar
@@ -192,6 +276,14 @@ export default function App() {
           <HomeView
             onCreateRoom={handleCreateRoom}
             onJoinRoom={handleJoinRoom}
+          />
+        )}
+
+        {currentView === 'lobby' && (
+          <AttendeeLobbyView
+            roomId={pendingJoinRoom?.roomId || roomId || 'MAIN'}
+            onBack={handleCheckInClose}
+            onSubmit={handleCheckInComplete}
           />
         )}
 

@@ -62,9 +62,6 @@ export default function MobileQAPill({
       }
     } catch (e) {}
 
-    if (qaState === 'idle') {
-      onRaiseHand();
-    }
     setSheetOpen(true);
   };
 
@@ -72,7 +69,6 @@ export default function MobileQAPill({
     if (e && e.preventDefault) e.preventDefault();
     if (!questionText.trim()) return;
     onSendQuestion(e);
-    handleClose();
   };
 
   const langName = typeof currentLanguage === 'object'
@@ -155,71 +151,107 @@ export default function MobileQAPill({
         }
         footer={
           <div className="w-full">
-            <div className="grid grid-cols-2 gap-2.5 w-full">
-              <button
-                type="button"
-                onClick={isRecording ? onStopRecord : onStartRecord}
-                className="h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 border bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border-zinc-200/60 dark:border-zinc-700/60 shadow-xs"
-                title={isRecording ? 'Detener dictado' : 'Dictar pregunta con tu voz'}
-              >
-                {isRecording ? (
-                  <>
-                    <Square className="w-3.5 h-3.5 fill-current text-zinc-700 dark:text-zinc-300" />
-                    <span>Detener</span>
-                  </>
-                ) : (
-                  <>
-                    <Mic className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
-                    <span>Dictar</span>
-                  </>
-                )}
-              </button>
+            {qaState === 'idle' ? (
+              <div className="grid grid-cols-2 gap-2.5 w-full">
+                <button
+                  type="button"
+                  onClick={isRecording ? onStopRecord : onStartRecord}
+                  className="h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 border bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border-zinc-200/60 dark:border-zinc-700/60 shadow-xs"
+                  title={isRecording ? 'Detener dictado' : 'Dictar pregunta con tu voz'}
+                >
+                  {isRecording ? (
+                    <>
+                      <Square className="w-3.5 h-3.5 fill-current text-zinc-700 dark:text-zinc-300" />
+                      <span>Detener</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
+                      <span>Dictar</span>
+                    </>
+                  )}
+                </button>
 
+                <button
+                  type="button"
+                  onClick={handleFormSubmit}
+                  disabled={!questionText.trim()}
+                  className="h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
+                >
+                  <Hand className="w-4 h-4" />
+                  <span>Pedir la Palabra</span>
+                </button>
+              </div>
+            ) : qaState === 'requested' ? (
               <button
                 type="button"
-                onClick={handleFormSubmit}
-                disabled={!questionText.trim()}
-                className="h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
+                onClick={() => {
+                  onCancelRaiseHand();
+                  handleClose();
+                }}
+                className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer active:scale-[0.99]"
               >
-                <Send className="w-4 h-4" />
-                <span>Enviar</span>
+                <X className="w-4 h-4" />
+                <span>Bajar la mano y cancelar turno</span>
               </button>
-            </div>
+            ) : qaState === 'speaking' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onCancelRaiseHand();
+                  handleClose();
+                }}
+                className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 transition-colors cursor-pointer"
+              >
+                <span>Finalizar intervención</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer"
+              >
+                <span>Cerrar</span>
+              </button>
+            )}
           </div>
         }
       >
         <div className="space-y-3.5 pt-1.5">
-          {/* Hand Raised Status Banner (Diseño Reness con acción inferior y texto fluido) */}
+          {/* Hand Raised Status Banner */}
           {qaState === 'requested' && (
-            <Banner
-              icon={<Hand className="w-4 h-4 text-white" strokeWidth={2.4} />}
-              color="#f59e0b"
-              title="Turno solicitado"
-              desc="Cuando el orador te dé paso se activará tu micrófono para intervenir en directo."
-              bottomAction={
-                <button
-                  type="button"
-                  onClick={() => {
-                    onCancelRaiseHand();
-                    handleClose();
-                  }}
-                  className="w-full h-8.5 rounded-full bg-zinc-200/60 hover:bg-zinc-200 dark:bg-zinc-800/80 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-xs font-semibold border border-zinc-300/50 dark:border-zinc-700/60 transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs active:scale-[0.99]"
-                >
-                  <X className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
-                  <span>Bajar la mano y cancelar turno</span>
-                </button>
-              }
-            />
+            <div className="space-y-3">
+              <Banner
+                icon={<Hand className="w-4 h-4 text-white animate-bounce" strokeWidth={2.4} />}
+                color="#f59e0b"
+                title="Turno solicitado"
+                desc="El ponente ha recibido tu consulta. Se te notificará cuando se te conceda la palabra."
+              />
+              {questionText && (
+                <div className="p-3.5 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60 text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium text-left">
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block mb-1">Tu consulta enviada:</span>
+                  &ldquo;{questionText}&rdquo;
+                </div>
+              )}
+            </div>
           )}
 
           {qaState === 'speaking' && (
-            <Banner
-              icon={<Mic className="w-4 h-4 text-white animate-pulse" strokeWidth={2.4} />}
-              color="#00e5ff"
-              title="¡Tienes la palabra!"
-              subtitle="Micrófono abierto en directo"
-              desc={`Habla en ${langName}. El ponente te escuchará traducido en tiempo real en su auricular.`}
-            />
+            <div className="space-y-3">
+              <Banner
+                icon={<Mic className="w-4 h-4 text-white animate-pulse" strokeWidth={2.4} />}
+                color="#00e5ff"
+                title="¡Tienes la palabra!"
+                subtitle="Micrófono abierto en directo"
+                desc={`Habla en ${langName}. El ponente te escuchará traducido en tiempo real en su auricular.`}
+              />
+              {questionText && (
+                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-200 leading-relaxed font-medium text-left">
+                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 block mb-1">Tu consulta:</span>
+                  &ldquo;{questionText}&rdquo;
+                </div>
+              )}
+            </div>
           )}
 
           {qaState === 'completed' && (
@@ -231,55 +263,35 @@ export default function MobileQAPill({
             />
           )}
 
-          {/* If idle: Option to raise hand directly inside the sheet */}
+          {/* Form Input for Question: Only shown when idle */}
           {qaState === 'idle' && (
-            <button
-              type="button"
-              onClick={() => onRaiseHand()}
-              className="w-full text-left cursor-pointer group transition-transform active:scale-[0.99]"
-            >
-              <Banner
-                icon={<Hand className="w-4 h-4 text-white" strokeWidth={2.4} />}
-                color="#3b82f6"
-                title="Levantar la mano"
-                subtitle="Intervención en directo"
-                desc="Solicita turno para hablar con el ponente en tiempo real."
-                action={
-                  <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:translate-x-0.5 transition-all">
-                    Pedir →
-                  </span>
-                }
+            <div className="p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-800/40 focus-within:border-zinc-400 dark:focus-within:border-zinc-600 transition-colors shadow-2xs space-y-2 text-left">
+              <div className="flex items-center justify-between">
+                <label htmlFor="mobile-qa-text" className="text-xs block cursor-pointer transition-colors">
+                  {isRecording ? (
+                    <span className="text-zinc-800 dark:text-zinc-200 font-medium animate-fadeIn">
+                      Escuchando tu voz...
+                    </span>
+                  ) : (
+                    <span className="text-zinc-400 dark:text-zinc-500 font-medium">
+                      Escribe o dicta tu consulta
+                    </span>
+                  )}
+                </label>
+                <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium">
+                  {langName}
+                </span>
+              </div>
+              <textarea
+                id="mobile-qa-text"
+                rows={3}
+                value={questionText}
+                onChange={(e) => setQuestionText(e.target.value)}
+                placeholder={isRecording ? `Te escuchamos, habla ahora en ${langName}...` : `Escribe aquí tu consulta o duda en ${langName}...`}
+                className="w-full bg-transparent border-0 p-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-0 resize-none leading-relaxed"
               />
-            </button>
-          )}
-
-          {/* Form Input for Question (Diseño 100% neutro, feedback dinámico en cabecera) */}
-          <div className="p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-800/40 focus-within:border-zinc-400 dark:focus-within:border-zinc-600 transition-colors shadow-2xs space-y-2 text-left">
-            <div className="flex items-center justify-between">
-              <label htmlFor="mobile-qa-text" className="text-xs block cursor-pointer transition-colors">
-                {isRecording ? (
-                  <span className="text-zinc-800 dark:text-zinc-200 font-medium animate-fadeIn">
-                    Escuchando tu voz...
-                  </span>
-                ) : (
-                  <span className="text-zinc-400 dark:text-zinc-500 font-medium">
-                    Escribe o dicta tu duda
-                  </span>
-                )}
-              </label>
-              <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium">
-                {langName}
-              </span>
             </div>
-            <textarea
-              id="mobile-qa-text"
-              rows={3}
-              value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-              placeholder={isRecording ? `Te escuchamos, habla ahora en ${langName}...` : `Habla o escribe tu pregunta en ${langName}...`}
-              className="w-full bg-transparent border-0 p-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-0 resize-none leading-relaxed"
-            />
-          </div>
+          )}
         </div>
       </Modal>
     </>

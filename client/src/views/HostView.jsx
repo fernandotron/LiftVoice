@@ -543,10 +543,10 @@ export default function HostView({
         <div className="h-14 px-5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
           <div className="flex items-center gap-2.5">
             <div className="flex items-center gap-1">
-              <div className="w-1.5 h-4.5 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
-              <div className="w-1.5 h-3 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
+              <div className="w-1 h-4.5 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
+              <div className="w-1 h-3 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
             </div>
-            <span className="font-bold text-sm text-zinc-950 dark:text-white tracking-tight">
+            <span className="font-medium text-sm text-zinc-950 dark:text-white tracking-tight">
               LiftVoice
             </span>
             <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
@@ -922,7 +922,7 @@ export default function HostView({
               {monitoredLang !== 'none' ? (
                 <button
                   onClick={handleStopMonitoring}
-                  className="flex-1 py-2 px-3 rounded-xl bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2 px-4 rounded-full bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <Volume2 className="w-3.5 h-3.5" />
                   <span>Salir de la sala (Silenciar)</span>
@@ -935,7 +935,7 @@ export default function HostView({
               <button
                 type="button"
                 onClick={() => audioPlayerService.playAudioTestTone()}
-                className="py-2 px-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1 flex-shrink-0"
+                className="py-2 px-3.5 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1 flex-shrink-0"
                 title="Probar sonido de altavoz o auriculares locales"
               >
                 <span>🔔 Probar</span>
@@ -1094,23 +1094,29 @@ export default function HostView({
                         <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">Idioma nativo: {q.nativeLang || 'es'}</div>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex-shrink-0">
                       En espera
                     </span>
                   </div>
+
+                  {q.questionText && (
+                    <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/70 dark:border-zinc-700/60 text-xs text-zinc-800 dark:text-zinc-200 font-medium leading-relaxed">
+                      &ldquo;{q.questionText}&rdquo;
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-2 pt-1">
                     <button
                       onClick={() => handleApproveQuestion(q.questionId)}
                       disabled={!!activeQuestion}
-                      className="flex-1 py-1.5 rounded-xl bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-40 text-white dark:text-zinc-950 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                      className="flex-1 py-1.5 px-4 rounded-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-40 text-white dark:text-zinc-950 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
                       <span>Dar la palabra</span>
                     </button>
                     <button
                       onClick={() => handleCloseQuestion(q.questionId)}
-                      className="p-1.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
                       title="Descartar"
                     >
                       <XCircle className="w-4 h-4" />

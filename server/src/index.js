@@ -596,6 +596,18 @@ wss.on('connection', (ws, req) => {
           break;
         }
 
+        case 'AUDIENCE_LOWER_HAND': {
+          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (targetRoom) {
+            roomManager.removeHandRaise(targetRoom, msg.attendeeId || socketId);
+            ws.send(JSON.stringify({
+              type: 'QA_HAND_LOWERED',
+              status: 'idle'
+            }));
+          }
+          break;
+        }
+
         case 'HOST_APPROVE_QUESTION': {
           const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
           if (targetRoom && msg.attendeeId) {
@@ -674,6 +686,9 @@ wss.on('connection', (ws, req) => {
         case 'HOST_CLOSE_QUESTION': {
           const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
           if (targetRoom) {
+            if (msg.questionId || msg.attendeeId) {
+              roomManager.removeHandRaise(targetRoom, msg.questionId || msg.attendeeId);
+            }
             roomManager.closeCurrentQuestion(targetRoom);
             roomManager.broadcastToRoom(targetRoom, {
               type: 'QA_QUESTION_CLOSED'
