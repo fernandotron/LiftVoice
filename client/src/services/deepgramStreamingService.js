@@ -1,0 +1,496 @@
+/**
+ * DeepgramStreamingService — Motor de Transcripción por Streaming en Vivo (LiftVoice)
+ *
+ * Basado en la arquitectura probada de alta fidelidad de app-salud-inteligente:
+ *   - Captura en hilo de audio vía AudioWorklet (16 kHz mono linear16, VAD por RMS).
+ *   - Conexión directa bidireccional por WebSocket a Deepgram Nova-3 con tokens efímeros.
+ *   - Separación de ciclo de vida: audio graph vivo vs WebSocket reconnectable in-place.
+ *   - Ring buffer PcmBacklog (~8s) para tolerancia a microcortes y backpressure de red.
+ *   - KeepAlive cada 5s para evitar cortes por inactividad durante silencios.
+ *   - Drenaje con CloseStream + grace timeout (1.5s) para evitar pérdida de palabras finales (tail-loss).
+ *   - Telemetría de primer parcial y detección de modo degradado.
+ */
+
+import { PcmBacklog } from './pcmBacklog.js';
+
+const WORKLET_MODULE_PATH = '/asr-audio-worklet.js';
+const WORKLET_PROCESSOR_NAME = 'asr-audio-worklet';
+
+const ASR_SAMPLE_RATE = 16000;
+const ASR_ENDPOINTING_MS = 300;
+const ASR_UTTERANCE_END_MS = 1000;
+const ASR_KEEPALIVE_INTERVAL_MS = 5000;
+const ASR_CHUNK_MS = 100;
+const ASR_VAD_SILENCE_THRESHOLD = 0.008;
+const ASR_VAD_HANGOVER_SECONDS = 0.6;
+const ASR_MAX_WS_BUFFERED_BYTES = 262144; // 256 KB
+const ASR_MAX_BACKLOG_BYTES = 262144;
+const ASR_FIRST_PARTIAL_TIMEOUT_MS = 1500;
+const ASR_CLOSE_DRAIN_TIMEOUT_MS = 1500;
+
+export class DeepgramStreamingService {
+  constructor() {
+    this.ws = null;
+    this.audioContext = null;
+    this.sourceNode = null;
+    this.workletNode = null;
+    this.muteGain = null;
+    this.keepAliveTimer = null;
+    this.isActive = false;
+    this.startSeq = 0;
+    this.backlog = new PcmBacklog(ASR_MAX_BACKLOG_BYTES);
+
+    this.lastConfig = null;
+    this.lastCallbacks = null;
+    this.reconnectTimer = null;
+    this.reconnectAttempts = 0;
+    this.wasActiveBeforeHidden = false;
+
+    this.firstByteSentAt = null;
+    this.firstPartialSeen = false;
+    this.firstPartialTimer = null;
+    this.onFirstPartialLatency = null;
+    this.onFirstPartialTimeout = null;
+    this.onVisibilityChange = null;
+
+    this.status = 'idle'; // 'idle' | 'connecting' | 'listening' | 'reconnecting' | 'degraded' | 'error'
+    this.statusListeners = new Set();
+    this.onStatusChange = null;
+  }
+
+  get active() {
+    return this.isActive;
+  }
+
+  setStatus(newStatus) {
+    if (this.status === newStatus) return;
+    this.status = newStatus;
+    if (this.onStatusChange) {
+      try {
+        this.onStatusChange(newStatus);
+      } catch (e) {}
+    }
+    for (const cb of this.statusListeners) {
+      try {
+        cb(newStatus);
+      } catch (e) {}
+    }
+  }
+
+  onStatus(cb) {
+    this.statusListeners.add(cb);
+    return () => this.statusListeners.delete(cb);
+  }
+
+  /**
+   * Inicia el pipeline completo: obtiene token efímero, monta el grafo de audio y abre el WebSocket
+   */
+  async start(stream, config = {}, callbacks = {}) {
+    if (this.isActive) {
+      await this.stop();
+    }
+    const seq = ++this.startSeq;
+    this.isActive = true;
+    this.setStatus('connecting');
+
+    this.lastConfig = config;
+    this.lastCallbacks = callbacks;
+    this.reconnectAttempts = 0;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    // Desbloqueo síncrono de AudioContext para cumplir políticas de Autoplay en iOS Safari / Android
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass && (!this.audioContext || this.audioContext.state === 'closed')) {
+      try {
+        this.audioContext = new AudioContextClass();
+      } catch (e) {}
+    }
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(() => {});
+    }
+
+    try {
+      // 1. Obtener o resolver token efímero y URL
+      let transportConfig = { ...config };
+      if (!transportConfig.token || !transportConfig.listenUrl) {
+        const tokenRes = await this.mintToken(config);
+        transportConfig = { ...transportConfig, ...tokenRes };
+      }
+
+      // 2. Montar grafo de audio con AudioWorklet
+      await this.setupAudioGraph(stream, transportConfig, seq);
+      if (seq !== this.startSeq) return;
+
+      // 3. Abrir WebSocket a Deepgram
+      this.openWebSocket(transportConfig, callbacks);
+    } catch (err) {
+      console.error('[DeepgramStreaming] Start failed:', err);
+      this.isActive = false;
+      await this.stop();
+      this.setStatus('error');
+      if (callbacks.onError) callbacks.onError(err);
+    }
+  }
+
+  /**
+   * Reconexión in-place: reabre únicamente el canal WebSocket reutilizando el grafo de audio vivo
+   */
+  async reconnect(config = {}, callbacks = {}) {
+    if (!this.audioContext || !this.workletNode) {
+      throw new Error('reconnect() sin grafo de audio activo — usar start()');
+    }
+    this.isActive = true;
+    const seq = this.startSeq;
+    this.setStatus('reconnecting');
+    this.lastConfig = { ...(this.lastConfig || {}), ...config };
+    this.lastCallbacks = { ...(this.lastCallbacks || {}), ...callbacks };
+
+    if (this.audioContext.state === 'suspended') {
+      try {
+        await this.audioContext.resume();
+      } catch (e) {}
+    }
+    if (seq !== this.startSeq) return;
+
+    this.closeSocketOnly();
+
+    let transportConfig = { ...this.lastConfig };
+    if (!transportConfig.token || !transportConfig.listenUrl) {
+      const tokenRes = await this.mintToken(this.lastConfig);
+      transportConfig = { ...transportConfig, ...tokenRes };
+    }
+
+    if (seq !== this.startSeq || !this.isActive) return;
+
+    this.openWebSocket(transportConfig, this.lastCallbacks);
+  }
+
+  async stop() {
+    this.isActive = false;
+    this.startSeq++;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    // Drenaje final del backlog antes de enviar CloseStream (zero tail-loss)
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && this.backlog.size > 0) {
+      try {
+        this.drainBacklog(this.ws);
+      } catch (e) {}
+    }
+    this.closeSocketOnly();
+    this.backlog.clear();
+    this.clearFirstPartialTimer();
+    this.setStatus('idle');
+
+    if (this.onVisibilityChange && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.onVisibilityChange);
+      this.onVisibilityChange = null;
+    }
+
+    if (this.workletNode) {
+      this.workletNode.port.onmessage = null;
+      this.workletNode.disconnect();
+      this.workletNode = null;
+    }
+    if (this.sourceNode) {
+      this.sourceNode.disconnect();
+      this.sourceNode = null;
+    }
+    if (this.muteGain) {
+      this.muteGain.disconnect();
+      this.muteGain = null;
+    }
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      try {
+        await this.audioContext.close();
+      } catch (e) {}
+    }
+    this.audioContext = null;
+  }
+
+  async mintToken(config = {}) {
+    const res = await fetch('/api/asr-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        language: config.language || config.lang || 'es',
+        medicalMode: Boolean(config.medicalMode),
+        customGlossary: config.customGlossary || [],
+        keyterms: config.keyterms || []
+      })
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Token minting failed (${res.status}): ${errText}`);
+    }
+    return await res.json();
+  }
+
+  // --- Montaje del Grafo de Audio: Mic -> Worklet -> Gain(0) -> Destination ---
+  async setupAudioGraph(stream, config, seq) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!this.audioContext || this.audioContext.state === 'closed') {
+      this.audioContext = new AudioContextClass();
+    }
+    if (this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
+
+    await this.audioContext.audioWorklet.addModule(WORKLET_MODULE_PATH);
+
+    if (seq !== this.startSeq) {
+      if (this.audioContext.state !== 'closed') await this.audioContext.close();
+      this.audioContext = null;
+      return;
+    }
+
+    this.sourceNode = this.audioContext.createMediaStreamSource(stream);
+    this.workletNode = new AudioWorkletNode(this.audioContext, WORKLET_PROCESSOR_NAME, {
+      processorOptions: {
+        targetSampleRate: config.sampleRate || ASR_SAMPLE_RATE,
+        chunkMs: ASR_CHUNK_MS,
+        silenceThreshold: ASR_VAD_SILENCE_THRESHOLD,
+        hangoverSeconds: ASR_VAD_HANGOVER_SECONDS
+      }
+    });
+
+    // Mute gain en 0 para mantener el pipeline de Web Audio procesando sin feedback de altavoces
+    this.muteGain = this.audioContext.createGain();
+    this.muteGain.gain.value = 0;
+
+    this.sourceNode.connect(this.workletNode);
+    this.workletNode.connect(this.muteGain);
+    this.muteGain.connect(this.audioContext.destination);
+
+    this.workletNode.port.onmessage = (event) => {
+      this.handlePcm(event.data);
+    };
+
+    // Reanudar contexto y reconectar socket si la pestaña vuelve a ser visible
+    if (typeof document !== 'undefined') {
+      this.onVisibilityChange = () => {
+        if (document.visibilityState === 'hidden') {
+          this.wasActiveBeforeHidden = this.isActive;
+        } else if (document.visibilityState === 'visible' && this.wasActiveBeforeHidden) {
+          if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume().catch(() => {});
+          }
+          if (this.isActive && (!this.ws || this.ws.readyState !== WebSocket.OPEN)) {
+            console.log('[DeepgramStreaming] Pestaña visible y socket cerrado: reconectando...');
+            this.reconnect(this.lastConfig, this.lastCallbacks).catch(() => {});
+          }
+        }
+      };
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+    }
+  }
+
+  handlePcm(buffer) {
+    const ws = this.ws;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      if (this.backlog.size > 0) {
+        this.drainBacklog(ws);
+      }
+      if (ws.bufferedAmount > ASR_MAX_WS_BUFFERED_BYTES) {
+        this.backlog.push(buffer);
+        return;
+      }
+      ws.send(buffer);
+      this.markFirstByteSent();
+      return;
+    }
+    this.backlog.push(buffer);
+  }
+
+  drainBacklog(ws) {
+    this.backlog.drain((buf) => {
+      if (ws.bufferedAmount > ASR_MAX_WS_BUFFERED_BYTES) return false;
+      ws.send(buf);
+      this.markFirstByteSent();
+      return true;
+    });
+  }
+
+  markFirstByteSent() {
+    if (this.firstByteSentAt !== null) return;
+    this.firstByteSentAt = performance.now();
+    this.firstPartialTimer = setTimeout(() => {
+      if (!this.firstPartialSeen) {
+        this.setStatus('degraded');
+        if (this.onFirstPartialTimeout) this.onFirstPartialTimeout();
+      }
+    }, ASR_FIRST_PARTIAL_TIMEOUT_MS);
+  }
+
+  clearFirstPartialTimer() {
+    if (this.firstPartialTimer) {
+      clearTimeout(this.firstPartialTimer);
+      this.firstPartialTimer = null;
+    }
+  }
+
+  // --- Conexión WebSocket a Deepgram ---
+  openWebSocket(config, callbacks) {
+    this.firstByteSentAt = null;
+    this.firstPartialSeen = false;
+    this.clearFirstPartialTimer();
+    this.onFirstPartialLatency = callbacks.onFirstPartialLatency;
+    this.onFirstPartialTimeout = callbacks.onFirstPartialTimeout;
+
+    const params = new URLSearchParams({
+      model: config.model || 'nova-3',
+      language: config.language || 'multi',
+      encoding: 'linear16',
+      sample_rate: String(config.sampleRate || ASR_SAMPLE_RATE),
+      channels: '1',
+      interim_results: 'true',
+      smart_format: 'true',
+      endpointing: String(ASR_ENDPOINTING_MS),
+      utterance_end_ms: String(ASR_UTTERANCE_END_MS)
+    });
+
+    for (const term of config.keyterms || []) {
+      params.append('keyterm', term);
+    }
+
+    if (config.mipOptOut || config.medicalMode) {
+      params.append('mip_opt_out', 'true');
+    }
+
+    const listenUrl = config.listenUrl || 'wss://api.deepgram.com/v1/listen';
+    const subprotocol = ['bearer', config.token];
+
+    const ws = new WebSocket(`${listenUrl}?${params.toString()}`, subprotocol);
+    this.ws = ws;
+
+    ws.onopen = () => {
+      this.setStatus('listening');
+      this.reconnectAttempts = 0;
+      if (callbacks.onOpen) callbacks.onOpen();
+      this.drainBacklog(ws);
+
+      this.keepAliveTimer = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'KeepAlive' }));
+        }
+      }, ASR_KEEPALIVE_INTERVAL_MS);
+    };
+
+    ws.onmessage = (event) => {
+      if (typeof event.data !== 'string') return;
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch (e) {
+        return;
+      }
+
+      if (data.type && data.type !== 'Results') return;
+      const transcript = data.channel?.alternatives?.[0]?.transcript ?? '';
+      if (!transcript) return;
+
+      if (!this.firstPartialSeen && this.firstByteSentAt !== null) {
+        this.firstPartialSeen = true;
+        this.clearFirstPartialTimer();
+        const latency = performance.now() - this.firstByteSentAt;
+        if (this.onFirstPartialLatency) this.onFirstPartialLatency(latency);
+        this.setStatus('listening');
+      }
+
+      const isFinal = Boolean(data.is_final);
+      if (callbacks.onTranscript) {
+        callbacks.onTranscript({
+          transcript: transcript.trim(),
+          isFinal,
+          detectedLanguage: data.channel?.detected_language || config.language
+        });
+      }
+    };
+
+    ws.onerror = () => {
+      // ws.onclose maneja la reconexión
+    };
+
+    ws.onclose = (event) => {
+      this.clearKeepAlive();
+      this.clearFirstPartialTimer();
+      if (this.isActive) {
+        this.setStatus('reconnecting');
+        if (event.code !== 1000 && this.reconnectAttempts < 5) {
+          const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 8000);
+          this.reconnectAttempts++;
+          console.warn(`[DeepgramStreaming] Cierre anormal (${event.code}). Auto-reconexión #${this.reconnectAttempts} en ${delay}ms`);
+          this.reconnectTimer = setTimeout(() => {
+            if (this.isActive) {
+              this.reconnect(this.lastConfig, this.lastCallbacks).catch((err) => {
+                console.error('[DeepgramStreaming] Auto-reconnect falló:', err);
+              });
+            }
+          }, delay);
+        }
+      }
+      if (callbacks.onClose) {
+        callbacks.onClose({ code: event.code, wasClean: event.wasClean });
+      }
+    };
+  }
+
+  closeSocketOnly() {
+    this.clearKeepAlive();
+    this.clearFirstPartialTimer();
+    const ws = this.ws;
+    if (!ws) return;
+
+    this.ws = null;
+    ws.onopen = null;
+    ws.onerror = null;
+
+    if (ws.readyState !== WebSocket.OPEN) {
+      ws.onmessage = null;
+      ws.onclose = null;
+      try {
+        ws.close();
+      } catch (e) {}
+      return;
+    }
+
+    // Grace de drenaje (#852): enviar CloseStream y esperar recepción de últimos finales
+    let drainTimer = null;
+    let finalized = false;
+
+    const finalize = () => {
+      if (finalized) return;
+      finalized = true;
+      if (drainTimer) {
+        clearTimeout(drainTimer);
+        drainTimer = null;
+      }
+      ws.onmessage = null;
+      ws.onclose = null;
+      try {
+        ws.close();
+      } catch (e) {}
+    };
+
+    try {
+      ws.send(JSON.stringify({ type: 'CloseStream' }));
+      ws.onclose = () => finalize();
+      drainTimer = setTimeout(finalize, ASR_CLOSE_DRAIN_TIMEOUT_MS);
+    } catch (e) {
+      finalize();
+    }
+  }
+
+  clearKeepAlive() {
+    if (this.keepAliveTimer) {
+      clearInterval(this.keepAliveTimer);
+      this.keepAliveTimer = null;
+    }
+  }
+}
+
+export const deepgramStreamingService = new DeepgramStreamingService();

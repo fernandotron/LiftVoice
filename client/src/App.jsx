@@ -121,11 +121,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#ffffff] text-zinc-900 flex flex-col justify-between selection:bg-zinc-200 selection:text-zinc-900">
-      {/* Top Navigation for Home & Listener (HostView and VoicesView render native ElevenLabs layout) */}
-      {currentView !== 'host' && currentView !== 'voices' && (
+    <div className="min-h-dvh pb-safe w-full max-w-full overflow-x-hidden bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between selection:bg-zinc-200 dark:selection:bg-zinc-800 selection:text-zinc-900 dark:selection:text-zinc-100 transition-colors duration-150">
+      {/* Top Navigation for Home only (Host, Voices and Listener render their own native studio layout) */}
+      {currentView === 'home' && (
         <Navbar
-          currentRole={currentView === 'home' ? null : currentView}
+          currentRole={null}
           roomId={roomId}
           latency={latency}
           isConnected={isConnected}
@@ -136,7 +136,7 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1">
+      <main className="flex-1 flex flex-col min-h-0">
         {currentView === 'home' && (
           <HomeView
             onCreateRoom={handleCreateRoom}
@@ -169,6 +169,8 @@ export default function App() {
           <ListenerView
             roomId={roomId}
             onLeave={handleLeave}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenQR={() => setIsQrOpen(true)}
           />
         )}
       </main>

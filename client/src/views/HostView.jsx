@@ -14,6 +14,10 @@ import QRCodeModal from '../components/QRCodeModal.jsx';
 import AttendeesModal from '../components/AttendeesModal.jsx';
 import SessionSummaryModal from '../components/SessionSummaryModal.jsx';
 import SettingsModal from '../components/SettingsModal.jsx';
+import DynamicIslandBar from '../components/mobile/DynamicIslandBar.jsx';
+import MasterBroadcastDock from '../components/mobile/MasterBroadcastDock.jsx';
+import CabinsBottomSheet from '../components/mobile/CabinsBottomSheet.jsx';
+import QABannerAlert from '../components/mobile/QABannerAlert.jsx';
 import { audioRecorderService } from '../services/audioRecorder.js';
 import { audioPlayerService } from '../services/audioPlayer.js';
 import { socketService } from '../services/socket.js';
@@ -63,6 +67,7 @@ export default function HostView({
   const [previewingLang, setPreviewingLang] = useState(null);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isMobileInspectorOpen, setIsMobileInspectorOpen] = useState(false);
+  const [isCabinsSheetOpen, setIsCabinsSheetOpen] = useState(false);
 
   // Q&A Backchannel State
   const [qaQueue, setQaQueue] = useState([]);
@@ -101,6 +106,10 @@ export default function HostView({
 
   const [sttEngine, setSttEngine] = useState(() => {
     return localStorage.getItem('lv_stt_engine') || 'deepgram';
+  });
+
+  const [asrStatus, setAsrStatus] = useState(() => {
+    return (audioRecorderService.getStreamingStatus && audioRecorderService.getStreamingStatus()) || 'idle';
   });
 
   const [medicalConfig, setMedicalConfig] = useState(() => {
@@ -155,7 +164,18 @@ export default function HostView({
     });
 
     const unsubStats = socketService.on('room_stats', (stats) => {
-      if (stats) setRoomStats(stats);
+      if (stats) {
+        setRoomStats(stats);
+        if (Array.isArray(stats.qaQueue)) {
+          setQaQueue(stats.qaQueue.map(q => ({
+            ...q,
+            questionId: q.questionId || q.attendeeId || q.socketId
+          })));
+        }
+        if (stats.activeSpeaker !== undefined) {
+          setActiveQuestion(stats.activeSpeaker);
+        }
+      }
     });
 
     const unsubTranscript = socketService.on('transcript_event', (item) => {
@@ -187,33 +207,55 @@ export default function HostView({
     });
 
     // Q&A Backchannel socket handlers
-    const unsubQaRaised = socketService.on('qa_hand_raised', (item) => {
+    const handleIncomingQaRequest = (msg) => {
+      const item = msg?.request || msg;
+      if (!item) return;
+      const normalized = {
+        ...item,
+        questionId: item.questionId || item.attendeeId || item.socketId,
+        status: item.status || 'pending'
+      };
       setQaQueue(prev => {
-        const exists = prev.some(q => q.questionId === item.questionId);
+        const exists = prev.some(q => q.questionId === normalized.questionId);
         if (exists) {
-          return prev.map(q => q.questionId === item.questionId ? { ...q, ...item } : q);
+          return prev.map(q => q.questionId === normalized.questionId ? { ...q, ...normalized } : q);
         }
-        return [...prev, item];
+        return [...prev, normalized];
       });
+    };
+
+    const unsubQaRequested = socketService.on('qa_question_requested', handleIncomingQaRequest);
+    const unsubQaRaised = socketService.on('qa_hand_raised', handleIncomingQaRequest);
+
+    const unsubQaSpeaker = socketService.on('qa_active_speaker', (msg) => {
+      const speaker = msg?.speaker || msg;
+      if (speaker) {
+        const normalized = {
+          ...speaker,
+          questionId: speaker.questionId || speaker.attendeeId || speaker.socketId
+        };
+        setActiveQuestion(normalized);
+        setQaQueue(prev => prev.map(q => q.questionId === normalized.questionId ? { ...q, status: 'speaking' } : q));
+      }
     });
 
-    const unsubQaSpeaker = socketService.on('qa_active_speaker', (item) => {
-      setActiveQuestion(item);
-      setQaQueue(prev => prev.map(q => q.questionId === item.questionId ? { ...q, status: 'speaking' } : q));
-    });
-
-    const unsubQaClosed = socketService.on('qa_question_closed', ({ questionId }) => {
-      setActiveQuestion(prev => (prev && prev.questionId === questionId ? null : prev));
-      setQaQueue(prev => prev.filter(q => q.questionId !== questionId));
+    const unsubQaClosed = socketService.on('qa_question_closed', (msg) => {
+      const qId = msg?.questionId;
+      setActiveQuestion(prev => (prev && (!qId || prev.questionId === qId) ? null : prev));
+      if (qId) {
+        setQaQueue(prev => prev.filter(q => q.questionId !== qId));
+      } else {
+        setQaQueue(prev => prev.filter(q => q.status !== 'speaking'));
+      }
     });
 
     const unsubEarpiece = socketService.on('host_earpiece_audio', (data) => {
       setIncomingQuestionAudio(data);
       if (data && data.audioBase64) {
         audioPlayerService.playAudioChunk({
-          audio: data.audioBase64,
+          audioBase64: data.audioBase64,
           mimeType: data.mimeType || 'audio/mp3',
-          lang: data.targetLang || 'es',
+          lang: data.lang || data.targetLang || 'es',
           isHostPreview: true
         });
       }
@@ -224,6 +266,7 @@ export default function HostView({
       unsubTranscript();
       unsubLatency();
       unsubAudio();
+      unsubQaRequested();
       unsubQaRaised();
       unsubQaSpeaker();
       unsubQaClosed();
@@ -245,8 +288,15 @@ export default function HostView({
       }
     });
 
+    const unsubStreamingStatus = audioRecorderService.onStreamingStatus
+      ? audioRecorderService.onStreamingStatus((status) => {
+          setAsrStatus(status);
+        })
+      : () => {};
+
     return () => {
       unsubAudioLevel();
+      unsubStreamingStatus();
     };
   }, []);
 
@@ -470,23 +520,23 @@ export default function HostView({
     <div className="flex flex-col h-full justify-between">
       <div>
         {/* Top Logo (II LiftVoice) */}
-        <div className="h-14 px-5 flex items-center justify-between border-b border-neutral-200 bg-white">
+        <div className="h-14 px-5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
           <div className="flex items-center gap-2.5">
             <div className="flex items-center gap-1">
-              <div className="w-1.5 h-4.5 bg-neutral-900 rounded-full" />
-              <div className="w-1.5 h-3 bg-neutral-900 rounded-full" />
+              <div className="w-1.5 h-4.5 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
+              <div className="w-1.5 h-3 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
             </div>
-            <span className="font-bold text-sm text-neutral-950 tracking-tight">
+            <span className="font-bold text-sm text-zinc-950 dark:text-white tracking-tight">
               LiftVoice
             </span>
-            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
-              STUDIO
+            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+              Studio
             </span>
           </div>
           {isMobile && (
             <button
               onClick={() => setIsMobileNavOpen(false)}
-              className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-500 cursor-pointer"
+              className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 cursor-pointer"
               title="Cerrar menú"
             >
               <X className="w-5 h-5" />
@@ -501,9 +551,9 @@ export default function HostView({
               if (isMobile) setIsMobileNavOpen(false);
               onLeave();
             }}
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors cursor-pointer"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors cursor-pointer"
           >
-            <Home className="w-4 h-4 text-neutral-400" />
+            <Home className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
             <span>Inicio / Salir</span>
           </button>
 
@@ -513,17 +563,17 @@ export default function HostView({
               if (onNavigateVoices) onNavigateVoices();
               else setIsVoiceCatalogOpen(true);
             }}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <Layers className="w-4 h-4 text-neutral-500" />
+              <Layers className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
               <span>Voces</span>
             </div>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
           </button>
 
-          <div className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-neutral-950 bg-neutral-200/70 shadow-xs">
-            <Radio className="w-4 h-4 text-neutral-950" />
+          <div className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-950 dark:text-white bg-zinc-200/70 dark:bg-zinc-800 shadow-xs">
+            <Radio className="w-4 h-4 text-zinc-950 dark:text-zinc-100" />
             <span>Studio</span>
           </div>
 
@@ -532,25 +582,25 @@ export default function HostView({
               if (isMobile) setIsMobileNavOpen(false);
               handleGenerateSummary();
             }}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <Sparkles className="w-4 h-4 text-neutral-500" />
+              <Sparkles className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
               <span>Resumen IA</span>
             </div>
-            <span className="text-[9px] text-neutral-400 font-mono">1-CLICK</span>
+            <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-mono">1-click</span>
           </button>
         </div>
 
         {/* Section: Fijado / Herramientas de Sala */}
-        <div className="p-3 pt-3 space-y-1 border-t border-neutral-200">
-          <div className="px-3.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400 font-mono">
+        <div className="p-3 pt-3 space-y-1 border-t border-zinc-200 dark:border-zinc-800">
+          <div className="px-3.5 pb-1.5 text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 font-mono">
             Fijado
           </div>
 
-          <div className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-neutral-800 bg-neutral-100/70 border border-neutral-200">
+          <div className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-zinc-100/70 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center gap-2.5">
-              <Mic className="w-3.5 h-3.5 text-neutral-900" />
+              <Mic className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100" />
               <span>Traducción Simultánea</span>
             </div>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -561,13 +611,13 @@ export default function HostView({
               if (isMobile) setIsMobileNavOpen(false);
               setIsQrModalOpen(true);
             }}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
-              <QrCode className="w-3.5 h-3.5 text-neutral-400" />
+              <QrCode className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
               <span>Proyectar QR</span>
             </div>
-            <span className="text-[10px] text-neutral-400 font-mono">{roomId}</span>
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">{roomId}</span>
           </button>
 
           <button
@@ -575,13 +625,13 @@ export default function HostView({
               if (isMobile) setIsMobileNavOpen(false);
               setIsAttendeesModalOpen(true);
             }}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
-              <Users className="w-3.5 h-3.5 text-neutral-400" />
+              <Users className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
               <span>Asistentes</span>
             </div>
-            <span className="px-2 py-0.5 rounded-full bg-neutral-200 text-neutral-700 text-[10px] font-mono font-semibold">
+            <span className="px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[10px] font-mono font-semibold">
               {roomStats.attendees?.length || 0}
             </span>
           </button>
@@ -589,16 +639,16 @@ export default function HostView({
       </div>
 
       {/* Sidebar Footer Card (Workspace style ElevenLabs) */}
-      <div className="p-3.5 m-3 bg-white border border-neutral-200 rounded-2xl space-y-1 shadow-xs">
-        <div className="flex items-center justify-between text-xs font-medium text-neutral-800">
+      <div className="p-3.5 m-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-1 shadow-xs">
+        <div className="flex items-center justify-between text-xs font-medium text-zinc-800 dark:text-zinc-200">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
             Red Local
           </span>
-          <span className="font-mono text-neutral-400 text-[11px]">{socketLatency}ms</span>
+          <span className="font-mono text-zinc-400 dark:text-zinc-500 text-[11px]">{socketLatency}ms</span>
         </div>
-        <p className="text-[11px] text-neutral-400 truncate font-mono">
-          {localIp}:5173
+        <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate font-mono">
+          {localIp}:{typeof window !== 'undefined' && window.location.port ? window.location.port : '5174'}
         </p>
       </div>
     </div>
@@ -607,18 +657,18 @@ export default function HostView({
   const renderInspectorContent = (isMobile = false) => (
     <div className="space-y-5">
       {/* Top Tabs: Configuración | Cabinas en Vivo | Q&A */}
-      <div className="flex items-center gap-3 sm:gap-4 border-b border-neutral-200 pb-2.5">
+      <div className="flex items-center gap-3 sm:gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
         <button
           onClick={() => setInspectorTab('config')}
           className={`text-xs font-bold transition-all cursor-pointer relative pb-1 ${
             inspectorTab === 'config'
-              ? 'text-neutral-950'
-              : 'text-neutral-400 hover:text-neutral-700'
+              ? 'text-zinc-950 dark:text-white'
+              : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
           }`}
         >
           <span>Configuración</span>
           {inspectorTab === 'config' && (
-            <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-neutral-950 rounded-full" />
+            <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-zinc-950 dark:bg-white rounded-full" />
           )}
         </button>
 
@@ -626,14 +676,14 @@ export default function HostView({
           onClick={() => setInspectorTab('cabins')}
           className={`text-xs font-medium transition-all cursor-pointer relative pb-1 flex items-center gap-1.5 ${
             inspectorTab === 'cabins'
-              ? 'text-neutral-950 font-bold'
-              : 'text-neutral-400 hover:text-neutral-700'
+              ? 'text-zinc-950 dark:text-white font-bold'
+              : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
           }`}
         >
           <span>Cabinas</span>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
           {inspectorTab === 'cabins' && (
-            <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-neutral-950 rounded-full" />
+            <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-zinc-950 dark:bg-white rounded-full" />
           )}
         </button>
 
@@ -641,8 +691,8 @@ export default function HostView({
           onClick={() => setInspectorTab('qa')}
           className={`text-xs font-medium transition-all cursor-pointer relative pb-1 flex items-center gap-1.5 ${
             inspectorTab === 'qa'
-              ? 'text-neutral-950 font-bold'
-              : 'text-neutral-400 hover:text-neutral-700'
+              ? 'text-zinc-950 dark:text-white font-bold'
+              : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
           }`}
         >
           <span>Q&A</span>
@@ -652,7 +702,7 @@ export default function HostView({
             </span>
           )}
           {inspectorTab === 'qa' && (
-            <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-neutral-950 rounded-full" />
+            <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-zinc-950 dark:bg-white rounded-full" />
           )}
         </button>
       </div>
@@ -661,22 +711,22 @@ export default function HostView({
       {inspectorTab === 'config' && (
         <div className="space-y-6 text-left animate-fadeIn">
           {/* Banner Card: Neural Pipeline */}
-          <div className="bg-gradient-to-br from-rose-50 via-orange-50 to-pink-50 border border-rose-200/70 rounded-2xl p-4 space-y-1 shadow-xs">
-            <div className="text-[10px] font-mono font-bold text-rose-700 uppercase tracking-wider flex items-center gap-1">
+          <div className="bg-gradient-to-br from-rose-50 via-orange-50 to-pink-50 dark:from-rose-950/30 dark:via-zinc-900 dark:to-zinc-900 border border-rose-200/70 dark:border-rose-900/40 rounded-2xl p-4 space-y-1 shadow-xs">
+            <div className="text-[10px] font-mono font-medium text-rose-700 dark:text-rose-400 flex items-center gap-1">
               <Sparkles className="w-3 h-3" />
-              <span>PRUEBA CABINAS SIMULTÁNEAS</span>
+              <span>Prueba cabinas simultáneas</span>
             </div>
-            <div className="text-xs font-bold text-neutral-950">
+            <div className="text-xs font-bold text-zinc-950 dark:text-zinc-100">
               Deepgram Aura & Qwen 3.8
             </div>
-            <p className="text-[11px] text-neutral-600 leading-relaxed">
+            <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
               Síntesis ultra-rápida (&lt;170ms TTFB) y traducción simultánea continua sin pausas entre frases.
             </p>
           </div>
 
           {/* Active Voice Card */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-neutral-900 block">
+            <label className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">
               Voz Activa
             </label>
             <button
@@ -685,30 +735,30 @@ export default function HostView({
                 if (onNavigateVoices) onNavigateVoices();
                 else setIsVoiceCatalogOpen(true);
               }}
-              className="w-full p-3 rounded-xl border border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50 flex items-center justify-between shadow-xs cursor-pointer transition-all"
+              className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 flex items-center justify-between shadow-xs cursor-pointer transition-all"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-neutral-950 text-white flex items-center justify-center font-bold text-xs">
+                <div className="w-8 h-8 rounded-full bg-zinc-950 dark:bg-zinc-800 text-white dark:text-zinc-100 flex items-center justify-center font-bold text-xs">
                   {currentPrimaryVoiceName.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="text-left">
-                  <div className="text-xs font-bold text-neutral-950">{currentPrimaryVoiceName}</div>
-                  <div className="text-[11px] text-neutral-500">Deepgram Aura &bull; Resonante, Natural</div>
+                  <div className="text-xs font-bold text-zinc-950 dark:text-zinc-100">{currentPrimaryVoiceName}</div>
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Deepgram Aura &bull; Resonante, Natural</div>
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-neutral-400" />
+              <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
             </button>
           </div>
 
           {/* Translation Engine */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-neutral-900 flex items-center justify-between">
+            <label className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 flex items-center justify-between">
               <span>Modelo de Traducción</span>
-              <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-mono font-bold">Activo</span>
+              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/40 px-2 py-0.5 rounded-full font-mono font-bold">Activo</span>
             </label>
-            <div className="p-3 rounded-xl border border-neutral-200 bg-white shadow-xs space-y-0.5">
-              <div className="text-xs font-bold text-neutral-950">Alibaba Qwen 3.8</div>
-              <p className="text-[11px] text-neutral-500">Pesos abiertos (27B) con contexto continuo de oratoria.</p>
+            <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs space-y-0.5">
+              <div className="text-xs font-bold text-zinc-950 dark:text-zinc-100">Alibaba Qwen 3.8</div>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Pesos abiertos (27B) con contexto continuo de oratoria.</p>
             </div>
           </div>
 
@@ -777,14 +827,14 @@ export default function HostView({
           </div>
 
           {/* Audio Input Device Selector */}
-          <div className="space-y-2 pt-2 border-t border-neutral-200">
-            <label className="text-xs font-semibold text-neutral-900 block">
+          <div className="space-y-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+            <label className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">
               Dispositivo de Micrófono
             </label>
             <select
               value={selectedDevice}
               onChange={(e) => setSelectedDevice(e.target.value)}
-              className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs text-neutral-800 focus:outline-none focus:border-neutral-950 transition-colors shadow-xs cursor-pointer"
+              className="w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-100 transition-colors shadow-xs cursor-pointer"
             >
               <option value="default">🎙️ Micrófono Predeterminado</option>
               {devices.map((d, i) => (
@@ -797,7 +847,7 @@ export default function HostView({
 
           {/* Speaker Language */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-neutral-900 block">
+            <label className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">
               Idioma en que Hablas
             </label>
             <select
@@ -806,7 +856,7 @@ export default function HostView({
                 setSourceLanguage(e.target.value);
                 audioRecorderService.setLanguage(e.target.value);
               }}
-              className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs text-neutral-800 focus:outline-none focus:border-neutral-950 transition-colors shadow-xs cursor-pointer"
+              className="w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-100 transition-colors shadow-xs cursor-pointer"
             >
               <option value="auto">🌐 Detección Automática (Multilingüe Nova)</option>
               <option value="es-ES">🇪🇸 Español (Ponente)</option>
@@ -822,27 +872,27 @@ export default function HostView({
       {inspectorTab === 'cabins' && (
         <div className="space-y-4 text-left animate-fadeIn">
           {/* Headphone Monitoring Controller & Salir de la sala */}
-          <div className="p-3.5 rounded-2xl border border-neutral-200 bg-white space-y-2.5 shadow-xs">
+          <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2.5 shadow-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Headphones className="w-4 h-4 text-neutral-800" />
-                <span className="text-xs font-bold text-neutral-900">Retorno de Auriculares</span>
+                <Headphones className="w-4 h-4 text-zinc-800 dark:text-zinc-200" />
+                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Retorno de Auriculares</span>
               </div>
               {monitoredLang !== 'none' ? (
-                <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-mono text-[10px] font-bold flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 font-mono text-[10px] font-bold flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  {monitoredLang.toUpperCase()} ACTIVO
+                  {monitoredLang} activo
                 </span>
               ) : (
-                <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500 font-mono text-[10px] font-medium">
-                  SILENCIADO
+                <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-mono text-[10px] font-medium">
+                  Silenciado
                 </span>
               )}
             </div>
 
-            <p className="text-[11px] text-neutral-500 leading-relaxed">
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
               {monitoredLang !== 'none'
-                ? `Monitoreando la cabina en ${monitoredLang.toUpperCase()}. Usa el botón abajo para silenciar en cualquier momento.`
+                ? `Monitoreando la cabina en ${monitoredLang}. Usa el botón abajo para silenciar en cualquier momento.`
                 : 'Por defecto los audífonos están silenciados para no escuchar retorno ni eco mientras hablas al micrófono.'}
             </p>
 
@@ -850,20 +900,20 @@ export default function HostView({
               {monitoredLang !== 'none' ? (
                 <button
                   onClick={handleStopMonitoring}
-                  className="flex-1 py-2 px-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2 px-3 rounded-xl bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <Volume2 className="w-3.5 h-3.5" />
                   <span>Salir de la sala (Silenciar)</span>
                 </button>
               ) : (
-                <div className="flex-1 text-[10px] text-neutral-400 italic flex items-center">
+                <div className="flex-1 text-[10px] text-zinc-400 dark:text-zinc-500 italic flex items-center">
                   Pulsa &quot;Escuchar&quot; en cualquier idioma para comprobar su calidad.
                 </div>
               )}
               <button
                 type="button"
                 onClick={() => audioPlayerService.playAudioTestTone()}
-                className="py-2 px-3 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1 flex-shrink-0"
+                className="py-2 px-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1 flex-shrink-0"
                 title="Probar sonido de altavoz o auriculares locales"
               >
                 <span>🔔 Probar</span>
@@ -872,10 +922,10 @@ export default function HostView({
           </div>
 
           <div className="flex items-center justify-between pt-1">
-            <span className="text-xs font-semibold text-neutral-800">Cabinas de Interpretación</span>
+            <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Cabinas de Interpretación</span>
             <button
               onClick={() => window.open(`/?room=${roomId}&lang=${monitoredLang !== 'none' ? monitoredLang : 'en'}`, '_blank')}
-              className="text-[11px] text-neutral-600 hover:text-neutral-950 font-medium flex items-center gap-1 hover:underline cursor-pointer"
+              className="text-[11px] text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white font-medium flex items-center gap-1 hover:underline cursor-pointer"
               title="Abre la vista de asistente en otra ventana"
             >
               <span>Moderar como Oyente</span>
@@ -894,16 +944,16 @@ export default function HostView({
                   key={cab.code}
                   className={`p-3.5 rounded-2xl border transition-all space-y-2.5 shadow-xs ${
                     isMonitored
-                      ? 'border-emerald-300 bg-emerald-50/30 ring-1 ring-emerald-200'
-                      : 'border-neutral-200 bg-white'
+                      ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-950/20 ring-1 ring-emerald-200 dark:ring-emerald-800/50'
+                      : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <span className="text-xl">{cab.flag}</span>
                       <div>
-                        <div className="text-xs font-bold text-neutral-950">{cab.name}</div>
-                        <div className="text-[11px] text-neutral-500 font-mono truncate max-w-[120px]">{voice}</div>
+                        <div className="text-xs font-bold text-zinc-950 dark:text-zinc-100">{cab.name}</div>
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono truncate max-w-[120px]">{voice}</div>
                       </div>
                     </div>
 
@@ -913,7 +963,7 @@ export default function HostView({
                         className={`px-2.5 py-1 rounded-full text-[10px] font-mono transition-all cursor-pointer flex items-center gap-1 ${
                           isMonitored
                             ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                            : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700'
+                            : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
                         }`}
                         title={isMonitored ? 'Hacer clic para salir de la sala (silenciar)' : `Monitorear cabina en ${cab.name}`}
                       >
@@ -926,8 +976,8 @@ export default function HostView({
                         disabled={isAuditioning}
                         className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                           isAuditioning
-                            ? 'bg-neutral-950 text-white animate-pulse'
-                            : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
+                            ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 animate-pulse'
+                            : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200'
                         }`}
                         title="Audicionar muestra de voz"
                       >
@@ -942,7 +992,7 @@ export default function HostView({
                       if (onNavigateVoices) onNavigateVoices();
                       else setIsVoiceCatalogOpen(true);
                     }}
-                    className="w-full py-1.5 text-center text-xs font-semibold text-neutral-700 hover:text-neutral-950 bg-neutral-50 hover:bg-neutral-100 rounded-xl border border-neutral-200 transition-colors cursor-pointer"
+                    className="w-full py-1.5 text-center text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
                   >
                     Cambiar Voz de Cabina &rarr;
                   </button>
@@ -956,41 +1006,41 @@ export default function HostView({
       {/* Tab: Turnos de Preguntas Q&A (Backchannel Bi-direccional) */}
       {inspectorTab === 'qa' && (
         <div className="space-y-4 text-left animate-fadeIn">
-          <div className="bg-neutral-900 text-white p-4 rounded-2xl space-y-2 shadow-xs">
+          <div className="bg-zinc-900 dark:bg-zinc-950 text-white p-4 rounded-2xl space-y-2 border border-zinc-800 shadow-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Hand className="w-4 h-4 text-amber-400" />
                 <span className="text-xs font-bold">Backchannel Bi-direccional</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300 font-mono">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 font-mono">
                 {qaQueue.length} {qaQueue.length === 1 ? 'petición' : 'peticiones'}
               </span>
             </div>
-            <p className="text-[11px] text-neutral-300 leading-relaxed">
+            <p className="text-[11px] text-zinc-300 leading-relaxed">
               Los oyentes levantan la mano desde su móvil, hablan en su idioma nativo y el ponente escucha la traducción en tiempo real por el auricular.
             </p>
           </div>
 
           {activeQuestion && (
-            <div className="p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50/40 space-y-3 shadow-xs">
+            <div className="p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30 space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs font-bold text-emerald-950">
+                  <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200">
                     {activeQuestion.name} está hablando
                   </span>
                 </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  {activeQuestion.nativeLang?.toUpperCase()}
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                  {activeQuestion.nativeLang}
                 </span>
               </div>
 
               {incomingQuestionAudio && incomingQuestionAudio.originalText && (
-                <div className="bg-white/90 rounded-xl p-3 text-xs space-y-1.5 border border-emerald-200">
-                  <div className="text-[10px] text-neutral-500 font-mono">Pregunta original ({incomingQuestionAudio.sourceLang?.toUpperCase()}):</div>
-                  <p className="text-neutral-700 italic font-mono text-[11px]">&quot;{incomingQuestionAudio.originalText}&quot;</p>
-                  <div className="text-[10px] text-emerald-700 font-mono font-semibold pt-1 border-t border-neutral-100">Traducción a tu oído ({incomingQuestionAudio.targetLang?.toUpperCase()}):</div>
-                  <p className="text-neutral-950 font-semibold">{incomingQuestionAudio.translatedText}</p>
+                <div className="bg-white/90 dark:bg-zinc-900/90 rounded-xl p-3 text-xs space-y-1.5 border border-emerald-200 dark:border-emerald-800">
+                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">Pregunta original ({incomingQuestionAudio.sourceLang}):</div>
+                  <p className="text-zinc-700 dark:text-zinc-300 italic font-mono text-[11px]">&quot;{incomingQuestionAudio.originalText}&quot;</p>
+                  <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono font-semibold pt-1 border-t border-zinc-100 dark:border-zinc-800">Traducción a tu oído ({incomingQuestionAudio.targetLang}):</div>
+                  <p className="text-zinc-950 dark:text-zinc-100 font-semibold">{incomingQuestionAudio.translatedText}</p>
                 </div>
               )}
 
@@ -1005,33 +1055,33 @@ export default function HostView({
           )}
 
           <div className="space-y-2">
-            <span className="text-xs font-semibold text-neutral-800 block">
+            <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 block">
               Peticiones de palabra ({qaQueue.filter(q => q.status === 'pending').length})
             </span>
 
             {qaQueue.filter(q => q.status === 'pending').length === 0 ? (
-              <div className="p-6 rounded-2xl border border-dashed border-neutral-200 text-center space-y-1.5 bg-white">
-                <Hand className="w-5 h-5 text-neutral-300 mx-auto" />
-                <p className="text-xs text-neutral-600 font-medium">No hay preguntas pendientes</p>
-                <p className="text-[10px] text-neutral-400">Los oyentes pueden pulsar &quot;Levantar la mano&quot; en su teléfono para pedir la palabra.</p>
+              <div className="p-6 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 text-center space-y-1.5 bg-white dark:bg-zinc-900">
+                <Hand className="w-5 h-5 text-zinc-300 dark:text-zinc-600 mx-auto" />
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">No hay preguntas pendientes</p>
+                <p className="text-[10px] text-zinc-400 dark:text-zinc-500">Los oyentes pueden pulsar &quot;Levantar la mano&quot; en su teléfono para pedir la palabra.</p>
               </div>
             ) : (
               qaQueue.filter(q => q.status === 'pending').map((q) => (
                 <div
                   key={q.questionId}
-                  className="p-3.5 rounded-2xl border border-neutral-200 bg-white shadow-xs space-y-2.5 flex flex-col"
+                  className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs space-y-2.5 flex flex-col"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-neutral-100 flex items-center justify-center font-bold text-xs text-neutral-800">
-                        {q.name ? q.name.slice(0, 2).toUpperCase() : 'OY'}
+                      <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-800 dark:text-zinc-200">
+                        {q.name ? q.name.slice(0, 2).toUpperCase() : 'Oy'}
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-neutral-900">{q.name || 'Oyente'}</div>
-                        <div className="text-[10px] text-neutral-500 font-mono">Idioma nativo: {q.nativeLang?.toUpperCase() || 'ES'}</div>
+                        <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{q.name || 'Oyente'}</div>
+                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">Idioma nativo: {q.nativeLang || 'es'}</div>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                       En espera
                     </span>
                   </div>
@@ -1040,14 +1090,14 @@ export default function HostView({
                     <button
                       onClick={() => handleApproveQuestion(q.questionId)}
                       disabled={!!activeQuestion}
-                      className="flex-1 py-1.5 rounded-xl bg-neutral-950 hover:bg-neutral-800 disabled:opacity-40 text-white text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                      className="flex-1 py-1.5 rounded-xl bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-40 text-white dark:text-zinc-950 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
                       <span>Dar la palabra</span>
                     </button>
                     <button
                       onClick={() => handleCloseQuestion(q.questionId)}
-                      className="p-1.5 rounded-xl hover:bg-neutral-100 text-neutral-500 hover:text-rose-600 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
                       title="Descartar"
                     >
                       <XCircle className="w-4 h-4" />
@@ -1063,7 +1113,7 @@ export default function HostView({
   );
 
   return (
-    <div className="h-screen w-full flex bg-[#f7f7f8] text-neutral-900 overflow-hidden font-sans select-none">
+    <div className="h-dvh min-h-dvh w-full flex bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-hidden font-sans select-none transition-colors">
       
       {/* Mobile Left Drawer Backdrop & Sheet */}
       {isMobileNavOpen && (
@@ -1072,7 +1122,7 @@ export default function HostView({
             className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
             onClick={() => setIsMobileNavOpen(false)}
           />
-          <aside className="relative w-72 max-w-[85vw] h-full bg-[#fcfcfd] border-r border-neutral-200 flex flex-col justify-between shadow-2xl z-10 animate-fadeIn">
+          <aside className="relative w-72 max-w-[85vw] h-full bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 flex flex-col justify-between shadow-2xl z-10 animate-fadeIn">
             {renderNavSidebarContent(true)}
           </aside>
         </div>
@@ -1081,70 +1131,102 @@ export default function HostView({
       {/* ───────────────────────────────────────────────────────────── */}
       {/* COLUMNA 1: SIDEBAR DE NAVEGACIÓN (Desktop: hidden lg:flex)   */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <aside className="hidden lg:flex w-64 h-screen border-r border-neutral-200 bg-[#fcfcfd] flex-shrink-0 flex-col justify-between">
+      <aside className="hidden lg:flex w-64 h-dvh border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-shrink-0 flex-col justify-between">
         {renderNavSidebarContent(false)}
       </aside>
 
       {/* ───────────────────────────────────────────────────────────── */}
       {/* CONTENIDO PRINCIPAL: TOP BAR + 2 COLUMNAS (STAGE + INSPECTOR) */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
+      <div className="flex-1 flex flex-col h-dvh min-h-dvh overflow-hidden bg-white dark:bg-zinc-950">
         
-        {/* Top Header Bar */}
-        <header className="h-14 border-b border-neutral-200 px-3 sm:px-6 flex items-center justify-between bg-white flex-shrink-0">
-          {/* Left: Hamburger (mobile) + Room Indicator */}
+        {/* Top Header Bar — En móvil integra la Dynamic Island; en Desktop despliega la barra de estudio */}
+        <header className="h-[calc(3.25rem+env(safe-area-inset-top,0px))] pt-safe border-b border-zinc-200 dark:border-zinc-800 px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-zinc-900 flex-shrink-0 z-30">
+          {/* Left: Hamburger (mobile) + Desktop Studio Indicator */}
           <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => setIsMobileNavOpen(true)}
-              className="lg:hidden p-2 -ml-1 rounded-xl hover:bg-neutral-100 text-neutral-700 transition-colors cursor-pointer"
+              className="lg:hidden p-2 -ml-1 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
               title="Abrir menú"
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-neutral-600">
-              <Radio className="w-3.5 h-3.5 text-neutral-500" />
+            {/* Solo en Desktop (sm+): Nombre del estudio y código de sala */}
+            <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <Radio className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
               <span>Estudio de Emisión</span>
             </div>
-            <span className="hidden sm:inline text-neutral-300">•</span>
+            <span className="hidden sm:inline text-zinc-300 dark:text-zinc-700">•</span>
             
             <button
               onClick={handleCopyMeetingLink}
               title="Copiar vínculo de la reunión para asistentes"
-              className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-neutral-900 bg-neutral-100 hover:bg-neutral-200/80 border border-neutral-200 px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer shadow-2xs"
+              className="hidden sm:inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 border border-zinc-200 dark:border-zinc-700 px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer shadow-2xs"
             >
               <span>{roomId}</span>
               {hasCopiedLink ? (
-                <span className="text-[10px] text-emerald-600 font-sans font-medium flex items-center gap-0.5">
-                  <Check className="w-3 h-3 text-emerald-600" />
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-sans font-medium flex items-center gap-0.5">
+                  <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                   <span className="hidden sm:inline">Copiado</span>
                 </span>
               ) : (
-                <span className="text-[10px] text-neutral-400 hover:text-neutral-600 font-sans font-normal hidden sm:inline">
+                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 font-sans font-normal hidden sm:inline">
                   Copiar
                 </span>
               )}
             </button>
-            <span className="text-neutral-300">•</span>
-            <div className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${isBroadcasting ? 'bg-red-500 animate-pulse' : 'bg-neutral-300'}`} />
-              <span className="text-[10px] sm:text-[11px] font-semibold text-neutral-600 uppercase tracking-wide truncate max-w-[85px] sm:max-w-none">
-                {isBroadcasting ? 'En Directo' : 'En Pausa'}
+            <span className="hidden sm:inline text-zinc-300 dark:text-zinc-700">•</span>
+            <div className="hidden sm:flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${isBroadcasting ? 'bg-red-500 animate-pulse' : 'bg-zinc-300 dark:bg-zinc-600'}`} />
+              <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 truncate max-w-[85px] sm:max-w-none">
+                {isBroadcasting ? 'En directo' : 'En pausa'}
               </span>
             </div>
+
+            {isBroadcasting && (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                <span className={`inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-0.5 rounded-full font-mono text-[9px] sm:text-[10px] font-semibold ${
+                  asrStatus === 'listening'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40'
+                    : asrStatus === 'connecting' || asrStatus === 'reconnecting'
+                    ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 animate-pulse'
+                    : asrStatus === 'degraded'
+                    ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    asrStatus === 'listening' ? 'bg-emerald-500' :
+                    asrStatus === 'degraded' ? 'bg-rose-500' : 'bg-amber-500'
+                  }`} />
+                  <span className="hidden sm:inline">ASR: </span>
+                  <span>{asrStatus === 'listening' ? 'Nova-3 ⚡' : asrStatus}</span>
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Search pill ⌘K (ElevenLabs exact style) */}
-          <div className="hidden 2xl:flex items-center w-72 h-8.5 bg-neutral-50 hover:bg-neutral-100/80 border border-neutral-200 rounded-full px-3.5 text-xs text-neutral-400 justify-between transition-colors cursor-pointer">
-            <div className="flex items-center gap-2">
-              <Search className="w-3.5 h-3.5 text-neutral-400" />
-              <span>Buscar en todo...</span>
-            </div>
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white border border-neutral-200 rounded text-neutral-400 shadow-xs">⌘K</kbd>
+          {/* Center (Mobile Only): Cápsula elegante de código de sala en una sola línea sin saltos */}
+          <div className="sm:hidden flex items-center justify-center flex-1 min-w-0 px-1.5">
+            <button
+              type="button"
+              onClick={handleCopyMeetingLink}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 border border-zinc-200 dark:border-zinc-700 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition-all cursor-pointer truncate shadow-2xs active:scale-95"
+              title="Toca para copiar enlace de la sala"
+              aria-label={`Sala ${roomId}. Toca para copiar enlace`}
+            >
+              <span className="truncate max-w-[130px]">{roomId}</span>
+              {hasCopiedLink ? (
+                <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+              ) : (
+                <Copy className="w-3 h-3 text-zinc-400 dark:text-zinc-500 flex-shrink-0" />
+              )}
+            </button>
           </div>
 
           {/* Right Links & Action Buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
             {/* Q&A mobile alert button if pending questions */}
             {qaQueue.filter(q => q.status === 'pending').length > 0 && (
               <button
@@ -1152,7 +1234,7 @@ export default function HostView({
                   setInspectorTab('qa');
                   setIsMobileInspectorOpen(true);
                 }}
-                className="xl:hidden h-8 px-2.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold flex items-center gap-1 animate-pulse shadow-xs cursor-pointer"
+                className="xl:hidden h-8 px-2.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold flex items-center gap-1 animate-pulse shadow-xs cursor-pointer flex-shrink-0"
                 title="Peticiones de palabra en espera"
               >
                 <Hand className="w-3.5 h-3.5" />
@@ -1160,78 +1242,84 @@ export default function HostView({
               </button>
             )}
 
-            {/* Mobile Inspector Trigger */}
-            <button
-              onClick={() => setIsMobileInspectorOpen(true)}
-              className="xl:hidden h-8 px-2.5 sm:px-3 rounded-full bg-neutral-100 hover:bg-neutral-200/80 border border-neutral-200 text-neutral-800 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-              title="Abrir panel de cabinas y ajustes"
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-neutral-700" />
-              <span className="hidden sm:inline">Cabinas & Controles</span>
-              <span className="sm:hidden text-[11px] font-semibold">Cabinas</span>
-            </button>
-
             {/* STT engine badge (desktop only) */}
             <button
               onClick={() => setIsSettingsModalOpen(true)}
-              className="hidden md:flex h-8 px-3 rounded-full bg-neutral-100 hover:bg-neutral-200/80 border border-neutral-200 text-neutral-800 text-[11px] font-medium items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              className="hidden md:flex h-8 px-3 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-[11px] font-medium items-center gap-1.5 transition-colors cursor-pointer shadow-2xs flex-shrink-0"
               title="Haz clic para cambiar el transcriptor o las voces"
             >
-              <Mic className="w-3 h-3 text-emerald-600" />
-              <span>STT: <strong className="text-neutral-950 font-semibold">{sttEngine === 'deepgram' ? 'Deepgram ⚡' : sttEngine === 'webspeech' ? 'Web Speech 🌐' : 'Whisper 🤖'}</strong></span>
+              <Mic className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+              <span>STT: <strong className="text-zinc-950 dark:white font-semibold">{sttEngine === 'deepgram' ? 'Deepgram ⚡' : sttEngine === 'webspeech' ? 'Web Speech 🌐' : 'Whisper 🤖'}</strong></span>
             </button>
 
             {/* QR button */}
             <button
               onClick={() => setIsQrModalOpen(true)}
-              className="h-8 sm:h-9 px-2.5 sm:px-4 rounded-full border border-neutral-200 hover:bg-neutral-50 text-xs font-medium text-neutral-800 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+              className="h-8 sm:h-9 px-2.5 sm:px-4 rounded-full border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors flex-shrink-0"
               title="Proyectar código QR para la audiencia"
             >
-              <QrCode className="w-3.5 h-3.5 text-neutral-700" />
+              <QrCode className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 flex-shrink-0" />
               <span className="hidden sm:inline">Proyectar QR</span>
             </button>
 
             {/* User Avatar */}
-            <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full bg-neutral-950 text-white flex items-center justify-center text-[10px] sm:text-xs font-bold font-mono">
+            <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center text-[10px] sm:text-xs font-bold font-mono flex-shrink-0">
               LV
             </div>
           </div>
         </header>
 
+        {/* Floating Q&A Interactive Alert */}
+        <QABannerAlert
+          pendingQuestions={qaQueue.filter(q => q.status === 'pending')}
+          activeQuestion={activeQuestion}
+          incomingQuestionAudio={incomingQuestionAudio}
+          onApprove={handleApproveQuestion}
+          onCloseQuestion={handleCloseQuestion}
+        />
+
         {/* 2-Column Body: Center Stage + Right Inspector */}
-        <div className="flex-1 flex flex-row overflow-hidden bg-white">
+        <div className="flex-1 flex flex-row overflow-hidden bg-white dark:bg-zinc-950">
           
           {/* ───────────────────────────────────────────────────────── */}
           {/* COLUMNA 2: STUDIO STAGE (AMPLIO, LIMPIO, ELEVENLABS)       */}
           {/* ───────────────────────────────────────────────────────── */}
-          <main className="flex-1 flex flex-col justify-between p-3 sm:p-6 lg:p-8 overflow-y-auto bg-white min-w-0">
-            <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-6 flex-1 flex flex-col justify-between">
+          <main className="flex-1 flex flex-col px-0 sm:px-6 lg:px-8 py-2 sm:py-4 pb-24 sm:pb-6 overflow-hidden bg-white dark:bg-zinc-950 min-w-0 h-full">
+            <div className="w-full max-w-4xl mx-auto space-y-2 sm:space-y-3 flex-1 flex flex-col min-h-0">
               
-              {/* Stage Top Bar: Title & Primary Actions */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 sm:pb-4 border-b border-neutral-200">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-lg sm:text-2xl font-bold text-neutral-950 tracking-tight truncate max-w-[240px] sm:max-w-md">
+              {/* Stage Top Bar: En móvil limpio y de una sola línea sin desbordes horizontales */}
+              <div className="flex items-center justify-between gap-2 px-3 sm:px-0 pb-2 sm:pb-3 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0">
+                <div className="min-w-0">
+                  <div className="hidden sm:flex items-center gap-2">
+                    <h1 className="text-lg sm:text-2xl font-bold text-zinc-950 dark:text-white tracking-tight truncate max-w-[240px] sm:max-w-md">
                       {roomTitle}
                     </h1>
                     <button
                       onClick={handleCopyMeetingLink}
-                      className="text-neutral-400 hover:text-neutral-700 transition-colors p-1 cursor-pointer"
+                      className="text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors p-1 cursor-pointer"
                       title="Copiar vínculo de la sala"
                     >
-                      {hasCopiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      {hasCopiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
-                  <p className="text-[11px] sm:text-xs text-neutral-500">
-                    {roomStats.totalListeners} oyente{roomStats.totalListeners === 1 ? '' : 's'} conectados en las 4 cabinas de audio
+                  
+                  {/* Vista móvil: una sola línea concisa con indicador */}
+                  <div className="sm:hidden flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                    <span><strong className="text-zinc-800 dark:text-zinc-200 font-semibold">{roomStats.totalListeners}</strong> oyentes · 4 idiomas</span>
+                  </div>
+
+                  {/* Vista desktop: texto completo descriptivo */}
+                  <p className="hidden sm:block text-xs text-zinc-500 dark:text-zinc-400">
+                    <span className="font-semibold text-zinc-700 dark:text-zinc-300">{roomStats.totalListeners}</span> oyente{roomStats.totalListeners === 1 ? '' : 's'} conectados en los 4 idiomas de audio
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                   {activeQuestion ? (
-                    <div className="h-8 sm:h-9 px-3 rounded-full bg-rose-50 border border-rose-300 text-rose-800 text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 shadow-xs">
+                    <div className="h-7.5 sm:h-9 px-2.5 sm:px-3 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 shadow-xs">
                       <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                      <span className="truncate max-w-[120px]">Q&A: {activeQuestion.name}</span>
+                      <span className="truncate max-w-[100px] sm:max-w-[120px]">Q&A: {activeQuestion.name}</span>
                       <button
                         onClick={() => handleCloseQuestion(activeQuestion.questionId)}
                         className="ml-1 px-1.5 py-0.5 rounded bg-rose-600 text-white text-[9px] font-bold cursor-pointer"
@@ -1245,100 +1333,75 @@ export default function HostView({
                         setInspectorTab('qa');
                         setIsMobileInspectorOpen(true);
                       }}
-                      className="h-8 sm:h-9 px-3 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 shadow-sm animate-pulse flex-shrink-0 cursor-pointer"
+                      className="h-7.5 sm:h-9 px-2.5 sm:px-3 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 shadow-sm animate-pulse flex-shrink-0 cursor-pointer"
                     >
                       <Hand className="w-3.5 h-3.5" />
                       <span>{qaQueue.filter(q => q.status === 'pending').length} Q&A</span>
                     </button>
                   ) : null}
 
+                  {/* Cabinas en desktop (en móvil se accede directamente desde el MasterBroadcastDock en zona del pulgar) */}
                   <button
-                    onClick={() => {
-                      setInspectorTab('cabins');
-                      setIsMobileInspectorOpen(true);
-                    }}
-                    className="xl:hidden h-8 sm:h-9 px-3 rounded-full border border-neutral-200 hover:bg-neutral-50 text-[11px] sm:text-xs font-medium text-neutral-700 flex items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs"
+                    onClick={() => setIsCabinsSheetOpen(true)}
+                    className="hidden sm:inline-flex xl:hidden h-7.5 sm:h-9 px-2.5 sm:px-3 rounded-full border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300 items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs whitespace-nowrap"
                   >
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-neutral-500" />
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                     <span>Cabinas</span>
                   </button>
 
                   <button
                     onClick={() => window.open(`/?room=${roomId}&lang=${monitoredLang !== 'none' ? monitoredLang : 'en'}`, '_blank')}
-                    className="hidden sm:flex h-8 sm:h-9 px-3 sm:px-4 rounded-full border border-neutral-200 hover:bg-neutral-50 text-[11px] sm:text-xs font-medium text-neutral-700 items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs transition-colors"
+                    className="hidden sm:flex h-7.5 sm:h-9 px-3 sm:px-4 rounded-full border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300 items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs transition-colors whitespace-nowrap"
                     title="Abre la cabina en una pestaña nueva como oyente"
                   >
-                    <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
+                    <ExternalLink className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                     <span>Moderar</span>
                   </button>
 
                   <button
                     onClick={handleGenerateSummary}
-                    className="h-8 sm:h-9 px-3 sm:px-4 rounded-full border border-neutral-200 hover:bg-neutral-50 text-[11px] sm:text-xs font-medium text-neutral-700 flex items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs transition-colors"
+                    className="h-7.5 sm:h-9 px-2.5 sm:px-3.5 rounded-full border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs transition-colors whitespace-nowrap"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-neutral-600" />
+                    <Sparkles className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 flex-shrink-0" />
                     <span>Resumen</span>
                   </button>
 
                   <button
                     onClick={() => (onNavigateVoices ? onNavigateVoices() : setIsVoiceCatalogOpen(true))}
-                    className="h-8 sm:h-9 px-3 sm:px-4 rounded-full bg-neutral-950 hover:bg-neutral-800 text-white text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs transition-colors"
+                    className="h-7.5 sm:h-9 px-2.5 sm:px-3.5 rounded-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs transition-colors whitespace-nowrap"
                   >
-                    <Layers className="w-3.5 h-3.5" />
+                    <Layers className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>Voces</span>
                   </button>
                 </div>
               </div>
 
-              {/* Main Subtitles & Audio Stream Monitor Card */}
-              <div className="border border-neutral-200 rounded-2xl bg-white shadow-xs overflow-hidden flex-1 min-h-[200px] sm:min-h-[280px] flex flex-col">
-                <div className="h-11 px-3 sm:px-4 border-b border-neutral-200 bg-neutral-50/50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-neutral-900">Subtítulos en Vivo</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono font-semibold">
-                      4 CABINAS
-                    </span>
-                  </div>
-
-                  {/* ElevenLabs Subtle Waveform Visualizer */}
-                  <div className="h-6 w-20 sm:w-32 flex items-center">
-                    <AudioVisualizer
-                      mode="bars"
-                      height={24}
-                      barCount={20}
-                      isActive={isBroadcasting}
-                      barColor="#09090b"
-                      getFrequencyDataFn={() => audioRecorderService.getFrequencyData()}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-hidden flex flex-col">
-                  <LiveCaptions
-                    transcriptHistory={transcriptHistory}
-                    interimText={liveInterimSpeech}
-                    currentLanguage={sourceLanguage.slice(0, 2)}
-                    showOriginal={true}
-                    medicalMode={medicalConfig.medicalMode}
-                    className="flex-1 flex flex-col"
-                    maxHeightClass="flex-1 min-h-[160px] max-h-[320px] sm:max-h-[420px]"
-                  />
-                </div>
+              {/* Main Subtitles Stream Canvas — 100% Full Area (Sin contenedor artificial ni recortes) */}
+              <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
+                <LiveCaptions
+                  transcriptHistory={transcriptHistory}
+                  interimText={liveInterimSpeech}
+                  currentLanguage={sourceLanguage.slice(0, 2)}
+                  showOriginal={true}
+                  medicalMode={medicalConfig.medicalMode}
+                  className="flex-1 flex flex-col h-full min-h-0 w-full"
+                  maxHeightClass="flex-1 h-full min-h-0"
+                />
               </div>
 
-              {/* ElevenLabs Interactive Prompt Station & Broadcast Controls */}
-              <div className="space-y-3 pt-1">
+              {/* ElevenLabs Interactive Prompt Station & Broadcast Controls (SOLO ESCRITORIO — En móvil actúa MasterBroadcastDock) */}
+              <div className="hidden lg:block space-y-3 pt-1 flex-shrink-0">
                 {/* Master Studio Broadcast & Input Dock */}
-                <div className="p-3 sm:p-4 rounded-2xl bg-neutral-50 border border-neutral-200 shadow-xs space-y-3">
+                <div className="p-3 sm:p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-3">
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     
                     {/* Large Studio Broadcast Pill Button */}
                     <button
                       onClick={handleToggleBroadcast}
-                      className={`w-full sm:w-auto h-12 sm:h-11 px-6 rounded-xl sm:rounded-full flex items-center justify-center gap-2.5 transition-all cursor-pointer font-semibold text-xs sm:text-xs shadow-xs ${
+                      className={`w-full sm:w-auto h-12 sm:h-11 px-6 rounded-xl sm:rounded-full flex items-center justify-center gap-2.5 transition-all cursor-pointer font-semibold text-xs sm:text-xs shadow-xs active:scale-[0.99] ${
                         isBroadcasting
                           ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/25 animate-pulse'
-                          : 'bg-neutral-950 hover:bg-neutral-800 text-white'
+                          : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950'
                       }`}
                     >
                       {isBroadcasting ? (
@@ -1355,15 +1418,15 @@ export default function HostView({
                     </button>
 
                     {/* Zero-Reflow GPU VAD Meter */}
-                    <div className="w-full sm:w-44 p-2.5 rounded-xl bg-white border border-neutral-200 space-y-1 shadow-xs">
-                      <div className="flex items-center justify-between text-[10px] font-mono text-neutral-500">
-                        <span className="flex items-center gap-1 font-semibold text-neutral-700">
-                          <Activity className="w-3 h-3 text-emerald-600" />
-                          SEÑAL VAD
+                    <div className="w-full sm:w-44 p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 space-y-1 shadow-xs">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+                        <span className="flex items-center gap-1 font-semibold text-zinc-700 dark:text-zinc-300">
+                          <Activity className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                          Señal VAD
                         </span>
-                        <span ref={meterTextRef} className="font-bold text-neutral-900 tabular-numbers">0%</span>
+                        <span ref={meterTextRef} className="font-bold text-zinc-900 dark:text-zinc-100 tabular-numbers">0%</span>
                       </div>
-                      <div className="w-full h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden">
                         <div
                           ref={meterBarRef}
                           className="h-full w-full bg-emerald-500 rounded-full origin-left will-change-transform"
@@ -1381,12 +1444,12 @@ export default function HostView({
                       value={manualText}
                       onChange={(e) => setManualText(e.target.value)}
                       placeholder="O escribe cualquier frase aquí para emitir..."
-                      className="flex-1 h-9 sm:h-10 bg-white border border-neutral-200 rounded-xl px-3 sm:px-4 text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-950 transition-colors shadow-xs"
+                      className="flex-1 h-9 sm:h-10 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 sm:px-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-100 transition-colors shadow-xs"
                     />
                     <button
                       type="submit"
                       disabled={!manualText.trim()}
-                      className="h-9 sm:h-10 px-4 sm:px-5 rounded-xl bg-neutral-950 hover:bg-neutral-800 text-white font-medium text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-1.5 shadow-xs"
+                      className="h-9 sm:h-10 px-4 sm:px-5 rounded-xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-medium text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-1.5 shadow-xs active:scale-95"
                     >
                       <span>Emitir</span>
                       <Send className="w-3.5 h-3.5" />
@@ -1394,19 +1457,19 @@ export default function HostView({
                   </form>
 
                   {/* Direct Earphone Booth Monitor Bar (Studio Audio Return) */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2.5 border-t border-neutral-200/70 text-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2.5 border-t border-zinc-200/70 dark:border-zinc-800 text-xs">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <Headphones className={`w-3.5 h-3.5 ${monitoredLang !== 'none' ? 'text-emerald-600 animate-pulse' : 'text-neutral-400'}`} />
-                        <span className="font-medium text-neutral-700 text-[11px]">
+                        <Headphones className={`w-3.5 h-3.5 ${monitoredLang !== 'none' ? 'text-emerald-600 dark:text-emerald-400 animate-pulse' : 'text-zinc-400 dark:text-zinc-500'}`} />
+                        <span className="font-medium text-zinc-700 dark:text-zinc-300 text-[11px]">
                           Retorno Auriculares:
                         </span>
                         {monitoredLang !== 'none' ? (
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-mono font-semibold">
-                            {monitoredLang.toUpperCase()} ACTIVO
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 text-[10px] font-mono font-medium">
+                            {monitoredLang} activo
                           </span>
                         ) : (
-                          <span className="text-[10px] text-neutral-400 font-mono">SILENCIADO</span>
+                          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">Silenciado</span>
                         )}
                       </div>
                     </div>
@@ -1421,7 +1484,7 @@ export default function HostView({
                             console.error('[HostView] Error playing test tone:', e);
                           }
                         }}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 transition-colors cursor-pointer flex items-center gap-1 flex-shrink-0"
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 transition-colors cursor-pointer flex items-center gap-1 flex-shrink-0"
                         title="Probar sonido de altavoz o auriculares locales"
                       >
                         <span>🔔 Probar</span>
@@ -1431,8 +1494,8 @@ export default function HostView({
                         onClick={() => handleToggleMonitoring('none')}
                         className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer flex-shrink-0 ${
                           monitoredLang === 'none'
-                            ? 'bg-neutral-900 text-white shadow-xs'
-                            : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+                            ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-xs'
+                            : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
                         }`}
                       >
                         Silencio
@@ -1445,12 +1508,12 @@ export default function HostView({
                           className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 flex-shrink-0 ${
                             monitoredLang === cab.code
                               ? 'bg-emerald-600 text-white font-semibold shadow-xs ring-1 ring-emerald-500'
-                              : 'bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-100'
+                              : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
                           }`}
                           title={`Escuchar retorno en directo para ${cab.name}`}
                         >
                           <span>{cab.flag}</span>
-                          <span>{cab.code.toUpperCase()}</span>
+                          <span>{cab.code}</span>
                         </button>
                       ))}
                     </div>
@@ -1465,7 +1528,7 @@ export default function HostView({
           {/* ───────────────────────────────────────────────────────── */}
           {/* COLUMNA 3: PANEL DE INSPECCIÓN (Desktop: hidden xl:flex)   */}
           {/* ───────────────────────────────────────────────────────── */}
-          <aside className="hidden xl:flex w-88 h-full border-l border-neutral-200 bg-[#fcfcfd] flex-shrink-0 flex-col p-6 space-y-6 overflow-y-auto">
+          <aside className="hidden xl:flex w-88 h-full border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-shrink-0 flex-col p-6 space-y-6 overflow-y-auto">
             {renderInspectorContent(false)}
           </aside>
 
@@ -1476,17 +1539,17 @@ export default function HostView({
                 className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
                 onClick={() => setIsMobileInspectorOpen(false)}
               />
-              <aside className="relative w-full sm:w-96 max-w-[92vw] h-full bg-[#fcfcfd] border-l border-neutral-200 flex flex-col p-5 space-y-5 overflow-y-auto shadow-2xl z-10 animate-fadeIn">
-                <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
+              <aside className="relative w-full sm:w-96 max-w-[92vw] h-full bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 flex flex-col p-5 space-y-5 overflow-y-auto shadow-2xl z-10 animate-fadeIn">
+                <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
                   <div className="flex items-center gap-2">
-                    <SlidersHorizontal className="w-4 h-4 text-neutral-700" />
-                    <span className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
-                      Controles & Cabinas
+                    <SlidersHorizontal className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+                    <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                      Controles & cabinas
                     </span>
                   </div>
                   <button
                     onClick={() => setIsMobileInspectorOpen(false)}
-                    className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-500 cursor-pointer"
+                    className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 cursor-pointer"
                     title="Cerrar panel"
                   >
                     <X className="w-5 h-5" />
@@ -1500,6 +1563,37 @@ export default function HostView({
         </div>
 
       </div>
+
+      {/* Mobile Master Broadcast Dock (Fixed Thumb Zone) */}
+      <div className="sm:hidden">
+        <MasterBroadcastDock
+          isBroadcasting={isBroadcasting}
+          onToggleBroadcast={handleToggleBroadcast}
+          monitoredLang={monitoredLang}
+          onToggleMonitoring={handleToggleMonitoring}
+          onOpenCabinsSheet={() => setIsCabinsSheetOpen(true)}
+          audioRecorderService={audioRecorderService}
+          pendingQACount={qaQueue.filter(q => q.status === 'pending').length}
+        />
+      </div>
+
+      {/* Mobile Cabins Bottom Sheet */}
+      <CabinsBottomSheet
+        isOpen={isCabinsSheetOpen}
+        onClose={() => setIsCabinsSheetOpen(false)}
+        cabins={ALL_CABINS}
+        selectedVoices={selectedVoices}
+        monitoredLang={monitoredLang}
+        previewingLang={previewingLang}
+        onToggleMonitoring={handleToggleMonitoring}
+        onStopMonitoring={handleStopMonitoring}
+        onPreviewVoice={handlePreviewChannelVoice}
+        onTestAudio={() => audioPlayerService.playAudioTestTone()}
+        decalageValue={decalageValue}
+        onDecalageChange={setDecalageValue}
+        boothVolume={boothVolume}
+        onVolumeChange={setBoothVolume}
+      />
 
       {/* Global Modals */}
       <VoiceCatalogModal

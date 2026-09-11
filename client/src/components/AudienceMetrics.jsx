@@ -36,7 +36,7 @@ export default function AudienceMetrics({
             <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
               latestPipelineMetric ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-400'
             }`}>
-              {latestPipelineMetric ? 'EN VIVO' : 'EN ESPERA'}
+              {latestPipelineMetric ? 'En vivo' : 'En espera'}
             </span>
           </div>
           <div className="text-3xl font-bold text-white font-mono">
@@ -85,7 +85,7 @@ export default function AudienceMetrics({
               <AudioLines className="w-3.5 h-3.5 text-white" />
               Cabinas de Voz
             </span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono">4 ACTIVAS</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono">4 activas</span>
           </div>
           <div className="text-3xl font-bold text-white font-mono">
             4
@@ -96,9 +96,9 @@ export default function AudienceMetrics({
 
       {/* Language Breakdown Cards */}
       <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl p-5 shadow-lg space-y-3">
-        <div className="text-xs font-semibold uppercase tracking-wider text-zinc-300 flex items-center justify-between">
+        <div className="text-xs font-semibold text-zinc-300 flex items-center justify-between">
           <span>Distribución de Audiencia por Canal</span>
-          <span className="text-[11px] text-zinc-500 font-mono">TIEMPO REAL</span>
+          <span className="text-[11px] text-zinc-500 font-mono">Tiempo real</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -115,7 +115,7 @@ export default function AudienceMetrics({
                   <span className="text-2xl">{lang.flag}</span>
                   <div>
                     <div className="font-semibold text-xs text-white">{lang.name}</div>
-                    <div className="text-[10px] text-zinc-500 font-mono">{lang.code.toUpperCase()}</div>
+                    <div className="text-[10px] text-zinc-500 font-mono">{lang.code}</div>
                   </div>
                 </div>
                 <div className="text-right font-mono">

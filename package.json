@@ -5,6 +5,9 @@
   "private": true,
   "scripts": {
     "dev": "node dev.js",
+    "dev:portless": "portless liftvoice -- node dev.js",
+    "dev:mobile": "node dev.js",
+    "dev:tunnel": "node dev.js --tunnel",
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev",
     "build:client": "npm --prefix client run build",

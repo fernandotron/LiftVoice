@@ -17,9 +17,11 @@ export default function AudioVisualizer({
   const staticBufferRef = useRef(new Uint8Array(barCount));
   const getFrequencyDataRef = useRef(getFrequencyDataFn);
   const isActiveRef = useRef(isActive);
+  const barColorRef = useRef(barColor);
 
   getFrequencyDataRef.current = getFrequencyDataFn;
   isActiveRef.current = isActive;
+  barColorRef.current = barColor;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -77,6 +79,25 @@ export default function AudioVisualizer({
 
           const active = isActiveRef.current;
 
+          const colorWithAlpha = (color, alpha) => {
+            let resolved = color;
+            if (!resolved || resolved === 'auto') {
+              const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+              resolved = isDark ? '#f4f4f5' : '#09090b';
+            }
+            if (resolved.startsWith('rgba')) return resolved.replace(/[\d.]+\)$/, `${alpha})`);
+            if (resolved.startsWith('rgb')) return resolved.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+            let hex = resolved.replace('#', '');
+            if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+            if (hex.length === 6) {
+              const r = parseInt(hex.substring(0, 2), 16);
+              const g = parseInt(hex.substring(2, 4), 16);
+              const b = parseInt(hex.substring(4, 6), 16);
+              return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+            return resolved;
+          };
+
           if (mode === 'bars') {
             const gap = 3;
             const totalGaps = Math.max(0, (barCount - 1) * gap);
@@ -92,7 +113,7 @@ export default function AudioVisualizer({
               const y = centerY - (barHeight / 2);
 
               const alpha = active ? Math.min(1, 0.4 + (val / 255) * 0.6) : 0.15;
-              ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+              ctx.fillStyle = colorWithAlpha(barColorRef.current, alpha);
               ctx.beginPath();
               const radius = Math.min(2, barWidth / 2, barHeight / 2);
               if (typeof ctx.roundRect === 'function') {
@@ -105,7 +126,7 @@ export default function AudioVisualizer({
           } else if (mode === 'wave') {
             const centerY = h / 2;
             ctx.beginPath();
-            ctx.strokeStyle = active ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.2)';
+            ctx.strokeStyle = active ? colorWithAlpha(barColorRef.current, 0.9) : colorWithAlpha(barColorRef.current, 0.2);
             ctx.lineWidth = 2;
 
             for (let i = 0; i < width; i += 3) {

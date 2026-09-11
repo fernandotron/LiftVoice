@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Search, Play, Loader2, Volume2, Check, Sparkles, Filter, SlidersHorizontal,
   Home, Radio, Layers, Settings, QrCode, Users, Globe, ArrowRight, ShieldCheck,
-  ChevronRight, Mic
+  ChevronRight, Mic, Menu, X
 } from 'lucide-react';
 import { audioPlayerService } from '../services/audioPlayer.js';
 
@@ -55,6 +55,7 @@ export default function VoicesView({
   const [selectedLang, setSelectedLang] = useState('all');
   const [playingVoiceId, setPlayingVoiceId] = useState(null);
   const [assignedFeedback, setAssignedFeedback] = useState(null);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   const [activeVoices, setActiveVoices] = useState(() => {
     try {
@@ -212,163 +213,220 @@ export default function VoicesView({
     return matchesSearch && matchesLang && matchesCat;
   });
 
+  // Reusable Sidebar content for desktop and mobile drawer
+  const renderNavSidebarContent = (isMobile = false) => (
+    <div className="flex flex-col h-full justify-between">
+      <div>
+        {/* Logo II LiftVoice */}
+        <div className="h-14 px-5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80">
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-1">
+              <div className="w-1.5 h-4.5 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
+              <div className="w-1.5 h-3 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
+            </div>
+            <span className="font-bold text-sm text-zinc-950 dark:text-zinc-100 tracking-tight">LiftVoice</span>
+            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/60">Studio</span>
+          </div>
+          {isMobile && (
+            <button
+              onClick={() => setIsMobileNavOpen(false)}
+              className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 cursor-pointer"
+              title="Cerrar menú"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+
+        {/* Navigation Links */}
+        <div className="p-3 space-y-1">
+          <button
+            onClick={() => {
+              if (isMobile) setIsMobileNavOpen(false);
+              onNavigateHome();
+            }}
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
+          >
+            <Home className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+            <span>Inicio</span>
+          </button>
+
+          <div className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-950 dark:text-zinc-100 bg-zinc-200/80 dark:bg-zinc-800/80 shadow-xs">
+            <div className="flex items-center gap-3">
+              <Layers className="w-4 h-4 text-zinc-950 dark:text-zinc-100" />
+              <span>Voces</span>
+            </div>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          </div>
+
+          <button
+            onClick={() => {
+              if (isMobile) setIsMobileNavOpen(false);
+              onNavigateStudio();
+            }}
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
+          >
+            <Radio className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+            <span>Studio</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (isMobile) setIsMobileNavOpen(false);
+              onOpenSettings();
+            }}
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
+          >
+            <Settings className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+            <span>Configuración</span>
+          </button>
+        </div>
+
+        {/* Fijado / Sala Activa */}
+        <div className="p-3 pt-3 space-y-1 border-t border-zinc-200 dark:border-zinc-800">
+          <div className="px-3.5 pb-1.5 text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 font-mono">
+            Sala activa
+          </div>
+
+          <button
+            onClick={() => {
+              if (isMobile) setIsMobileNavOpen(false);
+              onNavigateStudio();
+            }}
+            className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-zinc-100/80 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <Mic className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100" />
+              <span>Cabina {roomId}</span>
+            </div>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          </button>
+
+          <button
+            onClick={() => {
+              if (isMobile) setIsMobileNavOpen(false);
+              onOpenQR();
+            }}
+            className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <QrCode className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
+              <span>Proyectar QR</span>
+            </div>
+            <ChevronRight className="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
+          </button>
+        </div>
+      </div>
+
+      {/* Sidebar Footer info */}
+      <div className="p-3.5 m-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-1 shadow-xs">
+        <div className="text-[11px] font-semibold text-zinc-900 dark:text-zinc-100">
+          Catálogo Multi-Motor
+        </div>
+        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+          Deepgram Aura, Google Neural y OpenAI listos para emisión multicanal.
+        </p>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="h-screen w-full flex bg-[#f7f7f8] text-neutral-900 overflow-hidden font-sans select-none">
+    <div className="h-dvh min-h-dvh w-full flex bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-hidden font-sans select-none transition-colors">
       
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* SIDEBAR IZQUIERDO (Estilo ElevenLabs exacto)                   */}
+      {/* SIDEBAR MÓVIL (Drawer desplegable)                            */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <aside className="w-64 h-screen border-r border-neutral-200 bg-[#fcfcfd] flex-shrink-0 flex flex-col justify-between">
-        <div>
-          {/* Logo II LiftVoice */}
-          <div className="h-14 px-5 flex items-center justify-between border-b border-neutral-200 bg-white">
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-1">
-                <div className="w-1.5 h-4.5 bg-neutral-900 rounded-full" />
-                <div className="w-1.5 h-3 bg-neutral-900 rounded-full" />
-              </div>
-              <span className="font-bold text-sm text-neutral-950 tracking-tight">LiftVoice</span>
-              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">STUDIO</span>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <div className="p-3 space-y-1">
-            <button
-              onClick={onNavigateHome}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors cursor-pointer"
-            >
-              <Home className="w-4 h-4 text-neutral-400" />
-              <span>Inicio</span>
-            </button>
-
-            <div className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-neutral-950 bg-neutral-200/70 shadow-xs">
-              <div className="flex items-center gap-3">
-                <Layers className="w-4 h-4 text-neutral-950" />
-                <span>Voces</span>
-              </div>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            </div>
-
-            <button
-              onClick={onNavigateStudio}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors cursor-pointer"
-            >
-              <Radio className="w-4 h-4 text-neutral-400" />
-              <span>Studio</span>
-            </button>
-
-            <button
-              onClick={onOpenSettings}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors cursor-pointer"
-            >
-              <Settings className="w-4 h-4 text-neutral-400" />
-              <span>Configuración</span>
-            </button>
-          </div>
-
-          {/* Fijado / Sala Activa */}
-          <div className="p-3 pt-3 space-y-1 border-t border-neutral-200">
-            <div className="px-3.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400 font-mono">
-              Sala Activa
-            </div>
-
-            <button
-              onClick={onNavigateStudio}
-              className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-neutral-800 bg-neutral-100/70 border border-neutral-200 hover:bg-neutral-100 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <Mic className="w-3.5 h-3.5 text-neutral-900" />
-                <span>Cabina {roomId}</span>
-              </div>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            </button>
-
-            <button
-              onClick={onOpenQR}
-              className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <QrCode className="w-3.5 h-3.5 text-neutral-400" />
-                <span>Proyectar QR</span>
-              </div>
-              <ChevronRight className="w-3 h-3 text-neutral-400" />
-            </button>
-          </div>
+      {isMobileNavOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileNavOpen(false)}
+          />
+          <aside className="relative w-72 max-w-[85vw] h-full bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 flex flex-col justify-between shadow-2xl z-10 animate-fadeIn">
+            {renderNavSidebarContent(true)}
+          </aside>
         </div>
+      )}
 
-        {/* Sidebar Footer info */}
-        <div className="p-3.5 m-3 bg-white border border-neutral-200 rounded-2xl space-y-1 shadow-xs">
-          <div className="text-[11px] font-semibold text-neutral-900">
-            Catálogo Multi-Motor
-          </div>
-          <p className="text-[10px] text-neutral-400 leading-relaxed">
-            Deepgram Aura, Google Neural y OpenAI listos para emisión multicanal.
-          </p>
-        </div>
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* SIDEBAR ESCRITORIO (hidden lg:flex w-64)                      */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <aside className="hidden lg:flex w-64 h-dvh border-r border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/70 dark:bg-zinc-900/60 backdrop-blur-md flex-shrink-0 flex-col justify-between">
+        {renderNavSidebarContent(false)}
       </aside>
 
       {/* ───────────────────────────────────────────────────────────── */}
       {/* CONTENIDO PRINCIPAL: HEADER + BIBLIOTECA DE VOCES (Image 5)   */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
+      <div className="flex-1 flex flex-col h-dvh min-h-dvh overflow-hidden bg-white dark:bg-zinc-950">
         
-        {/* Top Header Bar (Igual a ElevenLabs Image 5) */}
-        <header className="h-14 border-b border-neutral-200 px-8 flex items-center justify-between bg-white flex-shrink-0">
-          <div className="flex items-center gap-2 text-xs font-medium text-neutral-500">
-            <Layers className="w-3.5 h-3.5 text-neutral-400" />
-            <span>Voces</span>
-            <span className="text-neutral-300">&rsaquo;</span>
-            <span className="font-semibold text-neutral-950">Explorar</span>
+        {/* Top Header Bar */}
+        <header className="h-14 border-b border-zinc-200 dark:border-zinc-800 px-3.5 sm:px-8 flex items-center justify-between bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Hamburger button for mobile drawer */}
+            <button
+              onClick={() => setIsMobileNavOpen(true)}
+              className="lg:hidden p-2 -ml-1.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
+              title="Abrir menú"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-1.5 sm:gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <Layers className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
+              <span>Voces</span>
+              <span className="text-zinc-300 dark:text-zinc-700">&rsaquo;</span>
+              <span className="font-semibold text-zinc-950 dark:text-zinc-100">Explorar</span>
+            </div>
           </div>
 
-          {/* Search pill ⌘K */}
-          <div className="hidden lg:flex items-center w-72 h-8.5 bg-neutral-50 hover:bg-neutral-100/80 border border-neutral-200 rounded-full px-3.5 text-xs text-neutral-400 justify-between transition-colors cursor-pointer">
+          {/* Search pill ⌘K (Desktop) */}
+          <div className="hidden lg:flex items-center w-72 h-8.5 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 rounded-full px-3.5 text-xs text-zinc-400 dark:text-zinc-500 justify-between transition-colors cursor-pointer">
             <div className="flex items-center gap-2">
-              <Search className="w-3.5 h-3.5 text-neutral-400" />
+              <Search className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
               <span>Buscar en todo...</span>
             </div>
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white border border-neutral-200 rounded text-neutral-400 shadow-xs">⌘K</kbd>
+            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-zinc-400 dark:text-zinc-400 shadow-xs">⌘K</kbd>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={onNavigateStudio}
-              className="h-9 px-5 rounded-full bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
+              className="h-8.5 px-3 sm:px-4 rounded-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
             >
               <Radio className="w-3.5 h-3.5" />
               <span>Volver al Studio</span>
             </button>
-            <div className="w-7.5 h-7.5 rounded-full bg-neutral-950 text-white flex items-center justify-center text-xs font-bold font-mono">
+            <div className="hidden sm:flex w-7.5 h-7.5 rounded-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 items-center justify-center text-xs font-bold font-mono">
               LV
             </div>
           </div>
         </header>
 
         {/* Main Scrolling Body */}
-        <main className="flex-1 overflow-y-auto p-8 sm:p-10 space-y-8 bg-white">
-          <div className="max-w-5xl mx-auto space-y-8">
+        <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 bg-zinc-50/40 dark:bg-zinc-950">
+          <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8">
             
             {/* Feedback alert when voice is assigned or unassigned */}
             {assignedFeedback && (
-              <div className={`p-3.5 rounded-xl border text-xs font-medium flex items-center justify-between shadow-xs transition-all ${
+              <div className={`p-3 sm:p-3.5 rounded-xl border text-xs font-medium flex items-center justify-between gap-2 shadow-xs transition-all ${
                 assignedFeedback.unassigned
-                  ? 'bg-amber-50 border-amber-200 text-amber-950'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                  ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-950 dark:text-amber-200'
+                  : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-950 dark:text-emerald-200'
               }`}>
-                <div className="flex items-center gap-2">
-                  <Check className={`w-4 h-4 ${assignedFeedback.unassigned ? 'text-amber-600' : 'text-emerald-600'}`} />
-                  <span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Check className={`w-4 h-4 flex-shrink-0 ${assignedFeedback.unassigned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
+                  <span className="truncate sm:whitespace-normal">
                     {assignedFeedback.unassigned ? (
-                      <>Voz <b>{assignedFeedback.name}</b> deseleccionada de la cabina <b>{assignedFeedback.lang.toUpperCase()}</b>.</>
+                      <>Voz <b>{assignedFeedback.name}</b> deseleccionada de la cabina <b>{assignedFeedback.lang}</b>.</>
                     ) : (
-                      <>Voz <b>{assignedFeedback.name}</b> asignada con éxito a la cabina <b>{assignedFeedback.lang.toUpperCase()}</b>.</>
+                      <>Voz <b>{assignedFeedback.name}</b> asignada con éxito a la cabina <b>{assignedFeedback.lang}</b>.</>
                     )}
                   </span>
                 </div>
                 <button
                   onClick={onNavigateStudio}
-                  className={`px-3 py-1 text-white rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                  className={`px-3 py-1 text-white rounded-full text-xs font-semibold transition-colors cursor-pointer flex-shrink-0 ${
                     assignedFeedback.unassigned ? 'bg-amber-700 hover:bg-amber-800' : 'bg-emerald-600 hover:bg-emerald-700'
                   }`}
                 >
@@ -377,90 +435,90 @@ export default function VoicesView({
               </div>
             )}
 
-            {/* Page Title & Action Buttons (ElevenLabs Image 5) */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-bold text-neutral-950 tracking-tight">
+            {/* Page Title & Action Buttons */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-center justify-between sm:justify-start gap-3 sm:gap-4">
+                <h1 className="text-xl sm:text-2xl font-bold text-zinc-950 dark:text-zinc-100 tracking-tight">
                   Voces
                 </h1>
                 
                 {/* Pill Tabs: Explorar | Mis Voces */}
-                <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-full border border-neutral-200">
-                  <button className="px-3.5 py-1 rounded-full bg-neutral-950 text-white shadow-xs text-xs font-medium">
+                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900 p-1 rounded-full border border-zinc-200 dark:border-zinc-800">
+                  <button className="px-3 py-1 sm:px-3.5 rounded-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-xs text-xs font-medium">
                     Explorar
                   </button>
                   <button
                     onClick={onOpenSettings}
-                    className="px-3.5 py-1 rounded-full text-xs font-medium text-neutral-600 hover:text-neutral-950 transition-colors"
+                    className="px-3 py-1 sm:px-3.5 rounded-full text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors"
                   >
                     Mis Voces
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={onOpenSettings}
-                  className="h-8.5 px-3.5 rounded-full border border-neutral-200 hover:bg-neutral-50 text-xs font-medium text-neutral-700 transition-colors cursor-pointer shadow-xs"
+                  className="h-8.5 px-3 sm:px-3.5 rounded-full border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-xs"
                 >
                   Ganancias
                 </button>
                 <button
                   onClick={onOpenSettings}
-                  className="h-8.5 px-4 rounded-full bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  className="h-8.5 px-3.5 sm:px-4 rounded-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
                   <span>+ Crear voz</span>
                 </button>
               </div>
             </div>
 
-            {/* Big Search Bar with Filters (ElevenLabs Image 5 style) */}
+            {/* Big Search Bar with Filters */}
             <div className="space-y-3">
               <div className="relative w-full">
-                <Search className="w-4 h-4 text-neutral-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar en las voces de la biblioteca..."
-                  className="w-full h-11 pl-11 pr-24 bg-white border border-neutral-200 rounded-full text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950 shadow-xs transition-all"
+                  className="w-full h-10 sm:h-11 pl-10 sm:pl-11 pr-22 sm:pr-24 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 focus:ring-1 focus:ring-zinc-950 dark:focus:ring-zinc-400 shadow-xs transition-all"
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                  <button className="h-7 px-3 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-medium flex items-center gap-1 transition-colors">
-                    <Filter className="w-3 h-3 text-neutral-500" />
+                <div className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                  <button className="h-7 px-2.5 sm:px-3 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium flex items-center gap-1 transition-colors">
+                    <Filter className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
                     <span>Filtros</span>
                   </button>
                 </div>
               </div>
 
-              {/* Language and Category Filter Pills */}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
+              {/* Language and Category Filter Pills (Horizontal smooth scroll) */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar pt-1">
                 {/* Languages Dropdown / Pills */}
                 {LANG_PILLS.map((l) => (
                   <button
                     key={l.id}
                     onClick={() => setSelectedLang(l.id)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer border ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer border flex-shrink-0 ${
                       selectedLang === l.id
-                        ? 'bg-neutral-950 text-white border-neutral-950 shadow-xs'
-                        : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50'
+                        ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-950 dark:border-zinc-100 shadow-xs'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
                     }`}
                   >
                     {l.label}
                   </button>
                 ))}
 
-                <span className="w-px h-4 bg-neutral-200 mx-1" />
+                <span className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1 flex-shrink-0" />
 
                 {/* Categories */}
                 {VOICE_CATEGORIES.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setSelectedCategory(c.id)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer border ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer border flex-shrink-0 ${
                       selectedCategory === c.id
-                        ? 'bg-neutral-950 text-white border-neutral-950 shadow-xs'
-                        : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50'
+                        ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-950 dark:border-zinc-100 shadow-xs'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
                     }`}
                   >
                     {c.label}
@@ -469,30 +527,30 @@ export default function VoicesView({
               </div>
             </div>
 
-            {/* Section: Trending Voices Grid (ElevenLabs Image 5 style) */}
+            {/* Section: Trending Voices Grid */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-neutral-950 tracking-tight flex items-center gap-1.5">
+                <h2 className="text-sm font-bold text-zinc-950 dark:text-zinc-100 tracking-tight flex items-center gap-1.5">
                   <span>Voces en tendencia</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
                 </h2>
-                <span className="text-[11px] text-neutral-400 font-mono">
-                  CLIC EN ▶ PARA AUDICIONAR
+                <span className="text-[10px] sm:text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
+                  Clic en ▶ para audicionar
                 </span>
               </div>
 
               {isLoading ? (
                 <div className="py-16 text-center space-y-3">
-                  <Loader2 className="w-7 h-7 text-neutral-900 animate-spin mx-auto" />
-                  <p className="text-xs text-neutral-500">Cargando catálogo de voces...</p>
+                  <Loader2 className="w-7 h-7 text-zinc-900 dark:text-zinc-100 animate-spin mx-auto" />
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Cargando catálogo de voces...</p>
                 </div>
               ) : filteredVoices.length === 0 ? (
-                <div className="py-16 text-center bg-white border border-neutral-200 rounded-2xl space-y-2">
-                  <p className="text-xs font-semibold text-neutral-900">No se encontraron voces</p>
-                  <p className="text-[11px] text-neutral-500">Intenta buscar con otros términos o cambia los filtros de idioma.</p>
+                <div className="py-16 text-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-2">
+                  <p className="text-xs font-semibold text-zinc-950 dark:text-zinc-100">No se encontraron voces</p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Intenta buscar con otros términos o cambia los filtros de idioma.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {filteredVoices.map((voice, idx) => {
                     const isPlaying = playingVoiceId === voice.id;
                     const colorGradient = AVATAR_COLORS[idx % AVATAR_COLORS.length];
@@ -503,10 +561,10 @@ export default function VoicesView({
                     return (
                       <div
                         key={voice.id}
-                        className={`p-3.5 rounded-2xl border transition-all duration-150 flex flex-col justify-between bg-white ${
+                        className={`p-3.5 rounded-2xl border transition-all duration-150 flex flex-col justify-between bg-white dark:bg-zinc-900 ${
                           isPlaying
-                            ? 'border-neutral-950 shadow-md ring-1 ring-neutral-950'
-                            : 'border-neutral-200 hover:border-neutral-300 hover:shadow-sm'
+                            ? 'border-zinc-950 dark:border-zinc-400 shadow-md ring-1 ring-zinc-950 dark:ring-zinc-400'
+                            : 'border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-sm'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -514,23 +572,23 @@ export default function VoicesView({
                             {/* ElevenLabs Style Avatar circle with gradient */}
                             <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${colorGradient} text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs relative`}>
                               {voice.name.slice(0, 2).toUpperCase()}
-                              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-neutral-950 text-white flex items-center justify-center text-[8px] border border-white">
+                              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center text-[8px] border border-white dark:border-zinc-900">
                                 ✓
                               </span>
                             </div>
 
                             <div className="min-w-0 space-y-0.5">
-                              <h3 className="font-semibold text-xs text-neutral-950 truncate tracking-tight">
+                              <h3 className="font-semibold text-xs text-zinc-950 dark:text-zinc-100 truncate tracking-tight">
                                 {voice.name}
                               </h3>
-                              <p className="text-[11px] text-neutral-500 truncate">
+                              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
                                 {voice.tone || voice.desc || 'Narración'}
                               </p>
                               <div className="flex items-center gap-1.5 pt-0.5">
-                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700">
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
                                   {supportedLangs.length === 1
                                     ? (supportedLangs[0] === 'es' ? '🇪🇸 Español' : supportedLangs[0] === 'en' ? '🇺🇸 English' : supportedLangs[0] === 'it' ? '🇮🇹 Italiano' : '🇧🇷 Português')
-                                    : `🌐 Multilingüe (${supportedLangs.map(l => l.toUpperCase()).join(', ')})`}
+                                    : `🌐 Multilingüe (${supportedLangs.join(', ')})`}
                                 </span>
                               </div>
                             </div>
@@ -542,8 +600,8 @@ export default function VoicesView({
                             disabled={isLoading}
                             className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-xs ${
                               isPlaying
-                                ? 'bg-neutral-950 text-white animate-pulse'
-                                : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
+                                ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 animate-pulse'
+                                : 'bg-zinc-100 dark:bg-zinc-850 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
                             }`}
                             title="Audicionar voz en tiempo real"
                           >
@@ -555,12 +613,12 @@ export default function VoicesView({
                           </button>
                         </div>
 
-                        {/* Bottom Assignment Action Buttons (Filtered strictly to supported languages) */}
-                        <div className="mt-3.5 pt-2.5 border-t border-neutral-100 flex items-center justify-between gap-2">
-                          <span className="text-[10px] text-neutral-400 font-mono">
+                        {/* Bottom Assignment Action Buttons */}
+                        <div className="mt-3.5 pt-2.5 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
                             Asignar a cabina:
                           </span>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
                             {supportedLangs.map((lang) => {
                               const isCurrent = activeVoices[lang] === voice.id;
                               return (
@@ -569,12 +627,12 @@ export default function VoicesView({
                                   onClick={() => handleAssignToBooth(lang, voice.id, voice.name)}
                                   className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-medium transition-all cursor-pointer ${
                                     isCurrent
-                                      ? 'bg-neutral-950 text-white shadow-xs font-bold ring-1 ring-neutral-950'
-                                      : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700'
+                                      ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-xs font-bold ring-1 ring-zinc-950 dark:ring-zinc-100'
+                                      : 'bg-zinc-100 dark:bg-zinc-850 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
                                   }`}
-                                  title={isCurrent ? `Deseleccionar de la cabina ${lang.toUpperCase()}` : `Asignar ${voice.name} a la cabina de ${lang.toUpperCase()}`}
+                                  title={isCurrent ? `Deseleccionar de la cabina ${lang}` : `Asignar ${voice.name} a la cabina de ${lang}`}
                                 >
-                                  {lang.toUpperCase()}
+                                  {lang}
                                 </button>
                               );
                             })}
@@ -587,45 +645,45 @@ export default function VoicesView({
               )}
             </div>
 
-            {/* Section: Seleccionado para tu caso de uso (ElevenLabs Image 5 banners) */}
+            {/* Section: Seleccionado para tu caso de uso */}
             <div className="space-y-3 pt-2">
-              <h2 className="text-sm font-bold text-neutral-950 tracking-tight">
+              <h2 className="text-sm font-bold text-zinc-950 dark:text-zinc-100 tracking-tight">
                 Seleccionado para tu caso de uso
               </h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-800 text-white space-y-2 shadow-xs">
-                  <div className="text-[10px] font-mono font-bold text-neutral-400 uppercase">
-                    V3 ENGINE
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 text-white space-y-2 shadow-xs border border-zinc-800/80">
+                  <div className="text-[10px] font-mono font-bold text-zinc-400">
+                    Motor V3
                   </div>
                   <h4 className="font-bold text-sm text-white">
                     Best voices for Live Interpretation
                   </h4>
-                  <p className="text-[11px] text-neutral-300 leading-relaxed">
+                  <p className="text-[11px] text-zinc-300 leading-relaxed">
                     Modelos optimizados para conferencias sin latencia perceptible.
                   </p>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 text-white space-y-2 shadow-xs">
-                  <div className="text-[10px] font-mono font-bold text-neutral-400 uppercase">
-                    KEYNOTE PRO
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-zinc-800 via-zinc-850 to-zinc-900 text-white space-y-2 shadow-xs border border-zinc-700/80">
+                  <div className="text-[10px] font-mono font-bold text-zinc-400">
+                    Keynote Pro
                   </div>
                   <h4 className="font-bold text-sm text-white">
                     Studio-Quality Conversational Voices
                   </h4>
-                  <p className="text-[11px] text-neutral-300 leading-relaxed">
+                  <p className="text-[11px] text-zinc-300 leading-relaxed">
                     Voces con entonación oratoria y cadencia natural para eventos magistrales.
                   </p>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-neutral-950 to-neutral-900 text-white space-y-2 shadow-xs">
-                  <div className="text-[10px] font-mono font-bold text-neutral-400 uppercase">
-                    CLÍNICO CIE-11
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 text-white space-y-2 shadow-xs border border-zinc-800/80 sm:col-span-2 lg:col-span-1">
+                  <div className="text-[10px] font-mono font-bold text-zinc-400">
+                    Clínico CIE-11
                   </div>
                   <h4 className="font-bold text-sm text-white">
                     Medical & Technical Certified Voices
                   </h4>
-                  <p className="text-[11px] text-neutral-300 leading-relaxed">
+                  <p className="text-[11px] text-zinc-300 leading-relaxed">
                     Pronunciación milimétrica para congresos médicos y farmacéuticos.
                   </p>
                 </div>

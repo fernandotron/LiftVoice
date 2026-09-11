@@ -14,7 +14,7 @@ const CLINICAL_INITIAL_PROMPT =
 export class STTService {
   constructor(config = {}) {
     this.openaiApiKey = config.openaiApiKey || process.env.OPENAI_API_KEY || '';
-    this.deepgramApiKey = config.deepgramApiKey || process.env.DEEPGRAM_API_KEY || '1f057415ec50bb496a86ec8d8bc9e4f627a57f7d';
+    this.deepgramApiKey = config.deepgramApiKey || process.env.DEEPGRAM_API_KEY || '';
     this.preferredSttEngine = config.preferredSttEngine || 'deepgram';
   }
 

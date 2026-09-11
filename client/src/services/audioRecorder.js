@@ -1,8 +1,9 @@
+import { deepgramStreamingService } from './deepgramStreamingService.js';
+
 /**
  * LiftVoice Natural Dictation & Continuous Speech Recognition Engine (2026 Edition)
  * Provides seamless dictation (word-by-word real-time display) and natural pause finalization.
  * Zero dropped words, zero redundant duplications.
-/**
  * Accurately extracts newly spoken continuation words from a cumulative recognition transcript.
  * Eliminates prefix repetition even across punctuation additions, casing shifts, and pauses.
  */
@@ -233,6 +234,24 @@ class AudioRecorderService {
     this.lastRestartTime = 0;
     this.lastSpeechActivityTime = Date.now();
     this.isCommitting = false;
+
+    // Deepgram Ultra-Low Latency Streaming Service Integration
+    this.deepgramStreamingService = deepgramStreamingService;
+    this.onStreamingStatusCallbacks = new Set();
+    deepgramStreamingService.onStatus((status) => {
+      for (const cb of this.onStreamingStatusCallbacks) {
+        try { cb(status); } catch (e) {}
+      }
+    });
+  }
+
+  onStreamingStatus(cb) {
+    this.onStreamingStatusCallbacks.add(cb);
+    return () => this.onStreamingStatusCallbacks.delete(cb);
+  }
+
+  getStreamingStatus() {
+    return this.deepgramStreamingService.status;
   }
 
   setDecalageMode(modeOrVal) {
@@ -268,6 +287,51 @@ class AudioRecorderService {
     if (this.sourceLanguage === targetLang) return;
     this.sourceLanguage = targetLang;
 
+    if (this.sttEngine === 'deepgram' && this.isRecording && this.deepgramStreamingService.active) {
+      const langCode = (targetLang && targetLang !== 'auto')
+        ? (targetLang.length > 2 ? targetLang.slice(0, 2) : targetLang)
+        : 'multi';
+      const opts = this.recordingOptions || {};
+      this.deepgramStreamingService.reconnect({
+        language: langCode,
+        medicalMode: opts.medicalMode,
+        medicalSpecialty: opts.medicalSpecialty,
+        customGlossary: opts.customGlossary,
+        keyterms: this.currentKeyterms || []
+      }, {
+        onTranscript: ({ transcript, isFinal, detectedLanguage }) => {
+          if (!this.isRecording && !isFinal) return;
+          const clean = (transcript || '').trim();
+          if (!clean) return;
+
+          if (isFinal) {
+            console.log(`[AudioRecorder] ⚡ Deepgram Stream is_final: "${clean}"`);
+            this.currentPendingText = '';
+            this.notifyInterim('');
+            if (this.onSpeechTextCallback) {
+              this.onSpeechTextCallback(clean);
+            }
+          } else {
+            this.currentPendingText = clean;
+            this.notifyInterim(clean);
+          }
+        },
+        onError: (err) => {
+          console.warn('[AudioRecorder] Deepgram reconnect error, falling back to WebSpeech:', err);
+          this.sttEngine = 'webspeech';
+          if (this.isRecording && !this.recognition) {
+            this.initSpeechRecognition();
+          }
+        },
+        onClose: ({ code, wasClean }) => {
+          console.log('[AudioRecorder] Deepgram reconnect stream closed:', code, wasClean);
+        }
+      }).catch(e => {
+        console.warn('[AudioRecorder] Error reconnecting Deepgram on language change:', e);
+      });
+      return;
+    }
+
     if (this.recognition && this.isRecording) {
       // Cleanly stop existing instance before re-initializing with new language
       try {
@@ -301,7 +365,7 @@ class AudioRecorderService {
     const lang = options.language || options.lang || 'es-ES';
     if (options.deviceId) this.selectedDeviceId = options.deviceId;
 
-    this.sttEngine = options.sttEngine || 'deepgram';
+    this.sttEngine = options.sttEngine || localStorage.getItem('lv_stt_engine') || 'deepgram';
     this.onSpeechTextCallback = onSpeech;
     this.onSpeechAudioCallback = onAudio;
     if (onInterim) this.onInterim(onInterim);
@@ -315,6 +379,7 @@ class AudioRecorderService {
     this.latestResultCount = 0;
     this.lastCommittedText = '';
     this.lastCommittedTime = 0;
+    this.recordingOptions = options;
 
     try {
       const constraints = {
@@ -341,40 +406,107 @@ class AudioRecorderService {
       this.analyserNode.smoothingTimeConstant = 0.5;
       source.connect(this.analyserNode);
 
-      // Initialize MediaRecorder for streaming Deepgram / Whisper STT
-      if (typeof MediaRecorder !== 'undefined') {
-        let mimeType = 'audio/webm;codecs=opus';
-        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-          mimeType = 'audio/webm;codecs=opus';
-        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-          mimeType = 'audio/webm';
-        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-          mimeType = 'audio/mp4';
-        }
-        this.mediaRecorderMimeType = mimeType;
-        this.audioChunks = [];
-        try {
-          this.mediaRecorder = new MediaRecorder(this.mediaStream, { mimeType });
-          this.mediaRecorder.ondataavailable = (event) => {
-            if (event.data && event.data.size > 0) {
-              this.audioChunks.push(event.data);
-            }
-          };
-          this.mediaRecorder.start(250);
-        } catch (mErr) {
-          console.warn('[AudioRecorder] MediaRecorder init notice:', mErr);
-        }
-      }
-
       this.isRecording = true;
       this.startLevelMeter();
 
-      // Start recognition after hardware settling pause
-      setTimeout(() => {
-        if (this.isRecording) {
+      if (this.sttEngine === 'deepgram') {
+        // High-fidelity direct WebSocket streaming via Nova-3 and AudioWorklet
+        const langCode = (this.sourceLanguage && this.sourceLanguage !== 'auto')
+          ? (this.sourceLanguage.length > 2 ? this.sourceLanguage.slice(0, 2) : this.sourceLanguage)
+          : 'multi';
+
+        let keyterms = [];
+        if (options.medicalMode) {
+          keyterms.push(
+            'anamnesis', 'cefalea', 'disnea', 'hipertensión', 'cardiopatía',
+            'isquemia', 'auscultación', 'edema', 'eritrocitos', 'leucocitos',
+            'taquicardia', 'bradicardia', 'hemoglobina', 'glucemia', 'electrocardiograma'
+          );
+        }
+        if (Array.isArray(options.customGlossary)) {
+          keyterms.push(...options.customGlossary);
+        }
+        this.currentKeyterms = keyterms;
+
+        try {
+          await this.deepgramStreamingService.start(
+            this.mediaStream,
+            {
+              language: langCode,
+              medicalMode: options.medicalMode,
+              medicalSpecialty: options.medicalSpecialty,
+              customGlossary: options.customGlossary,
+              keyterms
+            },
+            {
+              onTranscript: ({ transcript, isFinal, detectedLanguage }) => {
+                // Allow final transcript during CloseStream drain even after stopRecording()
+                if (!this.isRecording && !isFinal) return;
+                const clean = (transcript || '').trim();
+                if (!clean) return;
+
+                if (isFinal) {
+                  console.log(`[AudioRecorder] ⚡ Deepgram Stream is_final: "${clean}" (detected: ${detectedLanguage || langCode})`);
+                  this.currentPendingText = '';
+                  this.notifyInterim('');
+                  if (this.onSpeechTextCallback) {
+                    this.onSpeechTextCallback(clean);
+                  }
+                } else {
+                  this.currentPendingText = clean;
+                  this.notifyInterim(clean);
+                }
+              },
+              onError: (err) => {
+                console.warn('[AudioRecorder] Deepgram streaming error, falling back to WebSpeech:', err);
+                this.sttEngine = 'webspeech';
+                if (this.isRecording && !this.recognition) {
+                  this.initSpeechRecognition();
+                }
+              },
+              onClose: ({ code, wasClean }) => {
+                console.log('[AudioRecorder] Deepgram streaming closed:', code, wasClean);
+              }
+            }
+          );
+        } catch (dgErr) {
+          console.warn('[AudioRecorder] Failed to start Deepgram streaming, falling back to WebSpeech:', dgErr);
+          this.sttEngine = 'webspeech';
           this.initSpeechRecognition();
         }
-      }, 100);
+      } else {
+        // Fallback for Whisper / WebSpeech
+        if (typeof MediaRecorder !== 'undefined' && this.sttEngine === 'whisper') {
+          let mimeType = 'audio/webm;codecs=opus';
+          if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+            mimeType = 'audio/webm;codecs=opus';
+          } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+            mimeType = 'audio/webm';
+          } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            mimeType = 'audio/mp4';
+          }
+          this.mediaRecorderMimeType = mimeType;
+          this.audioChunks = [];
+          try {
+            this.mediaRecorder = new MediaRecorder(this.mediaStream, { mimeType });
+            this.mediaRecorder.ondataavailable = (event) => {
+              if (event.data && event.data.size > 0) {
+                this.audioChunks.push(event.data);
+              }
+            };
+            this.mediaRecorder.start(250);
+          } catch (mErr) {
+            console.warn('[AudioRecorder] MediaRecorder init notice:', mErr);
+          }
+        }
+
+        // Start WebSpeech for webspeech or whisper interim preview
+        setTimeout(() => {
+          if (this.isRecording) {
+            this.initSpeechRecognition();
+          }
+        }, 100);
+      }
 
       return true;
     } catch (err) {
@@ -575,7 +707,7 @@ class AudioRecorderService {
         clearTimeout(commitTimeout);
         releaseLock();
       }
-    } else if (this.sttEngine === 'webspeech' && this.onSpeechTextCallback) {
+    } else if (this.onSpeechTextCallback) {
       this.onSpeechTextCallback(text);
       clearTimeout(commitTimeout);
       releaseLock();
@@ -647,6 +779,10 @@ class AudioRecorderService {
   stopRecording() {
     this.isRecording = false;
     this.clearSilenceTimer();
+
+    if (this.deepgramStreamingService && this.deepgramStreamingService.active) {
+      this.deepgramStreamingService.stop().catch(() => {});
+    }
 
     if (this.restartTimeout) {
       clearTimeout(this.restartTimeout);

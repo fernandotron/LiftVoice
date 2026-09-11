@@ -160,7 +160,7 @@ export default function HostControls({
                   {isBroadcasting ? 'Micrófono en Emisión Activa' : 'Transmisión en Pausa'}
                 </span>
                 {isBroadcasting && (
-                  <span className="badge-live-clean">EN VIVO</span>
+                  <span className="badge-live-clean">En vivo</span>
                 )}
               </div>
               <p className="text-xs text-zinc-400 leading-relaxed">
@@ -200,7 +200,7 @@ export default function HostControls({
           <div className="p-3.5 rounded-xl bg-zinc-950 border border-white/10 flex items-start gap-3 transition-all animate-fadeIn">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse mt-1 flex-shrink-0" />
             <div className="text-xs flex-1 text-left">
-              <span className="text-zinc-500 font-mono text-[10px] uppercase block mb-1">Detectando en vivo desde micrófono:</span>
+              <span className="text-zinc-500 font-mono text-[10px] block mb-1">Detectando en vivo desde micrófono:</span>
               <span className="text-white font-medium text-sm italic leading-relaxed">
                 {liveInterimText || 'Habla ahora, tus palabras se transcribirán aquí al instante...'}
               </span>
@@ -366,11 +366,11 @@ export default function HostControls({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-emerald-400" />
-            <h4 className="text-xs font-semibold text-white uppercase tracking-wider">
-              Simulador de Voz & Frases de Prueba
+            <h4 className="text-xs font-semibold text-white">
+              Simulador de voz & frases de prueba
             </h4>
           </div>
-          <span className="text-[10px] text-zinc-500 font-mono">1-CLICK TEST</span>
+          <span className="text-[10px] text-zinc-500 font-mono">Prueba rápida</span>
         </div>
 
         {/* Preset Buttons Grid */}

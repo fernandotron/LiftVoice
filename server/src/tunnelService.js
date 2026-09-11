@@ -7,7 +7,7 @@ class TunnelService {
     this.isStarting = false;
   }
 
-  async startTunnel(port = 5173) {
+  async startTunnel(port = 5174) {
     if (this.tunnel && this.publicUrl) {
       return this.publicUrl;
     }

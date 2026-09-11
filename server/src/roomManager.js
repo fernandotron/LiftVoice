@@ -24,7 +24,7 @@ class RoomManager {
     this.rooms = new Map();
 
     // Inactive room reaper (runs every 2 minutes, cleans rooms idle for > 20 mins)
-    setInterval(() => {
+    const reaperInterval = setInterval(() => {
       const now = Date.now();
       for (const [id, room] of this.rooms.entries()) {
         const isAbandoned = !room.hostSocket && room.listeners.size === 0;
@@ -36,6 +36,9 @@ class RoomManager {
         }
       }
     }, 120 * 1000);
+    if (reaperInterval && typeof reaperInterval.unref === 'function') {
+      reaperInterval.unref();
+    }
   }
 
   createRoom(customId = null, title = 'Conferencia Principal 2026') {
@@ -100,6 +103,7 @@ class RoomManager {
     }
     if (deleted) {
       console.log(`[RoomManager] Room deleted: ${roomId}`);
+      import('./services/aiPipeline.js').then(m => m.aiPipeline.cleanupRoom(roomId)).catch(() => {});
     }
     return deleted;
   }

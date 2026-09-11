@@ -81,7 +81,7 @@ if (fs.existsSync(clientDistPath)) {
           <h1>🎙️ LiftVoice Backend</h1>
           <p>El servidor API y WebSocket está funcionando correctamente en el puerto ${PORT}.</p>
           <p>Para ver y usar la aplicación completa (interfaz de usuario), abre el cliente frontend:</p>
-          <a class="btn" href="http://localhost:5173">Abrir Aplicación LiftVoice (Puerto 5173)</a>
+          <a class="btn" href="http://localhost:5174">Abrir Aplicación LiftVoice (Puerto 5174)</a>
         </div>
       </body>
       </html>
@@ -94,7 +94,7 @@ app.get('/api/health', (req, res) => {
     status: 'healthy',
     timestamp: Date.now(),
     version: '1.0.0 (August 2026)',
-    activeRooms: roomManager.rooms.size
+    activeRooms: new Set(roomManager.rooms.values()).size
   });
 });
 
@@ -102,21 +102,23 @@ app.get('/api/network-info', (req, res) => {
   const candidates = getNetworkInterfacesList();
   const localIp = candidates[0]?.address || '192.168.1.12';
   const publicUrl = tunnelService.getPublicUrl();
+  const defaultClientPort = Number(process.env.CLIENT_PORT) || 5174;
   res.json({
     localIp,
     interfaces: candidates.map(c => ({ name: c.name, address: c.address, isVirtual: c.isVirtual })),
     publicUrl,
     port: PORT,
-    clientPort: 5173,
-    suggestedHostUrl: `http://${localIp}:5173/?room=MAIN&host=true`,
-    suggestedListenUrlTemplate: `http://${localIp}:5173/?room={roomId}`,
+    clientPort: defaultClientPort,
+    suggestedHostUrl: `http://${localIp}:${defaultClientPort}/?room=MAIN&host=true`,
+    suggestedListenUrlTemplate: `http://${localIp}:${defaultClientPort}/?room={roomId}`,
     publicListenUrlTemplate: publicUrl ? `${publicUrl}/?room={roomId}` : null
   });
 });
 
 app.post('/api/tunnel/start', async (req, res) => {
   try {
-    const publicUrl = await tunnelService.startTunnel(5173);
+    const defaultClientPort = Number(process.env.CLIENT_PORT) || 5174;
+    const publicUrl = await tunnelService.startTunnel(defaultClientPort);
     res.json({ success: true, publicUrl });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -238,6 +240,99 @@ app.post('/api/config', (req, res) => {
     voiceGender
   });
   res.json({ success: true, message: 'API keys, STT, TTS and Translation settings updated successfully' });
+});
+
+// In-memory token cache for Deepgram Grant tokens (avoids roundtrips on rapid client reconnections)
+let cachedGrantToken = null; // { token, expiresAt }
+
+// Ephemeral ASR Token for Direct Deepgram Streaming WebSocket (Nova-3) (#ISSUE-01)
+app.post('/api/asr-token', async (req, res) => {
+  try {
+    const { sttService } = await import('./services/sttService.js');
+    const apiKey = sttService.deepgramApiKey || process.env.DEEPGRAM_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Deepgram API key not configured on server' });
+    }
+
+    const requestedLang = req.body.language || req.body.lang || 'auto';
+    let deepgramLang = 'multi';
+    if (requestedLang && requestedLang !== 'auto') {
+      const short = requestedLang.slice(0, 2).toLowerCase();
+      if (short === 'pt') {
+        deepgramLang = requestedLang.toLowerCase().includes('br') ? 'pt-BR' : 'pt';
+      } else {
+        deepgramLang = short;
+      }
+    }
+
+    const rawTerms = Array.isArray(req.body.keyterms) ? [...req.body.keyterms] : [];
+    if (req.body.medicalMode && req.body.customGlossary && Array.isArray(req.body.customGlossary)) {
+      rawTerms.push(...req.body.customGlossary);
+    }
+    const keyterms = rawTerms
+      .map(t => (typeof t === 'object' && t ? (t.term || t.text || t.word || String(t)) : String(t)))
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    let token = null;
+    let expiresIn = 60;
+    const now = Date.now();
+
+    // Reutilizar token en caché si aún restan al menos 15 segundos de validez
+    if (cachedGrantToken && now < cachedGrantToken.expiresAt - 15000) {
+      token = cachedGrantToken.token;
+      expiresIn = Math.max(10, Math.round((cachedGrantToken.expiresAt - now) / 1000));
+    } else {
+      try {
+        const grantRes = await fetch('https://api.deepgram.com/v1/auth/grant', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Token ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ttl_seconds: 60 }),
+          signal: AbortSignal.timeout(5000)
+        });
+        if (grantRes.ok) {
+          const grantData = await grantRes.json();
+          token = grantData.access_token || grantData.key;
+          expiresIn = grantData.expires_in || 60;
+          cachedGrantToken = {
+            token,
+            expiresAt: now + (expiresIn * 1000)
+          };
+        } else {
+          const errText = await grantRes.text().catch(() => '');
+          console.warn(`[ASR Token] Deepgram grant failed (${grantRes.status}): ${errText.slice(0, 300)}`);
+          return res.status(502).json({
+            error: 'Deepgram Grant API error or insufficient permissions on configured key. Please check Deepgram project permissions.',
+            code: 'GRANT_API_UNAVAILABLE',
+            status: grantRes.status
+          });
+        }
+      } catch (gErr) {
+        console.warn('[ASR Token] Grant fetch exception:', gErr.message);
+        return res.status(502).json({
+          error: 'Failed to connect to Deepgram Grant API: ' + gErr.message,
+          code: 'GRANT_API_NETWORK_ERROR'
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      token,
+      expiresIn,
+      listenUrl: 'wss://api.deepgram.com/v1/listen',
+      model: 'nova-3',
+      language: deepgramLang,
+      keyterms: [...new Set(keyterms)].slice(0, 50),
+      mipOptOut: Boolean(req.body.medicalMode)
+    });
+  } catch (err) {
+    console.error('[ASR Token] Error minting token:', err);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // Session Summary with AI
@@ -468,13 +563,17 @@ wss.on('connection', (ws, req) => {
             if (approved) {
               const room = roomManager.getRoom(targetRoom);
               if (room) {
+                const activeSpeakerPayload = JSON.stringify({
+                  type: 'QA_ACTIVE_SPEAKER',
+                  speaker: approved
+                });
                 for (const listener of room.listeners.values()) {
                   if (listener.socket && listener.socket.readyState === 1) {
-                    listener.socket.send(JSON.stringify({
-                      type: 'QA_ACTIVE_SPEAKER',
-                      speaker: approved
-                    }));
+                    listener.socket.send(activeSpeakerPayload);
                   }
+                }
+                if (room.hostSocket && room.hostSocket.readyState === 1) {
+                  room.hostSocket.send(activeSpeakerPayload);
                 }
               }
             }

@@ -443,9 +443,10 @@ class AudioPlayerService {
     this.decodeQueue = this.decodeQueue
       .catch((err) => console.warn('[AudioPlayer] Previous decode error:', err))
       .then(async () => {
-        if (packet.audioBase64) {
+        const rawBase64 = packet.audioBase64 || packet.audio;
+        if (rawBase64) {
           try {
-            await this.processAndScheduleBase64Chunk(packet);
+            await this.processAndScheduleBase64Chunk({ ...packet, audioBase64: rawBase64 });
           } catch (err) {
             console.warn('[AudioPlayer] Decode failed, falling back to Web Speech:', err);
             if (packet.text) {

@@ -9,7 +9,7 @@ export default defineConfig({
   ],
   server: {
     host: '0.0.0.0',
-    port: 5173,
+    port: Number(process.env.PORT) || 5174,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
@@ -20,6 +20,17 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
         rewriteWsOrigin: true
+      }
+    }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-qr': ['qrcode.react']
+        }
       }
     }
   }

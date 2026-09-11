@@ -44,26 +44,26 @@ class SocketService {
     const host = window.location.hostname || 'localhost';
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     
-    // If running in Vite dev server on port 5173, connect to backend on port 3001, fallback to Vite /ws proxy
-    if (window.location.port === '5173') {
+    // If running in Vite dev server (port 5174 or 5173), connect to backend on port 3001, fallback to Vite /ws proxy
+    if (window.location.port === '5174' || window.location.port === '5173') {
       return [
         `${protocol}//${host}:3001`,
-        `${protocol}//${host}:5173/ws`
+        `${protocol}//${host}:${window.location.port}/ws`
       ];
     }
 
-    // If a custom port is present (e.g. localhost:3001)
+    // If running under a custom port (e.g. Portless :1355 or custom port)
     if (window.location.port) {
       return [
-        `${protocol}//${host}:${window.location.port}`,
-        `${protocol}//${host}:${window.location.port}/ws`
+        `${protocol}//${host}:${window.location.port}/ws`,
+        `${protocol}//${host}:${window.location.port}`
       ];
     }
 
     // Public domain / LocalTunnel / HTTPS default port 443
     return [
-      `${protocol}//${host}`,
-      `${protocol}//${host}/ws`
+      `${protocol}//${host}/ws`,
+      `${protocol}//${host}`
     ];
   }
 

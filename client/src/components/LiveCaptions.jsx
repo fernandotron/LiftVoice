@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MessageSquareText, Copy, Check, Sparkles, Globe, Bookmark, AudioLines, Download, ArrowDown, Type, Stethoscope } from 'lucide-react';
+import { Copy, Check, ArrowDown } from 'lucide-react';
 
 export default function LiveCaptions({
   transcriptHistory = [],
@@ -15,14 +15,38 @@ export default function LiveCaptions({
   const bottomRef = useRef(null);
   const isUserScrolledUpRef = useRef(false);
   const [copiedId, setCopiedId] = useState(null);
-  const [bookmarks, setBookmarks] = useState(new Set());
   const [autoScroll, setAutoScroll] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [onlyBookmarks, setOnlyBookmarks] = useState(false);
-  const [fontSizeLevel, setFontSizeLevel] = useState(1); // 0: small, 1: normal, 2: large
   const prevCountRef = useRef(transcriptHistory.length);
 
-  // Automatic scrolling: smoothly follow live subtitles and interim dictation stream
+  // Anti-flicker: preserve recent interim text briefly while backend translates and final card arrives
+  const [displayedInterim, setDisplayedInterim] = useState(interimText || '');
+  const [isConsolidating, setIsConsolidating] = useState(false);
+  const consolidatingTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (interimText) {
+      if (consolidatingTimerRef.current) clearTimeout(consolidatingTimerRef.current);
+      setDisplayedInterim(interimText);
+      setIsConsolidating(false);
+    } else if (displayedInterim && !isConsolidating) {
+      setIsConsolidating(true);
+      consolidatingTimerRef.current = setTimeout(() => {
+        setDisplayedInterim('');
+        setIsConsolidating(false);
+      }, 1200);
+    }
+  }, [interimText]);
+
+  useEffect(() => {
+    if (transcriptHistory.length > prevCountRef.current) {
+      if (consolidatingTimerRef.current) clearTimeout(consolidatingTimerRef.current);
+      setDisplayedInterim('');
+      setIsConsolidating(false);
+    }
+  }, [transcriptHistory.length]);
+
+  // Automatic scrolling: smoothly follow live subtitles and interim dictation stream without stutter
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -32,7 +56,7 @@ export default function LiveCaptions({
 
     if (autoScroll && !isUserScrolledUpRef.current) {
       requestAnimationFrame(() => {
-        if (bottomRef.current) {
+        if (isNewItem && bottomRef.current) {
           bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
         } else {
           el.scrollTop = el.scrollHeight;
@@ -82,168 +106,66 @@ export default function LiveCaptions({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const toggleBookmark = (id) => {
-    setBookmarks(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const handleExportText = () => {
-    if (transcriptHistory.length === 0) return;
-    const lines = transcriptHistory.map((item) => {
-      const time = new Date(item.timestamp || Date.now()).toLocaleTimeString();
-      const text = item.translations?.[currentLanguage] || item.originalText;
-      return `[${time}] ${text}\n(Original: "${item.originalText}")\n`;
-    });
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `LiftVoice_Transcript_${currentLanguage.toUpperCase()}_${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const fontSizes = ['text-xs', 'text-sm', 'text-base'];
-  const originalFontSizes = ['text-[11px]', 'text-xs', 'text-sm'];
-
-  const displayedList = onlyBookmarks
-    ? transcriptHistory.filter(item => bookmarks.has(item.id))
-    : transcriptHistory;
-
   return (
-    <div className={`flex flex-col h-full relative bg-white ${className}`}>
-      {/* Studio Subtitles Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-zinc-200 bg-white">
-        <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-zinc-900 uppercase tracking-wider">
-          <AudioLines className="w-3.5 h-3.5 text-zinc-900 flex-shrink-0" />
-          <span>Subtítulos en Vivo ({currentLanguage.toUpperCase()})</span>
-          {medicalMode && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-mono border border-emerald-200">
-              <Stethoscope className="w-2.5 h-2.5 text-emerald-600" />
-              <span>CLÍNICO</span>
-            </span>
-          )}
-        </div>
-
-        {/* Action icons */}
-        <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-          {/* Font Size Button */}
-          <button
-            onClick={() => setFontSizeLevel((fontSizeLevel + 1) % 3)}
-            className="p-1.5 rounded-lg bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-600 hover:text-zinc-900 text-xs transition-colors cursor-pointer"
-            title="Cambiar tamaño de texto"
-          >
-            <Type className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Bookmark filter button */}
-          <button
-            onClick={() => setOnlyBookmarks(!onlyBookmarks)}
-            className={`px-2 py-1 rounded-lg text-[10px] font-mono transition-colors cursor-pointer flex items-center gap-1 ${
-              onlyBookmarks
-                ? 'bg-amber-50 text-amber-800 border border-amber-300'
-                : 'bg-zinc-50 text-zinc-600 hover:text-zinc-900 border border-zinc-200'
-            }`}
-            title="Ver solo destacados"
-          >
-            <Bookmark className={`w-3 h-3 ${onlyBookmarks ? 'fill-amber-500 text-amber-500' : ''}`} />
-            <span>{bookmarks.size > 0 ? bookmarks.size : ''}</span>
-          </button>
-
-          {/* Export TXT button */}
-          <button
-            onClick={handleExportText}
-            disabled={transcriptHistory.length === 0}
-            className="p-1.5 rounded-lg bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-600 hover:text-zinc-900 transition-colors cursor-pointer disabled:opacity-40"
-            title="Descargar transcripción completa (.txt)"
-          >
-            <Download className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Auto-scroll indicator */}
-          <button
-            onClick={() => setAutoScroll(!autoScroll)}
-            className={`px-2.5 py-1 rounded-full text-[10px] font-mono transition-all cursor-pointer border ${
-              autoScroll
-                ? 'bg-zinc-900 text-white border-zinc-900'
-                : 'bg-zinc-50 text-zinc-500 border-zinc-200'
-            }`}
-          >
-            {autoScroll ? 'AUTO' : 'MANUAL'}
-          </button>
-        </div>
-      </div>
-
+    <div className={`flex flex-col h-full relative bg-transparent transition-colors duration-150 ${className}`}>
       {/* Captions Stream List */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto p-4 space-y-2.5 bg-white ${maxHeightClass}`}
+        className={`flex-1 overflow-y-auto px-3 sm:px-2 bg-transparent ${
+          transcriptHistory.length === 0 && !displayedInterim
+            ? 'flex items-center justify-center'
+            : 'py-3 space-y-3'
+        } ${maxHeightClass}`}
+        role="log"
+        aria-live="polite"
       >
-        {displayedList.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full py-12 text-center text-zinc-400">
-            <AudioLines className="w-8 h-8 mb-2 opacity-30 text-zinc-400" />
-            <p className="text-xs text-zinc-600 font-medium">
-              {onlyBookmarks ? 'No tienes frases guardadas en favoritos.' : 'Esperando locución del orador...'}
-            </p>
-            <p className="text-[11px] text-zinc-400 mt-0.5">
-              {onlyBookmarks ? 'Toca el icono de marcador en cualquier frase para destacarla.' : 'Los subtítulos traducidos aparecerán aquí en tiempo real.'}
-            </p>
+        {transcriptHistory.length === 0 && !displayedInterim ? (
+          <div className="flex flex-col items-center justify-center text-center text-zinc-400 dark:text-zinc-500 px-4 py-8">
+            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Esperando locución del orador...</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Los subtítulos traducidos aparecerán aquí en tiempo real.</p>
           </div>
         ) : (
-          displayedList.map((item, index) => {
-            const isLast = index === displayedList.length - 1;
+          transcriptHistory.map((item, index) => {
+            const isLast = index === transcriptHistory.length - 1;
             const translatedText = item.translations?.[currentLanguage] || item.originalText;
-            const isBookmarked = bookmarks.has(item.id);
 
             return (
               <div
                 key={item.id || index}
                 className={`group relative p-3.5 rounded-xl border transition-all duration-150 ${
                   isLast
-                    ? 'bg-zinc-50/80 border-zinc-300 shadow-xs'
-                    : 'bg-white border-zinc-200 hover:border-zinc-300'
+                    ? 'bg-zinc-50/90 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-700 shadow-xs'
+                    : 'bg-white dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700'
                 }`}
               >
                 {/* Meta Header */}
-                <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono mb-1.5">
+                <div className="flex items-center justify-between text-[10px] text-zinc-400 dark:text-zinc-500 font-mono mb-1.5">
                   <div className="flex items-center gap-1.5">
                     <span>
                       {new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>
                     {item.detectedLanguage && (
-                      <span className="px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-600 uppercase text-[9px] border border-zinc-200">
+                      <span className="px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[9px] font-mono border border-zinc-200 dark:border-zinc-700">
                         {item.detectedLanguage}
                       </span>
                     )}
                     {(item.engineUsed?.includes('Clinical') || medicalMode) && (
-                      <span className="px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-mono text-[9px] border border-emerald-200">
-                        CIE-11
+                      <span className="px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-mono text-[9px] border border-emerald-200 dark:border-emerald-800">
+                        Clínico
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => toggleBookmark(item.id)}
-                      className={`p-1 rounded hover:bg-zinc-100 transition-colors cursor-pointer ${
-                        isBookmarked ? 'text-amber-500' : 'text-zinc-400 hover:text-zinc-700'
-                      }`}
-                      title="Guardar marcador"
-                    >
-                      <Bookmark className={`w-3 h-3 ${isBookmarked ? 'fill-amber-500' : ''}`} />
-                    </button>
-                    <button
                       onClick={() => handleCopy(item)}
-                      className="p-1 rounded text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors cursor-pointer"
+                      className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                       title="Copiar texto"
+                      aria-label="Copiar texto del subtítulo"
                     >
                       {copiedId === item.id ? (
-                        <Check className="w-3 h-3 text-emerald-600" />
+                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                       ) : (
                         <Copy className="w-3 h-3" />
                       )}
@@ -252,13 +174,13 @@ export default function LiveCaptions({
                 </div>
 
                 {/* Primary Translated text */}
-                <p className={`${fontSizes[fontSizeLevel]} font-medium text-zinc-900 leading-relaxed`}>
+                <p className="text-sm sm:text-base font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed">
                   {translatedText}
                 </p>
 
                 {/* Original source text */}
                 {showOriginal && item.originalText && item.originalText !== translatedText && (
-                  <p className={`mt-1.5 ${originalFontSizes[fontSizeLevel]} text-zinc-500 italic border-t border-zinc-100 pt-1.5`}>
+                  <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 italic border-t border-zinc-100 dark:border-zinc-800 pt-1.5">
                     "{item.originalText}"
                   </p>
                 )}
@@ -267,21 +189,31 @@ export default function LiveCaptions({
           })
         )}
 
-        {/* Real-Time Live Speech Stream Box (Track 1 - Zero Lag) */}
-        {interimText && (
-          <div className="p-3 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-left animate-fadeIn">
-            <div className="flex items-center gap-1.5 text-[10px] text-zinc-600 font-mono mb-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
-              <span>DETECTANDO VOZ EN VIVO</span>
+        {/* Real-Time Live Speech Stream Box (Track 1 - Zero Lag & Anti-flicker) */}
+        {displayedInterim && (
+          <div className={`p-3 rounded-xl border border-dashed text-left transition-all duration-200 ${
+            isConsolidating
+              ? 'border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/30 opacity-80'
+              : 'border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 animate-fadeIn'
+          }`}>
+            <div className="flex items-center gap-1.5 text-[10px] font-mono mb-1">
+              <span className={`w-2 h-2 rounded-full inline-block ${
+                isConsolidating ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 animate-ping'
+              }`} />
+              <span className={isConsolidating ? 'text-amber-700 dark:text-amber-400 font-medium' : 'text-zinc-600 dark:text-zinc-400'}>
+                {isConsolidating ? 'Consolidando traducción...' : 'Detectando voz en vivo...'}
+              </span>
             </div>
-            <p className={`${fontSizes[fontSizeLevel]} text-zinc-800 italic leading-relaxed font-medium`}>
-              "{interimText}..."
+            <p className={`text-sm sm:text-base ${isConsolidating ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-800 dark:text-zinc-200'} italic leading-relaxed font-medium`}>
+              "{displayedInterim}..."
             </p>
           </div>
         )}
 
         {/* Scroll anchor at the bottom of the feed */}
-        <div ref={bottomRef} className="h-px w-full pointer-events-none" />
+        {(transcriptHistory.length > 0 || displayedInterim) && (
+          <div ref={bottomRef} className="h-px w-full pointer-events-none" />
+        )}
       </div>
 
       {/* Floating Pill when user scrolled up and new text arrives */}
@@ -289,7 +221,8 @@ export default function LiveCaptions({
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 animate-bounce">
           <button
             onClick={scrollToBottom}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 text-white text-xs font-medium shadow-lg hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-medium shadow-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors cursor-pointer"
+            aria-label="Ver las nuevas frases recibidas"
           >
             <ArrowDown className="w-3 h-3" />
             <span>Nuevas frases ({unreadCount})</span>
