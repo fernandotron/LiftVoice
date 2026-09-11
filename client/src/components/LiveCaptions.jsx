@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Copy, Check, ArrowDown } from 'lucide-react';
+import { Copy, Check, ArrowDown, Mic } from 'lucide-react';
 
 export default function LiveCaptions({
   transcriptHistory = [],
@@ -9,8 +9,17 @@ export default function LiveCaptions({
   className = '',
   maxHeightClass = 'min-h-[220px] max-h-[500px]',
   medicalMode = false,
-  medicalSpecialty = 'general'
+  medicalSpecialty = 'general',
+  captionSize = 'md'
 }) {
+  const fontClassMap = {
+    sm: 'text-xs sm:text-sm leading-relaxed',
+    md: 'text-sm sm:text-base leading-relaxed',
+    lg: 'text-base sm:text-lg leading-relaxed',
+    xl: 'text-lg sm:text-xl font-medium leading-loose'
+  };
+  const activeFontClass = fontClassMap[captionSize] || fontClassMap.md;
+
   const scrollRef = useRef(null);
   const bottomRef = useRef(null);
   const isUserScrolledUpRef = useRef(false);
@@ -112,18 +121,25 @@ export default function LiveCaptions({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto px-3 sm:px-2 bg-transparent ${
+        className={`flex-1 overflow-y-auto px-4 sm:px-6 bg-transparent ${
           transcriptHistory.length === 0 && !displayedInterim
             ? 'flex items-center justify-center'
-            : 'py-3 space-y-3'
+            : 'py-2.5 sm:py-3 space-y-3.5'
         } ${maxHeightClass}`}
         role="log"
         aria-live="polite"
       >
         {transcriptHistory.length === 0 && !displayedInterim ? (
-          <div className="flex flex-col items-center justify-center text-center text-zinc-400 dark:text-zinc-500 px-4 py-8">
-            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Esperando locución del orador...</p>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Los subtítulos traducidos aparecerán aquí en tiempo real.</p>
+          <div className="flex flex-col items-center justify-center text-center text-zinc-400 dark:text-zinc-500 px-4 py-12 select-none animate-fadeIn">
+            <div className="text-zinc-400 dark:text-zinc-600 font-serif text-5xl font-light leading-none mb-3 tracking-wider select-none">
+              T
+            </div>
+            <p className="text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              No hay transcripción disponible
+            </p>
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 max-w-xs">
+              La transcripción y subtítulos aparecerán aquí en cuanto el orador comience a hablar.
+            </p>
           </div>
         ) : (
           transcriptHistory.map((item, index) => {
@@ -133,14 +149,14 @@ export default function LiveCaptions({
             return (
               <div
                 key={item.id || index}
-                className={`group relative p-3.5 rounded-xl border transition-all duration-150 ${
+                className={`group relative p-4 rounded-2xl border transition-all duration-150 ${
                   isLast
                     ? 'bg-zinc-50/90 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-700 shadow-xs'
                     : 'bg-white dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700'
                 }`}
               >
                 {/* Meta Header */}
-                <div className="flex items-center justify-between text-[10px] text-zinc-400 dark:text-zinc-500 font-mono mb-1.5">
+                <div className="flex items-center justify-between text-xs text-zinc-400 dark:text-zinc-500 font-mono mb-2">
                   <div className="flex items-center gap-1.5">
                     <span>
                       {new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -174,7 +190,7 @@ export default function LiveCaptions({
                 </div>
 
                 {/* Primary Translated text */}
-                <p className="text-sm sm:text-base font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed">
+                <p className={`${activeFontClass} font-medium text-zinc-900 dark:text-zinc-100`}>
                   {translatedText}
                 </p>
 
@@ -189,22 +205,28 @@ export default function LiveCaptions({
           })
         )}
 
-        {/* Real-Time Live Speech Stream Box (Track 1 - Zero Lag & Anti-flicker) */}
+        {/* Real-Time Live Speech Stream Box (Track 1 - Zero Lag & Anti-flicker with Gemini Live aesthetic) */}
         {displayedInterim && (
-          <div className={`p-3 rounded-xl border border-dashed text-left transition-all duration-200 ${
+          <div className={`p-3.5 rounded-xl border transition-all duration-200 ${
             isConsolidating
-              ? 'border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/30 opacity-80'
-              : 'border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 animate-fadeIn'
+              ? 'border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/30 opacity-85'
+              : 'border-cyan-400/50 dark:border-cyan-500/40 bg-gradient-to-r from-cyan-50/40 via-blue-50/20 to-purple-50/40 dark:from-cyan-950/20 dark:via-blue-950/15 dark:to-purple-950/20 ring-1 ring-cyan-400/30 shadow-xs animate-fadeIn'
           }`}>
-            <div className="flex items-center gap-1.5 text-[10px] font-mono mb-1">
-              <span className={`w-2 h-2 rounded-full inline-block ${
-                isConsolidating ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 animate-ping'
-              }`} />
-              <span className={isConsolidating ? 'text-amber-700 dark:text-amber-400 font-medium' : 'text-zinc-600 dark:text-zinc-400'}>
-                {isConsolidating ? 'Consolidando traducción...' : 'Detectando voz en vivo...'}
+            <div className="flex items-center gap-2 text-[10px] font-mono mb-1.5">
+              <div className="flex items-center gap-0.5 h-3">
+                <span className={`w-1 h-2 rounded-full ${isConsolidating ? 'bg-amber-500 animate-pulse' : 'bg-cyan-400 animate-gemini-wave'}`} />
+                <span className={`w-1 h-3 rounded-full ${isConsolidating ? 'bg-amber-500 animate-pulse' : 'bg-blue-500 animate-gemini-wave delay-1'}`} />
+                <span className={`w-1 h-2 rounded-full ${isConsolidating ? 'bg-amber-500 animate-pulse' : 'bg-purple-500 animate-gemini-wave delay-2'}`} />
+              </div>
+              <span className={isConsolidating ? 'text-amber-700 dark:text-amber-400 font-medium' : 'text-cyan-700 dark:text-cyan-300 font-semibold'}>
+                {isConsolidating ? 'Consolidando traducción...' : 'Transcripción y dictado IA en vivo...'}
               </span>
             </div>
-            <p className={`text-sm sm:text-base ${isConsolidating ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-800 dark:text-zinc-200'} italic leading-relaxed font-medium`}>
+            <p className={`${activeFontClass} ${
+              isConsolidating 
+                ? 'text-zinc-700 dark:text-zinc-300 italic' 
+                : 'gemini-text-stream font-semibold italic'
+            }`}>
               "{displayedInterim}..."
             </p>
           </div>
@@ -212,13 +234,13 @@ export default function LiveCaptions({
 
         {/* Scroll anchor at the bottom of the feed */}
         {(transcriptHistory.length > 0 || displayedInterim) && (
-          <div ref={bottomRef} className="h-px w-full pointer-events-none" />
+          <div ref={bottomRef} className="h-28 sm:h-2 w-full pointer-events-none flex-shrink-0" />
         )}
       </div>
 
       {/* Floating Pill when user scrolled up and new text arrives */}
       {unreadCount > 0 && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 animate-bounce">
+        <div className="absolute bottom-24 sm:bottom-3 left-1/2 -translate-x-1/2 z-10 animate-bounce">
           <button
             onClick={scrollToBottom}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-medium shadow-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors cursor-pointer"

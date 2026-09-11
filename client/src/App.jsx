@@ -6,6 +6,7 @@ import HomeView from './views/HomeView.jsx';
 import HostView from './views/HostView.jsx';
 import ListenerView from './views/ListenerView.jsx';
 import VoicesView from './views/VoicesView.jsx';
+import PostLeaveView from './views/PostLeaveView.jsx';
 import { socketService } from './services/socket.js';
 
 export function generateMeetRoomCode() {
@@ -30,7 +31,8 @@ export function normalizeRoomCode(input) {
 }
 
 export default function App() {
-  const [currentView, setCurrentView] = useState('home'); // 'home' | 'host' | 'listener'
+  const [currentView, setCurrentView] = useState('home'); // 'home' | 'host' | 'listener' | 'post-leave'
+  const [leaveDetails, setLeaveDetails] = useState(null); // { roomId, selectedLanguage, reason, message }
   const [roomId, setRoomId] = useState(null);
   const [roomTitle, setRoomTitle] = useState('Conferencia Principal 2026');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -104,40 +106,89 @@ export default function App() {
     window.history.pushState({}, '', `?room=${id}&host=true`);
   };
 
-  const handleJoinRoom = (id) => {
+  const handleJoinRoom = (id, lang = null) => {
     const cleanId = normalizeRoomCode(id);
     setRoomId(cleanId);
     localStorage.setItem('lv_active_room_id', cleanId);
+    if (lang) {
+      try {
+        localStorage.setItem('lv_preferred_lang', lang);
+      } catch (e) {}
+    }
     setRoomTitle(`Sala ${cleanId}`);
     setCurrentView('listener');
-    window.history.pushState({}, '', `?room=${cleanId}`);
+    const query = lang ? `?room=${cleanId}&lang=${lang}` : `?room=${cleanId}`;
+    window.history.pushState({}, '', query);
   };
 
-  const handleLeave = () => {
+  const handleLeave = (options = {}) => {
+    const roomToLeave = roomId || localStorage.getItem('lv_active_room_id') || localStorage.getItem('lv_last_room_id');
+    const userLang = options?.selectedLanguage || localStorage.getItem('lv_preferred_lang') || 'es';
+    const reason = options?.reason || 'voluntary';
+
     localStorage.removeItem('lv_active_room_id');
+
+    if (reason === 'kicked') {
+      try {
+        const banned = JSON.parse(localStorage.getItem('lv_banned_rooms') || '{}');
+        if (roomToLeave) banned[roomToLeave] = Date.now();
+        localStorage.setItem('lv_banned_rooms', JSON.stringify(banned));
+        localStorage.removeItem('lv_recent_room');
+      } catch (e) {}
+    } else if (roomToLeave) {
+      try {
+        localStorage.setItem('lv_recent_room', JSON.stringify({
+          roomId: roomToLeave,
+          lang: userLang,
+          timestamp: Date.now()
+        }));
+      } catch (e) {}
+    }
+
+    if (currentView === 'listener' || options?.reason) {
+      setLeaveDetails({
+        roomId: roomToLeave,
+        selectedLanguage: userLang,
+        reason,
+        message: options?.message || ''
+      });
+      setRoomId(null);
+      setCurrentView('post-leave');
+      window.history.pushState({}, '', window.location.pathname || '/');
+    } else {
+      setRoomId(null);
+      setCurrentView('home');
+      window.history.pushState({}, '', window.location.pathname || '/');
+    }
+  };
+
+  const handleRejoin = (targetRoomId, targetLang) => {
+    handleJoinRoom(targetRoomId, targetLang);
+  };
+
+  const handleNavigateHome = () => {
+    setLeaveDetails(null);
     setCurrentView('home');
-    setRoomId(null);
-    window.history.pushState({}, '', window.location.pathname || '/');
   };
 
   return (
-    <div className="min-h-dvh pb-safe w-full max-w-full overflow-x-hidden bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between selection:bg-zinc-200 dark:selection:bg-zinc-800 selection:text-zinc-900 dark:selection:text-zinc-100 transition-colors duration-150">
+    <div className="min-h-dvh w-full max-w-full overflow-x-hidden bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between selection:bg-zinc-200 dark:selection:bg-zinc-800 selection:text-zinc-900 dark:selection:text-zinc-100 transition-colors duration-150">
       {/* Top Navigation for Home only (Host, Voices and Listener render their own native studio layout) */}
-      {currentView === 'home' && (
+      {(currentView === 'home' || currentView === 'post-leave') && (
         <Navbar
           currentRole={null}
           roomId={roomId}
           latency={latency}
           isConnected={isConnected}
           onOpenQR={() => setIsQrOpen(true)}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          onNavigateHome={handleLeave}
+          onOpenSettings={undefined}
+          onNavigateHome={handleNavigateHome}
         />
       )}
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-h-0">
-        {currentView === 'home' && (
+        {(currentView === 'home' || currentView === 'post-leave') && (
           <HomeView
             onCreateRoom={handleCreateRoom}
             onJoinRoom={handleJoinRoom}
@@ -159,7 +210,7 @@ export default function App() {
           <VoicesView
             roomId={roomId || 'MAIN'}
             onNavigateStudio={() => setCurrentView('host')}
-            onNavigateHome={handleLeave}
+            onNavigateHome={handleNavigateHome}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenQR={() => setIsQrOpen(true)}
           />
@@ -169,8 +220,17 @@ export default function App() {
           <ListenerView
             roomId={roomId}
             onLeave={handleLeave}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            onOpenQR={() => setIsQrOpen(true)}
+          />
+        )}
+
+        {currentView === 'post-leave' && (
+          <PostLeaveView
+            roomId={leaveDetails?.roomId}
+            selectedLanguage={leaveDetails?.selectedLanguage || 'es'}
+            leaveReason={leaveDetails?.reason || 'voluntary'}
+            leaveMessage={leaveDetails?.message || ''}
+            onRejoin={handleRejoin}
+            onNavigateHome={handleNavigateHome}
           />
         )}
       </main>

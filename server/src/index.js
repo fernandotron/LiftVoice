@@ -497,15 +497,31 @@ wss.on('connection', (ws, req) => {
           currentRoomId = (msg.roomId || 'MAIN').toUpperCase();
           clientRole = 'LISTENER';
           const lang = (msg.lang || 'en').toLowerCase();
+          const attendeeId = msg.attendeeId || socketId;
+
+          // Guard: If attendee is banned/kicked from this room, reject immediately
+          if (roomManager.isAttendeeKicked(currentRoomId, attendeeId, msg.email, clientIp)) {
+            ws.send(JSON.stringify({
+              type: 'KICKED_BY_HOST',
+              roomId: currentRoomId,
+              reason: 'Has sido expulsado de esta sala por el anfitrión.'
+            }));
+            try { ws.close(4003, 'Kicked by host'); } catch (e) {}
+            break;
+          }
           
-          roomManager.addListener(currentRoomId, ws, socketId, lang, {
-            attendeeId: msg.attendeeId,
+          const joinResult = roomManager.addListener(currentRoomId, ws, socketId, lang, {
+            attendeeId,
             name: msg.name,
             email: msg.email,
             phone: msg.phone,
             ip: clientIp,
             userAgent: msg.userAgent
           });
+
+          if (joinResult && joinResult.isKicked) {
+            break;
+          }
 
           // Send public stats (NO PII) to the listener
           ws.send(JSON.stringify({
@@ -515,6 +531,30 @@ wss.on('connection', (ws, req) => {
             currentLang: lang,
             stats: roomManager.getPublicStats(currentRoomId)
           }));
+          break;
+        }
+
+        case 'HOST_KICK_ATTENDEE': {
+          if (clientRole !== 'HOST') {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can moderate attendees.' }));
+            break;
+          }
+          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (targetRoom && msg.attendeeId) {
+            roomManager.kickAttendee(targetRoom, msg.attendeeId, msg.name, msg.reason);
+          }
+          break;
+        }
+
+        case 'HOST_UNBAN_ATTENDEE': {
+          if (clientRole !== 'HOST') {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can unban attendees.' }));
+            break;
+          }
+          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (targetRoom && msg.attendeeId) {
+            roomManager.unbanAttendee(targetRoom, msg.attendeeId);
+          }
           break;
         }
 

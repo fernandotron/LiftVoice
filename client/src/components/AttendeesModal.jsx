@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Users, Download, X, Search, Mail, Phone, Globe, Calendar, CheckCircle2 } from 'lucide-react';
+import { Users, Download, X, Search, Mail, Phone, Globe, Calendar, CheckCircle2, UserX, RotateCcw } from 'lucide-react';
 
 export default function AttendeesModal({
   roomId = 'MAIN',
   isOpen = false,
   onClose = () => {},
-  attendees = []
+  attendees = [],
+  onKickAttendee = () => {},
+  onUnbanAttendee = () => {}
 }) {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -27,20 +29,14 @@ export default function AttendeesModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-xs animate-backdrop-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:p-4 bg-black/40 backdrop-blur-[3px] animate-backdrop-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative w-full max-w-3xl rounded-t-[28px] sm:rounded-2xl border-t sm:border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 sm:p-6 overflow-hidden shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[85vh] text-zinc-900 dark:text-zinc-100 animate-sheet-up sm:animate-fadeIn transition-colors duration-150">
-        
-        {/* Pull Handle táctil móvil */}
-        <div className="sm:hidden -mt-2 pb-2 flex justify-center">
-          <div className="sheet-pull-handle my-0" />
-        </div>
-
+      <div className="relative w-full max-w-3xl rounded-[28px] border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 sm:p-6 overflow-hidden shadow-2xl flex flex-col max-h-[90dvh] sm:max-h-[85vh] text-zinc-900 dark:text-zinc-100 animate-sheet-up sm:animate-fadeIn transition-colors duration-150">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 pb-3 sm:pb-4 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
@@ -106,18 +102,44 @@ export default function AttendeesModal({
               {/* Mobile Card List (< sm:) */}
               <div className="sm:hidden divide-y divide-zinc-100 dark:divide-zinc-800">
                 {filteredAttendees.map((att, idx) => (
-                  <div key={att.id || idx} className="p-3.5 space-y-1.5">
+                  <div key={att.id || idx} className="p-3.5 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-7 h-7 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center text-xs font-bold flex-shrink-0">
                           {att.name ? att.name.charAt(0) : 'A'}
                         </div>
                         <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">{att.name || 'Anónimo'}</span>
+                        {att.isKicked && (
+                          <span className="px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 text-[9px] font-semibold">
+                            Expulsado
+                          </span>
+                        )}
                       </div>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[10px] font-mono text-zinc-700 dark:text-zinc-300 font-semibold">
-                        <Globe className="w-2.5 h-2.5 text-zinc-500 dark:text-zinc-400" />
-                        {att.currentLang || 'es'}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[10px] font-mono text-zinc-700 dark:text-zinc-300 font-semibold">
+                          <Globe className="w-2.5 h-2.5 text-zinc-500 dark:text-zinc-400" />
+                          {att.currentLang || 'es'}
+                        </span>
+                        {att.isKicked ? (
+                          <button
+                            type="button"
+                            onClick={() => onUnbanAttendee(att.id || att.attendeeId)}
+                            title="Readmitir asistente"
+                            className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onKickAttendee(att.id || att.attendeeId, att.name)}
+                            title="Expulsar asistente"
+                            className="p-1 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                          >
+                            <UserX className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {(att.email || att.phone) && (
                       <div className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 pl-9 space-y-0.5">
@@ -138,6 +160,7 @@ export default function AttendeesModal({
                     <th className="py-2.5 px-4">Teléfono</th>
                     <th className="py-2.5 px-4">Canal</th>
                     <th className="py-2.5 px-4">Hora</th>
+                    <th className="py-2.5 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-zinc-700 dark:text-zinc-300">
@@ -147,7 +170,14 @@ export default function AttendeesModal({
                         <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-[10px] text-zinc-800 dark:text-zinc-200 font-bold">
                           {att.name ? att.name.charAt(0) : 'A'}
                         </div>
-                        <span>{att.name || 'Anónimo'}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span>{att.name || 'Anónimo'}</span>
+                          {att.isKicked && (
+                            <span className="px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 text-[9px] font-semibold">
+                              Expulsado
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4 font-mono text-zinc-600 dark:text-zinc-400">
                         {att.email || '—'}
@@ -163,6 +193,29 @@ export default function AttendeesModal({
                       </td>
                       <td className="py-3 px-4 font-mono text-zinc-400 dark:text-zinc-500 text-[10px]">
                         {att.joinedAt ? new Date(att.joinedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {att.isKicked ? (
+                          <button
+                            type="button"
+                            onClick={() => onUnbanAttendee(att.id || att.attendeeId)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-[11px] font-medium transition-colors cursor-pointer"
+                            title="Readmitir en la sala"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Readmitir</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onKickAttendee(att.id || att.attendeeId, att.name)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[11px] font-medium transition-colors cursor-pointer"
+                            title="Expulsar de la sala"
+                          >
+                            <UserX className="w-3 h-3" />
+                            <span>Expulsar</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic, Headphones, QrCode, Settings, Radio, Sparkles, Activity, Layers, AudioLines, Search, Bell, HelpCircle, FileText, Sun, Moon, Monitor } from 'lucide-react';
+import { QrCode, Settings, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 
 export default function Navbar({
@@ -27,7 +27,7 @@ export default function Navbar({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md pt-safe transition-colors duration-150">
-      <div className="w-full max-w-full px-3.5 sm:px-6 flex items-center justify-between h-14">
+      <div className="w-full max-w-full px-4 sm:px-8 flex items-center justify-between h-15 sm:h-16">
         
         {/* Left: Brand Logo II LiftVoice */}
         <div className="flex items-center gap-2.5 sm:gap-6 min-w-0">
@@ -59,7 +59,7 @@ export default function Navbar({
               <button
                 onClick={handleCopyLink}
                 title="Copiar vínculo de la reunión"
-                className="font-mono font-medium text-xs text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-700 px-2.5 py-0.5 rounded-md border border-zinc-200 dark:border-zinc-700 flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                className="font-mono font-medium text-xs text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-700 px-3 py-1 rounded-full border border-zinc-200 dark:border-zinc-700 flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
               >
                 <span>{roomId}</span>
                 {hasCopied ? (
@@ -72,42 +72,20 @@ export default function Navbar({
           )}
         </div>
 
-        {/* Center: Search Bar (Buscar en todo... ⌘K) */}
-        <div className="hidden lg:flex items-center flex-1 max-w-md mx-8">
-          <div className="relative w-full">
-            <Search className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              readOnly
-              placeholder="Buscar en todo..."
-              className="w-full h-8 pl-8 pr-12 text-xs bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-800 rounded-xl placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-700 dark:text-zinc-200 cursor-pointer focus:outline-none transition-colors"
-            />
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-              <kbd className="px-1.5 py-0.5 text-[10px] font-mono text-zinc-400 dark:text-zinc-400 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-2xs">
-                ⌘K
-              </kbd>
-            </div>
-          </div>
-        </div>
 
         {/* Right Controls */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          {/* Subtle Help Links */}
-          <div className="hidden sm:flex items-center gap-4 text-xs font-medium text-zinc-500 dark:text-zinc-400 mr-2">
-            <button
-              onClick={onOpenSettings}
-              className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
-            >
-              Configuración
-            </button>
-            <a
-              href="#docs"
-              onClick={(e) => { e.preventDefault(); onOpenSettings(); }}
-              className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
-            >
-              Documentación
-            </a>
-          </div>
+          {/* Subtle Help Links - Only visible to host */}
+          {currentRole === 'host' && (
+            <div className="hidden sm:flex items-center gap-4 text-xs font-medium text-zinc-500 dark:text-zinc-400 mr-2">
+              <button
+                onClick={onOpenSettings}
+                className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
+              >
+                Configuración
+              </button>
+            </div>
+          )}
 
           {/* Connection Status Pill */}
           <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
@@ -118,7 +96,7 @@ export default function Navbar({
           {currentRole === 'host' && (
             <button
               onClick={onOpenQR}
-              className="h-8.5 px-4.5 rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-medium flex items-center gap-2 cursor-pointer shadow-2xs transition-all"
+              className="h-9 sm:h-10 px-4 rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-2xs transition-all"
               title="Proyectar Código QR en Sala"
             >
               <QrCode className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
@@ -129,31 +107,28 @@ export default function Navbar({
           {/* Quick Theme Switcher Button */}
           <button
             onClick={toggleTheme}
-            className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-xl bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer shadow-2xs"
+            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer shadow-2xs"
             title={`Tema actual: ${theme === 'system' ? 'Sistema (' + resolvedTheme + ')' : theme}. Clic para alternar claro/oscuro.`}
             aria-label="Alternar tema claro y oscuro"
           >
             {resolvedTheme === 'dark' ? (
-              <Sun className="w-4 h-4 text-amber-400 hover:text-amber-300 transition-transform active:rotate-45" />
+              <Sun className="w-4 h-4 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-transform active:rotate-45" />
             ) : (
-              <Moon className="w-4 h-4 text-zinc-700 hover:text-zinc-900 transition-transform active:-rotate-12" />
+              <Moon className="w-4 h-4 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-transform active:-rotate-12" />
             )}
           </button>
 
-          {/* Settings Button */}
-          <button
-            onClick={onOpenSettings}
-            className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
-            title="Ajustes de API Keys & Motores"
-            aria-label="Ajustes de configuración"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-
-          {/* User Profile Avatar */}
-          <div className="w-8 h-8 sm:w-7.5 sm:h-7.5 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-[11px] font-semibold flex items-center justify-center cursor-pointer select-none">
-            LV
-          </div>
+          {/* Settings Button - Only visible to host */}
+          {currentRole === 'host' && (
+            <button
+              onClick={onOpenSettings}
+              className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
+              title="Configuración"
+              aria-label="Configuración"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
       </div>

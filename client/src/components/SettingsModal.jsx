@@ -320,20 +320,14 @@ export default function SettingsModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-3 md:p-6 bg-black/50 backdrop-blur-xs animate-backdrop-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:p-3 md:p-6 bg-black/40 backdrop-blur-[3px] animate-backdrop-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-4xl h-[92dvh] sm:h-[640px] max-h-[92dvh] sm:max-h-[92vh] rounded-t-[28px] sm:rounded-2xl bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col md:flex-row overflow-hidden text-left animate-sheet-up sm:animate-fadeIn transition-colors duration-150">
-        
-        {/* Pull Handle táctil exclusivo móvil */}
-        <div className="sm:hidden -mt-1 pb-1 flex justify-center flex-shrink-0 bg-zinc-50 dark:bg-zinc-950">
-          <div className="sheet-pull-handle my-0" />
-        </div>
-
+      <div className="w-full max-w-4xl h-[90dvh] sm:h-[640px] max-h-[90dvh] sm:max-h-[92vh] rounded-[28px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xl flex flex-col md:flex-row overflow-hidden text-left animate-sheet-up sm:animate-fadeIn transition-colors duration-150">
         {/* ─────────────────────────────────────────────────────────── */}
         {/* SIDEBAR DE PESTAÑAS (Desktop: vertical; Mobile: horizontal) */}
         {/* ─────────────────────────────────────────────────────────── */}

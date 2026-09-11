@@ -42,7 +42,7 @@ export default function BottomSheetModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 bg-black/50 backdrop-blur-xs animate-backdrop-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:p-4 md:p-6 bg-black/40 backdrop-blur-[3px] animate-backdrop-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -52,13 +52,8 @@ export default function BottomSheetModal({
     >
       <div 
         ref={sheetRef}
-        className={`w-full ${maxWidth} bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-2xl border-t sm:border border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col max-h-[90dvh] sm:max-h-[90vh] overflow-hidden text-left animate-sheet-up sm:animate-fadeIn transition-colors duration-150 ${className}`}
+        className={`w-full ${maxWidth} bg-white dark:bg-zinc-900 rounded-[28px] border border-zinc-200/80 dark:border-zinc-800 shadow-2xl flex flex-col max-h-[88dvh] sm:max-h-[90vh] overflow-hidden text-left animate-sheet-up sm:animate-fadeIn transition-colors duration-150 ${className}`}
       >
-        {/* Pull Handle táctil exclusivo para móviles */}
-        <div className="sm:hidden pt-2 pb-0 flex justify-center flex-shrink-0">
-          <div className="sheet-pull-handle" aria-hidden="true" />
-        </div>
-
         {/* Encabezado del Modal / Sheet */}
         {!hideHeader && (
           <div className="px-5 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between flex-shrink-0 bg-white dark:bg-zinc-900">

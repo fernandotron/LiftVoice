@@ -70,38 +70,45 @@ export default function MasterBroadcastDock({
           </span>
         </button>
 
-        {/* Centro: Master Broadcast Button con Voice-Reactive Aura */}
-        <div className="relative flex items-center justify-center flex-1">
-          {isBroadcasting && (
-            <div
-              ref={haloRef}
-              className="absolute -inset-2.5 rounded-full bg-rose-500/30 dark:bg-rose-500/40 blur-sm pointer-events-none transition-transform duration-75"
-              style={{ transform: 'scale(1)', opacity: 0.2, willChange: 'transform, opacity' }}
-            />
-          )}
-
-          <button
-            type="button"
-            onClick={handleBroadcastClick}
-            className={`relative w-full max-w-[220px] h-14 rounded-full font-semibold text-xs tracking-tight flex items-center justify-center gap-2.5 shadow-md transition-all cursor-pointer active:scale-95 touch-manipulation select-none whitespace-nowrap ${
-              isBroadcasting
-                ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/30'
-                : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 shadow-zinc-950/20'
-            }`}
-            aria-label={isBroadcasting ? 'Detener emisión en vivo' : 'Comenzar a emitir en vivo'}
-          >
-            {isBroadcasting ? (
-              <>
-                <MicOff className="w-5 h-5 animate-pulse" />
-                <span>Detener emisión</span>
-              </>
-            ) : (
-              <>
-                <Mic className="w-5 h-5" />
-                <span>Emitir en directo</span>
-              </>
+        {/* Centro: Master Broadcast Button con Voice-Reactive Aura Gemini Live */}
+        <div className="flex items-center justify-center flex-1">
+          <div className="relative w-full max-w-[220px] flex items-center justify-center">
+            {isBroadcasting && (
+              <div
+                ref={haloRef}
+                className="absolute -inset-3 rounded-full gemini-aura-glow pointer-events-none transition-transform duration-75"
+                style={{ transform: 'scale(1)', opacity: 0.6, willChange: 'transform, opacity' }}
+              />
             )}
-          </button>
+
+            <button
+              type="button"
+              onClick={handleBroadcastClick}
+              className={`relative w-full h-14 rounded-full font-semibold text-xs tracking-tight flex items-center justify-center gap-2.5 shadow-md transition-all cursor-pointer active:scale-95 touch-manipulation select-none whitespace-nowrap ${
+                isBroadcasting
+                  ? 'gemini-gradient-bg text-white border border-white/20 shadow-lg shadow-purple-500/25'
+                  : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 shadow-zinc-950/20'
+              }`}
+              aria-label={isBroadcasting ? 'Detener emisión en vivo' : 'Comenzar a emitir en vivo'}
+            >
+              {isBroadcasting ? (
+                <>
+                  <div className="flex items-center gap-0.5 h-4 relative z-10">
+                    <span className="w-1 h-2.5 rounded-full bg-white animate-gemini-wave" />
+                    <span className="w-1 h-4 rounded-full bg-white animate-gemini-wave delay-1" />
+                    <span className="w-1 h-2 rounded-full bg-white animate-gemini-wave delay-2" />
+                    <span className="w-1 h-3.5 rounded-full bg-white animate-gemini-wave delay-3" />
+                  </div>
+                  <span className="relative z-10">Transmitiendo en vivo</span>
+                </>
+              ) : (
+                <>
+                  <Mic className="w-5 h-5" />
+                  <span>Emitir en directo</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Satélite Derecho: Drawer de Cabinas & Badge Q&A */}

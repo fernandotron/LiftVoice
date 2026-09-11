@@ -15,6 +15,7 @@ class SocketService {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
     this.connectingPromise = null;
+    this.isKicked = false;
 
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
@@ -126,16 +127,20 @@ class SocketService {
           }
         };
 
-        this.ws.onclose = () => {
+        this.ws.onclose = (event) => {
           clearTimeout(connectTimeout);
           if (!isOpened) {
             tryNextUrl();
             return;
           }
-          console.warn('[Socket] Connection closed.');
+          console.warn('[Socket] Connection closed.', event?.code);
           this.isConnected = false;
           this.stopPingLoop();
           this.emit('connection_status', { connected: false });
+          if (this.isKicked || (event && event.code === 4003)) {
+            console.warn('[Socket] Suppression of reconnect: attendee was kicked by host.');
+            return;
+          }
           this.attemptReconnect();
         };
 
@@ -158,6 +163,11 @@ class SocketService {
   }
 
   attemptReconnect() {
+    if (this.isKicked) {
+      console.warn('[Socket] Reconnect aborted: client was kicked by host.');
+      return;
+    }
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.warn('[Socket] Max reconnect attempts reached.');
       return;
@@ -221,6 +231,11 @@ class SocketService {
         this.emit('latency', this.latencyMs);
         break;
       }
+      case 'KICKED_BY_HOST':
+        this.isKicked = true;
+        this.stopPingLoop();
+        this.emit('kicked_by_host', msg);
+        break;
       case 'AUDIO_CHUNK':
         this.emit('audio_chunk', msg);
         break;
@@ -258,6 +273,7 @@ class SocketService {
   }
 
   joinAsListener(roomId, lang = 'en', userProfile = {}) {
+    this.isKicked = false;
     this.currentRoomId = roomId;
     this.currentRole = 'LISTENER';
     this.currentLang = lang;
@@ -317,6 +333,24 @@ class SocketService {
     return this.send({
       type: 'HOST_CLOSE_QUESTION',
       roomId: (roomId || this.currentRoomId || 'MAIN').toUpperCase()
+    });
+  }
+
+  kickAttendee(roomId, attendeeId, name = '', reason = '') {
+    return this.send({
+      type: 'HOST_KICK_ATTENDEE',
+      roomId: (roomId || this.currentRoomId || 'MAIN').toUpperCase(),
+      attendeeId,
+      name,
+      reason
+    });
+  }
+
+  unbanAttendee(roomId, attendeeId) {
+    return this.send({
+      type: 'HOST_UNBAN_ATTENDEE',
+      roomId: (roomId || this.currentRoomId || 'MAIN').toUpperCase(),
+      attendeeId
     });
   }
 

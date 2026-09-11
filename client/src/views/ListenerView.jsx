@@ -1,23 +1,43 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Headphones, Volume2, VolumeX, Radio, Sparkles, Activity, ShieldCheck, Zap, Sliders, Globe, AudioLines, ArrowRight, ArrowLeft, CheckCircle2, Edit3, Lock, RefreshCw, Home, Heart, Mail, Play, AlertCircle, Download, Check, X, User, Hand, Mic, MicOff, Send, MessageSquare, Sun, Moon, QrCode, Settings, Copy } from 'lucide-react';
+import {
+  Volume2,
+  VolumeX,
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  Check,
+  Hand,
+  Mic,
+  MicOff,
+  Send,
+  Copy,
+  X,
+  Type,
+  SlidersHorizontal,
+  ChevronDown,
+  Sparkles,
+  Menu,
+  Sun,
+  Moon
+} from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import LanguageSelector, { SUPPORTED_LANGUAGES } from '../components/LanguageSelector.jsx';
 import LiveCaptions from '../components/LiveCaptions.jsx';
-import AudioVisualizer from '../components/AudioVisualizer.jsx';
-import BottomSheetModal from '../components/BottomSheetModal.jsx';
+import CountryFlag from '../components/shared/CountryFlag.jsx';
+import GeminiFluidWave from '../components/shared/GeminiFluidWave.jsx';
 import MobileAudioDock from '../components/mobile/MobileAudioDock.jsx';
 import LanguageBottomSheet from '../components/mobile/LanguageBottomSheet.jsx';
 import MobileQAPill from '../components/mobile/MobileQAPill.jsx';
+import Banner from '../components/shared/Banner.jsx';
+import DesktopHeaderMenu from '../components/shared/DesktopHeaderMenu.jsx';
 import { socketService } from '../services/socket.js';
 import { audioPlayerService } from '../services/audioPlayer.js';
 
 export default function ListenerView({
   roomId = 'MAIN',
-  onLeave = () => {},
-  onOpenSettings = () => {},
-  onOpenQR = () => {}
+  onLeave = () => {}
 }) {
-  const { theme, resolvedTheme, toggleTheme } = useTheme();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [hasCopiedLink, setHasCopiedLink] = useState(false);
   const [isQASheetOpen, setIsQASheetOpen] = useState(false);
 
@@ -32,55 +52,28 @@ export default function ListenerView({
       }).catch(() => {});
     }
   };
-  // Persistent profile stored in localStorage across sessions
-  const [profile, setProfile] = useState(() => {
-    const saved = localStorage.getItem('lv_attendee_profile');
-    if (saved) {
-      try {
+
+  // Anonymous attendee profile by default (retrieves stored profile if previously saved)
+  const [profile] = useState(() => {
+    try {
+      const saved = localStorage.getItem('lv_attendee_profile');
+      if (saved) {
         const p = JSON.parse(saved);
         return {
           attendeeId: p.attendeeId || `att_${Math.random().toString(36).slice(2, 9)}_${Date.now()}`,
-          name: p.name || '',
+          name: p.name || 'Oyente',
           email: p.email || '',
           phone: p.phone || ''
         };
-      } catch (e) {}
-    }
+      }
+    } catch (e) {}
     return {
       attendeeId: `att_${Math.random().toString(36).slice(2, 9)}_${Date.now()}`,
-      name: '',
+      name: 'Oyente',
       email: '',
       phone: ''
     };
   });
-
-  const [hasSavedProfile, setHasSavedProfile] = useState(() => {
-    const saved = localStorage.getItem('lv_attendee_profile');
-    if (saved) {
-      try {
-        const p = JSON.parse(saved);
-        return Boolean(p.name && p.name.trim().length >= 2);
-      } catch (e) {}
-    }
-    return false;
-  });
-
-  // Prompt new attendees on arrival; remember returning attendees without asking again
-  const [showCheckInModal, setShowCheckInModal] = useState(() => {
-    const saved = localStorage.getItem('lv_attendee_profile');
-    if (saved) {
-      try {
-        const p = JSON.parse(saved);
-        return !(p.name && p.name.trim().length >= 2);
-      } catch (e) {}
-    }
-    return true;
-  });
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileSavedFeedback, setProfileSavedFeedback] = useState(false);
-  const [hasExitedSession, setHasExitedSession] = useState(false);
-  const [sessionStartTime] = useState(Date.now());
-  const [minutesListened, setMinutesListened] = useState(1);
 
   const [selectedLanguage, setSelectedLanguage] = useState(() => {
     try {
@@ -90,6 +83,10 @@ export default function ListenerView({
         const validLangs = ['es', 'en', 'it', 'pt'];
         if (urlLang && validLangs.includes(urlLang.toLowerCase())) {
           return urlLang.toLowerCase();
+        }
+        const savedLang = localStorage.getItem('lv_preferred_lang');
+        if (savedLang && validLangs.includes(savedLang.toLowerCase())) {
+          return savedLang.toLowerCase();
         }
       }
     } catch (e) {}
@@ -101,12 +98,13 @@ export default function ListenerView({
   useEffect(() => {
     selectedLangRef.current = selectedLanguage;
     audioPlayerService.setLanguage(selectedLanguage);
+    try {
+      localStorage.setItem('lv_preferred_lang', selectedLanguage);
+    } catch (e) {}
   }, [selectedLanguage]);
 
   const [isAudioUnlocked, setIsAudioUnlocked] = useState(() => audioPlayerService.isUnlocked);
   const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(1.0);
-  const [playbackRate, setPlaybackRate] = useState(1.0);
   const [isAudioSuspended, setIsAudioSuspended] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [transcriptHistory, setTranscriptHistory] = useState([]);
@@ -115,27 +113,61 @@ export default function ListenerView({
     languageBreakdown: { en: 0, es: 0, it: 0, pt: 0 }
   });
   const [socketLatency, setSocketLatency] = useState(14);
-  const SHOW_QA_SECTION = false; // Ocultado temporalmente por solicitud del usuario
 
-  // Bi-directional Q&A Backchannel State (2026-2029)
+  // Bi-directional Q&A Backchannel State
   const [qaState, setQaState] = useState('idle'); // 'idle' | 'requested' | 'speaking' | 'completed'
   const [questionText, setQuestionText] = useState('');
   const [isRecordingQuestion, setIsRecordingQuestion] = useState(false);
   const recognitionRef = useRef(null);
 
-  // Connect socket immediately upon mounting - NO FORCED REGISTRATION WALL
+  // Dynamic Caption Size for Audience Reading Comfort ('sm' | 'md' | 'lg' | 'xl')
+  const [captionSize, setCaptionSize] = useState(() => {
+    try {
+      return localStorage.getItem('lv_caption_size') || 'md';
+    } catch (e) {
+      return 'md';
+    }
+  });
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  const handleCycleCaptionSize = () => {
+    const order = ['sm', 'md', 'lg', 'xl'];
+    setCaptionSize((prev) => {
+      const idx = order.indexOf(prev);
+      const next = order[(idx + 1) % order.length];
+      try {
+        localStorage.setItem('lv_caption_size', next);
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  // Connect socket immediately upon mounting - Instant entry without registration popups
   useEffect(() => {
-    if (hasExitedSession) return;
+    let isMounted = true;
+    const startTime = Date.now();
 
     socketService.connect().then(() => {
       const activeProfile = {
         attendeeId: profile.attendeeId,
-        name: profile.name.trim() || 'Oyente Anónimo',
+        name: profile.name.trim() || 'Oyente',
         email: profile.email.trim() || '',
         phone: profile.phone.trim() || ''
       };
       socketService.joinAsListener(roomId, selectedLangRef.current, activeProfile);
+
+      const elapsed = Date.now() - startTime;
+      const minWait = Math.max(0, 300 - elapsed);
+      setTimeout(() => {
+        if (isMounted) setIsInitializing(false);
+      }, minWait);
+    }).catch(() => {
+      if (isMounted) setIsInitializing(false);
     });
+
+    const fallbackTimer = setTimeout(() => {
+      if (isMounted) setIsInitializing(false);
+    }, 1500);
 
     const unsubAudio = socketService.on('audio_chunk', (packet) => {
       const pktLang = (packet?.lang || '').toLowerCase().trim();
@@ -169,8 +201,6 @@ export default function ListenerView({
       setIsAudioUnlocked(state.isUnlocked);
       setIsPlayingAudio(state.isPlaying);
       setIsMuted(state.isMuted);
-      setVolume(state.volume);
-      setPlaybackRate(state.playbackRate);
       setIsAudioSuspended(audioPlayerService.isContextSuspended());
     });
 
@@ -191,7 +221,22 @@ export default function ListenerView({
       setIsRecordingQuestion(false);
     });
 
+    const unsubKicked = socketService.on('kicked_by_host', (data) => {
+      console.warn('[ListenerView] Attendee was kicked by host.');
+      audioPlayerService.stopAll();
+      onLeave({
+        reason: 'kicked',
+        message: data?.reason || 'Has sido expulsado de la sala por el anfitrión.'
+      });
+    });
+
+    try {
+      if (roomId) localStorage.setItem('lv_last_room_id', roomId);
+    } catch (e) {}
+
     return () => {
+      isMounted = false;
+      clearTimeout(fallbackTimer);
       unsubAudio();
       unsubTranscript();
       unsubStats();
@@ -200,11 +245,12 @@ export default function ListenerView({
       unsubQaConfirmed();
       unsubQaSpeaker();
       unsubQaClosed();
+      unsubKicked();
       audioPlayerService.stopAll();
     };
-  }, [roomId, hasExitedSession, profile.attendeeId, profile.name]);
+  }, [roomId, profile.attendeeId, profile.name]);
 
-  // Periodic check for audio suspension on iOS
+  // Periodic check for audio suspension on iOS Safari
   useEffect(() => {
     const interval = setInterval(() => {
       if (isAudioUnlocked) {
@@ -234,7 +280,7 @@ export default function ListenerView({
   };
 
   const handleSelectLanguage = async (langCode) => {
-    const cleanLang = (langCode || 'en').toLowerCase();
+    const cleanLang = (langCode || 'es').toLowerCase();
     const isDifferent = selectedLanguage !== cleanLang;
     if (isDifferent) {
       setSelectedLanguage(cleanLang);
@@ -253,80 +299,15 @@ export default function ListenerView({
     }
   };
 
-  const handleTestAudio = async () => {
-    try {
-      if (!isAudioUnlocked) {
-        await handleUnlockAudio();
-      }
-      audioPlayerService.playAudioTestTone();
-    } catch (e) {
-      console.warn('[ListenerView] Test audio notice:', e);
-    }
-  };
-
   const handleToggleMute = () => {
     const nextMute = !isMuted;
     setIsMuted(nextMute);
     audioPlayerService.setMuted(nextMute);
   };
 
-  const handleVolumeChange = (e) => {
-    const val = parseFloat(e.target.value);
-    setVolume(val);
-    audioPlayerService.setVolume(val);
-    if (isMuted && val > 0) {
-      setIsMuted(false);
-      audioPlayerService.setMuted(false);
-    }
-  };
-
-  const handleSpeedChange = (speed) => {
-    setPlaybackRate(speed);
-    audioPlayerService.setPlaybackRate(speed);
-  };
-
-  const handleCheckInSubmit = (e) => {
-    e.preventDefault();
-    if (!profile.name.trim()) return;
-
-    const updated = {
-      ...profile,
-      name: profile.name.trim(),
-      email: profile.email.trim(),
-      phone: profile.phone.trim()
-    };
-
-    setProfile(updated);
-    setHasSavedProfile(true);
-    setShowCheckInModal(false);
-    setIsEditingProfile(false);
-
-    try {
-      localStorage.setItem('lv_attendee_profile', JSON.stringify(updated));
-    } catch (err) {}
-
-    socketService.registerAttendeeLead(roomId, updated);
-
-    setProfileSavedFeedback(true);
-    setTimeout(() => setProfileSavedFeedback(false), 3000);
-
-    if (!isAudioUnlocked) {
-      handleUnlockAudio();
-    }
-  };
-
-  const handleSkipCheckIn = () => {
-    setShowCheckInModal(false);
-    if (!isAudioUnlocked) {
-      handleUnlockAudio();
-    }
-  };
-
-  const handleExitClick = () => {
-    const minutes = Math.max(1, Math.round((Date.now() - sessionStartTime) / 60000));
-    setMinutesListened(minutes);
+  const handleExit = () => {
     audioPlayerService.stopAll();
-    setHasExitedSession(true);
+    onLeave({ reason: 'voluntary', selectedLanguage });
   };
 
   const handleRaiseHand = () => {
@@ -353,8 +334,7 @@ export default function ListenerView({
     try {
       const rec = new SpeechRecognition();
       const localeMap = {
-        es: 'es-ES', en: 'en-US', fr: 'fr-FR', de: 'de-DE', it: 'it-IT', pt: 'pt-BR',
-        zh: 'zh-CN', ja: 'ja-JP', ar: 'ar-SA', ru: 'ru-RU', ko: 'ko-KR', hi: 'hi-IN'
+        es: 'es-ES', en: 'en-US', it: 'it-IT', pt: 'pt-BR'
       };
       rec.lang = localeMap[selectedLanguage] || 'es-ES';
       rec.continuous = false;
@@ -410,183 +390,49 @@ export default function ListenerView({
     }, 4500);
   };
 
-  const handleDownloadTranscript = () => {
-    if (transcriptHistory.length === 0) return;
-    const lines = transcriptHistory.map((item) => {
-      const time = new Date(item.timestamp || Date.now()).toLocaleTimeString();
-      const text = item.translations?.[selectedLanguage] || item.originalText;
-      return `[${time}] ${text}\n(Original: "${item.originalText}")\n`;
-    });
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `LiftVoice-Transcripcion-${roomId}-${selectedLanguage}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+  // Desktop Studio Layout States
+  const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(true);
+  const [activeInspectorTab, setActiveInspectorTab] = useState('actions'); // 'actions' | 'suggestions' | 'room'
+
+
 
   const currentLangObj = SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage) || SUPPORTED_LANGUAGES[0];
 
-  // 1. Thank You / Exit Screen (ElevenLabs Minimalist Goodbye Card)
-  if (hasExitedSession) {
+  if (isInitializing) {
     return (
-      <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center py-10 px-4 bg-white dark:bg-zinc-950 transition-colors">
-        <div className="w-full max-w-md space-y-6 text-center">
-          
-          <div className="w-14 h-14 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-white flex items-center justify-center mx-auto shadow-md">
-            <Heart className="w-7 h-7 text-emerald-400 fill-emerald-400/20" />
-          </div>
-
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-mono text-zinc-700 dark:text-zinc-300">
-              <span>Sala:</span>
-              <b className="text-zinc-900 dark:text-zinc-100">{roomId}</b>
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-              ¡Gracias por asistir a la sesión!
-            </h1>
-
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto leading-relaxed">
-              Traducción simultánea en vivo con audio neuronal de alta fidelidad.
-            </p>
-          </div>
-
-          {/* Session Summary Card */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 text-left space-y-3 shadow-2xs">
-            <div className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
-              Resumen de tu sesión
-            </div>
-
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs">
-              <div className="py-2.5 flex items-center justify-between">
-                <span className="text-zinc-500 dark:text-zinc-400">Oyente:</span>
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">{profile.name || 'Invitado en Sala'}</span>
-              </div>
-              <div className="py-2.5 flex items-center justify-between">
-                <span className="text-zinc-500 dark:text-zinc-400">Canal de voz:</span>
-                <span className="font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                  <span>{currentLangObj.flag}</span>
-                  <span>{currentLangObj.nativeName} ({currentLangObj.code})</span>
-                </span>
-              </div>
-              <div className="py-2.5 flex items-center justify-between">
-                <span className="text-zinc-500 dark:text-zinc-400">Tiempo de escucha:</span>
-                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{minutesListened} minuto{minutesListened === 1 ? '' : 's'}</span>
-              </div>
-              <div className="py-2.5 flex items-center justify-between">
-                <span className="text-zinc-500 dark:text-zinc-400">Frases recibidas:</span>
-                <span className="font-mono text-zinc-900 dark:text-zinc-100">{transcriptHistory.length} subtítulos</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="space-y-2.5 pt-1">
-            {transcriptHistory.length > 0 && (
-              <button
-                onClick={handleDownloadTranscript}
-                className="w-full h-11 rounded-xl bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Descargar Transcripción Completa (.txt)</span>
-              </button>
-            )}
-
-            <button
-              onClick={() => setHasExitedSession(false)}
-              className="w-full h-11 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-semibold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Volver a Escuchar en Directo</span>
-            </button>
-
-            <button
-              onClick={onLeave}
-              className="w-full h-10 rounded-xl bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <Home className="w-3.5 h-3.5" />
-              <span>Volver al Inicio</span>
-            </button>
-          </div>
-
-          <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
-            LiftVoice Studio 2026 &bull; Interpretación Neuronal
-          </p>
-
-        </div>
+      <div className="h-dvh min-h-dvh w-full flex items-center justify-center bg-white dark:bg-zinc-950">
+        <div className="w-5 h-5 border-2 border-zinc-200 dark:border-zinc-800 border-t-zinc-900 dark:border-t-zinc-100 rounded-full animate-spin" />
       </div>
     );
   }
 
-  // 2. Main Live Audio Receiver UI
   return (
     <div className="h-dvh min-h-dvh w-full flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-hidden font-sans select-none transition-colors">
-      
+
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* CABECERA PRINCIPAL: FORMA DE SALA DE REUNIÓN (ELEVENLABS)      */}
+      {/* CABECERA MÓVIL: SALA Y CONTROLES ESENCIALES                   */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <header className="h-[calc(3.25rem+env(safe-area-inset-top,0px))] pt-safe border-b border-zinc-200 dark:border-zinc-800 px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-zinc-900 flex-shrink-0 z-30">
-        
-        {/* Left: Mobile Exit vs Desktop Brand/Breadcrumbs */}
-        <div className="flex items-center gap-2 sm:gap-3">
+      <header className="sm:hidden h-[calc(3.5rem+env(safe-area-inset-top,0px))] pt-safe border-b border-zinc-200 dark:border-zinc-800 px-4 flex items-center justify-between bg-white dark:bg-zinc-900 flex-shrink-0 z-30">
+
+        {/* Left: Mobile Exit */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleExitClick}
-            className="sm:hidden flex items-center gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 p-1.5 -ml-1 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            onClick={handleExit}
+            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
             title="Salir de la sala"
+            aria-label="Salir de la sala"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Salir</span>
           </button>
-
-          {/* Desktop Brand & Room Indicator */}
-          <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            <button
-              type="button"
-              onClick={onLeave}
-              className="flex items-center gap-2 text-left cursor-pointer group"
-              title="Volver al inicio"
-            >
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <div className="w-1.5 h-4 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
-                <div className="w-1.5 h-3 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
-              </div>
-              <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 tracking-tight">
-                LiftVoice
-              </span>
-            </button>
-            <span className="text-zinc-300 dark:text-zinc-700">•</span>
-            <span>Cabina de Oyente</span>
-            <span className="text-zinc-300 dark:text-zinc-700">•</span>
-            <button
-              type="button"
-              onClick={handleCopyMeetingLink}
-              title="Copiar vínculo de la reunión"
-              className="font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 border border-zinc-200 dark:border-zinc-700 px-2.5 py-1 rounded-md transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
-            >
-              <span>{roomId}</span>
-              {hasCopiedLink ? (
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-sans font-medium flex items-center gap-0.5">
-                  <Check className="w-3 h-3" />
-                  <span>Copiado</span>
-                </span>
-              ) : (
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-sans font-normal">
-                  Copiar
-                </span>
-              )}
-            </button>
-          </div>
         </div>
 
-        {/* Center (Mobile Only): Cápsula de sala estilo Google Meet en una sola línea */}
-        <div className="sm:hidden flex items-center justify-center flex-1 min-w-0 px-1.5">
+        {/* Center: Mobile Room Capsule */}
+        <div className="flex items-center justify-center flex-1 min-w-0 px-1.5">
           <button
             type="button"
             onClick={handleCopyMeetingLink}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 border border-zinc-200 dark:border-zinc-700 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition-all cursor-pointer truncate shadow-2xs active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 border border-zinc-200 dark:border-zinc-700 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition-all cursor-pointer truncate shadow-2xs active:scale-95"
             title="Toca para copiar vínculo de la reunión"
           >
             <span className="truncate">{roomId}</span>
@@ -598,116 +444,63 @@ export default function ListenerView({
           </button>
         </div>
 
-        {/* Right Controls: Theme, QR, Settings, Profile */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
-          {/* Theme Toggle */}
+        {/* Right: Theme Toggle */}
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
             type="button"
             onClick={toggleTheme}
-            className="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
             title={resolvedTheme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           >
-            {resolvedTheme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-zinc-600" />}
-          </button>
-
-          {/* QR Button */}
-          <button
-            type="button"
-            onClick={onOpenQR}
-            className="hidden sm:flex h-8 px-2.5 sm:px-3 rounded-full border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-800 dark:text-zinc-200 items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-            title="Proyectar código QR"
-          >
-            <QrCode className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 flex-shrink-0" />
-            <span className="hidden sm:inline">QR</span>
-          </button>
-
-          {/* Settings Button */}
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
-            title="Configuración de audio y voz"
-          >
-            <Settings className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Attendee Profile Pill */}
-          {hasSavedProfile ? (
-            <button
-              type="button"
-              onClick={() => setIsEditingProfile(true)}
-              className="h-8 px-2.5 sm:px-3 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200/80 text-zinc-800 dark:text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer max-w-[110px] sm:max-w-[150px] shadow-2xs"
-              title="Editar mis datos de asistente"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-              <span className="truncate">{profile.name}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowCheckInModal(true)}
-              className="h-8 px-2.5 sm:px-3 rounded-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-semibold cursor-pointer shadow-2xs"
-            >
-              Identificarme
-            </button>
-          )}
-
-          {/* Desktop Exit Button */}
-          <button
-            type="button"
-            onClick={handleExitClick}
-            className="hidden sm:inline-flex text-xs text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            Salir
+            {resolvedTheme === 'dark' ? <Sun className="w-4 h-4 text-zinc-600 dark:text-zinc-400" /> : <Moon className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />}
           </button>
         </div>
       </header>
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* MÓVIL: STAGE BAR + LIENZO DE SUBTÍTULOS 100% INMERSIVO        */}
+      {/* MÓVIL: STAGE BAR + LIENZO DE SUBTÍTULOS INMERSIVO             */}
       {/* ───────────────────────────────────────────────────────────── */}
       <div className="sm:hidden flex-1 flex flex-col min-h-0 bg-white dark:bg-zinc-950 overflow-hidden">
-        
-        {/* Mobile Stage Bar */}
-        <div className="flex items-center justify-between gap-2 px-3.5 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0">
-          <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+
+        {/* Mobile Stage Bar: unificado con el canvas de subtítulos sin línea divisoria */}
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:py-3 bg-white dark:bg-zinc-950 flex-shrink-0">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
             <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 animate-pulse" />
             <span>En directo · <strong className="text-zinc-800 dark:text-zinc-200 font-semibold">{currentLangObj.nativeName}</strong></span>
-            <span>•</span>
-            <span className="font-mono text-[11px] text-zinc-400">{socketLatency}ms</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsLanguageSheetOpen(true)}
-            className="h-7 px-2.5 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 cursor-pointer shadow-2xs"
-          >
-            <span>{currentLangObj.flag}</span>
-            <span>Cambiar</span>
-          </button>
+          <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800/70 px-2.5 py-1 rounded-full">
+            {socketLatency}ms
+          </span>
         </div>
 
-        {/* Audio Unlock Notification (móvil) */}
+        {/* Audio Unlock Notification (móvil estilo Reness) */}
         {!isAudioUnlocked && (
-          <div className="p-2.5 mx-3 mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2 shadow-xs flex-shrink-0">
-            <div className="flex items-center gap-2 text-xs">
-              <Volume2 className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-              <span className="text-[11px] font-medium">Toca para activar audio en auriculares</span>
-            </div>
-            <button
-              onClick={handleUnlockAudio}
-              className="px-2.5 py-1 rounded-lg bg-amber-400 hover:bg-amber-500 text-zinc-950 font-bold text-[11px] cursor-pointer"
-            >
-              Sintonizar
-            </button>
+          <div className="px-4 pt-2.5 pb-1 flex-shrink-0">
+            <Banner
+              icon={<Volume2 className="w-4 h-4 text-white" strokeWidth={2.4} />}
+              color="#3b82f6"
+              title="Activar audio en directo"
+              desc="Toca para sincronizar y escuchar la traducción en tus auriculares."
+              action={
+                <button
+                  type="button"
+                  onClick={handleUnlockAudio}
+                  className="h-9 px-4 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+                >
+                  Sintonizar
+                </button>
+              }
+            />
           </div>
         )}
 
-        {/* Canvas de Subtítulos a Pantalla Completa (100% de alto libre con pb-24 para el dock) */}
+        {/* Canvas de Subtítulos a Pantalla Completa con espacio inferior para el dock */}
         <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden pb-24">
           <LiveCaptions
             transcriptHistory={transcriptHistory}
             currentLanguage={selectedLanguage}
             showOriginal={true}
+            captionSize={captionSize}
             className="flex-1 flex flex-col h-full min-h-0 w-full"
             maxHeightClass="flex-1 h-full min-h-0"
           />
@@ -715,374 +508,518 @@ export default function ListenerView({
       </div>
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* ESCRITORIO: WORKSPACE 2 COLUMNAS (PLAYER + CABINAS + CAPTIONS) */}
+      {/* ESCRITORIO: HEADER GLOBAL + ARQUITECTURA DE 4 ZONAS           */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <main className="hidden sm:flex flex-col flex-1 min-h-0 overflow-y-auto bg-zinc-50 dark:bg-zinc-950 p-4 sm:p-6 lg:p-8">
-        <div className="max-w-6xl mx-auto w-full space-y-6">
+      <div className="hidden sm:flex flex-col flex-1 min-h-0 w-full overflow-hidden bg-white dark:bg-zinc-950">
 
-          {/* Instant 1-Tap Audio Unlock Notification (Desktop) */}
-          {!isAudioUnlocked && (
-            <div className="p-4 rounded-2xl bg-zinc-900 dark:bg-zinc-900 text-white flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl border border-zinc-800">
-              <div className="flex items-center gap-3 text-left">
-                <div className="w-10 h-10 rounded-xl bg-white text-zinc-900 flex items-center justify-center flex-shrink-0">
-                  <Volume2 className="w-5 h-5 fill-current" />
+        {/* CABECERA SUPERIOR GLOBAL (DESKTOP HEADER 48px) */}
+        <header className="h-12 w-full border-b border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 px-4 flex items-center justify-between flex-shrink-0 z-30 select-none">
+          {/* Izquierda: Menú con icono de 2 líneas redondeadas y flyout de Tema */}
+          <DesktopHeaderMenu
+            onExit={handleExit}
+            hasCopiedLink={hasCopiedLink}
+            onCopyLink={handleCopyMeetingLink}
+          />
+
+          {/* Centro: Código de Sala con botón de copiar (sin la palabra "sala") */}
+          <div className="flex items-center justify-center">
+            <button
+              type="button"
+              onClick={handleCopyMeetingLink}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 font-mono text-xs font-semibold text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer shadow-2xs"
+              title="Copiar vínculo de la sala"
+            >
+              <span>{roomId}</span>
+              {hasCopiedLink ? (
+                <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+              ) : (
+                <Copy className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-shrink-0" />
+              )}
+            </button>
+          </div>
+
+          {/* Derecha: Botón para alternar panel Asistente */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsRightDrawerOpen(prev => !prev)}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer border ${
+                isRightDrawerOpen
+                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-200 dark:border-zinc-700 shadow-2xs'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+              }`}
+              title="Alternar panel Asistente"
+              aria-label="Alternar panel Asistente"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+
+        {/* CUERPO DE 4 ZONAS (INICIA DEBAJO DEL HEADER) */}
+        <div className="flex-1 min-h-0 w-full overflow-hidden flex flex-row bg-white dark:bg-zinc-950">
+
+
+
+        {/* ZONE 2: LEFT CONFIGURATION & CONTROL PANEL (w-80) */}
+        <aside className="w-80 border-r border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 flex flex-col flex-shrink-0 select-none overflow-hidden">
+          {/* Header: Title */}
+          <div className="h-14 px-5 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0">
+            <div>
+              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                Cabina de Oyente
+              </h2>
+              <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+                Sincronización de audio y texto en tiempo real
+              </p>
+            </div>
+          </div>
+
+          {/* Línea divisoria con margen horizontal en X (no abarca el ancho completo) */}
+          <div className="mx-5 border-b border-zinc-200 dark:border-zinc-800/80 flex-shrink-0" />
+
+          {/* Left Sidebar Scrollable Body */}
+          <div className="flex-1 overflow-y-auto px-5 pt-4 pb-5 flex flex-col justify-between">
+            <div className="space-y-5">
+              {/* Configuración Section */}
+              <div className="space-y-4">
+                <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  Configuración
                 </div>
-                <div className="text-xs text-zinc-300">
-                  <b className="text-white block text-sm font-semibold">Toca para escuchar en tus auriculares</b>
-                  Activa la transmisión instantánea. El audio continuará con la pantalla apagada.
+
+                {/* Canal de Recepción (4 bloques directos en cuadrícula 2x2 - Inspirado en media_1789145385636.png) */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+                    Canal de recepción
+                  </label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {SUPPORTED_LANGUAGES.map(lang => {
+                      const isSelected = selectedLanguage === lang.code;
+                      return (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => handleSelectLanguage(lang.code)}
+                          className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-600 ring-1 ring-zinc-400/30 dark:ring-zinc-600/30 shadow-2xs'
+                              : 'bg-white dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/40'
+                          }`}
+                        >
+                          {/* Fila superior: Bandera a la izquierda, Badge a la derecha */}
+                          <div className="flex items-center justify-between mb-2.5">
+                            <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60 overflow-hidden shadow-2xs">
+                              <CountryFlag code={lang.code} className="w-4.5 h-4.5 rounded-full object-cover" />
+                            </div>
+                            {isSelected ? (
+                              <span className="w-6 h-6 rounded-full bg-emerald-500 text-white border border-emerald-500 inline-flex items-center justify-center shadow-2xs">
+                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                              </span>
+                            ) : (
+                              <span className="h-6 px-2 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 text-[10px] font-mono font-medium text-zinc-400 dark:text-zinc-500 inline-flex items-center justify-center">
+                                {lang.code.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Fila inferior: Nombre de idioma y voz */}
+                          <div>
+                            <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
+                              {lang.nativeName}
+                            </div>
+                            <div className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">
+                              {lang.voice}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                {/* Identidad en Sala */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+                    Identidad en Sala
+                  </label>
+                  <div className="h-10 px-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between text-xs text-zinc-700 dark:text-zinc-300 font-medium shadow-2xs">
+                    <span className="truncate">{profile.name}</span>
+                    <span className="text-[10px] font-mono text-zinc-400">Oyente</span>
+                  </div>
+                </div>
+
+                {/* Copy Link Secondary Button */}
+                <button
+                  type="button"
+                  onClick={handleCopyMeetingLink}
+                  className="w-full h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
+                >
+                  {hasCopiedLink ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="text-emerald-600 dark:text-emerald-400">Enlace Copiado al Portapapeles</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>Copiar Enlace de Oyente</span>
+                    </>
+                  )}
+                </button>
               </div>
-              <button
-                onClick={handleUnlockAudio}
-                className="h-10 px-5 rounded-full bg-white hover:bg-zinc-200 text-zinc-900 font-semibold text-xs whitespace-nowrap w-full sm:w-auto cursor-pointer shadow-md transition-transform active:scale-95"
-              >
-                Sintonizar Ahora
-              </button>
             </div>
-          )}
 
-          {/* iOS Safari Context Suspended Recovery Banner (Desktop) */}
-          {isAudioUnlocked && isAudioSuspended && (
-            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 text-xs text-left">
-                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                <span>El audio se pausó por el sistema operativo. Pulsa reanudar.</span>
+            {/* Section: Estado + Primary Button */}
+            <div className="space-y-3 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+              <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                Estado de recepción
               </div>
-              <button
-                onClick={handleResumeSuspendedAudio}
-                className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black font-semibold text-xs whitespace-nowrap cursor-pointer"
-              >
-                Reanudar
-              </button>
-            </div>
-          )}
 
-          {/* Spacious 2-Column Responsive Workspace */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            
-            {/* Left Column: Player & Audio Controls (5 cols on LG/XL) */}
-            <div className="lg:col-span-5 space-y-5">
-          
-          {/* Central Tactile Studio Player */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 text-center space-y-4 sm:space-y-5 relative overflow-hidden shadow-2xs">
-            <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-mono">
-              <span className="flex items-center gap-1.5">
-                <Radio className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
-                Cabina de interpretación
-              </span>
-              <span className="flex items-center gap-1 text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/40">
-                <Lock className="w-3 h-3" />
-                Segundo plano activo
-              </span>
-            </div>
+              {/* Latency & Audio state card */}
+              <div className="p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between text-xs shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${
+                    isMuted
+                      ? 'bg-zinc-400 dark:bg-zinc-500'
+                      : isPlayingAudio
+                      ? 'bg-emerald-500 animate-pulse'
+                      : isAudioUnlocked
+                      ? 'bg-emerald-500'
+                      : 'bg-amber-500'
+                  }`} />
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                    {isMuted
+                      ? 'Audio silenciado'
+                      : isPlayingAudio
+                      ? 'Reproduciendo audio'
+                      : isAudioUnlocked
+                      ? 'Audio sincronizado'
+                      : 'Audio en espera'}
+                  </span>
+                </div>
+                <span className="font-mono text-[11px] text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">
+                  {socketLatency}ms
+                </span>
+              </div>
 
-            {/* Tactile Voice Ring with animated glow */}
-            <div className="py-2 sm:py-3 flex items-center justify-center">
+              {/* Visualizer wave if playing and not muted */}
+              {isPlayingAudio && !isMuted && (
+                <div className="h-10 rounded-xl overflow-hidden bg-zinc-900/10 dark:bg-zinc-900">
+                  <GeminiFluidWave className="w-full h-full" />
+                </div>
+              )}
+
+              {/* Master Audio Control Button (Anchored at Bottom) */}
               <button
                 type="button"
-                onClick={handleUnlockAudio}
-                className="p-3 sm:p-4 rounded-full transition-all duration-300 cursor-pointer active:scale-95 focus:outline-none"
-                title={!isAudioUnlocked ? 'Toca para activar audio' : 'Canal sintonizado'}
-              >
-                <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full border flex flex-col items-center justify-center shadow-xs transition-all ${
+                onClick={!isAudioUnlocked ? handleUnlockAudio : handleToggleMute}
+                className={`w-full h-11 rounded-2xl font-semibold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] border ${
                   !isAudioUnlocked
-                    ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 ring-4 ring-amber-100 dark:ring-amber-900/40 animate-pulse'
-                    : isPlayingAudio
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 ring-4 ring-emerald-100 dark:ring-emerald-900/40'
-                    : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
-                }`}>
-                  <span className="text-3xl sm:text-4xl">{currentLangObj.flag}</span>
-                  <span className="text-[11px] sm:text-xs font-mono text-zinc-700 dark:text-zinc-300 mt-1 font-semibold">
-                    {currentLangObj.code} &bull; {currentLangObj.nativeName}
-                  </span>
-                  {!isAudioUnlocked && (
-                    <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 mt-0.5 animate-bounce">
-                      Toca para oír
-                    </span>
-                  )}
-                </div>
+                    ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-transparent'
+                    : isMuted
+                    ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-transparent'
+                    : 'border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                }`}
+              >
+                {!isAudioUnlocked ? (
+                  <>
+                    <Volume2 className="w-4 h-4 text-current" />
+                    <span>Iniciar Sintonización</span>
+                  </>
+                ) : isMuted ? (
+                  <>
+                    <Volume2 className="w-4 h-4 text-current" />
+                    <span>Reanudar Audio</span>
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                    <span>Silenciar Audio</span>
+                  </>
+                )}
               </button>
             </div>
+          </div>
+        </aside>
 
-            {/* Waveform Spectrum (Minimalist Monochromatic) */}
-            <div className="px-1 sm:px-2">
-              <AudioVisualizer
-                mode="bars"
-                height={40}
-                barCount={32}
-                barColor="auto"
-                isActive={isPlayingAudio}
-                getFrequencyDataFn={audioPlayerService.getFrequencyData.bind(audioPlayerService)}
-              />
+        {/* ZONE 3: DOMINANT REAL-TIME TRANSCRIPTION CANVAS (flex-1) */}
+        <section className="flex-1 min-w-0 flex flex-col h-full bg-white dark:bg-zinc-950 overflow-hidden">
+          {/* Canvas Header */}
+          <div className="h-14 border-b border-zinc-200 dark:border-zinc-800/80 px-6 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0">
+            <div>
+              <h1 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
+                <span>Transcripción en Tiempo Real</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              </h1>
+              <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                La transcripción aparecerá aquí cuando esté disponible
+              </p>
             </div>
 
-            <div className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-              {isPlayingAudio ? (
-                <span className="text-zinc-900 dark:text-zinc-100 flex items-center justify-center gap-2 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                  <span>Voz neuronal sintetizada sonando en vivo</span>
-                </span>
-              ) : !isAudioUnlocked ? (
-                <button
-                  onClick={handleUnlockAudio}
-                  className="text-amber-700 dark:text-amber-400 font-semibold hover:underline inline-flex items-center gap-1.5 cursor-pointer text-xs"
-                >
-                  <Volume2 className="w-3.5 h-3.5" />
-                  <span>Pulsa aquí o en el círculo para activar el sonido</span>
-                </button>
-              ) : (
-                <span className="text-zinc-500 dark:text-zinc-400">
-                  Sintonizado &bull; Listo para reproducir voz en tiempo real
-                </span>
-              )}
+            <div className="flex items-center gap-2.5">
+              {/* Caption size switch */}
+              <button
+                type="button"
+                onClick={handleCycleCaptionSize}
+                className="h-8 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Cambiar tamaño de fuente"
+              >
+                <Type className="w-3.5 h-3.5 text-zinc-400" />
+                <span>{captionSize.toUpperCase()}</span>
+              </button>
             </div>
           </div>
 
-          {/* Audio Controls: Volume & Playback Rate */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 space-y-3.5 sm:space-y-4 shadow-2xs">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleToggleMute}
-                  className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                    isMuted
-                      ? 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
-                      : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700'
-                  }`}
-                >
-                  {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-zinc-800 dark:text-zinc-200" />}
-                  <span>{isMuted ? 'Silenciado' : 'Sonido Activo'}</span>
-                </button>
-
-                <button
-                  onClick={handleTestAudio}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 transition-all cursor-pointer"
-                  title="Reproduce un tono breve para verificar tus auriculares"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span className="hidden xs:inline sm:inline">Probar Sonido</span>
-                  <span className="xs:hidden sm:hidden">Probar</span>
-                </button>
-              </div>
-
-              {/* Playback Rate Selector */}
-              <div className="flex items-center gap-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-1 rounded-xl">
-                <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 px-1.5">Vel:</span>
-                {[0.9, 1.0, 1.1, 1.2].map((spd) => (
-                  <button
-                    key={spd}
-                    type="button"
-                    onClick={() => handleSpeedChange(spd)}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-medium transition-all cursor-pointer ${
-                      playbackRate === spd
-                        ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold shadow-2xs'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                    }`}
-                  >
-                    {spd.toFixed(1)}x
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Volume Slider */}
-            <div className="space-y-1.5 text-left">
-              <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-mono">
-                <span>Volumen auriculares</span>
-                <span className="text-zinc-900 dark:text-zinc-100 font-semibold">{Math.round(volume * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1.5"
-                step="0.05"
-                value={isMuted ? 0 : volume}
-                onChange={handleVolumeChange}
-                className="eleven-slider-input"
-              />
-            </div>
-          </div>
-
-          {/* Bi-directional Q&A Backchannel Card (2026-2029) - Ocultado temporalmente por solicitud del usuario */}
-          {SHOW_QA_SECTION && (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-3.5 shadow-2xs text-left">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Hand className="w-4 h-4 text-zinc-900 dark:text-zinc-100" />
-                  <h3 className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                    Preguntar al ponente (Q&A)
-                  </h3>
-                </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono">
-                  En vivo
-                </span>
-              </div>
-
-              {qaState === 'idle' && (
-                <div className="space-y-3">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    ¿Tienes una duda o comentario? Levanta la mano para pedir la palabra. Podrás hablar en tu idioma ({currentLangObj.nativeName}) y el ponente te escuchará traducido en tiempo real en su auricular.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleRaiseHand}
-                    className="w-full h-11 rounded-xl bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer active:scale-[0.99]"
-                  >
-                    <Hand className="w-4 h-4 text-amber-400" />
-                    <span>Levantar la Mano / Pedir la Palabra</span>
-                  </button>
-                </div>
-              )}
-
-              {qaState === 'requested' && (
-                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 space-y-2.5 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
-                    <span className="text-xs font-bold text-amber-950 dark:text-amber-200">Mano levantada enviada</span>
-                  </div>
-                  <p className="text-xs text-amber-800 dark:text-amber-300">
-                    El ponente ha recibido tu turno. Cuando te concedan la palabra se activará tu micrófono.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleCancelRaiseHand}
-                    className="px-3.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-amber-300 dark:border-amber-700 text-xs font-medium text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
-                  >
-                    Bajar la mano / Cancelar
-                  </button>
-                </div>
-              )}
-
-              {qaState === 'speaking' && (
-                <div className="p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40 space-y-3 animate-fadeIn text-left">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200">
-                        ¡Tienes la palabra! Micrófono abierto
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-200/80 dark:bg-emerald-900/80 text-emerald-900 dark:text-emerald-200 font-bold">
-                      {currentLangObj.code}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-emerald-900 dark:text-emerald-300">
-                    Habla por el micrófono en tu idioma o escribe tu pregunta. El ponente la escuchará traducida a su auricular al instante.
-                  </p>
-
-                  <form onSubmit={handleSendQuestion} className="space-y-2.5">
-                    <div className="relative">
-                      <textarea
-                        rows={2}
-                        value={questionText}
-                        onChange={(e) => setQuestionText(e.target.value)}
-                        placeholder="Habla o escribe aquí tu pregunta para el ponente..."
-                        className="w-full bg-white dark:bg-zinc-800 border border-emerald-300 dark:border-emerald-700 rounded-xl p-3 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={isRecordingQuestion ? handleStopRecordingQuestion : handleStartRecordingQuestion}
-                        className={`h-9 px-3 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
-                          isRecordingQuestion
-                            ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
-                            : 'bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200'
-                        }`}
-                      >
-                        {isRecordingQuestion ? (
-                          <>
-                            <MicOff className="w-3.5 h-3.5" />
-                            <span>Detener Dictado</span>
-                          </>
-                        ) : (
-                          <>
-                            <Mic className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
-                            <span>Dictar con Voz</span>
-                          </>
-                        )}
-                      </button>
-
-                      <button
-                        type="submit"
-                        disabled={!questionText.trim()}
-                        className="flex-1 h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Enviar al Ponente</span>
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              {qaState === 'completed' && (
-                <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-center space-y-1 animate-fadeIn">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 mx-auto" />
-                  <div className="text-xs font-bold text-emerald-950 dark:text-emerald-100">¡Pregunta transmitida!</div>
-                  <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
-                    Tu intervención ha sido traducida y transmitida al auricular del ponente y a los subtítulos de la sala.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Headphone & Screen Lock Tip */}
-          <div className="text-center text-xs text-zinc-400 dark:text-zinc-500 py-1 flex items-center justify-center gap-2">
-            <Headphones className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
-            <span>Puedes apagar la pantalla o cambiar de app y el audio continuará sonando.</span>
-          </div>
-
-        </div>
-
-        {/* Right Column: Language Selector & Live Captions Feed (7 cols on LG/XL) */}
-        <div className="lg:col-span-7 space-y-4 sm:space-y-5">
-          
-          {/* Language Voice Selector (Desktop / Tablet) */}
-          <div className="hidden sm:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 sm:p-6 space-y-3 sm:space-y-4 shadow-2xs text-left">
-            <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-zinc-800 dark:text-zinc-200" />
-                <h3 className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                  Canal de idioma &bull; Cabina neuronal
-                </h3>
-              </div>
-              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">Cambio instantáneo</span>
-            </div>
-
-            <LanguageSelector
-              selectedLanguage={selectedLanguage}
-              onSelectLanguage={handleSelectLanguage}
-              languageBreakdown={roomStats.languageBreakdown || {}}
-              variant="grid"
-            />
-          </div>
-
-          {/* Synchronized Captions Feed */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-2xs">
+          {/* Canvas Body */}
+          <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden p-4 sm:p-6">
             <LiveCaptions
               transcriptHistory={transcriptHistory}
               currentLanguage={selectedLanguage}
               showOriginal={true}
-              maxHeightClass="min-h-[55vh] sm:min-h-[300px] max-h-[calc(100dvh-180px)] sm:max-h-[500px]"
+              captionSize={captionSize}
+              className="flex-1 flex flex-col h-full min-h-0 w-full"
+              maxHeightClass="flex-1 h-full min-h-0"
             />
-            </div>
           </div>
+        </section>
+
+        {/* ZONE 4: COLLAPSIBLE RIGHT INSPECTOR PANEL (w-88) */}
+        {isRightDrawerOpen && (
+          <aside className="w-88 border-l border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 flex flex-col flex-shrink-0 select-none overflow-hidden animate-fadeIn">
+            {/* Inspector Header: Title + Subtitle + Menú de pestañas dentro del Header */}
+            <div className="px-5 pt-3.5 pb-2.5 flex flex-col gap-2.5 bg-white dark:bg-zinc-950 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                    Asistente
+                  </h2>
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+                    Intervenciones en tiempo real
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsRightDrawerOpen(false)}
+                  className="w-7 h-7 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center justify-center transition-colors cursor-pointer"
+                  title="Cerrar panel"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Menú de pestañas dentro del header (estilo exacto app-salud / media_1789147633077.png) */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => setActiveInspectorTab('actions')}
+                  className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
+                    activeInspectorTab === 'actions'
+                      ? 'text-zinc-950 dark:text-zinc-100 bg-zinc-100 dark:bg-white/10 shadow-2xs'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
+                  }`}
+                >
+                  Acciones
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveInspectorTab('suggestions')}
+                  className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
+                    activeInspectorTab === 'suggestions'
+                      ? 'text-zinc-950 dark:text-zinc-100 bg-zinc-100 dark:bg-white/10 shadow-2xs'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
+                  }`}
+                >
+                  Sugerencias
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveInspectorTab('room')}
+                  className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
+                    activeInspectorTab === 'room'
+                      ? 'text-zinc-950 dark:text-zinc-100 bg-zinc-100 dark:bg-white/10 shadow-2xs'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
+                  }`}
+                >
+                  Sala
+                </button>
+              </div>
+            </div>
+
+            {/* Inspector Scrollable Body */}
+            <div className="flex-1 overflow-y-auto px-5 pt-2.5 pb-5 flex flex-col justify-between">
+              <div className="space-y-4">
+
+                {/* Tab Content: Acciones */}
+                {activeInspectorTab === 'actions' && (
+                  <div className="space-y-4 animate-fadeIn">
+                    {/* Q&A Backchannel Card */}
+                    <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-3 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                          Preguntas al Ponente
+                        </span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                          {qaState === 'idle' ? 'Inactivo' : qaState === 'requested' ? 'En espera' : 'En directo'}
+                        </span>
+                      </div>
+
+                      {qaState === 'idle' && (
+                        <button
+                          type="button"
+                          onClick={handleRaiseHand}
+                          className="w-full h-10 rounded-xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                        >
+                          <Hand className="w-4 h-4" />
+                          <span>Pedir la Palabra</span>
+                        </button>
+                      )}
+
+                      {qaState === 'requested' && (
+                        <div className="space-y-2">
+                          <Banner
+                            icon={<Hand className="w-4 h-4 text-white animate-bounce" strokeWidth={2.4} />}
+                            color="#f59e0b"
+                            title="Turno solicitado"
+                            desc="El anfitrión ha recibido tu solicitud. Se te notificará cuando se te conceda la palabra."
+                          />
+                          <button
+                            type="button"
+                            onClick={handleCancelRaiseHand}
+                            className="w-full h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
+                          >
+                            Bajar la mano
+                          </button>
+                        </div>
+                      )}
+
+                      {qaState === 'speaking' && (
+                        <div className="space-y-3">
+                          <Banner
+                            icon={<CheckCircle2 className="w-4 h-4 text-white" strokeWidth={2.4} />}
+                            color="#10b981"
+                            title="¡Tienes la palabra!"
+                            desc="Escribe o dicta tu pregunta con voz. Se traducirá en tiempo real para el ponente."
+                          />
+                          <form onSubmit={handleSendQuestion} className="space-y-2.5">
+                            <textarea
+                              rows={2}
+                              value={questionText}
+                              onChange={(e) => setQuestionText(e.target.value)}
+                              placeholder="Escribe aquí tu pregunta..."
+                              className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none resize-none"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={isRecordingQuestion ? handleStopRecordingQuestion : handleStartRecordingQuestion}
+                                className={`h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                                  isRecordingQuestion
+                                    ? 'bg-rose-600 text-white border-transparent animate-pulse'
+                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
+                                }`}
+                              >
+                                <Mic className="w-3.5 h-3.5" />
+                                <span>{isRecordingQuestion ? 'Detener' : 'Dictar'}</span>
+                              </button>
+                              <button
+                                type="submit"
+                                disabled={!questionText.trim()}
+                                className="flex-1 h-9 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold disabled:opacity-40 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                                <span>Enviar</span>
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab Content: Sugerencias */}
+                {activeInspectorTab === 'suggestions' && (
+                  <div className="space-y-3 animate-fadeIn">
+                    <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-1.5 shadow-2xs">
+                      <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                        Preguntas recomendadas
+                      </div>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Puedes pulsar cualquiera de estas frases para cargarlas en el campo de texto:
+                      </p>
+                    </div>
+                    {[
+                      "¿Podría profundizar más en el último punto?",
+                      "¿Cómo impacta esto en la implementación práctica?",
+                      "¿Cuál es el siguiente paso previsto en la hoja de ruta?"
+                    ].map((phrase, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          setQuestionText(phrase);
+                          setActiveInspectorTab('actions');
+                          if (qaState === 'idle') handleRaiseHand();
+                        }}
+                        className="w-full p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-left text-xs text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        &ldquo;{phrase}&rdquo;
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tab Content: Sala */}
+                {activeInspectorTab === 'room' && (
+                  <div className="space-y-3 animate-fadeIn">
+                    <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2 text-xs shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500 dark:text-zinc-400">Total Oyentes:</span>
+                        <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{roomStats.totalListeners}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500 dark:text-zinc-400">Canal de Escucha:</span>
+                        <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100 uppercase">{selectedLanguage}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500 dark:text-zinc-400">Latencia WebSocket:</span>
+                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{socketLatency}ms</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Tip Card (Matching Reference Screenshot 2) */}
+              <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 text-xs space-y-1 mt-4 shadow-2xs">
+                <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
+                  <span>Tip de Cabina</span>
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Puedes hablar o escribir en tu idioma natal; el sistema de traducción traducirá tus preguntas automáticamente al ponente.
+                </p>
+              </div>
+            </div>
+          </aside>
+        )}
+
         </div>
       </div>
-    </main>
 
-      {/* Mobile Ergonomic Thumb Dock (Formato idéntico a MasterBroadcastDock) */}
+      {/* Mobile Ergonomic Thumb Dock with Upward Action Menu */}
       <MobileAudioDock
         currentLanguage={currentLangObj}
+        selectedLanguage={selectedLanguage}
+        onSelectLanguage={handleSelectLanguage}
+        languageBreakdown={roomStats.languageBreakdown || {}}
         isPlaying={isPlayingAudio}
         isUnlocked={isAudioUnlocked}
         isMuted={isMuted}
         latency={socketLatency}
         qaState={qaState}
+        captionSize={captionSize}
+        onCycleCaptionSize={handleCycleCaptionSize}
         onTogglePlay={!isAudioUnlocked ? handleUnlockAudio : handleToggleMute}
         onToggleMute={handleToggleMute}
         onOpenLanguageSheet={() => setIsLanguageSheetOpen(true)}
@@ -1092,6 +1029,7 @@ export default function ListenerView({
         }}
       />
 
+      {/* Mobile Language Bottom Sheet */}
       <LanguageBottomSheet
         isOpen={isLanguageSheetOpen}
         onClose={() => setIsLanguageSheetOpen(false)}
@@ -1100,6 +1038,7 @@ export default function ListenerView({
         languageBreakdown={roomStats.languageBreakdown || {}}
       />
 
+      {/* Mobile Q&A Pill Modal */}
       <MobileQAPill
         isOpen={isQASheetOpen}
         onClose={() => setIsQASheetOpen(false)}
@@ -1115,104 +1054,6 @@ export default function ListenerView({
         onStopRecord={handleStopRecordingQuestion}
         onSendQuestion={handleSendQuestion}
       />
-
-      {/* Attendee Check-In / Registration Modal (Bottom Sheet on Mobile, Centered on Desktop) */}
-      <BottomSheetModal
-        isOpen={showCheckInModal || isEditingProfile}
-        onClose={() => {
-          if (isEditingProfile) setIsEditingProfile(false);
-          else handleSkipCheckIn();
-        }}
-        title={isEditingProfile ? 'Editar mis datos' : 'Registro de Asistente'}
-        subtitle={`Sala ${roomId} • Traducción simultánea`}
-        icon={Headphones}
-        maxWidth="max-w-md"
-      >
-        <div className="space-y-4 text-left">
-          <div className="space-y-1">
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              {isEditingProfile 
-                ? 'Actualiza tu nombre o correo para la lista de asistencia y el resumen oficial.'
-                : 'Indica tu nombre para identificarte en la conferencia y recibir el resumen con la transcripción al finalizar.'}
-            </p>
-            {!isEditingProfile && (
-              <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                ⚡ Si sales y vuelves a entrar, el sistema te reconocerá automáticamente sin tener que rellenar tus datos de nuevo.
-              </p>
-            )}
-          </div>
-
-          {/* Check-In Form */}
-          <form onSubmit={handleCheckInSubmit} className="space-y-3.5">
-            <div className="space-y-1">
-              <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 font-mono">
-                Nombre y Apellido <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={profile.name}
-                onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                placeholder="ej. Carlos Mendoza"
-                className="w-full h-11 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-100 transition-colors shadow-2xs"
-                autoFocus
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 font-mono">
-                Correo Electrónico (Para recibir transcripción)
-              </label>
-              <input
-                type="email"
-                value={profile.email}
-                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                placeholder="ej. carlos@empresa.com"
-                className="w-full h-11 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-100 transition-colors shadow-2xs"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 font-mono">
-                Teléfono / WhatsApp (Opcional)
-              </label>
-              <input
-                type="tel"
-                value={profile.phone}
-                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                placeholder="ej. +34 600 000 000"
-                className="w-full h-11 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-100 transition-colors shadow-2xs"
-              />
-            </div>
-
-            <div className="pt-2 space-y-2">
-              <button
-                type="submit"
-                disabled={!profile.name.trim()}
-                className="w-full h-11 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-semibold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-40 active:scale-[0.99]"
-              >
-                <span>{isEditingProfile ? 'Guardar Cambios' : 'Entrar y Sintonizar Audio'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-
-              {!isEditingProfile && (
-                <button
-                  type="button"
-                  onClick={handleSkipCheckIn}
-                  className="w-full py-2 text-center text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
-                >
-                  Omitir y entrar como invitado anónimo
-                </button>
-              )}
-            </div>
-          </form>
-
-          <div className="flex items-center justify-center gap-2 text-[10px] text-zinc-400 dark:text-zinc-500 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-            <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-            <span>Tus datos se guardan en tu dispositivo y te reconocen al volver</span>
-          </div>
-        </div>
-      </BottomSheetModal>
 
     </div>
   );

@@ -4,7 +4,7 @@ import {
   RefreshCw, Check, Globe, ChevronRight, Activity, Users, QrCode, Play,
   Send, Layers, ArrowRight, Shield, Download, FileText, Stethoscope, Home,
   Search, ExternalLink, Headphones, Hand, HelpCircle, CheckCircle2, XCircle, MessageSquare,
-  Menu, X, SlidersHorizontal, Copy
+  Menu, X, SlidersHorizontal, Copy, ChevronDown
 } from 'lucide-react';
 import AudioVisualizer from '../components/AudioVisualizer.jsx';
 import LiveCaptions from '../components/LiveCaptions.jsx';
@@ -18,6 +18,9 @@ import DynamicIslandBar from '../components/mobile/DynamicIslandBar.jsx';
 import MasterBroadcastDock from '../components/mobile/MasterBroadcastDock.jsx';
 import CabinsBottomSheet from '../components/mobile/CabinsBottomSheet.jsx';
 import QABannerAlert from '../components/mobile/QABannerAlert.jsx';
+import Banner from '../components/shared/Banner.jsx';
+import DesktopHeaderMenu from '../components/shared/DesktopHeaderMenu.jsx';
+import { useTheme } from '../contexts/ThemeContext.jsx';
 import { audioRecorderService } from '../services/audioRecorder.js';
 import { audioPlayerService } from '../services/audioPlayer.js';
 import { socketService } from '../services/socket.js';
@@ -44,6 +47,7 @@ export default function HostView({
   onOpenSettings = () => {},
   onNavigateVoices = null
 }) {
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState('es-ES');
   const [targetLanguages, setTargetLanguages] = useState(['es', 'en', 'it', 'pt']);
@@ -67,7 +71,10 @@ export default function HostView({
   const [previewingLang, setPreviewingLang] = useState(null);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isMobileInspectorOpen, setIsMobileInspectorOpen] = useState(false);
+  const [isDesktopInspectorOpen, setIsDesktopInspectorOpen] = useState(true);
   const [isCabinsSheetOpen, setIsCabinsSheetOpen] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+
 
   // Q&A Backchannel State
   const [qaQueue, setQaQueue] = useState([]);
@@ -514,6 +521,19 @@ export default function HostView({
     }
   };
 
+  const handleKickAttendee = (attendeeId, name) => {
+    if (!attendeeId) return;
+    const confirmKick = window.confirm(`¿Estás seguro de que deseas expulsar a "${name || 'este asistente'}" de la sala?`);
+    if (confirmKick) {
+      socketService.kickAttendee(roomId, attendeeId, name, 'Expulsado por el anfitrión');
+    }
+  };
+
+  const handleUnbanAttendee = (attendeeId) => {
+    if (!attendeeId) return;
+    socketService.unbanAttendee(roomId, attendeeId);
+  };
+
   const currentPrimaryVoiceName = selectedVoices.es ? (selectedVoices.es.includes('Elvira') ? 'Elvira Neural (ES)' : selectedVoices.es) : 'Elvira Neural';
 
   const renderNavSidebarContent = (isMobile = false) => (
@@ -656,56 +676,58 @@ export default function HostView({
 
   const renderInspectorContent = (isMobile = false) => (
     <div className="space-y-5">
-      {/* Top Tabs: Configuración | Cabinas en Vivo | Q&A */}
-      <div className="flex items-center gap-3 sm:gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
-        <button
-          onClick={() => setInspectorTab('config')}
-          className={`text-xs font-bold transition-all cursor-pointer relative pb-1 ${
-            inspectorTab === 'config'
-              ? 'text-zinc-950 dark:text-white'
-              : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-          }`}
-        >
-          <span>Configuración</span>
-          {inspectorTab === 'config' && (
-            <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-zinc-950 dark:bg-white rounded-full" />
-          )}
-        </button>
+      {/* Top Tabs: Configuración | Cabinas en Vivo | Q&A (Solo en cajón móvil; en escritorio van dentro del header) */}
+      {isMobile && (
+        <div className="flex items-center gap-3 sm:gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
+          <button
+            onClick={() => setInspectorTab('config')}
+            className={`text-xs font-bold transition-all cursor-pointer relative pb-1 ${
+              inspectorTab === 'config'
+                ? 'text-zinc-950 dark:text-white'
+                : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+            }`}
+          >
+            <span>Configuración</span>
+            {inspectorTab === 'config' && (
+              <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-zinc-950 dark:bg-white rounded-full" />
+            )}
+          </button>
 
-        <button
-          onClick={() => setInspectorTab('cabins')}
-          className={`text-xs font-medium transition-all cursor-pointer relative pb-1 flex items-center gap-1.5 ${
-            inspectorTab === 'cabins'
-              ? 'text-zinc-950 dark:text-white font-bold'
-              : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-          }`}
-        >
-          <span>Cabinas</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          {inspectorTab === 'cabins' && (
-            <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-zinc-950 dark:bg-white rounded-full" />
-          )}
-        </button>
+          <button
+            onClick={() => setInspectorTab('cabins')}
+            className={`text-xs font-medium transition-all cursor-pointer relative pb-1 flex items-center gap-1.5 ${
+              inspectorTab === 'cabins'
+                ? 'text-zinc-950 dark:text-white font-bold'
+                : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+            }`}
+          >
+            <span>Cabinas</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            {inspectorTab === 'cabins' && (
+              <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-zinc-950 dark:bg-white rounded-full" />
+            )}
+          </button>
 
-        <button
-          onClick={() => setInspectorTab('qa')}
-          className={`text-xs font-medium transition-all cursor-pointer relative pb-1 flex items-center gap-1.5 ${
-            inspectorTab === 'qa'
-              ? 'text-zinc-950 dark:text-white font-bold'
-              : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-          }`}
-        >
-          <span>Q&A</span>
-          {qaQueue.filter(q => q.status === 'pending').length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-bold">
-              {qaQueue.filter(q => q.status === 'pending').length}
-            </span>
-          )}
-          {inspectorTab === 'qa' && (
-            <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-zinc-950 dark:bg-white rounded-full" />
-          )}
-        </button>
-      </div>
+          <button
+            onClick={() => setInspectorTab('qa')}
+            className={`text-xs font-medium transition-all cursor-pointer relative pb-1 flex items-center gap-1.5 ${
+              inspectorTab === 'qa'
+                ? 'text-zinc-950 dark:text-white font-bold'
+                : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+            }`}
+          >
+            <span>Q&A</span>
+            {qaQueue.filter(q => q.status === 'pending').length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                {qaQueue.filter(q => q.status === 'pending').length}
+              </span>
+            )}
+            {inspectorTab === 'qa' && (
+              <span className="absolute bottom-[-11px] left-0 right-0 h-0.5 bg-zinc-950 dark:bg-white rounded-full" />
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Tab: Configuración */}
       {inspectorTab === 'config' && (
@@ -1022,36 +1044,27 @@ export default function HostView({
           </div>
 
           {activeQuestion && (
-            <div className="p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30 space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200">
-                    {activeQuestion.name} está hablando
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                  {activeQuestion.nativeLang}
-                </span>
-              </div>
-
-              {incomingQuestionAudio && incomingQuestionAudio.originalText && (
-                <div className="bg-white/90 dark:bg-zinc-900/90 rounded-xl p-3 text-xs space-y-1.5 border border-emerald-200 dark:border-emerald-800">
-                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">Pregunta original ({incomingQuestionAudio.sourceLang}):</div>
-                  <p className="text-zinc-700 dark:text-zinc-300 italic font-mono text-[11px]">&quot;{incomingQuestionAudio.originalText}&quot;</p>
-                  <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono font-semibold pt-1 border-t border-zinc-100 dark:border-zinc-800">Traducción a tu oído ({incomingQuestionAudio.targetLang}):</div>
-                  <p className="text-zinc-950 dark:text-zinc-100 font-semibold">{incomingQuestionAudio.translatedText}</p>
-                </div>
-              )}
-
-              <button
-                onClick={() => handleCloseQuestion(activeQuestion.questionId)}
-                className="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2"
-              >
-                <XCircle className="w-3.5 h-3.5" />
-                <span>Finalizar Turno de Pregunta</span>
-              </button>
-            </div>
+            <Banner
+              icon={<Mic className="w-4 h-4 text-white animate-pulse" strokeWidth={2.4} />}
+              color="#10b981"
+              title={`${activeQuestion.name || 'Oyente'} está hablando`}
+              subtitle={`Canal nativo: ${activeQuestion.nativeLang || 'en'} ➔ es`}
+              desc={
+                incomingQuestionAudio?.translatedText
+                  ? `Traducción a tu oído: "${incomingQuestionAudio.translatedText}"`
+                  : 'Escuchando intervención en tu auricular...'
+              }
+              bottomAction={
+                <button
+                  type="button"
+                  onClick={() => handleCloseQuestion(activeQuestion.questionId)}
+                  className="w-full h-9 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all active:scale-98"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span>Finalizar Turno de Pregunta</span>
+                </button>
+              }
+            />
           )}
 
           <div className="space-y-2">
@@ -1112,8 +1125,16 @@ export default function HostView({
     </div>
   );
 
+  if (isInitializing) {
+    return (
+      <div className="h-dvh min-h-dvh w-full flex items-center justify-center bg-white dark:bg-zinc-950">
+        <div className="w-5 h-5 border-2 border-zinc-200 dark:border-zinc-800 border-t-zinc-900 dark:border-t-zinc-100 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="h-dvh min-h-dvh w-full flex bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-hidden font-sans select-none transition-colors">
+    <div className="h-dvh min-h-dvh w-full flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-hidden font-sans select-none transition-colors">
       
       {/* Mobile Left Drawer Backdrop & Sheet */}
       {isMobileNavOpen && (
@@ -1129,19 +1150,354 @@ export default function HostView({
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* COLUMNA 1: SIDEBAR DE NAVEGACIÓN (Desktop: hidden lg:flex)   */}
+      {/* CABECERA SUPERIOR GLOBAL (DESKTOP HEADER 48px)                */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <aside className="hidden lg:flex w-64 h-dvh border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-shrink-0 flex-col justify-between">
-        {renderNavSidebarContent(false)}
+      <header className="hidden lg:flex h-12 w-full border-b border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 px-4 items-center justify-between flex-shrink-0 z-30 select-none">
+        {/* Izquierda: Menú con icono de 2 líneas redondeadas y flyout de Tema */}
+        <DesktopHeaderMenu
+          onExit={() => onLeave({ reason: 'voluntary' })}
+          hasCopiedLink={hasCopiedLink}
+          onCopyLink={handleCopyMeetingLink}
+          extraItems={[
+            {
+              label: 'Proyectar código QR',
+              onClick: () => setIsQrModalOpen(true)
+            },
+            {
+              label: 'Resumen de sesión IA',
+              onClick: handleGenerateSummary
+            }
+          ]}
+        />
+
+        {/* Centro: Código de Sala con botón de copiar (sin la palabra "sala") */}
+        <div className="flex items-center justify-center">
+          <button
+            type="button"
+            onClick={handleCopyMeetingLink}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 font-mono text-xs font-semibold text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer shadow-2xs"
+            title="Copiar vínculo de la sala"
+          >
+            <span>{roomId}</span>
+            {hasCopiedLink ? (
+              <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+            ) : (
+              <Copy className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-shrink-0" />
+            )}
+          </button>
+        </div>
+
+        {/* Derecha: Botón para alternar inspector de sala */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsDesktopInspectorOpen(prev => !prev)}
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer border ${
+              isDesktopInspectorOpen
+                ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-200 dark:border-zinc-700 shadow-2xs'
+                : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+            }`}
+            title="Alternar Inspector de Sala"
+            aria-label="Alternar Inspector de Sala"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* CUERPO PRINCIPAL (RESPETA LA CABECERA SUPERIOR) */}
+      <div className="flex-1 min-h-0 w-full flex flex-row overflow-hidden">
+
+        {/* ───────────────────────────────────────────────────────────── */}
+        {/* ZONE 1: ACTIVITY RAIL (Ultra-slim 60px, Desktop: hidden lg:flex) */}
+        {/* ───────────────────────────────────────────────────────────── */}
+        <aside className="hidden lg:flex w-15 lg:w-16 h-full border-r border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 flex-col items-center justify-between py-4 flex-shrink-0 select-none z-20">
+        {/* Top: Brand & Nav items */}
+        <div className="flex flex-col items-center gap-6 w-full">
+          {/* Brand Glyph */}
+          <button
+            type="button"
+            onClick={() => onLeave({ reason: 'voluntary' })}
+            className="w-10 h-10 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center font-bold text-xs shadow-xs hover:scale-105 transition-all cursor-pointer"
+            title="LiftVoice Studio - Volver al Inicio"
+          >
+            LV
+          </button>
+
+          {/* Micro-nav icons */}
+          <div className="flex flex-col items-center gap-4 w-full">
+            <button
+              type="button"
+              className="flex flex-col items-center gap-1 w-full py-1.5 text-zinc-900 dark:text-zinc-100 transition-colors cursor-pointer"
+              title="Estudio de emisión"
+            >
+              <div className="relative">
+                <Radio className="w-5 h-5" />
+                {isBroadcasting && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
+              </div>
+              <span className="text-[10px] font-medium tracking-tight">Emisión</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => (onNavigateVoices ? onNavigateVoices() : setIsVoiceCatalogOpen(true))}
+              className="flex flex-col items-center gap-1 w-full py-1.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
+              title="Catálogo de voces neuronales"
+            >
+              <Layers className="w-5 h-5" />
+              <span className="text-[10px] font-medium tracking-tight">Voces</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleGenerateSummary}
+              className="flex flex-col items-center gap-1 w-full py-1.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
+              title="Generar resumen de sesión IA"
+            >
+              <Sparkles className="w-5 h-5" />
+              <span className="text-[10px] font-medium tracking-tight">Resumen</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom: QR, Attendees, Settings, Home */}
+        <div className="flex flex-col items-center gap-3.5 w-full">
+          <button
+            type="button"
+            onClick={() => setIsQrModalOpen(true)}
+            className="w-9 h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+            title="Proyectar código QR para la sala"
+          >
+            <QrCode className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsAttendeesModalOpen(true)}
+            className="relative w-9 h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+            title="Asistentes conectados"
+          >
+            <Users className="w-4 h-4" />
+            {(roomStats.attendees?.length || 0) > 0 && (
+              <span className="absolute -top-1 -right-1 px-1 min-w-4 h-4 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-[9px] font-mono font-bold flex items-center justify-center">
+                {roomStats.attendees.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="w-9 h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+            title="Configuración avanzada"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onLeave({ reason: 'voluntary' })}
+            className="w-9 h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+            title="Salir del estudio"
+          >
+            <Home className="w-4 h-4" />
+          </button>
+        </div>
       </aside>
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* ZONE 2: LEFT HOST CONFIGURATION & CONTROL PANEL (Desktop)     */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <aside className="hidden lg:flex w-80 h-full border-r border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 flex-col flex-shrink-0 select-none overflow-hidden">
+        {/* Header: Title */}
+        <div className="h-14 px-5 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0">
+          <div>
+            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-1.5">
+              <Radio className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+              <span>Estudio de Emisión</span>
+            </h2>
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+              Traducción simultánea impulsada por IA
+            </p>
+          </div>
+        </div>
+
+        {/* Línea divisoria con margen horizontal en X (no abarca el ancho completo) */}
+        <div className="mx-5 border-b border-zinc-200 dark:border-zinc-800/80 flex-shrink-0" />
+
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto px-5 pt-4 pb-5 flex flex-col justify-between">
+          <div className="space-y-5">
+
+          {/* Configuración Section */}
+          <div className="space-y-4">
+            <div className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 font-mono tracking-wider uppercase">
+              Configuración de Entrada
+            </div>
+
+            {/* Mic Device selector */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+                Dispositivo de Micrófono
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedDevice}
+                  onChange={(e) => setSelectedDevice(e.target.value)}
+                  className="w-full h-10 px-3 pr-8 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none appearance-none cursor-pointer shadow-2xs"
+                >
+                  <option value="default">🎙️ Micrófono Predeterminado</option>
+                  {devices.map((d, i) => (
+                    <option key={d.deviceId || i} value={d.deviceId}>
+                      {d.label || `Micrófono ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-2.5 top-3 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Speaker Language */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+                Idioma del Ponente
+              </label>
+              <div className="relative">
+                <select
+                  value={sourceLanguage}
+                  onChange={(e) => {
+                    setSourceLanguage(e.target.value);
+                    audioRecorderService.setLanguage(e.target.value);
+                  }}
+                  className="w-full h-10 px-3 pr-8 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none appearance-none cursor-pointer shadow-2xs"
+                >
+                  <option value="es-ES">🇪🇸 Español (Ponente)</option>
+                  <option value="en-US">🇺🇸 English (Speaker)</option>
+                  <option value="it-IT">🇮🇹 Italiano (Relatore)</option>
+                  <option value="pt-BR">🇧🇷 Português (Palestrante)</option>
+                  <option value="auto">🌐 Detección Automática</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-2.5 top-3 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Active Cabins Display */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                  Cabinas de Traducción
+                </label>
+                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">4 en directo</span>
+              </div>
+              <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2 shadow-2xs">
+                <div className="grid grid-cols-4 gap-1.5">
+                  {ALL_CABINS.map(cab => (
+                    <div
+                      key={cab.code}
+                      className="h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center gap-1 text-xs"
+                      title={`Cabina ${cab.name}`}
+                    >
+                      <span>{cab.flag}</span>
+                      <span className="font-mono text-[10px] font-bold text-zinc-800 dark:text-zinc-200 uppercase">{cab.code}</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Action Buttons: QR & Attendees */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsQrModalOpen(true)}
+                className="h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              >
+                <QrCode className="w-3.5 h-3.5 text-zinc-500" />
+                <span>Proyectar QR</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsAttendeesModalOpen(true)}
+                className="h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              >
+                <Users className="w-3.5 h-3.5 text-zinc-500" />
+                <span>Asistentes ({roomStats.attendees?.length || 0})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Section: Estado de Emisión + Primary Broadcast Button */}
+        <div className="space-y-3 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+          <div className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 font-mono tracking-wider uppercase">
+            Estado de Emisión
+          </div>
+
+          {/* VAD Level Meter Card */}
+          <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2 shadow-2xs">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">Señal Micrófono</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] text-zinc-400">{socketLatency}ms</span>
+                <span ref={meterTextRef} className="font-mono font-bold text-xs text-zinc-900 dark:text-zinc-100 tabular-numbers">0%</span>
+              </div>
+            </div>
+            <div className="w-full h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                ref={meterBarRef}
+                className="h-full w-full bg-emerald-500 rounded-full origin-left will-change-transform"
+                style={{ transform: 'scaleX(0)', transition: 'transform 0.05s linear' }}
+              />
+            </div>
+          </div>
+
+          {/* Master Primary Broadcast Button */}
+          <div className="relative">
+            {isBroadcasting && (
+              <div className="absolute -inset-1 rounded-xl gemini-aura-glow opacity-60 pointer-events-none" aria-hidden="true" />
+            )}
+            <button
+              type="button"
+              onClick={handleToggleBroadcast}
+              className={`relative w-full h-12 rounded-xl font-bold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] z-10 ${
+                isBroadcasting
+                  ? 'gemini-gradient-bg text-white border border-white/20'
+                  : 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200'
+              }`}
+            >
+              {isBroadcasting ? (
+                <>
+                  <div className="flex items-center gap-0.5 h-3.5">
+                    <span className="w-1 h-2 rounded-full bg-white animate-gemini-wave" />
+                    <span className="w-1 h-3.5 rounded-full bg-white animate-gemini-wave delay-1" />
+                    <span className="w-1 h-2 rounded-full bg-white animate-gemini-wave delay-2" />
+                  </div>
+                  <span>Detener Emisión en Directo</span>
+                </>
+              ) : (
+                <>
+                  <Mic className="w-4 h-4" />
+                  <span>Iniciar Emisión en Directo</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
 
       {/* ───────────────────────────────────────────────────────────── */}
       {/* CONTENIDO PRINCIPAL: TOP BAR + 2 COLUMNAS (STAGE + INSPECTOR) */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col h-dvh min-h-dvh overflow-hidden bg-white dark:bg-zinc-950">
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
         
-        {/* Top Header Bar — En móvil integra la Dynamic Island; en Desktop despliega la barra de estudio */}
-        <header className="h-[calc(3.25rem+env(safe-area-inset-top,0px))] pt-safe border-b border-zinc-200 dark:border-zinc-800 px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-zinc-900 flex-shrink-0 z-30">
+        {/* Top Header Bar — En móvil integra la Dynamic Island; en Desktop queda oculto para privilegiar la distribución de 4 zonas */}
+        <header className="lg:hidden h-[calc(3.25rem+env(safe-area-inset-top,0px))] pt-safe border-b border-zinc-200 dark:border-zinc-800 px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-zinc-900 flex-shrink-0 z-30">
           {/* Left: Hamburger (mobile) + Desktop Studio Indicator */}
           <div className="flex items-center gap-2 sm:gap-3">
             <button
@@ -1340,15 +1696,6 @@ export default function HostView({
                     </button>
                   ) : null}
 
-                  {/* Cabinas en desktop (en móvil se accede directamente desde el MasterBroadcastDock en zona del pulgar) */}
-                  <button
-                    onClick={() => setIsCabinsSheetOpen(true)}
-                    className="hidden sm:inline-flex xl:hidden h-7.5 sm:h-9 px-2.5 sm:px-3 rounded-full border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300 items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs whitespace-nowrap"
-                  >
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-                    <span>Cabinas</span>
-                  </button>
-
                   <button
                     onClick={() => window.open(`/?room=${roomId}&lang=${monitoredLang !== 'none' ? monitoredLang : 'en'}`, '_blank')}
                     className="hidden sm:flex h-7.5 sm:h-9 px-3 sm:px-4 rounded-full border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300 items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs transition-colors whitespace-nowrap"
@@ -1396,26 +1743,35 @@ export default function HostView({
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     
                     {/* Large Studio Broadcast Pill Button */}
-                    <button
-                      onClick={handleToggleBroadcast}
-                      className={`w-full sm:w-auto h-12 sm:h-11 px-6 rounded-xl sm:rounded-full flex items-center justify-center gap-2.5 transition-all cursor-pointer font-semibold text-xs sm:text-xs shadow-xs active:scale-[0.99] ${
-                        isBroadcasting
-                          ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/25 animate-pulse'
-                          : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950'
-                      }`}
-                    >
-                      {isBroadcasting ? (
-                        <>
-                          <MicOff className="w-4 h-4" />
-                          <span>Detener Transmisión en Directo</span>
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="w-4 h-4" />
-                          <span>Iniciar Emisión en Directo</span>
-                        </>
+                    <div className="relative inline-flex w-full sm:w-auto">
+                      {isBroadcasting && (
+                        <div className="absolute -inset-2 rounded-xl sm:rounded-full gemini-aura-glow opacity-65 pointer-events-none" aria-hidden="true" />
                       )}
-                    </button>
+                      <button
+                        onClick={handleToggleBroadcast}
+                        className={`relative w-full sm:w-auto h-12 sm:h-11 px-6 rounded-xl sm:rounded-full flex items-center justify-center gap-2.5 transition-all cursor-pointer font-semibold text-xs sm:text-xs shadow-xs active:scale-[0.99] ${
+                          isBroadcasting
+                            ? 'gemini-gradient-bg text-white border border-white/20'
+                            : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950'
+                        }`}
+                      >
+                        {isBroadcasting ? (
+                          <>
+                            <div className="flex items-center gap-0.5 h-3.5 relative z-10">
+                              <span className="w-1 h-2 rounded-full bg-white animate-gemini-wave" />
+                              <span className="w-1 h-3.5 rounded-full bg-white animate-gemini-wave delay-1" />
+                              <span className="w-1 h-2 rounded-full bg-white animate-gemini-wave delay-2" />
+                            </div>
+                            <span className="relative z-10">Detener Transmisión en Directo</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="w-4 h-4" />
+                            <span>Iniciar Emisión en Directo</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
 
                     {/* Zero-Reflow GPU VAD Meter */}
                     <div className="w-full sm:w-44 p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 space-y-1 shadow-xs">
@@ -1526,11 +1882,80 @@ export default function HostView({
           </main>
 
           {/* ───────────────────────────────────────────────────────── */}
-          {/* COLUMNA 3: PANEL DE INSPECCIÓN (Desktop: hidden xl:flex)   */}
+          {/* ZONE 4: PANEL DE INSPECCIÓN (Desktop: hidden lg:flex)      */}
           {/* ───────────────────────────────────────────────────────── */}
-          <aside className="hidden xl:flex w-88 h-full border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-shrink-0 flex-col p-6 space-y-6 overflow-y-auto">
-            {renderInspectorContent(false)}
-          </aside>
+          {isDesktopInspectorOpen && (
+            <aside className="hidden lg:flex w-88 h-full border-l border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 flex-shrink-0 flex-col overflow-hidden animate-fadeIn select-none">
+              {/* Header: Title + Subtitle + Menú de pestañas dentro del Header */}
+              <div className="px-5 pt-3.5 pb-2.5 flex flex-col gap-3 bg-white dark:bg-zinc-950 flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                      Inspector de Sala
+                    </h2>
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+                      Control acústico, cabinas y audiencia
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsDesktopInspectorOpen(false)}
+                    className="w-7 h-7 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center justify-center transition-colors cursor-pointer"
+                    title="Cerrar panel"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Menú de pestañas dentro del header (estilo exacto app-salud / Tabs.tsx) */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                  <button
+                    type="button"
+                    onClick={() => setInspectorTab('config')}
+                    className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
+                      inspectorTab === 'config'
+                        ? 'text-zinc-950 dark:text-zinc-100 bg-zinc-100 dark:bg-white/10 shadow-2xs'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
+                    }`}
+                  >
+                    Configuración
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInspectorTab('cabins')}
+                    className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                      inspectorTab === 'cabins'
+                        ? 'text-zinc-950 dark:text-zinc-100 bg-zinc-100 dark:bg-white/10 shadow-2xs'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
+                    }`}
+                  >
+                    <span>Cabinas</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInspectorTab('qa')}
+                    className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                      inspectorTab === 'qa'
+                        ? 'text-zinc-950 dark:text-zinc-100 bg-zinc-100 dark:bg-white/10 shadow-2xs'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
+                    }`}
+                  >
+                    <span>Q&A</span>
+                    {qaQueue.filter(q => q.status === 'pending').length > 0 && (
+                      <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                        {qaQueue.filter(q => q.status === 'pending').length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-5 pt-2.5 pb-5 space-y-5">
+                {renderInspectorContent(false)}
+              </div>
+            </aside>
+          )}
 
           {/* Mobile Right Drawer for Inspector & Cabinas */}
           {isMobileInspectorOpen && (
@@ -1563,9 +1988,10 @@ export default function HostView({
         </div>
 
       </div>
+      </div>
 
       {/* Mobile Master Broadcast Dock (Fixed Thumb Zone) */}
-      <div className="sm:hidden">
+      <div className="lg:hidden">
         <MasterBroadcastDock
           isBroadcasting={isBroadcasting}
           onToggleBroadcast={handleToggleBroadcast}
@@ -1617,6 +2043,8 @@ export default function HostView({
         isOpen={isAttendeesModalOpen}
         onClose={() => setIsAttendeesModalOpen(false)}
         attendees={roomStats.attendees || []}
+        onKickAttendee={handleKickAttendee}
+        onUnbanAttendee={handleUnbanAttendee}
       />
 
       <SessionSummaryModal

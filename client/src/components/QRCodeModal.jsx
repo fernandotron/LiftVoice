@@ -102,7 +102,7 @@ export default function QRCodeModal({
     <div className={`fixed inset-0 z-50 flex ${
       isFullScreen 
         ? 'items-center justify-center p-0 bg-zinc-950' 
-        : 'flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4 bg-zinc-950/40 backdrop-blur-xs'
+        : 'flex-col justify-end sm:justify-center sm:items-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:p-4 bg-black/40 backdrop-blur-[3px]'
     } transition-all duration-150`}>
       {/* Backdrop tap to dismiss on mobile */}
       {!isFullScreen && (
@@ -115,14 +115,8 @@ export default function QRCodeModal({
       <div className={`relative w-full transition-all duration-150 overflow-hidden shadow-2xl ${
         isFullScreen
           ? 'w-screen h-screen max-w-none rounded-none p-8 sm:p-12 flex flex-col justify-between bg-zinc-950 text-white'
-          : 'sm:max-w-md rounded-t-3xl sm:rounded-2xl p-5 sm:p-7 bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 max-h-[90dvh] overflow-y-auto pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-7 animate-in slide-in-from-bottom sm:slide-in-from-none sm:zoom-in-95 duration-200'
+          : 'sm:max-w-md rounded-[28px] p-5 sm:p-7 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 max-h-[88dvh] sm:max-h-[90dvh] overflow-y-auto pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-7 animate-sheet-up sm:zoom-in-95 duration-200'
       }`}>
-        
-        {/* iOS Drag Handle Indicator (Solo en Mobile) */}
-        {!isFullScreen && (
-          <div className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700 mx-auto -mt-1.5 mb-3 sm:hidden" />
-        )}
-        
         {/* Header Bar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

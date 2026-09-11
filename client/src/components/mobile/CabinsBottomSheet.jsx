@@ -46,7 +46,7 @@ export default function CabinsBottomSheet({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex flex-col justify-end bg-black/50 backdrop-blur-xs animate-backdrop-in sm:items-center sm:justify-center p-0 sm:p-4"
+      className="fixed inset-0 z-50 flex flex-col justify-end bg-black/40 backdrop-blur-[3px] animate-backdrop-in sm:items-center sm:justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="cabins-sheet-title"
@@ -58,11 +58,8 @@ export default function CabinsBottomSheet({
         aria-label="Cerrar panel de cabinas" 
       />
 
-      {/* Sheet / Modal Container */}
-      <div className="relative w-full sm:max-w-md rounded-t-[28px] sm:rounded-3xl bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden animate-sheet-up flex flex-col max-h-[88dvh]">
-        
-        <div className="sheet-pull-handle my-0 sm:hidden" />
-
+      {/* Sheet / Modal Container estilo Reness */}
+      <div className="relative w-full sm:max-w-md rounded-[28px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xl overflow-hidden animate-sheet-up flex flex-col max-h-[88dvh]">
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">

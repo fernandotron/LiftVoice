@@ -73,20 +73,14 @@ ${actionItems.map(a => `- ${a}`).join('\n')}
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-xs animate-backdrop-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:p-4 bg-black/40 backdrop-blur-[3px] animate-backdrop-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative w-full max-w-2xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col rounded-t-[28px] sm:rounded-2xl border-t sm:border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden shadow-2xl animate-sheet-up sm:animate-fadeIn text-zinc-900 dark:text-zinc-100 transition-colors duration-150">
-        
-        {/* Pull Handle táctil exclusivo móvil */}
-        <div className="sm:hidden -mt-1 pb-1 flex justify-center flex-shrink-0">
-          <div className="sheet-pull-handle my-0" />
-        </div>
-
+      <div className="relative w-full max-w-2xl max-h-[90dvh] sm:max-h-[90vh] flex flex-col rounded-[28px] border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden shadow-2xl animate-sheet-up sm:animate-fadeIn text-zinc-900 dark:text-zinc-100 transition-colors duration-150">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between flex-shrink-0 bg-white dark:bg-zinc-900">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">

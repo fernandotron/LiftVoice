@@ -62,7 +62,8 @@ class RoomManager {
       hostSocket: null,
       hostSocketId: null,
       listeners: new Map(), // socketId -> { socket, name, email, phone, lang, joinedAt, ip, userAgent }
-      registeredAttendees: new Map(), // email or socketId -> { id, name, email, phone, initialLang, currentLang, joinedAt, ip }
+      registeredAttendees: new Map(), // email or socketId -> { id, name, email, phone, initialLang, currentLang, joinedAt, ip, isKicked }
+      kickedAttendees: new Map(), // attendeeId -> { attendeeId, name, email, kickedAt, reason }
       qaQueue: [], // [ { socketId, attendeeId, name, lang, timestamp } ]
       activeSpeaker: null, // { socketId, attendeeId, name, lang, startedAt }
       metrics: {
@@ -155,15 +156,121 @@ class RoomManager {
     }
   }
 
+  isAttendeeKicked(roomId, attendeeId, email = '') {
+    const room = this.getRoom(roomId);
+    if (!room || !room.kickedAttendees) return false;
+    const attId = attendeeId ? String(attendeeId) : '';
+    const attEmail = email ? String(email).toLowerCase() : '';
+    if (attId && room.kickedAttendees.has(attId)) return true;
+    if (attEmail && room.kickedAttendees.has(attEmail)) return true;
+    for (const record of room.kickedAttendees.values()) {
+      if (attId && record.attendeeId === attId) return true;
+      if (attEmail && record.email && record.email.toLowerCase() === attEmail) return true;
+    }
+    return false;
+  }
+
+  kickAttendee(roomId, attendeeId, name = '', reason = 'Expulsado por el anfitrión') {
+    const room = this.getRoom(roomId);
+    if (!room) return false;
+    if (!room.kickedAttendees) room.kickedAttendees = new Map();
+
+    const kickedKey = String(attendeeId);
+    let foundEmail = '';
+    let foundName = name;
+
+    for (const [key, att] of room.registeredAttendees.entries()) {
+      if (att.id === attendeeId || key === attendeeId || (att.email && att.email.toLowerCase() === attendeeId.toLowerCase())) {
+        att.isKicked = true;
+        foundEmail = att.email || foundEmail;
+        foundName = att.name || foundName;
+        break;
+      }
+    }
+
+    room.kickedAttendees.set(kickedKey, {
+      attendeeId: kickedKey,
+      name: foundName || 'Asistente',
+      email: foundEmail,
+      kickedAt: new Date().toISOString(),
+      reason
+    });
+
+    // Terminate matching listener sockets
+    for (const [socketId, listener] of room.listeners.entries()) {
+      const match = (listener.attendeeId === attendeeId) || (socketId === attendeeId) || (foundEmail && listener.email && listener.email.toLowerCase() === foundEmail.toLowerCase());
+      if (match) {
+        if (listener.socket && listener.socket.readyState === 1) {
+          try {
+            listener.socket.send(JSON.stringify({
+              type: 'KICKED_BY_HOST',
+              roomId: room.id,
+              reason
+            }));
+            listener.socket.close(4003, 'Kicked by host');
+          } catch (e) {}
+        }
+        room.listeners.delete(socketId);
+      }
+    }
+
+    this.removeHandRaise(roomId, attendeeId);
+    console.log(`[RoomManager] Attendee ${attendeeId} (${foundName}) kicked from room ${room.id}`);
+    this.broadcastStats(room.id);
+    return true;
+  }
+
+  unbanAttendee(roomId, attendeeId) {
+    const room = this.getRoom(roomId);
+    if (!room || !room.kickedAttendees) return false;
+
+    const idStr = String(attendeeId);
+    room.kickedAttendees.delete(idStr);
+    for (const [key, record] of room.kickedAttendees.entries()) {
+      if (record.attendeeId === idStr || key === idStr) {
+        room.kickedAttendees.delete(key);
+      }
+    }
+
+    for (const [key, att] of room.registeredAttendees.entries()) {
+      if (att.id === idStr || key === idStr) {
+        att.isKicked = false;
+      }
+    }
+
+    console.log(`[RoomManager] Attendee ${idStr} unbanned in room ${room.id}`);
+    this.broadcastStats(room.id);
+    return true;
+  }
+
   addListener(roomId, socket, socketId, lang = 'en', metadata = {}) {
     const room = this.getOrCreateRoom(roomId);
     const targetLang = (lang || 'en').toLowerCase();
     const name = metadata.name || 'Asistente Anónimo';
     const email = metadata.email || '';
     const phone = metadata.phone || '';
+    const attendeeId = metadata.attendeeId || socketId;
+
+    // Check if attendee is kicked/banned from this room
+    if (this.isAttendeeKicked(room.id, attendeeId, email)) {
+      console.log(`[RoomManager] Connection rejected: Attendee ${attendeeId} (${name}) is banned from room ${room.id}`);
+      if (socket && socket.readyState === 1) {
+        try {
+          socket.send(JSON.stringify({
+            type: 'KICKED_BY_HOST',
+            roomId: room.id,
+            reason: 'Has sido expulsado de esta sala por el anfitrión.'
+          }));
+          socket.close(4003, 'Kicked by host');
+        } catch (e) {}
+      }
+      return { isKicked: true };
+    }
 
     const listenerObj = {
       socket,
+      socketId,
+      attendeeId,
       name,
       email,
       phone,
@@ -176,10 +283,10 @@ class RoomManager {
     room.listeners.set(socketId, listenerObj);
 
     // Save/Update in persistent registered leads list for this session
-    const leadKey = email ? email.toLowerCase() : (metadata.attendeeId || socketId);
+    const leadKey = email ? email.toLowerCase() : attendeeId;
     const existing = room.registeredAttendees.get(leadKey);
     room.registeredAttendees.set(leadKey, {
-      id: metadata.attendeeId || socketId,
+      id: attendeeId,
       name,
       email,
       phone,
@@ -188,6 +295,7 @@ class RoomManager {
       joinedAt: existing ? existing.joinedAt : new Date().toISOString(),
       lastSeenAt: new Date().toISOString(),
       reconnectCount: existing ? (existing.reconnectCount || 1) + 1 : 1,
+      isKicked: existing ? Boolean(existing.isKicked) : false,
       ip: metadata.ip || 'unknown'
     });
 
@@ -286,6 +394,7 @@ class RoomManager {
       ...publicStats,
       totalRegisteredLeads: room.registeredAttendees.size,
       attendees: Array.from(room.registeredAttendees.values()),
+      kickedAttendees: Array.from((room.kickedAttendees || new Map()).values()),
       qaQueue: room.qaQueue || [],
       activeSpeaker: room.activeSpeaker || null
     };
