@@ -80,11 +80,11 @@ ${actionItems.map(a => `- ${a}`).join('\n')}
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative w-full max-w-2xl max-h-[90dvh] sm:max-h-[90vh] flex flex-col rounded-[28px] border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden shadow-2xl animate-sheet-up sm:animate-fadeIn text-zinc-900 dark:text-zinc-100 transition-colors duration-150">
-        {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between flex-shrink-0 bg-white dark:bg-zinc-900">
+      <div className="relative w-full max-w-2xl max-h-[90dvh] sm:max-h-[90vh] flex flex-col rounded-[28px] border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#1f1f1f] overflow-hidden shadow-2xl animate-sheet-up sm:animate-fadeIn text-zinc-900 dark:text-zinc-100 transition-colors duration-150">
+        {/* Header without dividing line */}
+        <div className="p-4 sm:p-5 flex items-center justify-between flex-shrink-0 bg-white dark:bg-[#1f1f1f]">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-800 dark:text-zinc-200 flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center shadow-xs flex-shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -100,7 +100,7 @@ ${actionItems.map(a => `- ${a}`).join('\n')}
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer flex-shrink-0"
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-400 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors cursor-pointer flex-shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -135,19 +135,19 @@ ${actionItems.map(a => `- ${a}`).join('\n')}
             <>
               {/* Key Metrics Strip */}
               <div className="grid grid-cols-3 gap-2.5">
-                <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 text-center">
+                <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/10 text-center">
                   <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">Duración</div>
                   <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
                     {duration} min
                   </div>
                 </div>
-                <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 text-center">
+                <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/10 text-center">
                   <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">Frases</div>
                   <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
                     {totalSentences}
                   </div>
                 </div>
-                <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 text-center">
+                <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/10 text-center">
                   <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">Oyentes</div>
                   <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
                     {totalListeners}
@@ -160,7 +160,7 @@ ${actionItems.map(a => `- ${a}`).join('\n')}
                 <h4 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
                   {title}
                 </h4>
-                <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/10 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
                   {execSummary}
                 </div>
               </div>
@@ -207,7 +207,7 @@ ${actionItems.map(a => `- ${a}`).join('\n')}
 
         {/* Footer Actions */}
         {summaryData && !isLoading && (
-          <div className="p-3.5 sm:p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/90 flex items-center justify-between gap-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-4 flex-shrink-0">
+          <div className="p-3.5 sm:p-4 bg-zinc-50/50 dark:bg-[#1f1f1f] flex items-center justify-between gap-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-4 flex-shrink-0">
             <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono hidden sm:block">
               LiftVoice Studio Summary
             </div>
@@ -215,7 +215,7 @@ ${actionItems.map(a => `- ${a}`).join('\n')}
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <button
                 onClick={handleCopyMarkdown}
-                className="h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium cursor-pointer shadow-2xs transition-colors flex items-center gap-1.5"
+                className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 text-xs font-medium cursor-pointer shadow-2xs transition-colors flex items-center gap-1.5"
               >
                 {copied ? (
                   <>
@@ -232,7 +232,7 @@ ${actionItems.map(a => `- ${a}`).join('\n')}
 
               <button
                 onClick={handleDownloadMarkdown}
-                className="h-8 px-3.5 rounded-lg bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
+                className="h-8 px-4 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Descargar (.md)</span>

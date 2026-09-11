@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { audioPlayerService } from '../services/audioPlayer.js';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import CountryFlag from './shared/CountryFlag.jsx';
 
 const safeGetItem = (key, fallback = '') => {
   try {
@@ -613,16 +614,16 @@ export default function SettingsModal({
     >
       <div 
         ref={modalContainerRef}
-        className="w-full max-w-4xl h-[90dvh] sm:h-[640px] max-h-[90dvh] sm:max-h-[92vh] rounded-[28px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xl flex flex-col md:flex-row overflow-hidden text-left animate-sheet-up sm:animate-fadeIn transition-colors duration-150"
+        className="w-full max-w-4xl h-[90dvh] sm:h-[640px] max-h-[90dvh] sm:max-h-[92vh] rounded-[28px] bg-white dark:bg-[#1f1f1f] border border-zinc-200/80 dark:border-white/10 shadow-2xl flex flex-col md:flex-row overflow-hidden text-left animate-sheet-up sm:animate-fadeIn transition-colors duration-150"
       >
         {/* ─────────────────────────────────────────────────────────── */}
         {/* SIDEBAR DE PESTAÑAS (Desktop: vertical; Mobile: horizontal) */}
         {/* ─────────────────────────────────────────────────────────── */}
-        <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-950 p-3 sm:p-5 flex flex-col justify-between flex-shrink-0 select-none">
+        <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-zinc-200/80 dark:border-white/5 bg-zinc-50/60 dark:bg-[#1f1f1f] p-3 sm:p-5 flex flex-col justify-between flex-shrink-0 select-none">
           <div className="space-y-3 sm:space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center shadow-xs flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center shadow-xs flex-shrink-0">
                   <Settings className="w-4 h-4" />
                 </div>
                 <div>
@@ -633,7 +634,7 @@ export default function SettingsModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer transition-colors"
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer transition-colors"
                 aria-label="Cerrar configuración"
               >
                 <X className="w-4 h-4" />
@@ -675,8 +676,8 @@ export default function SettingsModal({
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center justify-between px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
                       isActive
-                        ? 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-950 dark:text-white font-semibold shadow-xs'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
+                        ? 'bg-zinc-200/80 dark:bg-white/10 text-zinc-950 dark:text-white font-semibold shadow-xs'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5'
                     }`}
                   >
                     <div className="flex items-center gap-2 sm:gap-3">
@@ -688,7 +689,7 @@ export default function SettingsModal({
                       <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md ml-2 hidden sm:inline-block ${
                         isActive
                           ? 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 shadow-xs'
-                          : 'bg-zinc-200/70 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400'
+                          : 'bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-400'
                       }`}>
                         {tab.badge}
                       </span>
@@ -700,7 +701,7 @@ export default function SettingsModal({
           </div>
 
           {/* Quick Active Transcriber & Voice Status Card (Desktop only) */}
-          <div className="hidden md:block p-3.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 space-y-1.5 text-zinc-600 dark:text-zinc-400 text-[11px] leading-relaxed">
+          <div className="hidden md:block p-3.5 rounded-2xl bg-zinc-100/50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/10 space-y-1.5 text-zinc-600 dark:text-zinc-400 text-[11px] leading-relaxed">
             <div className="flex items-center justify-between font-semibold text-zinc-900 dark:text-zinc-100">
               <span className="flex items-center gap-1.5">
                 <Zap className="w-3.5 h-3.5 text-zinc-950 dark:text-zinc-100" />
@@ -722,12 +723,12 @@ export default function SettingsModal({
         {/* ─────────────────────────────────────────────────────────── */}
         {/* PANEL DE CONTENIDO                                          */}
         {/* ─────────────────────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col justify-between h-full overflow-hidden bg-white dark:bg-zinc-900">
+        <div className="flex-1 flex flex-col justify-between h-full overflow-hidden bg-white dark:bg-[#1f1f1f]">
           
           <div className="flex-1 p-6 md:p-8 overflow-y-auto space-y-6">
 
             {/* 1-Click Strategy Presets Bar */}
-            <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800 space-y-2.5">
+            <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200/80 dark:border-white/10 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -952,15 +953,15 @@ export default function SettingsModal({
                     return (
                       <div
                         key={b.lang}
-                        className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all shadow-xs space-y-3"
+                        className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.02] hover:border-zinc-300 dark:hover:border-white/20 transition-all shadow-xs space-y-3"
                       >
                         {/* Header of Booth Card */}
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">{b.flag}</span>
+                          <div className="flex items-center gap-2.5">
+                            <CountryFlag code={b.lang} className="w-5 h-5 rounded-xs shadow-2xs flex-shrink-0" />
                             <div>
                               <div className="font-semibold text-xs text-zinc-950 dark:text-zinc-100">
-                                {b.label} ({b.lang})
+                                {b.label} ({b.lang.toUpperCase()})
                               </div>
                               <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
                                 {b.badge}
@@ -1602,11 +1603,11 @@ export default function SettingsModal({
           {/* ───────────────────────────────────────────────────────── */}
           {/* BARRA DE BOTONES INFERIOR                                 */}
           {/* ───────────────────────────────────────────────────────── */}
-          <div className="min-h-16 py-3 sm:py-0 sm:h-16 px-5 sm:px-6 md:px-8 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between flex-shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-0">
+          <div className="min-h-16 py-3 sm:py-0 sm:h-16 px-5 sm:px-6 md:px-8 border-t border-zinc-200/80 dark:border-white/5 bg-white dark:bg-[#1f1f1f] flex items-center justify-between flex-shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-full text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-full text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
               Cerrar
             </button>
@@ -1615,7 +1616,7 @@ export default function SettingsModal({
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="h-9.5 px-6 rounded-full bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
+              className="h-9.5 px-6 rounded-full bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
             >
               {isSaved ? (
                 <>

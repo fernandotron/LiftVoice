@@ -229,7 +229,13 @@ export default function App() {
       } catch (e) {}
     }
 
-    if (currentView === 'listener' || options?.reason) {
+    const isDesktop = options?.isDesktop ?? (typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches);
+
+    // En escritorio al salir voluntariamente ("Volver al inicio"), se navega directo a Home sin modal post-leave.
+    // Solo se muestra post-leave si fue expulsado por moderador o si estamos en móvil.
+    const shouldShowPostLeave = reason === 'kicked' || (!isDesktop && (currentView === 'listener' || options?.isMobile));
+
+    if (shouldShowPostLeave) {
       setLeaveDetails({
         roomId: roomToLeave,
         selectedLanguage: userLang,
@@ -241,10 +247,22 @@ export default function App() {
       window.history.pushState({}, '', window.location.pathname || '/');
     } else {
       setRoomId(null);
+      setLeaveDetails(null);
       setCurrentView('home');
       window.history.pushState({}, '', window.location.pathname || '/');
     }
   };
+
+  // Si en escritorio quedó en post-leave por salida voluntaria, redirigir directamente a Home
+  useEffect(() => {
+    if (currentView === 'post-leave') {
+      const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches;
+      if (isDesktop && leaveDetails?.reason !== 'kicked') {
+        setCurrentView('home');
+        setLeaveDetails(null);
+      }
+    }
+  }, [currentView, leaveDetails]);
 
   const handleRejoin = (targetRoomId, targetLang) => {
     handleJoinRoom(targetRoomId, targetLang);

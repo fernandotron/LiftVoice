@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Play, Loader2, Check, AudioLines, Search, Volume2, Sparkles, Sliders } from 'lucide-react';
 import { audioPlayerService } from '../services/audioPlayer.js';
+import CountryFlag from './shared/CountryFlag.jsx';
 
 export default function VoiceCatalogModal({
   isOpen = false,
@@ -106,11 +107,11 @@ export default function VoiceCatalogModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-3xl max-h-[90dvh] sm:max-h-[88vh] bg-white dark:bg-zinc-900 rounded-[28px] border border-zinc-200/80 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden text-left animate-sheet-up sm:animate-fadeIn transition-colors duration-150 text-zinc-900 dark:text-zinc-100">
-        {/* Modal Header */}
-        <div className="px-5 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-900 flex-shrink-0">
+      <div className="w-full max-w-3xl max-h-[90dvh] sm:max-h-[88vh] bg-white dark:bg-[#1f1f1f] rounded-[28px] border border-zinc-200/80 dark:border-white/10 shadow-2xl flex flex-col overflow-hidden text-left animate-sheet-up sm:animate-fadeIn transition-colors duration-150 text-zinc-900 dark:text-zinc-100">
+        {/* Modal Header without divider line */}
+        <div className="px-5 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between bg-white dark:bg-[#1f1f1f] flex-shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center shadow-xs flex-shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center shadow-xs flex-shrink-0">
               <AudioLines className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -125,14 +126,14 @@ export default function VoiceCatalogModal({
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors cursor-pointer flex-shrink-0"
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-400 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors cursor-pointer flex-shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Filter Bar */}
-        <div className="px-4 sm:px-6 py-3 bg-zinc-50/80 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 space-y-2.5 flex-shrink-0">
+        <div className="px-4 sm:px-6 py-3 bg-zinc-50/60 dark:bg-white/[0.02] space-y-2.5 flex-shrink-0">
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
             {/* Search Input */}
             <div className="relative flex-1 w-full">
@@ -142,28 +143,29 @@ export default function VoiceCatalogModal({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar voz o tono..."
-                className="w-full h-9 pl-9 pr-3 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-800 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-400 transition-all"
+                className="w-full h-9 pl-9 pr-3 text-xs bg-white dark:bg-[#1a1a1a] border border-zinc-200 dark:border-white/10 rounded-xl placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-800 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-white/30 transition-all"
               />
             </div>
 
             {/* Language Tabs */}
-            <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 p-1 border border-zinc-200 dark:border-zinc-800 rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1 bg-white dark:bg-[#1a1a1a] p-1 border border-zinc-200/80 dark:border-white/10 rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar">
               {[
-                { code: 'es', label: '🇪🇸 Español' },
-                { code: 'en', label: '🇺🇸 English' },
-                { code: 'it', label: '🇮🇹 Italiano' },
-                { code: 'pt', label: '🇧🇷 Português' }
+                { code: 'es', label: 'Español' },
+                { code: 'en', label: 'English' },
+                { code: 'it', label: 'Italiano' },
+                { code: 'pt', label: 'Português' }
               ].map((lang) => (
                 <button
                   key={lang.code}
                   onClick={() => setTargetLang(lang.code)}
-                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all cursor-pointer ${
+                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                     targetLang === lang.code
-                      ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-xs'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                      ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-xs'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-white/5'
                   }`}
                 >
-                  {lang.label}
+                  <CountryFlag code={lang.code} className="w-3.5 h-3.5 rounded-xs" />
+                  <span>{lang.label}</span>
                 </button>
               ))}
             </div>
@@ -175,8 +177,8 @@ export default function VoiceCatalogModal({
               onClick={() => setSelectedEngineFilter('all')}
               className={`px-3 py-1 rounded-full border transition-all cursor-pointer ${
                 selectedEngineFilter === 'all'
-                  ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 font-medium'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                  ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white font-medium'
+                  : 'bg-white dark:bg-[#1a1a1a] text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20'
               }`}
             >
               Todos los motores ({voices.length})
@@ -186,8 +188,8 @@ export default function VoiceCatalogModal({
               onClick={() => setSelectedEngineFilter('deepgram')}
               className={`px-3 py-1 rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${
                 selectedEngineFilter === 'deepgram'
-                  ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 font-medium'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                  ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white font-medium'
+                  : 'bg-white dark:bg-[#1a1a1a] text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20'
               }`}
             >
               <span>Deepgram Aura ⚡</span>
@@ -198,8 +200,8 @@ export default function VoiceCatalogModal({
               onClick={() => setSelectedEngineFilter('google')}
               className={`px-3 py-1 rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${
                 selectedEngineFilter === 'google'
-                  ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 font-medium'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                  ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white font-medium'
+                  : 'bg-white dark:bg-[#1a1a1a] text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20'
               }`}
             >
               <span>Google Neural 🌐</span>
@@ -210,8 +212,8 @@ export default function VoiceCatalogModal({
               onClick={() => setSelectedEngineFilter('openai')}
               className={`px-3 py-1 rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${
                 selectedEngineFilter === 'openai'
-                  ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 font-medium'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                  ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white font-medium'
+                  : 'bg-white dark:bg-[#1a1a1a] text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20'
               }`}
             >
               <span>OpenAI 🤖</span>
@@ -222,8 +224,8 @@ export default function VoiceCatalogModal({
               onClick={() => setSelectedEngineFilter('elevenlabs')}
               className={`px-3 py-1 rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${
                 selectedEngineFilter === 'elevenlabs'
-                  ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 font-medium'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                  ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white font-medium'
+                  : 'bg-white dark:bg-[#1a1a1a] text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20'
               }`}
             >
               <span>ElevenLabs 🌟</span>
@@ -233,7 +235,7 @@ export default function VoiceCatalogModal({
         </div>
 
         {/* Voices Grid */}
-        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-3.5 bg-white dark:bg-zinc-900">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-3.5 bg-white dark:bg-[#1f1f1f]">
           {isLoadingVoices ? (
             <div className="col-span-2 py-16 flex flex-col items-center justify-center gap-3 text-zinc-400">
               <Loader2 className="w-6 h-6 animate-spin text-zinc-900 dark:text-zinc-100" />
@@ -251,16 +253,16 @@ export default function VoiceCatalogModal({
               return (
                 <div
                   key={voice.id}
-                  className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                  className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
                     isSelected
-                      ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-50/70 dark:bg-zinc-800/80 shadow-xs ring-1 ring-zinc-900/10 dark:ring-white/20'
-                      : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-xs'
+                      ? 'border-zinc-900 dark:border-white/30 bg-zinc-100/80 dark:bg-white/[0.08] shadow-xs ring-1 ring-zinc-900/10 dark:ring-white/20'
+                      : 'border-zinc-200 dark:border-white/10 bg-zinc-50/40 dark:bg-white/[0.02] hover:border-zinc-300 dark:hover:border-white/20 hover:shadow-xs'
                   }`}
                 >
                   <div className="space-y-2.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold flex items-center justify-center flex-shrink-0 shadow-xs">
+                        <div className="w-9 h-9 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-semibold flex items-center justify-center flex-shrink-0 shadow-xs">
                           {voice.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div>
@@ -276,7 +278,7 @@ export default function VoiceCatalogModal({
                         </div>
                       </div>
 
-                      <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] font-mono border border-zinc-200 dark:border-zinc-700">
+                      <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 text-[10px] font-mono border border-zinc-200 dark:border-white/10">
                         {voice.badge}
                       </span>
                     </div>
@@ -286,12 +288,12 @@ export default function VoiceCatalogModal({
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-100 dark:border-zinc-800">
+                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-100 dark:border-white/5">
                     <button
                       type="button"
                       onClick={() => handleAudition(voice)}
                       disabled={isPlaying}
-                      className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-3 py-1.5 rounded-full border border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/5 text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       {isPlaying ? (
                         <>
@@ -312,10 +314,10 @@ export default function VoiceCatalogModal({
                         onSelectVoice(targetLang, voice.id, voice.engine, voice.gender);
                         onClose();
                       }}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-xs'
-                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                          ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-xs'
+                          : 'bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-white/20'
                       }`}
                     >
                       {isSelected ? 'Voz Asignada ✓' : 'Asignar Cabina'}
@@ -328,11 +330,11 @@ export default function VoiceCatalogModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-5 sm:px-6 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-3 flex-shrink-0">
+        <div className="px-5 sm:px-6 py-3 bg-zinc-50/50 dark:bg-[#1f1f1f] flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-3 flex-shrink-0">
           <span className="truncate max-w-[200px] sm:max-w-none">Sincronizado con las 4 cabinas de audio.</span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-medium hover:bg-zinc-800 dark:hover:bg-zinc-200 cursor-pointer text-xs"
+            className="px-5 py-1.5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium hover:bg-zinc-800 dark:hover:bg-zinc-200 cursor-pointer text-xs transition-colors"
           >
             Listo
           </button>

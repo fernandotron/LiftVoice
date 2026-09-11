@@ -1,12 +1,12 @@
 import React, { useRef, useEffect } from 'react';
-import { Mic, MicOff, Headphones, SlidersHorizontal } from 'lucide-react';
+import { Mic, Headphones, SlidersHorizontal, QrCode, Hand, Square } from 'lucide-react';
 
 /**
  * MasterBroadcastDock — LiftVoice Studio 2026
  * Muelle de emisión ergonómico anclado en la zona del pulgar (Thumb Zone):
- * - Botón maestro central de 56px de alto con halo reactivo al volumen RMS (Zero-Reflow GPU)
- * - Satélite izquierdo: Conmutador de retorno de auricular (Mute / Idioma activo)
- * - Satélite derecho: Acceso al Bottom Sheet de cabinas con badge de Q&A
+ * - Botones táctiles de 48px con separación ergonómica centrada (gap-2.5)
+ * - Estado de emisión activo con bg-rose-600 text-white animate-pulse
+ * - Contenedor con gradiente suave desvanecido sin línea divisoria rígida
  * - Soporte nativo para iOS Safe Area Insets
  */
 export default function MasterBroadcastDock({
@@ -16,6 +16,8 @@ export default function MasterBroadcastDock({
   monitoredLang = 'none',
   onToggleMonitoring = () => {},
   onOpenCabinsSheet = () => {},
+  onOpenQR = () => {},
+  onOpenQA = () => {},
   audioRecorderService = null,
   pendingQACount = 0
 }) {
@@ -49,82 +51,94 @@ export default function MasterBroadcastDock({
   return (
     <nav 
       aria-label="Controles de emisión del ponente"
-      className="fixed bottom-0 inset-x-0 z-40 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-3 px-4 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-zinc-950 dark:via-zinc-950/95 backdrop-blur-md border-t border-zinc-200/50 dark:border-zinc-800/50 pointer-events-none"
+      className="fixed bottom-0 inset-x-0 z-40 sm:hidden pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-8 px-2.5 sm:px-4 bg-gradient-to-t from-white via-white/95 via-45% to-transparent dark:from-zinc-950 dark:via-zinc-950/95 dark:via-45% dark:to-transparent pointer-events-none"
     >
-      <div className="max-w-md mx-auto flex items-center justify-between gap-3 pointer-events-auto">
+      <div className="flex items-center justify-center gap-2.5 sm:gap-3 pointer-events-auto max-w-md mx-auto">
         
-        {/* Satélite Izquierdo: Monitor Auricular Rápido */}
+        {/* Satélite 1: Monitor Auricular Rápido (48px circular neutro) */}
         <button
           type="button"
           onClick={() => onToggleMonitoring(monitoredLang === 'none' ? 'es' : 'none')}
           aria-pressed={monitoredLang !== 'none'}
-          className={`w-12 h-12 rounded-full border flex flex-col items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 ${
+          className={`w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 ${
             monitoredLang !== 'none'
-              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
-              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+              ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-transparent font-bold'
+              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
           }`}
           title="Alternar retorno por auriculares"
           aria-label={monitoredLang !== 'none' ? `Auriculares activos en ${monitoredLang}` : 'Auriculares silenciados'}
         >
-          <Headphones className="w-4 h-4" />
-          <span className="text-[10px] font-mono font-medium mt-0.5">
-            {monitoredLang !== 'none' ? monitoredLang : 'Mute'}
-          </span>
+          <Headphones className="w-5 h-5" />
         </button>
 
-        {/* Centro: Master Broadcast Button con Voice-Reactive Aura Gemini Live */}
-        <div className="flex items-center justify-center flex-1">
-          <div className="relative w-full max-w-[220px] flex items-center justify-center">
-            {isBroadcasting && (
-              <div
-                ref={haloRef}
-                className="absolute -inset-3 rounded-full gemini-aura-glow pointer-events-none transition-transform duration-75"
-                style={{ transform: 'scale(1)', opacity: 0.6, willChange: 'transform, opacity' }}
-              />
-            )}
+        {/* Satélite 2: QR Rápido para Sala en Vivo (48px circular neutro) */}
+        <button
+          type="button"
+          onClick={onOpenQR}
+          className="w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          title="Proyectar código QR para oyentes"
+          aria-label="Proyectar código QR de la sala"
+        >
+          <QrCode className="w-5 h-5" />
+        </button>
 
-            <button
-              type="button"
-              onClick={handleBroadcastClick}
-              disabled={isToggling}
-              className={`relative w-full h-14 rounded-full font-semibold text-xs tracking-tight flex items-center justify-center gap-2.5 shadow-md transition-all cursor-pointer active:scale-95 touch-manipulation select-none whitespace-nowrap ${
-                isToggling ? 'opacity-70 cursor-wait' : ''
-              } ${
-                isBroadcasting
-                  ? 'gemini-gradient-bg text-white border border-white/20 shadow-lg shadow-purple-500/25'
-                  : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 shadow-zinc-950/20'
-              }`}
-              aria-label={isBroadcasting ? 'Detener emisión en vivo' : 'Comenzar a emitir en vivo'}
-            >
-              {isBroadcasting ? (
-                <>
-                  <div className="flex items-center gap-0.5 h-4 relative z-10">
-                    <span className="w-1 h-2.5 rounded-full bg-white animate-gemini-wave" />
-                    <span className="w-1 h-4 rounded-full bg-white animate-gemini-wave delay-1" />
-                    <span className="w-1 h-2 rounded-full bg-white animate-gemini-wave delay-2" />
-                    <span className="w-1 h-3.5 rounded-full bg-white animate-gemini-wave delay-3" />
-                  </div>
-                  <span className="relative z-10">Transmitiendo en vivo</span>
-                </>
-              ) : (
-                <>
-                  <Mic className="w-5 h-5" />
-                  <span>Emitir en directo</span>
-                </>
-              )}
-            </button>
-          </div>
+        {/* Centro: Master Broadcast Button con estado activo en Rose 600 Pulse */}
+        <div className="relative inline-flex items-center justify-center">
+          {isBroadcasting && (
+            <div
+              ref={haloRef}
+              className="absolute -inset-2 rounded-full bg-rose-500/20 pointer-events-none transition-transform duration-75"
+              style={{ transform: 'scale(1)', opacity: 0.5, willChange: 'transform, opacity' }}
+            />
+          )}
+
+          <button
+            type="button"
+            onClick={handleBroadcastClick}
+            disabled={isToggling}
+            className={`relative h-12 px-5 sm:px-6 rounded-full font-semibold text-xs tracking-tight flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer active:scale-95 touch-manipulation select-none whitespace-nowrap min-w-[110px] ${
+              isToggling ? 'opacity-70 cursor-wait' : ''
+            } ${
+              isBroadcasting
+                ? 'bg-rose-600 text-white border border-transparent animate-pulse shadow-lg shadow-rose-600/30'
+                : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950'
+            }`}
+            aria-label={isBroadcasting ? 'Detener emisión en vivo' : 'Comenzar a emitir en vivo'}
+          >
+            {isBroadcasting ? (
+              <>
+                <Square className="w-3.5 h-3.5 fill-current text-white" />
+                <span>Detener</span>
+              </>
+            ) : (
+              <>
+                <Mic className="w-4 h-4" />
+                <span>Emitir</span>
+              </>
+            )}
+          </button>
         </div>
 
-        {/* Satélite Derecho: Drawer de Cabinas & Badge Q&A */}
+        {/* Satélite 3: Panel de Cabinas (48px circular neutro) */}
         <button
           type="button"
           onClick={onOpenCabinsSheet}
-          className="relative w-12 h-12 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 flex items-center justify-center shadow-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-95 cursor-pointer flex-shrink-0"
-          title="Abrir panel de cabinas y configuración rápida"
-          aria-label={pendingQACount > 0 ? `Panel de cabinas, ${pendingQACount} preguntas pendientes` : 'Panel de cabinas'}
+          className="w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          title="Ajustar cabinas de idiomas y décalage"
+          aria-label="Panel de cabinas"
         >
-          <SlidersHorizontal className="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
+          <SlidersHorizontal className="w-5 h-5" />
+        </button>
+
+        {/* Satélite 4: Q&A Backchannel (48px circular neutro con badge reactivo) */}
+        <button
+          type="button"
+          onClick={onOpenQA}
+          className="relative w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          title="Turnos de palabra y preguntas Q&A"
+          aria-label={pendingQACount > 0 ? `Panel de preguntas, ${pendingQACount} pendientes` : 'Panel de preguntas'}
+        >
+          <Hand className="w-5 h-5" />
           {pendingQACount > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center animate-bounce shadow-xs">
               {pendingQACount}

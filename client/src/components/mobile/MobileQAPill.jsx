@@ -155,12 +155,16 @@ export default function MobileQAPill({
                 <button
                   type="button"
                   onClick={isRecording ? onStopRecord : onStartRecord}
-                  className="h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 border bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border-zinc-200/60 dark:border-zinc-700/60 shadow-xs"
-                  title={isRecording ? 'Detener dictado' : 'Dictar pregunta con tu voz'}
+                  className={`h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 border shadow-xs ${
+                    isRecording
+                      ? 'bg-rose-600 text-white border-transparent animate-pulse'
+                      : 'bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border-zinc-200/60 dark:border-zinc-700/60'
+                  }`}
+                  title={isRecording ? 'Detener dictado por voz' : 'Dictar pregunta con tu voz'}
                 >
                   {isRecording ? (
                     <>
-                      <Square className="w-3.5 h-3.5 fill-current text-zinc-700 dark:text-zinc-300" />
+                      <Square className="w-3.5 h-3.5 fill-current text-white" />
                       <span>Detener</span>
                     </>
                   ) : (

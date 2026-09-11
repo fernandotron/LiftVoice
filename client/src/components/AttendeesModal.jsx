@@ -36,9 +36,9 @@ export default function AttendeesModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative w-full max-w-3xl rounded-[28px] border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 sm:p-6 overflow-hidden shadow-2xl flex flex-col max-h-[90dvh] sm:max-h-[85vh] text-zinc-900 dark:text-zinc-100 animate-sheet-up sm:animate-fadeIn transition-colors duration-150">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 pb-3 sm:pb-4 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0">
+      <div className="relative w-full max-w-3xl rounded-[28px] border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#1f1f1f] p-5 sm:p-6 overflow-hidden shadow-2xl flex flex-col max-h-[90dvh] sm:max-h-[85vh] text-zinc-900 dark:text-zinc-100 animate-sheet-up sm:animate-fadeIn transition-colors duration-150">
+        {/* Header sin línea divisoria rígida */}
+        <div className="flex items-center justify-between mb-4 pb-1 flex-shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-800 dark:text-zinc-200 shadow-xs flex-shrink-0">
               <Users className="w-4 h-4" />

@@ -119,7 +119,7 @@ export default function MobileAudioDock({
       aria-label="Controles de audio del oyente"
       className="fixed bottom-0 inset-x-0 z-40 sm:hidden pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-10 px-2.5 sm:px-4 bg-gradient-to-t from-white via-white/95 via-45% to-transparent dark:from-zinc-950 dark:via-zinc-950/95 dark:via-45% dark:to-transparent pointer-events-none"
     >
-      <div className="flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto">
+      <div className="flex items-center justify-center gap-2.5 sm:gap-3 pointer-events-auto">
         
         {/* Satélite Izquierdo: Selector de Idioma con Menú de Acciones Superior */}
         <div className="relative flex-shrink-0">
@@ -204,7 +204,7 @@ export default function MobileAudioDock({
             onClick={handleGlobeClick}
             aria-haspopup="menu"
             aria-expanded={isLanguageMenuOpen}
-            className={`w-11 h-11 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 ${
+            className={`w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 ${
               isLanguageMenuOpen
                 ? 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100'
                 : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
@@ -212,7 +212,7 @@ export default function MobileAudioDock({
             title={`Idioma: ${currentLanguage.nativeName}. Toca para cambiar.`}
             aria-label={`Idioma actual: ${currentLanguage.nativeName}. Toca para cambiar.`}
           >
-            <Globe className="w-5 h-5" />
+            <Globe className="w-6 h-6" />
           </button>
         </div>
 
@@ -221,11 +221,11 @@ export default function MobileAudioDock({
           <button
             type="button"
             onClick={handleFontSizeClick}
-            className="w-11 h-11 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            className="w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
             title={`Tamaño de subtítulos: ${captionSizeName}. Toca para cambiar.`}
             aria-label={`Tamaño de subtítulos: ${captionSizeName}. Toca para cambiar.`}
           >
-            <Type className="w-5 h-5" />
+            <Type className="w-6 h-6" />
           </button>
 
           {/* Micro-toast flotante de confirmación de tamaño al pulsar */}
@@ -242,7 +242,7 @@ export default function MobileAudioDock({
 
         {/* Centro: Master Audio Visualizer (Gemini Live 2026 Pure Living AI Pill) */}
         <div className="flex items-center justify-center flex-shrink min-w-0">
-          <div className="relative w-20 sm:w-28 flex-shrink min-w-0 h-11 flex items-center justify-center">
+          <div className="relative w-22 sm:w-28 flex-shrink min-w-0 h-12 flex items-center justify-center">
             {isLive && (
               <div
                 className="absolute -inset-1.5 rounded-full gemini-aura-glow opacity-60 pointer-events-none"
@@ -253,7 +253,7 @@ export default function MobileAudioDock({
             <button
               type="button"
               onClick={handleMuteClick}
-              className={`relative w-20 sm:w-28 flex-shrink min-w-0 h-11 rounded-full font-medium text-xs tracking-tight flex items-center justify-center transition-all cursor-pointer active:scale-95 touch-manipulation select-none overflow-hidden ${
+              className={`relative w-22 sm:w-28 flex-shrink min-w-0 h-12 rounded-full font-medium text-xs tracking-tight flex items-center justify-center transition-all cursor-pointer active:scale-95 touch-manipulation select-none overflow-hidden ${
                 !isUnlocked
                   ? 'bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-500 shadow-xs'
                   : isMuted
@@ -282,16 +282,16 @@ export default function MobileAudioDock({
         <button
           type="button"
           onClick={handleMuteClick}
-          className="relative w-11 h-11 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          className="relative w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
           title={!isUnlocked ? 'Sintonizar audio' : isMuted ? 'Activar sonido' : 'Silenciar audio'}
           aria-label={!isUnlocked ? 'Sintonizar audio' : isMuted ? 'Activar sonido' : 'Silenciar audio'}
         >
           {!isUnlocked ? (
-            <Volume2 className="w-5 h-5 text-zinc-700 dark:text-zinc-300 transition-colors" />
+            <Volume2 className="w-6 h-6 text-zinc-700 dark:text-zinc-300 transition-colors" />
           ) : isMuted ? (
-            <VolumeX className="w-5 h-5 text-rose-500 transition-colors" />
+            <VolumeX className="w-6 h-6 text-rose-500 transition-colors" />
           ) : (
-            <Volume2 className="w-5 h-5 text-zinc-700 dark:text-zinc-300 transition-colors" />
+            <Volume2 className="w-6 h-6 text-zinc-700 dark:text-zinc-300 transition-colors" />
           )}
         </button>
 
@@ -299,11 +299,11 @@ export default function MobileAudioDock({
         <button
           type="button"
           onClick={handleQAClick}
-          className="relative w-11 h-11 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          className="relative w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
           title={qaState === 'requested' ? 'Mano levantada (esperando turno)' : qaState === 'speaking' ? 'Tienes la palabra' : 'Pedir la palabra / Q&A'}
           aria-label={qaState === 'requested' ? 'Mano levantada (esperando turno)' : qaState === 'speaking' ? 'Tienes la palabra' : 'Pedir la palabra al ponente'}
         >
-          <Hand className={`w-5 h-5 transition-colors ${
+          <Hand className={`w-6 h-6 transition-colors ${
             qaState === 'requested'
               ? 'text-amber-500'
               : qaState === 'speaking'

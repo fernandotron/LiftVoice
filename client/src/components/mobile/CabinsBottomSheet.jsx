@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X, Headphones, Play, Sparkles, Globe } from 'lucide-react';
 import ElevenSlider from '../ElevenSlider.jsx';
+import CountryFlag from '../shared/CountryFlag.jsx';
 
 /**
  * CabinsBottomSheet — LiftVoice Studio 2026
@@ -59,16 +60,16 @@ export default function CabinsBottomSheet({
       />
 
       {/* Sheet / Modal Container estilo Reness */}
-      <div className="relative w-full sm:max-w-md rounded-[28px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xl overflow-hidden animate-sheet-up flex flex-col max-h-[88dvh]">
-        {/* Header */}
-        <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between flex-shrink-0">
+      <div className="relative w-full sm:max-w-md rounded-[28px] bg-white dark:bg-[#1f1f1f] border border-zinc-200/80 dark:border-white/10 shadow-2xl overflow-hidden animate-sheet-up flex flex-col max-h-[88dvh]">
+        {/* Header sin línea divisoria rígida */}
+        <div className="px-5 pt-4 pb-2 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
             <Globe className="w-4 h-4 text-zinc-900 dark:text-white" />
             <div>
               <h3 id="cabins-sheet-title" className="font-bold text-sm text-zinc-900 dark:text-white">
                 Cabinas de Traducción
               </h3>
-              <p className="text-[11px] text-zinc-500 font-mono">
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
                 Control de canales simultáneos y décalage
               </p>
             </div>
@@ -144,10 +145,10 @@ export default function CabinsBottomSheet({
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-2xl flex-shrink-0">{cab.flag}</span>
+                    <CountryFlag code={cab.code} className="w-7 h-7 shrink-0" title={cab.name} />
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-zinc-900 dark:text-white truncate">{cab.name}</div>
-                      <div className="text-[10px] text-zinc-500 font-mono truncate max-w-[130px]">{voiceName}</div>
+                      <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono truncate max-w-[130px]">{voiceName}</div>
                     </div>
                   </div>
 
@@ -159,7 +160,7 @@ export default function CabinsBottomSheet({
                       aria-label={isMonitored ? `Detener escucha de cabina ${cab.name}` : `Escuchar cabina de ${cab.name} en auriculares`}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 ${
                         isMonitored
-                          ? 'bg-emerald-600 text-white shadow-xs'
+                          ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-xs'
                           : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-200'
                       }`}
                     >
@@ -171,9 +172,9 @@ export default function CabinsBottomSheet({
                       type="button"
                       onClick={() => onPreviewVoice(cab.code)}
                       disabled={isAuditioning}
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer active:scale-95 ${
+                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer active:scale-95 ${
                         isAuditioning 
-                          ? 'bg-zinc-900 text-white animate-pulse' 
+                          ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 animate-pulse' 
                           : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200'
                       }`}
                       title="Audicionar muestra de voz"
@@ -187,8 +188,8 @@ export default function CabinsBottomSheet({
             })}
           </div>
 
-          {/* Deslizadores de Precisión ElevenLabs */}
-          <div className="pt-2 space-y-3.5 border-t border-zinc-100 dark:border-zinc-800">
+          {/* Deslizadores de Precisión ElevenLabs sin línea divisoria rígida */}
+          <div className="pt-3 space-y-3.5">
             <ElevenSlider
               label="Cadencia / Décalage de Traducción"
               value={decalageValue}

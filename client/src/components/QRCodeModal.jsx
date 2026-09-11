@@ -115,7 +115,7 @@ export default function QRCodeModal({
       <div className={`relative w-full transition-all duration-150 overflow-hidden shadow-2xl ${
         isFullScreen
           ? 'w-screen h-screen max-w-none rounded-none p-8 sm:p-12 flex flex-col justify-between bg-zinc-950 text-white'
-          : 'sm:max-w-md rounded-[28px] p-5 sm:p-7 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 max-h-[88dvh] sm:max-h-[90dvh] overflow-y-auto pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-7 animate-sheet-up sm:zoom-in-95 duration-200'
+          : 'sm:max-w-md rounded-[28px] p-5 sm:p-7 bg-white dark:bg-[#1f1f1f] border border-zinc-200/80 dark:border-white/10 text-zinc-900 dark:text-zinc-100 max-h-[88dvh] sm:max-h-[90dvh] overflow-y-auto pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-7 animate-sheet-up sm:zoom-in-95 duration-200'
       }`}>
         {/* Header Bar */}
         <div className="flex items-center justify-between">
@@ -444,7 +444,7 @@ export default function QRCodeModal({
             <button
               type="button"
               onClick={handleCopyLink}
-              className="flex-1 sm:flex-none h-10 sm:h-8 px-3.5 rounded-xl sm:rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs font-semibold sm:font-medium cursor-pointer shadow-2xs transition-colors flex items-center justify-center gap-1.5 active:scale-95"
+              className="flex-1 sm:flex-none h-10 sm:h-9 px-4 rounded-full border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs font-semibold cursor-pointer shadow-2xs transition-colors flex items-center justify-center gap-1.5 active:scale-95"
             >
               {copied ? (
                 <>
@@ -462,7 +462,7 @@ export default function QRCodeModal({
             <button
               type="button"
               onClick={handleDownloadQR}
-              className="flex-1 sm:flex-none h-10 sm:h-8 px-3.5 rounded-xl sm:rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs font-semibold sm:font-medium cursor-pointer shadow-2xs transition-colors flex items-center justify-center gap-1.5 active:scale-95"
+              className="flex-1 sm:flex-none h-10 sm:h-9 px-4 rounded-full border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs font-semibold cursor-pointer shadow-2xs transition-colors flex items-center justify-center gap-1.5 active:scale-95"
               title="Descargar imagen PNG"
             >
               <Download className="w-3.5 h-3.5" />
