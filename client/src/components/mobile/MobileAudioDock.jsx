@@ -1,16 +1,18 @@
 import React from 'react';
-import { Volume2, VolumeX, Hand } from 'lucide-react';
+import { Volume2, VolumeX, Hand, Globe } from 'lucide-react';
 
 /**
  * MobileAudioDock — LiftVoice Listener 2026
- * Muelle de escucha ergonómico anclado en la zona del pulgar (Thumb Zone):
- * - Satélite izquierdo: Selector de idioma / cabina (Bandera + código)
- * - Botón maestro central de 56px: Sintonizar / En directo / Silenciar con barras de onda reactivas
- * - Satélite derecho: Pedir la palabra (Q&A) con estado interactivo (idle / requested / speaking)
- * - Soporte nativo para iOS/Android Safe Area Insets y backdrop-blur
+ * Muelle de escucha ergonómico idéntico en acabados y proporciones a MasterBroadcastDock:
+ * - Satélite izquierdo (48px): Icono Globe + código de idioma en negrita (ES, EN, IT, PT)
+ * - Botón hero central (56px):
+ *   - Sintonizar / Inactivo: bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 con altavoz blanco/negro
+ *   - En directo: bg-emerald-600 con barras de onda reactivas y aura esmeralda
+ *   - Silenciado: bg-zinc-800 con icono de mute
+ * - Satélite derecho (48px): Icono Hand de 20px centrado sin texto aplastado y badge flotante de estado
  */
 export default function MobileAudioDock({
-  currentLanguage = { code: 'es', nativeName: 'Español', flag: '🇪🇸' },
+  currentLanguage = { code: 'es', nativeName: 'Español' },
   isPlaying = false,
   isUnlocked = true,
   isMuted = false,
@@ -43,6 +45,8 @@ export default function MobileAudioDock({
     onOpenQA();
   };
 
+  const isLive = isUnlocked && isPlaying && !isMuted;
+
   return (
     <nav 
       aria-label="Controles de audio del oyente"
@@ -55,18 +59,28 @@ export default function MobileAudioDock({
           type="button"
           onClick={onOpenLanguageSheet}
           aria-haspopup="dialog"
-          className="w-12 h-12 rounded-full border flex flex-col items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex-shrink-0"
+          className={`w-12 h-12 rounded-full border flex flex-col items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 ${
+            isLive
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
+              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+          }`}
           title="Cambiar idioma de la cabina"
           aria-label={`Idioma actual: ${currentLanguage.nativeName}. Toca para cambiar.`}
         >
-          <span className="text-base leading-none">{currentLanguage.flag}</span>
+          <Globe className="w-4 h-4" />
           <span className="text-[10px] font-mono font-bold mt-0.5 leading-none">
-            {currentLanguage.code}
+            {currentLanguage.code ? currentLanguage.code.toUpperCase() : 'ES'}
           </span>
         </button>
 
-        {/* Centro: Master Audio Button (Hero 56px) */}
+        {/* Centro: Master Audio Button (Hero 56px, idéntico en estructura a MasterBroadcastDock) */}
         <div className="relative flex items-center justify-center flex-1">
+          {isLive && (
+            <div
+              className="absolute -inset-2.5 rounded-full bg-emerald-500/25 dark:bg-emerald-500/35 blur-sm pointer-events-none transition-transform duration-75 animate-pulse"
+            />
+          )}
+
           <button
             type="button"
             onClick={handlePlayClick}
@@ -75,13 +89,13 @@ export default function MobileAudioDock({
                 ? 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 shadow-zinc-950/20'
                 : isMuted
                 ? 'bg-zinc-800 hover:bg-zinc-700 text-white shadow-zinc-950/20'
-                : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 shadow-zinc-950/20'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/30'
             }`}
             aria-label={!isUnlocked ? 'Sintonizar audio' : isMuted ? 'Activar sonido' : 'Silenciar audio'}
           >
             {!isUnlocked ? (
               <>
-                <Volume2 className="w-5 h-5 text-amber-400 dark:text-amber-500 animate-pulse" />
+                <Volume2 className="w-5 h-5 animate-pulse" />
                 <span>Sintonizar audio</span>
               </>
             ) : isMuted ? (
@@ -111,24 +125,27 @@ export default function MobileAudioDock({
           </button>
         </div>
 
-        {/* Satélite Derecho: Preguntar al ponente (Q&A) */}
+        {/* Satélite Derecho: Q&A / Pedir la palabra (Icono limpio de 20px sin texto aplastado) */}
         <button
           type="button"
           onClick={handleQAClick}
-          className={`w-12 h-12 rounded-full border flex flex-col items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 ${
+          className={`relative w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 ${
             qaState === 'speaking'
               ? 'bg-emerald-600 text-white border-emerald-500 animate-pulse ring-4 ring-emerald-500/30'
               : qaState === 'requested'
-              ? 'bg-zinc-900 dark:bg-zinc-900 border-amber-400/90 text-white ring-2 ring-amber-400/30'
-              : 'bg-zinc-900/90 dark:bg-zinc-900 border-zinc-700/60 dark:border-zinc-800 text-white hover:bg-zinc-800'
+              ? 'bg-amber-400 text-zinc-950 border-amber-300 font-bold ring-4 ring-amber-400/30'
+              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
           }`}
-          title="Preguntar al ponente"
-          aria-label="Preguntar al ponente en vivo"
+          title="Pedir la palabra / Q&A"
+          aria-label="Pedir la palabra al ponente"
         >
-          <Hand className={`w-4 h-4 text-amber-400 ${qaState === 'requested' ? 'animate-bounce' : ''}`} />
-          <span className="text-[9px] font-medium text-white dark:text-zinc-200 mt-0.5 leading-none">
-            {qaState === 'speaking' ? 'Hablas' : qaState === 'requested' ? 'Espera' : 'Preguntar'}
-          </span>
+          <Hand className={`w-5 h-5 ${qaState === 'requested' ? 'animate-bounce text-zinc-950' : ''}`} />
+          {qaState === 'requested' && (
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-white dark:border-zinc-900 animate-ping" />
+          )}
+          {qaState === 'speaking' && (
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-white dark:border-zinc-900 animate-ping" />
+          )}
         </button>
 
       </div>
