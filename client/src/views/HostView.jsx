@@ -1333,7 +1333,7 @@ export default function HostView({
             isOpen={isHostUserMenuOpen}
             onClose={() => setIsHostUserMenuOpen(false)}
             anchorElement={hostUserMenuTriggerRef.current}
-            userName="Ponente / Anfitrión"
+            userName="Ponente"
             userRole="host"
             canAccessAdmin={true}
             onOpenSettings={onOpenSettings}
