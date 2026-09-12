@@ -200,8 +200,8 @@ export default function CabinsBottomSheet({
               min={0}
               max={100}
               step={5}
-              leftLabel="⚡ Rápido (3s)"
-              rightLabel="🎙️ Ponencia (6s)"
+              leftLabel="Rápido (3s)"
+              rightLabel="Ponencia (6s)"
               formatValue={(val) => (val < 40 ? 'Ágil' : 'Ponencia')}
               onChange={onDecalageChange}
             />

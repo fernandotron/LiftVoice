@@ -1541,18 +1541,8 @@ export default function HostView({
                     min={0}
                     max={100}
                     step={5}
-                    leftLabel={
-                      <span className="inline-flex items-center gap-1">
-                        <Zap className="w-3 h-3 text-amber-500" />
-                        <span>Rápido (3s)</span>
-                      </span>
-                    }
-                    rightLabel={
-                      <span className="inline-flex items-center gap-1">
-                        <Mic className="w-3 h-3 text-zinc-400" />
-                        <span>Ponencia (6s)</span>
-                      </span>
-                    }
+                    leftLabel="Rápido (3s)"
+                    rightLabel="Ponencia (6s)"
                     formatValue={(val) => (val < 40 ? 'Ágil' : 'Ponencia')}
                     onChange={(v) => {
                       setDecalageValue(v);

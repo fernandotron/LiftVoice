@@ -258,8 +258,8 @@ export default function HostControls({
               onChange={(e) => onDecalageModeChange(e.target.value)}
               className="w-full h-11 bg-zinc-900 border border-white/10 rounded-2xl px-3 text-xs text-zinc-200 focus:outline-none focus:border-white transition-all cursor-pointer"
             >
-              <option value="quick">⚡ Rápido (2.5s - 3.5s)</option>
-              <option value="natural">🎙️ Ponencia (4.0s - 5.0s)</option>
+              <option value="quick">Rápido (2.5s - 3.5s)</option>
+              <option value="natural">Ponencia (4.0s - 5.0s)</option>
             </select>
           </div>
         </div>
