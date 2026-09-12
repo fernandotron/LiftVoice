@@ -164,7 +164,7 @@ export default function VoiceCatalogModal({
                       : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-white/5'
                   }`}
                 >
-                  <CountryFlag code={lang.code} className="w-3.5 h-3.5 rounded-xs" />
+                  <CountryFlag code={lang.code} className="w-4 h-4 rounded-full shadow-2xs" />
                   <span>{lang.label}</span>
                 </button>
               ))}

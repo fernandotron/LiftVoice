@@ -870,7 +870,7 @@ export default function HostView({
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <CountryFlag code={cab.code} className="w-5 h-5 rounded-xs shadow-2xs flex-shrink-0" />
+                      <CountryFlag code={cab.code} className="w-6 h-6 rounded-full shadow-2xs flex-shrink-0" />
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-zinc-950 dark:text-zinc-100">{cab.name}</div>
                         <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono truncate max-w-[130px]">{voice}</div>

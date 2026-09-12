@@ -1053,7 +1053,7 @@ export default function AdminSettingsShell({
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <CountryFlag code={b.lang} className="w-5 h-5 rounded-xs shadow-2xs flex-shrink-0" />
+                        <CountryFlag code={b.lang} className="w-6 h-6 rounded-full shadow-2xs flex-shrink-0" />
                         <div>
                           <span className="font-semibold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100">
                             {b.label}

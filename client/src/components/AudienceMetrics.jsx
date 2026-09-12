@@ -1,6 +1,7 @@
 import React from 'react';
 import { Users, Zap, Clock, ShieldCheck, Radio, CheckCircle, AudioLines, Activity } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from './LanguageSelector.jsx';
+import CountryFlag from './shared/CountryFlag.jsx';
 
 export default function AudienceMetrics({
   totalListeners = 0,
@@ -112,7 +113,7 @@ export default function AudienceMetrics({
                 className="p-3 rounded-xl bg-zinc-950/80 border border-white/5 flex items-center justify-between"
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="text-2xl">{lang.flag}</span>
+                  <CountryFlag code={lang.code} className="w-6 h-6 rounded-full shadow-2xs shrink-0" />
                   <div>
                     <div className="font-semibold text-xs text-white">{lang.name}</div>
                     <div className="text-[10px] text-zinc-500 font-mono">{lang.code}</div>
