@@ -1734,12 +1734,12 @@ export default function HostView({
                   value={manualText}
                   onChange={(e) => setManualText(e.target.value)}
                   placeholder="Escribe cualquier frase aquí para emitir por voz en las 4 cabinas..."
-                  className="flex-1 h-10 bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 transition-colors shadow-2xs"
+                  className="flex-1 h-11 min-h-[44px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 transition-colors shadow-2xs"
                 />
                 <button
                   type="submit"
                   disabled={!manualText.trim()}
-                  className="h-10 px-5 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-1.5 shadow-xs active:scale-95"
+                  className="h-11 min-h-[44px] px-5 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-1.5 shadow-xs active:scale-95"
                 >
                   <span>Emitir</span>
                   <Send className="w-3.5 h-3.5" />
