@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic, MicOff, Radio, Settings, Volume2, Sparkles, AudioLines, Sliders,
-  RefreshCw, Check, Globe, ChevronRight, Activity, Users, QrCode, Play,
+  RefreshCw, Check, Globe, ChevronRight, Activity, Users, QrCode, Play, Square,
   Send, Layers, ArrowRight, ArrowLeft, Type, Shield, Download, FileText, Stethoscope, Home,
   Search, ExternalLink, Headphones, Hand, HelpCircle, CheckCircle2, XCircle, MessageSquare,
   Menu, X, SlidersHorizontal, Copy, ChevronDown, PanelRight, Zap, Bell
@@ -83,6 +83,7 @@ export default function HostView({
   const [selectedDevice, setSelectedDevice] = useState('default');
   const [monitoredLang, setMonitoredLang] = useState('none');
   const [previewingLang, setPreviewingLang] = useState(null);
+  const previewAbortRef = useRef(null);
   const [isMobileInspectorOpen, setIsMobileInspectorOpen] = useState(false);
   const [isDesktopInspectorOpen, setIsDesktopInspectorOpen] = useState(true);
   const [isCabinsSheetOpen, setIsCabinsSheetOpen] = useState(false);
@@ -644,9 +645,24 @@ export default function HostView({
   };
 
   const handlePreviewChannelVoice = async (langCode) => {
+    // Si la cabina seleccionada ya se está reproduciendo, detener la reproducción inmediatamente
+    if (previewingLang === langCode) {
+      if (previewAbortRef.current) previewAbortRef.current.abort();
+      try { audioPlayerService.stopAll(); } catch (e) {}
+      setPreviewingLang(null);
+      return;
+    }
+
+    if (previewAbortRef.current) previewAbortRef.current.abort();
+    const abortCtrl = new AbortController();
+    previewAbortRef.current = abortCtrl;
     setPreviewingLang(langCode);
+    try { audioPlayerService.stopAll(); } catch (e) {}
+
     try {
       await audioPlayerService.unlockAudio(roomId, langCode);
+      if (abortCtrl.signal.aborted) return;
+
       const sampleTexts = {
         en: 'Welcome to LiftVoice. This is a real-time neural voice preview for the English channel.',
         es: 'Bienvenidos a LiftVoice. Esta es una prueba de voz neuronal en tiempo real para el canal en español.',
@@ -668,17 +684,24 @@ export default function HostView({
         const res = await fetch(`/api/rooms/${roomId}/preview-voice`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: abortCtrl.signal,
           body: JSON.stringify({
             lang: langCode,
             sampleText: text,
             voice: selectedVoices[langCode]
           })
         });
+        if (abortCtrl.signal.aborted) return;
         const data = await res.json();
+        if (abortCtrl.signal.aborted) return;
         if (data && data.audioBase64) {
           serverAudio = data.audioBase64;
         }
-      } catch (err) {}
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+      }
+
+      if (abortCtrl.signal.aborted) return;
 
       await audioPlayerService.playVoicePreview({
         voiceId: selectedVoices[langCode],
@@ -687,9 +710,13 @@ export default function HostView({
         audioBase64: serverAudio
       });
     } catch (e) {
-      console.warn('Voice preview warning:', e);
+      if (e.name !== 'AbortError') {
+        console.warn('Voice preview warning:', e);
+      }
     } finally {
-      setTimeout(() => setPreviewingLang(null), 2500);
+      if (previewAbortRef.current === abortCtrl) {
+        setPreviewingLang(null);
+      }
     }
   };
 
@@ -892,16 +919,21 @@ export default function HostView({
                       </button>
 
                       <button
+                        type="button"
                         onClick={() => handlePreviewChannelVoice(cab.code)}
-                        disabled={isAuditioning}
-                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer shadow-2xs ${
+                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 ${
                           isAuditioning
-                            ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 animate-pulse'
+                            ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 ring-2 ring-zinc-950/20 dark:ring-white/20'
                             : 'bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200'
                         }`}
-                        title="Audicionar muestra de voz"
+                        title={isAuditioning ? 'Detener reproducción de voz' : 'Audicionar muestra de voz'}
+                        aria-label={isAuditioning ? `Detener voz para ${cab.name}` : `Audicionar voz para ${cab.name}`}
                       >
-                        <Play className="w-3 h-3" />
+                        {isAuditioning ? (
+                          <Square className="w-2.5 h-2.5 fill-current" />
+                        ) : (
+                          <Play className="w-3 h-3 fill-current ml-0.5" />
+                        )}
                       </button>
                     </div>
                   </div>

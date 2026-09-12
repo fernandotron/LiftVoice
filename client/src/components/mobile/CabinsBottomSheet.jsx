@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Headphones, Play, Sparkles, Globe, Bell } from 'lucide-react';
+import { X, Headphones, Play, Square, Sparkles, Globe, Bell } from 'lucide-react';
 import ElevenSlider from '../ElevenSlider.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
 
@@ -172,16 +172,19 @@ export default function CabinsBottomSheet({
                     <button
                       type="button"
                       onClick={() => onPreviewVoice(cab.code)}
-                      disabled={isAuditioning}
-                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer active:scale-95 ${
+                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
                         isAuditioning 
-                          ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 animate-pulse' 
+                          ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 ring-2 ring-zinc-900/20 dark:ring-white/20' 
                           : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200'
                       }`}
-                      title="Audicionar muestra de voz"
-                      aria-label={`Audicionar voz para ${cab.name}`}
+                      title={isAuditioning ? 'Detener reproducción de voz' : 'Audicionar muestra de voz'}
+                      aria-label={isAuditioning ? `Detener voz para ${cab.name}` : `Audicionar voz para ${cab.name}`}
                     >
-                      <Play className="w-3.5 h-3.5 fill-current" />
+                      {isAuditioning ? (
+                        <Square className="w-3.5 h-3.5 fill-current" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                      )}
                     </button>
                   </div>
                 </div>

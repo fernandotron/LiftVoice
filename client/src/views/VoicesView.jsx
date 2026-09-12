@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Search, Play, Loader2, Volume2, Check, Sparkles, Filter, SlidersHorizontal,
+  Search, Play, Square, Loader2, Volume2, Check, Sparkles, Filter, SlidersHorizontal,
   Home, Radio, Layers, Settings, QrCode, Users, Globe, ArrowRight, ShieldCheck,
   ChevronRight, Mic, Menu, X
 } from 'lucide-react';
@@ -606,9 +606,9 @@ export default function VoicesView({
                             title="Audicionar voz en tiempo real"
                           >
                             {isPlaying ? (
-                              <Volume2 className="w-3.5 h-3.5" />
+                              <Square className="w-3 h-3 fill-current" />
                             ) : (
-                              <Play className="w-3 h-3 ml-0.5" />
+                              <Play className="w-3 h-3 ml-0.5 fill-current" />
                             )}
                           </button>
                         </div>
