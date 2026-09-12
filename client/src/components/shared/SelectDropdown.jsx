@@ -27,25 +27,54 @@ export default function SelectDropdown({
   className = '',
   children
 }) {
-  // Extraer opciones desde `optionsProp` o desde `children` (<option>)
+  // Extraer y normalizar opciones desde `optionsProp` o desde `children` (<option>)
   const parsedOptions = useMemo(() => {
+    let rawList = [];
     if (Array.isArray(optionsProp) && optionsProp.length > 0) {
-      return optionsProp;
-    }
-    if (children) {
-      const opts = [];
+      rawList = optionsProp;
+    } else if (children) {
       React.Children.forEach(children, (child) => {
         if (React.isValidElement(child) && child.props) {
-          opts.push({
+          rawList.push({
             value: child.props.value !== undefined ? child.props.value : child.props.children,
             label: child.props.children || child.props.label || String(child.props.value),
             description: child.props['data-description'] || child.props.description
           });
         }
       });
-      return opts;
     }
-    return [];
+
+    return rawList.map((opt) => {
+      if (typeof opt === 'string' || typeof opt === 'number') {
+        opt = { value: opt, label: String(opt) };
+      }
+      if (!opt || typeof opt !== 'object') {
+        return { value: '', label: '', description: null };
+      }
+
+      const rawVal = opt.value !== undefined ? opt.value : opt.label;
+      const labelStr = typeof opt.label === 'string' ? opt.label : (opt.label != null ? String(opt.label) : String(rawVal ?? ''));
+      let desc = opt.description ? String(opt.description).trim() : null;
+
+      // Limpiar prefijos numéricos ("1. ", "2) ", "3 - ")
+      let cleanLabel = labelStr.replace(/^\d+[\.\)\-]\s*/, '').trim();
+
+      // Si no hay subtítulo/descripción explícita, extraer de paréntesis al final ("Título (Subtítulo)")
+      if (!desc) {
+        const parenMatch = cleanLabel.match(/^(.*?)\s*\(([^()]+)\)$/);
+        if (parenMatch && parenMatch[1].trim()) {
+          cleanLabel = parenMatch[1].trim();
+          desc = parenMatch[2].trim();
+        }
+      }
+
+      return {
+        value: rawVal,
+        label: cleanLabel || labelStr,
+        description: desc,
+        originalLabel: labelStr
+      };
+    });
   }, [optionsProp, children]);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -76,19 +105,26 @@ export default function SelectDropdown({
     }
 
     const rect = buttonRef.current.getBoundingClientRect();
-    const optionHeight = 44;
-    const menuMaxHeight = 280;
-    const estimatedMenuHeight = Math.min(parsedOptions.length * optionHeight, menuMaxHeight);
+    const hasDescriptions = parsedOptions.some(opt => !!opt.description);
+    const optionHeight = hasDescriptions ? 52 : 40;
+    const menuMaxHeight = 340;
+    const estimatedMenuHeight = Math.min(parsedOptions.length * optionHeight + 16, menuMaxHeight);
     const spacing = 4;
     const spaceBelow = window.innerHeight - rect.bottom - spacing;
     const spaceAbove = rect.top - spacing;
 
     const openUp = spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow;
 
+    // Calcular ancho y alineación dentro del viewport
+    const menuWidth = Math.max(rect.width, 280);
+    const maxLeft = Math.max(12, window.innerWidth - menuWidth - 12);
+    const adjustedLeft = Math.max(12, Math.min(rect.left, maxLeft));
+
     setMenuPosition({
       top: openUp ? rect.top : rect.bottom + spacing,
       left: rect.left,
-      width: rect.width,
+      adjustedLeft,
+      width: menuWidth,
       openUp,
     });
     setIsOpen(true);
@@ -217,16 +253,18 @@ export default function SelectDropdown({
                         role="option"
                         aria-selected={isSelected}
                         onClick={() => handleSelect(option.value)}
-                        className={`group w-full flex items-center justify-between gap-3.5 px-3.5 py-3 rounded-2xl text-left transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:focus-visible:ring-white/40 cursor-pointer ${
+                        className={`group w-full flex items-center justify-between gap-3.5 px-3.5 py-2.5 rounded-2xl text-left transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:focus-visible:ring-white/40 cursor-pointer ${
                           isSelected
-                            ? 'text-zinc-900 dark:text-white font-semibold hover:bg-zinc-100/70 dark:hover:bg-white/5 active:bg-zinc-200/60 dark:active:bg-white/10'
-                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5 active:bg-zinc-200/60 dark:active:bg-white/10 font-normal'
+                            ? 'text-zinc-950 dark:text-white hover:bg-zinc-100/80 dark:hover:bg-white/10 active:bg-zinc-200/60 dark:active:bg-white/15'
+                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/80 dark:hover:bg-white/10 active:bg-zinc-200/60 dark:active:bg-white/15 font-normal'
                         }`}
                       >
                         <div className="flex flex-col min-w-0 flex-1">
-                          <span className="truncate text-[15px]">{option.label}</span>
+                          <span className={`truncate text-sm sm:text-[15px] ${isSelected ? 'font-semibold text-zinc-950 dark:text-white' : 'font-medium text-zinc-800 dark:text-zinc-200'}`}>
+                            {option.label}
+                          </span>
                           {option.description && (
-                            <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5 leading-snug">
                               {option.description}
                             </span>
                           )}
@@ -234,7 +272,7 @@ export default function SelectDropdown({
 
                         {isSelected && (
                           <Check
-                            className="shrink-0 text-zinc-900 dark:text-white w-4 h-4 ml-2"
+                            className="shrink-0 text-zinc-950 dark:text-white w-4 h-4 ml-2"
                             strokeWidth={2.5}
                             aria-hidden="true"
                           />
@@ -253,14 +291,14 @@ export default function SelectDropdown({
               ref={menuRef}
               role="listbox"
               aria-label={ariaLabel || 'Opciones'}
-              className={`fixed p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-[0_10px_30px_-5px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.6)] border border-zinc-200/80 dark:border-white/10 z-[100010] max-h-[280px] overflow-y-auto scrollbar-custom select-none transition-all duration-150 ${
+              className={`fixed p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-[0_12px_36px_-6px_rgba(0,0,0,0.18)] dark:shadow-[0_16px_40px_-6px_rgba(0,0,0,0.75)] border border-zinc-200/90 dark:border-white/10 z-[100010] max-h-[340px] overflow-y-auto scrollbar-custom select-none transition-all duration-150 space-y-0.5 ${
                 animado ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
               }`}
               style={{
                 ...(menuPosition.openUp
                   ? { bottom: `${window.innerHeight - menuPosition.top + 4}px` }
                   : { top: `${menuPosition.top}px` }),
-                left: `${menuPosition.left}px`,
+                left: `${menuPosition.adjustedLeft ?? menuPosition.left}px`,
                 width: `${menuPosition.width}px`,
                 pointerEvents: 'auto',
               }}
@@ -275,23 +313,25 @@ export default function SelectDropdown({
                     role="option"
                     aria-selected={isSelected}
                     onClick={() => handleSelect(option.value)}
-                    className={`flex w-full items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm transition-colors text-left focus:outline-none cursor-pointer ${
+                    className={`group flex w-full items-center justify-between px-3.5 py-2.5 rounded-xl text-left transition-colors focus:outline-none cursor-pointer ${
                       isSelected
-                        ? 'text-zinc-900 dark:text-white font-semibold hover:bg-zinc-100/70 dark:hover:bg-white/5'
-                        : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5 font-normal'
+                        ? 'text-zinc-950 dark:text-white hover:bg-zinc-100/80 dark:hover:bg-white/10'
+                        : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/80 dark:hover:bg-white/10'
                     }`}
                   >
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <span className="truncate">{option.label}</span>
+                    <div className="flex flex-col min-w-0 flex-1 pr-2">
+                      <span className={`truncate text-xs sm:text-sm ${isSelected ? 'font-semibold text-zinc-950 dark:text-white' : 'font-medium text-zinc-800 dark:text-zinc-200'}`}>
+                        {option.label}
+                      </span>
                       {option.description && (
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5 leading-snug">
                           {option.description}
                         </span>
                       )}
                     </div>
                     {isSelected && (
                       <Check
-                        className="shrink-0 text-zinc-900 dark:text-white w-3.5 h-3.5 ml-2"
+                        className="shrink-0 text-zinc-950 dark:text-white w-4 h-4 ml-2"
                         strokeWidth={2.5}
                         aria-hidden="true"
                       />

@@ -49,7 +49,7 @@ const DEFAULT_GENDERS = {
 
 const BOOTH_VOICE_OPTIONS = {
   es: [
-    { id: 'aura-asteria-en', name: 'Deepgram Aura (Multilingüe)', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
+    { id: 'aura-asteria-en', name: 'Deepgram Aura', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
     { id: 'es-ES-ElviraNeural', name: 'Google Elvira', gender: 'female', engine: 'google', desc: 'Fluida y natural • Universal' },
     { id: 'es-ES-AlvaroNeural', name: 'Google Álvaro', gender: 'male', engine: 'google', desc: 'Claro y profesional • Universal' },
     { id: 'qwen3-tts-es', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
@@ -73,7 +73,7 @@ const BOOTH_VOICE_OPTIONS = {
     { id: 'pNInz6obpgDQGcFmaJgB', name: 'ElevenLabs Adam', gender: 'male', engine: 'elevenlabs', desc: 'Keynote magistral • 11Labs' }
   ],
   it: [
-    { id: 'aura-asteria-en', name: 'Deepgram Aura (Multilingüe)', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
+    { id: 'aura-asteria-en', name: 'Deepgram Aura', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
     { id: 'it-IT-ElsaNeural', name: 'Google Elsa', gender: 'female', engine: 'google', desc: 'Italiano fluido y expresivo • Universal' },
     { id: 'it-IT-CosimoNeural', name: 'Google Cosimo', gender: 'male', engine: 'google', desc: 'Sereno y refinado • Universal' },
     { id: 'qwen3-tts-it', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
@@ -82,7 +82,7 @@ const BOOTH_VOICE_OPTIONS = {
     { id: 'AZnzlk1XvdvUeBnXmlld', name: 'ElevenLabs Domi', gender: 'female', engine: 'elevenlabs', desc: 'Asertiva y dinámica • 11Labs' }
   ],
   pt: [
-    { id: 'aura-asteria-en', name: 'Deepgram Aura (Multilingüe)', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
+    { id: 'aura-asteria-en', name: 'Deepgram Aura', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
     { id: 'pt-BR-FranciscaNeural', name: 'Google Francisca', gender: 'female', engine: 'google', desc: 'Portugués brasileño suave • Universal' },
     { id: 'pt-BR-AntonioNeural', name: 'Google Antonio', gender: 'male', engine: 'google', desc: 'Enérgico y amigable • Universal' },
     { id: 'qwen3-tts-pt', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
@@ -108,6 +108,103 @@ const TAB_METADATA = {
   'users-rooms': { title: 'Gestión de Usuarios & Salas', desc: 'Monitorea salas activas, participantes y audita el historial de conexiones' },
   'keys': { title: 'Claves de API y Proveedores', desc: 'Administra tus credenciales de Deepgram, Google, ElevenLabs y OpenAI' }
 };
+
+// Opciones enriquecidas de dos niveles: Título nítido + Subtítulo técnico
+const STT_ENGINE_OPTIONS = [
+  { value: 'deepgram', label: 'Deepgram Nova-3 Streaming', description: 'Saldo $200 disponible • Latencia ultra-baja ~150ms' },
+  { value: 'gemini_live', label: 'Google Gemini 3.5 Live', description: 'Multimodal Cloud • Alta fidelidad acústica en salas' },
+  { value: 'whisper', label: 'OpenAI Whisper-1', description: 'Máxima precisión técnica y fidelidad léxica' },
+  { value: 'webspeech', label: 'Web Speech API', description: 'Navegador local nativo • 100% gratuito sin cuota' }
+];
+
+const STT_STRATEGY_OPTIONS = [
+  { value: 'deepgram_balance', label: 'Modo Saldo Deepgram', description: 'Nova-3 + Gemini 3.1 + Aura TTS (Balance óptimo)' },
+  { value: 'google_free', label: 'Modo 100% Gratuito', description: 'WebSpeech + Gemini + Google Neural (Cero costes)' },
+  { value: 'max_quality', label: 'Máxima Calidad VIP', description: 'Nova-3 + GPT-4o + ElevenLabs (Hiper-realismo)' },
+  { value: 'custom', label: 'Configuración Personalizada', description: 'Ajuste manual modular de cada componente' }
+];
+
+const STT_LANG_OPTIONS = [
+  { value: 'auto', label: 'Detección Automática', description: 'Reconocimiento multilingüe dinámico (Nova-3 / Gemini)' },
+  { value: 'es', label: 'Español Fijado', description: 'Dialectos es-ES y es-419' },
+  { value: 'en', label: 'Inglés Fijado', description: 'Dialectos en-US y en-GB' },
+  { value: 'it', label: 'Italiano Fijado', description: 'Dialecto estándar it-IT' },
+  { value: 'pt', label: 'Portugués Fijado', description: 'Dialectos pt-BR y pt-PT' }
+];
+
+const STT_VAD_OPTIONS = [
+  { value: 'standard', label: 'VAD Estándar', description: 'Recomendado para conferencias y simposios' },
+  { value: 'high', label: 'Alta Sensibilidad', description: 'Micrófono distante, solapas o voz suave' },
+  { value: 'aggressive', label: 'Filtrado Agresivo de Ruido', description: 'Salas con reverberación o murmullos' }
+];
+
+const TTS_GLOBAL_ENGINE_OPTIONS = [
+  { value: 'deepgram', label: 'Deepgram Aura / Aura-2', description: 'Latencia ~140ms • Saldo $200' },
+  { value: 'google', label: 'Google Neural Universal', description: '100% Gratuito & Ilimitado' },
+  { value: 'qwen_tts', label: 'Alibaba Qwen3-TTS', description: 'Ultra-rápido 97ms • CosyVoice' },
+  { value: 'elevenlabs', label: 'ElevenLabs Turbo v2.5', description: 'Hiper-realismo VIP • Latencia optimizada' },
+  { value: 'openai', label: 'OpenAI TTS-1', description: 'Voces Alloy, Nova, Echo, Shimmer' },
+  { value: 'auto', label: 'Auto Inteligente', description: 'Mejor voz activa disponible según latencia' }
+];
+
+const TTS_DECALAGE_OPTIONS = [
+  { value: 'natural', label: 'Natural con buffer', description: '~1.5s • Oraciones completas y fluidas' },
+  { value: 'fast', label: 'Streaming inmediato', description: '~800ms • Prioridad a la ultra-baja latencia' },
+  { value: 'paused', label: 'Pausado simultáneo', description: '~2.5s • Máxima coherencia de interpretación' }
+];
+
+const AI_PROVIDER_OPTIONS = [
+  { value: 'gemini', label: 'Google Gemini 3.1 Flash-Lite', description: 'Recomendado • Sub-150ms y salida JSON' },
+  { value: 'qwen', label: 'Alibaba Qwen 3.8', description: 'Open-Weights 27B • Inferencia Ollama o Cloud' },
+  { value: 'openai', label: 'OpenAI GPT-4o Mini', description: 'Alta fidelidad gramatical y médica' },
+  { value: 'google', label: 'Google Neural', description: 'Traducción directa instantánea sin costo' }
+];
+
+const AI_STRATEGY_OPTIONS = [
+  { value: 'json_single', label: 'Llamada Única JSON', description: '4 cabinas simultáneas en una sola petición (-75% cuota)' },
+  { value: 'parallel', label: 'Inferencia en Paralelo', description: 'Una petición independiente por cabina' },
+  { value: 'fallback', label: 'Respaldo Escalonado', description: 'Gemini principal con fallback en OpenAI' }
+];
+
+const GEMINI_MODEL_OPTIONS = [
+  { value: 'google/gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', description: 'google/gemini-3.1-flash-lite • Ultra-rápido' },
+  { value: 'google/gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', description: 'google/gemini-3.5-flash-lite • Razonamiento adaptativo' },
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', description: 'gemini-2.0-flash • Google AI Studio directo' }
+];
+
+const TEMPERATURE_OPTIONS = [
+  { value: '0.1', label: '0.1 - Máxima Precisión', description: 'Ideal para conferencias médicas y fidelidad estricta' },
+  { value: '0.3', label: '0.3 - Balanceada', description: 'Fluidez natural con consistencia semántica' },
+  { value: '0.7', label: '0.7 - Creativa', description: 'Para discursos literarios o coloquiales' }
+];
+
+const QWEN_MODEL_OPTIONS = [
+  { value: 'qwen/qwen-3.8-27b', label: 'Qwen 3.8 27B Cloud', description: 'qwen/qwen-3.8-27b • OpenRouter oficial' },
+  { value: 'qwen/qwen-3.8-flash', label: 'Qwen 3.8 Flash', description: 'qwen/qwen-3.8-flash • Ultra-baja latencia' },
+  { value: 'qwen3.8:27b-instruct-q4_k_m', label: 'Qwen 3.8 27B Local', description: 'qwen3.8:27b-instruct-q4_k_m • GGUF Ollama' },
+  { value: 'qwen3.5:9b-instruct-q4_k_m', label: 'Qwen 3.5 9B Ligero', description: 'qwen3.5:9b-instruct-q4_k_m • Bajo consumo 5.5GB' }
+];
+
+const OPENAI_MODEL_OPTIONS = [
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', description: 'Económico, ágil y con preservación de términos' },
+  { value: 'gpt-4o', label: 'GPT-4o Omni', description: 'Modelo insignia multimodal de OpenAI' }
+];
+
+const GOOGLE_NEURAL_OPTIONS = [
+  { value: 'universal', label: 'Traducción Universal Directa', description: 'Sub-90ms • Cobertura multilingüe instantánea' }
+];
+
+const MEDICAL_MODE_OPTIONS = [
+  { value: 'true', label: 'Modo Clínico Activado', description: 'Protege siglas hospitalarias, CIE-11 y fármacos DCI' },
+  { value: 'false', label: 'Modo Clínico Desactivado', description: 'Lenguaje general sin heurística médica' }
+];
+
+const MEDICAL_SPECIALTY_OPTIONS = [
+  { value: 'general', label: 'Medicina General & Urgencias', description: 'Cuidados críticos, triage y atención primaria' },
+  { value: 'cardiology', label: 'Cardiología & Hemodinámica', description: 'ECG, IAM, arritmias y cateterismo' },
+  { value: 'pharmacology', label: 'Farmacología & Dosificaciones', description: 'Denominación Común Internacional (DCI / INN)' },
+  { value: 'surgery', label: 'Cirugía & Anestesiología', description: 'Quirófano, monitorización hemodinámica e intubación' }
+];
 
 export function DegradadoCabecera() {
   return (
@@ -663,14 +760,10 @@ export default function AdminSettingsShell({
                   id="admin-stt-engine"
                   aria-label="Motor principal de transcripción"
                   value={sttEngine}
+                  options={STT_ENGINE_OPTIONS}
                   onChange={(e) => { setSttEngine(e.target.value); setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                >
-                  <option value="deepgram">1. Deepgram Nova-3 Streaming (Saldo $200 • ~150ms)</option>
-                  <option value="gemini_live">2. Google Gemini 3.5 Live (Multimodal Cloud • $0.54/h)</option>
-                  <option value="whisper">3. OpenAI Whisper-1 (Máxima precisión técnica)</option>
-                  <option value="webspeech">4. Web Speech API (Navegador Local • $0 Costo)</option>
-                </SelectDropdown>
+                />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                   {sttEngine === 'deepgram' && 'Modelo acústico insignia con latencia ultra-baja (~150ms) y puntuación inteligente. Consume tu saldo de $200.'}
                   {sttEngine === 'gemini_live' && 'Transcripción multimodal de Google optimizada para entornos con reverberación y salas amplias.'}
@@ -688,6 +781,7 @@ export default function AdminSettingsShell({
                   id="admin-stt-strategy"
                   aria-label="Estrategia de ejecución y presupuesto"
                   value={isPresetActive('deepgram_balance') ? 'deepgram_balance' : isPresetActive('google_free') ? 'google_free' : isPresetActive('max_quality') ? 'max_quality' : 'custom'}
+                  options={STT_STRATEGY_OPTIONS}
                   onChange={(e) => {
                     if (e.target.value !== 'custom') {
                       applyPreset(e.target.value);
@@ -695,12 +789,7 @@ export default function AdminSettingsShell({
                     setIsDirty(true);
                   }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                >
-                  <option value="deepgram_balance">Modo Saldo Deepgram (Nova-3 + Gemini 3.1 + Aura TTS)</option>
-                  <option value="google_free">Modo 100% Gratuito (WebSpeech + Gemini + Google Neural)</option>
-                  <option value="max_quality">Máxima Calidad VIP (Nova-3 + GPT-4o + ElevenLabs)</option>
-                  <option value="custom">Configuración Personalizada Modular</option>
-                </SelectDropdown>
+                />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                   Sincroniza en un clic el transcriptor (STT), motor de traducción (LLM) y voces (TTS) para optimizar costes o calidad.
                 </p>
@@ -727,15 +816,10 @@ export default function AdminSettingsShell({
                   id="admin-stt-lang"
                   aria-label="Detección de idioma del ponente"
                   value="auto"
+                  options={STT_LANG_OPTIONS}
                   onChange={() => { setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                >
-                  <option value="auto">Detección Automática Multilingüe (Nova-3 / Gemini)</option>
-                  <option value="es">Fijar en Español (es-ES / es-419)</option>
-                  <option value="en">Fijar en Inglés (en-US / en-GB)</option>
-                  <option value="it">Fijar en Italiano (it-IT)</option>
-                  <option value="pt">Fijar en Portugués (pt-BR / pt-PT)</option>
-                </SelectDropdown>
+                />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                   Permite alternar de idioma sobre la marcha o forzar el dialecto nativo para evitar falsas detecciones.
                 </p>
@@ -749,13 +833,10 @@ export default function AdminSettingsShell({
                   id="admin-stt-vad"
                   aria-label="Filtro de silencio y VAD"
                   value="standard"
+                  options={STT_VAD_OPTIONS}
                   onChange={() => { setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                >
-                  <option value="standard">VAD Estándar (Recomendado para conferencias)</option>
-                  <option value="high">Alta Sensibilidad (Micrófono distante o voz suave)</option>
-                  <option value="aggressive">Filtrado Agresivo de Ruido (Salas con reverberación)</option>
-                </SelectDropdown>
+                />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                   Evita transcripciones involuntarias por toses, murmullos del público o pausas largas del orador.
                 </p>
@@ -787,16 +868,10 @@ export default function AdminSettingsShell({
                   id="admin-tts-global"
                   aria-label="Motor de síntesis predeterminado"
                   value={preferredTtsEngine}
+                  options={TTS_GLOBAL_ENGINE_OPTIONS}
                   onChange={(e) => handlePreferredTtsEngineChange(e.target.value)}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                >
-                  <option value="deepgram">1. Deepgram Aura / Aura-2 (Latencia ~140ms • Saldo $200)</option>
-                  <option value="google">2. Google Neural Universal (100% Gratuito & Ilimitado)</option>
-                  <option value="qwen_tts">3. Alibaba Qwen3-TTS / CosyVoice (Ultra-rápido 97ms)</option>
-                  <option value="elevenlabs">4. ElevenLabs Turbo v2.5 (Hiper-realismo VIP)</option>
-                  <option value="openai">5. OpenAI TTS-1 (Alloy, Nova, Echo, Shimmer)</option>
-                  <option value="auto">Auto Inteligente (Mejor voz activa disponible)</option>
-                </SelectDropdown>
+                />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                   Asigna el proveedor de voz a las cabinas de traducción de forma automática.
                 </p>
@@ -810,13 +885,10 @@ export default function AdminSettingsShell({
                   id="admin-tts-decalage"
                   aria-label="Modo de décalage y latencia"
                   value={decalageMode}
+                  options={TTS_DECALAGE_OPTIONS}
                   onChange={(e) => { setDecalageMode(e.target.value); setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                >
-                  <option value="natural">Natural con buffer (~1.5s - Oraciones completas y fluidas)</option>
-                  <option value="fast">Streaming inmediato (~800ms - Ultra-baja latencia)</option>
-                  <option value="paused">Pausado simultáneo (~2.5s - Máxima coherencia de interpretación)</option>
-                </SelectDropdown>
+                />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                   El décalage equilibra la velocidad de entrega del audio traducido frente a la naturalidad tonal.
                 </p>
@@ -894,15 +966,14 @@ export default function AdminSettingsShell({
                         id={`admin-voice-${b.lang}`}
                         aria-label={`Voz asignada para cabina ${b.label}`}
                         value={currentVoice}
+                        options={availableVoices.map((v) => ({
+                          value: v.id,
+                          label: v.name,
+                          description: v.desc
+                        }))}
                         onChange={(e) => handleVoiceChange(b.lang, e.target.value)}
                         className="w-full h-11 px-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/10 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                      >
-                        {availableVoices.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {v.name} ({v.desc})
-                          </option>
-                        ))}
-                      </SelectDropdown>
+                      />
                     </div>
 
                     <button
@@ -957,14 +1028,10 @@ export default function AdminSettingsShell({
                   id="admin-ai-provider"
                   aria-label="Proveedor principal de inferencia"
                   value={preferredEngine}
+                  options={AI_PROVIDER_OPTIONS}
                   onChange={(e) => { setPreferredEngine(e.target.value); setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                >
-                  <option value="gemini">Google Gemini 3.1 Flash-Lite (Recomendado • ~120ms)</option>
-                  <option value="qwen">Alibaba Qwen 3.8 (Open-Weights 27B / Ollama)</option>
-                  <option value="openai">OpenAI GPT-4o Mini (Alta fidelidad médica)</option>
-                  <option value="google">Google Neural (Traducción Universal instantánea)</option>
-                </SelectDropdown>
+                />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                   {preferredEngine === 'gemini' && 'Inferencia ultra-rápida en sub-150ms con salida estructurada JSON sin razonamiento forzado.'}
                   {preferredEngine === 'qwen' && 'Modelo de pesos abiertos con excelente soporte para lenguas romances e inferencia local.'}
@@ -981,13 +1048,10 @@ export default function AdminSettingsShell({
                   id="admin-ai-strategy"
                   aria-label="Estrategia de generación multilingüe"
                   value="json_single"
+                  options={AI_STRATEGY_OPTIONS}
                   onChange={() => { setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                >
-                  <option value="json_single">Llamada Única Estructurada JSON (4 cabinas simultáneas)</option>
-                  <option value="parallel">Inferencia en Paralelo (1 llamada por cabina)</option>
-                  <option value="fallback">Modo Respaldo Escalonado (Gemini con fallback OpenAI)</option>
-                </SelectDropdown>
+                />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                   La llamada única estructurada reduce el consumo de cuota un 75% y sincroniza los tiempos de audio.
                 </p>
@@ -1014,13 +1078,10 @@ export default function AdminSettingsShell({
                   <SelectDropdown
                     id="admin-gemini-model"
                     value={geminiModel}
+                    options={GEMINI_MODEL_OPTIONS}
                     onChange={(e) => { setGeminiModel(e.target.value); setIsDirty(true); }}
                     className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                  >
-                    <option value="google/gemini-3.1-flash-lite">google/gemini-3.1-flash-lite (Ultra-rápido • Recomendado)</option>
-                    <option value="google/gemini-3.5-flash-lite">google/gemini-3.5-flash-lite (Razonamiento adaptativo)</option>
-                    <option value="gemini-2.0-flash">gemini-2.0-flash (Google AI Studio directo)</option>
-                  </SelectDropdown>
+                  />
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                     Optimizado para devolver las 4 traducciones en una sola respuesta JSON compacta.
                   </p>
@@ -1033,13 +1094,10 @@ export default function AdminSettingsShell({
                   <SelectDropdown
                     id="admin-gemini-temp"
                     value="0.1"
+                    options={TEMPERATURE_OPTIONS}
                     onChange={() => { setIsDirty(true); }}
                     className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                  >
-                    <option value="0.1">0.1 - Máxima Precisión (Ideal para conferencias)</option>
-                    <option value="0.3">0.3 - Balanceada (Naturalidad léxica)</option>
-                    <option value="0.7">0.7 - Creativa (Para discursos literarios)</option>
-                  </SelectDropdown>
+                  />
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                     Una temperatura baja previene alucinaciones y respeta fielmente el mensaje del ponente.
                   </p>
@@ -1057,14 +1115,10 @@ export default function AdminSettingsShell({
                     <SelectDropdown
                       id="admin-qwen-model"
                       value={qwenModel}
+                      options={QWEN_MODEL_OPTIONS}
                       onChange={(e) => { setQwenModel(e.target.value); setIsDirty(true); }}
                       className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                    >
-                      <option value="qwen/qwen-3.8-27b">qwen/qwen-3.8-27b (Oficial OpenRouter Cloud)</option>
-                      <option value="qwen/qwen-3.8-flash">qwen/qwen-3.8-flash (Ultra-baja latencia)</option>
-                      <option value="qwen3.8:27b-instruct-q4_k_m">qwen3.8:27b-instruct-q4_k_m (Ollama Local GGUF)</option>
-                      <option value="qwen3.5:9b-instruct-q4_k_m">qwen3.5:9b-instruct-q4_k_m (Ollama Ligero 5.5GB)</option>
-                    </SelectDropdown>
+                    />
                   </div>
 
                   <div>
@@ -1074,12 +1128,10 @@ export default function AdminSettingsShell({
                     <SelectDropdown
                       id="admin-qwen-temp"
                       value="0.1"
+                      options={TEMPERATURE_OPTIONS}
                       onChange={() => { setIsDirty(true); }}
                       className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                    >
-                      <option value="0.1">0.1 - Máxima Precisión</option>
-                      <option value="0.3">0.3 - Balanceada</option>
-                    </SelectDropdown>
+                    />
                   </div>
                 </div>
 
@@ -1122,12 +1174,10 @@ export default function AdminSettingsShell({
                   <SelectDropdown
                     id="admin-openai-model"
                     value="gpt-4o-mini"
+                    options={OPENAI_MODEL_OPTIONS}
                     onChange={() => { setIsDirty(true); }}
                     className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                  >
-                    <option value="gpt-4o-mini">gpt-4o-mini (Económico y veloz)</option>
-                    <option value="gpt-4o">gpt-4o (Insignia omni)</option>
-                  </SelectDropdown>
+                  />
                 </div>
 
                 <div>
@@ -1137,12 +1187,10 @@ export default function AdminSettingsShell({
                   <SelectDropdown
                     id="admin-openai-temp"
                     value="0.1"
+                    options={TEMPERATURE_OPTIONS}
                     onChange={() => { setIsDirty(true); }}
                     className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                  >
-                    <option value="0.1">0.1 - Precisa</option>
-                    <option value="0.3">0.3 - Balanceada</option>
-                  </SelectDropdown>
+                  />
                 </div>
               </div>
             )}
@@ -1155,11 +1203,10 @@ export default function AdminSettingsShell({
                   </label>
                   <SelectDropdown
                     value="universal"
+                    options={GOOGLE_NEURAL_OPTIONS}
                     onChange={() => { setIsDirty(true); }}
                     className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                  >
-                    <option value="universal">Traducción Universal Directa (&lt;90ms)</option>
-                  </SelectDropdown>
+                  />
                 </div>
               </div>
             )}
@@ -1188,12 +1235,10 @@ export default function AdminSettingsShell({
                 <SelectDropdown
                   id="admin-med-mode"
                   value={medicalMode ? 'true' : 'false'}
+                  options={MEDICAL_MODE_OPTIONS}
                   onChange={(e) => { setMedicalMode(e.target.value === 'true'); setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                >
-                  <option value="true">Modo Clínico Activado (Protege siglas y fármacos)</option>
-                  <option value="false">Modo Clínico Desactivado (Lenguaje general)</option>
-                </SelectDropdown>
+                />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                   Protege siglas críticas (ECG, SpO2, IAM, TVP) para evitar alteraciones coloquiales.
                 </p>
@@ -1206,15 +1251,11 @@ export default function AdminSettingsShell({
                 <SelectDropdown
                   id="admin-med-specialty"
                   value={medicalSpecialty}
+                  options={MEDICAL_SPECIALTY_OPTIONS}
                   onChange={(e) => { setMedicalSpecialty(e.target.value); setIsDirty(true); }}
                   disabled={!medicalMode}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  <option value="general">Medicina General / Urgencias & Cuidados Críticos</option>
-                  <option value="cardiology">Cardiología & Hemodinámica (ECG, IAM, Fibrilación)</option>
-                  <option value="pharmacology">Farmacología Clínica & Dosificaciones (DCI / INN)</option>
-                  <option value="surgery">Cirugía General, Anestesiología & Quirófano</option>
-                </SelectDropdown>
+                />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
                   Ajusta el priming terminológico del modelo para la jerga del simposio.
                 </p>
