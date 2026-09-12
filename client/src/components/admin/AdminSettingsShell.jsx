@@ -14,6 +14,7 @@ import AdminStickyFooter from './AdminStickyFooter.jsx';
 import UnsavedChangesPrompt from './UnsavedChangesPrompt.jsx';
 import { AdminLoginCard } from './AdminLoginCard.jsx';
 import UsersAndRoomsSection from './UsersAndRoomsSection.jsx';
+import MenuDeArea from './MenuDeArea.jsx';
 import { adminAuthService } from '../../services/adminAuthService.js';
 import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions.js';
 
@@ -620,6 +621,11 @@ export default function AdminSettingsShell({
         window.location.reload();
       }
     }
+  };
+
+  const currentTabMeta = TAB_METADATA[activeTab] || {
+    title: 'Configuración',
+    desc: 'Panel de administración del sistema'
   };
 
   const renderSidebarContent = () => (
@@ -1614,31 +1620,36 @@ export default function AdminSettingsShell({
   }
 
   if (variant === 'modal') {
-    const currentTabMeta = TAB_METADATA[activeTab] || {
-      title: 'Configuración',
-      desc: 'Panel de administración del sistema'
-    };
-
     return (
       <div 
         className="relative w-full h-full sm:h-[88vh] sm:max-h-[820px] sm:max-w-[1100px] flex flex-col md:flex-row overflow-hidden rounded-none sm:rounded-[32px] bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-white/10 shadow-2xl text-left focus:outline-none" 
         ref={modalContainerRef}
       >
-        {/* Left Sidebar Rail */}
-        <div className="w-full md:w-[268px] border-b md:border-b-0 md:border-r border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col justify-between shrink-0 select-none">
+        {/* Left Sidebar Rail (Visible en md+, en móvil oculto para activar MenuDeArea) */}
+        <div className="hidden md:flex md:w-[268px] border-r border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-zinc-900/30 flex-col justify-between shrink-0 select-none">
           {renderSidebarContent()}
         </div>
 
         {/* Right Content Panel */}
         <div className="flex-1 flex flex-col justify-between h-full overflow-hidden bg-white dark:bg-zinc-950 min-w-0">
-          {/* Modal Header */}
-          <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-6 pt-5 pb-4 border-b border-zinc-200/80 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md">
+          {/* Modal Header con MenuDeArea táctil para móvil */}
+          <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-4 sm:px-6 pt-4 sm:pt-5 pb-3.5 sm:pb-4 border-b border-zinc-200/80 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md">
             <DegradadoCabecera />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2.5">
-                <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
-                  {currentTabMeta.title}
-                </h2>
+                <MenuDeArea
+                  idTitulo="admin-modal-area-title"
+                  titulo={currentTabMeta.title}
+                  opciones={TABS.map(t => ({
+                    id: t.id,
+                    title: t.label,
+                    icon: t.icon,
+                    badge: t.badge
+                  }))}
+                  actual={activeTab}
+                  onElegir={(newId) => setActiveTab(newId)}
+                  etiquetaMenu="Secciones del panel de administración"
+                />
                 {effectiveRoomId && (
                   <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-[10px] font-mono font-medium text-emerald-700 dark:text-emerald-300 shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1735,12 +1746,31 @@ export default function AdminSettingsShell({
         </div>
       </header>
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col md:flex-row gap-6 lg:gap-8">
-        <aside className="w-full md:w-64 lg:w-72 flex-shrink-0 select-none">
+        <aside className="hidden md:block w-full md:w-64 lg:w-72 flex-shrink-0 select-none">
           <div className="sticky top-24 space-y-4">
             {renderSidebarContent()}
           </div>
         </aside>
         <section className="flex-1 min-w-0 space-y-6">
+          {/* Selector táctil móvil de secciones para /admin (MenuDeArea) */}
+          <div className="md:hidden pb-4 border-b border-zinc-200/80 dark:border-white/10">
+            <MenuDeArea
+              idTitulo="admin-page-area-title"
+              titulo={currentTabMeta.title}
+              opciones={TABS.map(t => ({
+                id: t.id,
+                title: t.label,
+                icon: t.icon,
+                badge: t.badge
+              }))}
+              actual={activeTab}
+              onElegir={(newId) => setActiveTab(newId)}
+              etiquetaMenu="Secciones de configuración"
+            />
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              {currentTabMeta.desc}
+            </p>
+          </div>
           {mainContent}
         </section>
       </main>

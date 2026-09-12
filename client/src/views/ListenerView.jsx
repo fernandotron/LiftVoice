@@ -627,9 +627,9 @@ export default function ListenerView({
                 </span>
               </button>
 
-              {/* Popover flotante para renombrarse */}
+              {/* Popover flotante para renombrarse (Diseño exacto de standalone-assistant) */}
               {isProfilePopoverOpen && (
-                <div className="absolute right-0 top-full mt-1 w-64 p-3.5 bg-white dark:bg-[#1f1f1f] border border-zinc-200 dark:border-white/10 rounded-2xl shadow-xl z-50 animate-fadeIn space-y-3 select-none">
+                <div className="absolute right-0 top-full mt-1.5 w-72 p-4 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] z-50 animate-fadeIn space-y-3 select-none">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center text-xs font-bold">

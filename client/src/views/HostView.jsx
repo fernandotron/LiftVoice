@@ -18,6 +18,8 @@ import CabinsBottomSheet from '../components/mobile/CabinsBottomSheet.jsx';
 import QABannerAlert from '../components/mobile/QABannerAlert.jsx';
 import Banner from '../components/shared/Banner.jsx';
 import DesktopHeaderMenu from '../components/shared/DesktopHeaderMenu.jsx';
+import SelectDropdown from '../components/shared/SelectDropdown.jsx';
+import UserMenu from '../components/shared/UserMenu.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { audioRecorderService } from '../services/audioRecorder.js';
 import { audioPlayerService } from '../services/audioPlayer.js';
@@ -87,6 +89,10 @@ export default function HostView({
   const [isInitializing, setIsInitializing] = useState(true);
   const [participantSearch, setParticipantSearch] = useState('');
   const [broadcastSeconds, setBroadcastSeconds] = useState(0);
+
+  // User Menu State & Ref
+  const [isHostUserMenuOpen, setIsHostUserMenuOpen] = useState(false);
+  const hostUserMenuTriggerRef = useRef(null);
 
   // Custom Dropdown State & Refs for Mic and Speaker Language
   const [isMicMenuOpen, setIsMicMenuOpen] = useState(false);
@@ -1266,6 +1272,35 @@ export default function HostView({
           >
             <PanelRight className="w-4 h-4" />
           </button>
+
+          {/* Píldora de Perfil del Anfitrión con UserMenu de standalone-assistant */}
+          <button
+            ref={hostUserMenuTriggerRef}
+            type="button"
+            onClick={() => setIsHostUserMenuOpen(prev => !prev)}
+            className="flex items-center gap-1.5 h-8 pl-1 pr-2.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 transition-colors cursor-pointer shadow-2xs select-none"
+            title="Tu perfil en la sala"
+            aria-label="Perfil del anfitrión"
+          >
+            <div className="w-6 h-6 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center text-[10px] font-bold">
+              P
+            </div>
+            <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+              Ponente
+            </span>
+          </button>
+
+          <UserMenu
+            isOpen={isHostUserMenuOpen}
+            onClose={() => setIsHostUserMenuOpen(false)}
+            anchorElement={hostUserMenuTriggerRef.current}
+            userName="Ponente / Anfitrión"
+            userRole="host"
+            canAccessAdmin={true}
+            onOpenSettings={onOpenSettings}
+            onOpenAdminPanel={onOpenSettings}
+            onLogout={() => onLeave({ reason: 'voluntary' })}
+          />
         </div>
       </header>
 
@@ -1314,138 +1349,46 @@ export default function HostView({
                   Configuración de Entrada
                 </div>
 
-                {/* Mic Device selector */}
-                <div className="space-y-1.5 relative z-20" ref={micMenuRef}>
-                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+                {/* Mic Device selector con SelectDropdown de standalone-assistant */}
+                <div className="space-y-1.5">
+                  <label htmlFor="host-mic-select" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
                     Micrófono de Entrada
                   </label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMicMenuOpen(prev => !prev);
-                        setIsLangMenuOpen(false);
-                      }}
-                      className="w-full h-9 px-3 flex items-center justify-between gap-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900/80 transition-colors text-xs font-medium text-zinc-900 dark:text-zinc-100 cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 shadow-2xs"
-                      aria-haspopup="listbox"
-                      aria-expanded={isMicMenuOpen}
-                    >
-                      <span className="truncate">{activeMicLabel}</span>
-                      <ChevronDown className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform duration-200 ${isMicMenuOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {isMicMenuOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-1 p-1 bg-white dark:bg-[#1f1f1f] border border-zinc-200/80 dark:border-white/10 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)] z-30 max-h-56 overflow-y-auto animate-fadeIn select-none">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedDevice('default');
-                            setIsMicMenuOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between gap-2 py-1.5 px-2.5 text-xs font-medium rounded-lg transition-colors cursor-pointer text-left hover:bg-zinc-100/70 dark:hover:bg-white/5 ${
-                            selectedDevice === 'default'
-                              ? 'text-zinc-900 dark:text-white font-semibold'
-                              : 'text-zinc-700 dark:text-zinc-400'
-                          }`}
-                        >
-                          <span className="truncate">Micrófono Predeterminado</span>
-                          {selectedDevice === 'default' && (
-                            <Check className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100 shrink-0" />
-                          )}
-                        </button>
-
-                        {devices.map((d, i) => {
-                          const isSelected = selectedDevice === d.deviceId;
-                          const label = d.label || `Micrófono ${i + 1}`;
-                          return (
-                            <button
-                              key={d.deviceId || i}
-                              type="button"
-                              onClick={() => {
-                                setSelectedDevice(d.deviceId);
-                                setIsMicMenuOpen(false);
-                              }}
-                              className={`w-full flex items-center justify-between gap-2 py-1.5 px-2.5 text-xs font-medium rounded-lg transition-colors cursor-pointer text-left hover:bg-zinc-100/70 dark:hover:bg-white/5 ${
-                                isSelected
-                                  ? 'text-zinc-900 dark:text-white font-semibold'
-                                  : 'text-zinc-700 dark:text-zinc-400'
-                              }`}
-                            >
-                              <span className="truncate">{label}</span>
-                              {isSelected && (
-                                <Check className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100 shrink-0" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  <SelectDropdown
+                    id="host-mic-select"
+                    aria-label="Micrófono de Entrada"
+                    value={selectedDevice}
+                    options={[
+                      { value: 'default', label: 'Micrófono Predeterminado' },
+                      ...devices.map((d, i) => ({
+                        value: d.deviceId,
+                        label: d.label || `Micrófono ${i + 1}`
+                      }))
+                    ]}
+                    onChange={(_, val) => setSelectedDevice(val || 'default')}
+                  />
                 </div>
 
-                {/* Speaker Language */}
-                <div className="space-y-1.5 relative z-10" ref={langMenuRef}>
-                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+                {/* Speaker Language con SelectDropdown de standalone-assistant */}
+                <div className="space-y-1.5">
+                  <label htmlFor="host-speaker-lang" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
                     Idioma del Ponente
                   </label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsLangMenuOpen(prev => !prev);
-                        setIsMicMenuOpen(false);
-                      }}
-                      className="w-full h-9 px-3 flex items-center justify-between gap-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900/80 transition-colors text-xs font-medium text-zinc-900 dark:text-zinc-100 cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 shadow-2xs"
-                      aria-haspopup="listbox"
-                      aria-expanded={isLangMenuOpen}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        {currentSpeakerLang.code === 'auto' ? (
-                          <Globe className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                        ) : (
-                          <CountryFlag code={currentSpeakerLang.code} className="w-4 h-4" />
-                        )}
-                        <span className="truncate">{currentSpeakerLang.label}</span>
-                      </div>
-                      <ChevronDown className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform duration-200 ${isLangMenuOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {isLangMenuOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-1 p-1 bg-white dark:bg-[#1f1f1f] border border-zinc-200/80 dark:border-white/10 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)] z-30 max-h-56 overflow-y-auto animate-fadeIn select-none">
-                        {SPEAKER_LANGUAGES.map((langItem) => {
-                          const isSelected = sourceLanguage === langItem.langCode;
-                          return (
-                            <button
-                              key={langItem.langCode}
-                              type="button"
-                              onClick={() => {
-                                setSourceLanguage(langItem.langCode);
-                                audioRecorderService.setLanguage(langItem.langCode);
-                                setIsLangMenuOpen(false);
-                              }}
-                              className={`w-full flex items-center justify-between gap-2 py-1.5 px-2.5 text-xs font-medium rounded-lg transition-colors cursor-pointer text-left hover:bg-zinc-100/70 dark:hover:bg-white/5 ${
-                                isSelected
-                                  ? 'text-zinc-900 dark:text-white font-semibold'
-                                  : 'text-zinc-700 dark:text-zinc-400'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                {langItem.code === 'auto' ? (
-                                  <Globe className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                                ) : (
-                                  <CountryFlag code={langItem.code} className="w-4 h-4" />
-                                )}
-                                <span className="truncate">{langItem.label}</span>
-                              </div>
-                              {isSelected && (
-                                <Check className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100 shrink-0" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  <SelectDropdown
+                    id="host-speaker-lang"
+                    aria-label="Idioma del Ponente"
+                    value={sourceLanguage}
+                    options={SPEAKER_LANGUAGES.map((langItem) => ({
+                      value: langItem.langCode,
+                      label: langItem.label
+                    }))}
+                    onChange={(_, val) => {
+                      if (val) {
+                        setSourceLanguage(val);
+                        audioRecorderService.setLanguage(val);
+                      }
+                    }}
+                  />
                 </div>
               </div>
 
