@@ -990,7 +990,7 @@ export default function AdminSettingsShell({
                       onClick={() => handlePreviewVoice(b.lang)}
                       className={`w-full h-11 px-4 rounded-2xl text-xs sm:text-sm font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
                         isPreviewing
-                          ? 'bg-rose-50 hover:bg-rose-100/90 text-rose-600 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 shadow-2xs'
+                          ? 'bg-zinc-100 hover:bg-zinc-200/90 text-zinc-900 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white border border-zinc-300 dark:border-white/20 shadow-2xs'
                           : 'bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-white/10 shadow-2xs'
                       }`}
                     >
