@@ -1796,12 +1796,6 @@ export default function AdminSettingsShell({
                   onElegir={(newId) => setActiveTab(newId)}
                   etiquetaMenu="Secciones del panel de administración"
                 />
-                {effectiveRoomId && (
-                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-[10px] font-mono font-medium text-emerald-700 dark:text-emerald-300 shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Sala: {effectiveRoomId}</span>
-                  </span>
-                )}
               </div>
               <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-[65ch] truncate sm:whitespace-normal leading-relaxed">
                 {currentTabMeta.desc}
@@ -1809,15 +1803,6 @@ export default function AdminSettingsShell({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="w-9 h-9 rounded-full border border-zinc-200/80 dark:border-white/10 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
-                title={`Tema actual: ${theme === 'system' ? 'Sistema (' + resolvedTheme + ')' : theme}`}
-                aria-label="Cambiar tema de color"
-              >
-                {resolvedTheme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
               <button
                 type="button"
                 onClick={handleCloseAttempt}
