@@ -119,6 +119,7 @@ app.get('/api/health', (req, res) => {
     timestamp: Date.now(),
     version: '1.0.0 (August 2026)',
     activeRooms: new Set(roomManager.rooms.values()).size
+  });
 });
 
 // --- Admin Auth Endpoints ---

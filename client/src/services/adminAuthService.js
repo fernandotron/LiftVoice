@@ -12,13 +12,30 @@ export const adminAuthService = {
   },
 
   async login(password) {
-    const res = await fetch('/api/admin/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
-    });
+    let res;
+    try {
+      res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+    } catch (networkErr) {
+      throw new Error('No se pudo conectar con el servidor backend (puerto 3001).');
+    }
+
     if (!res.ok) {
-      throw new Error('Credenciales inválidas');
+      let msg = 'Contraseña incorrecta';
+      try {
+        const errData = await res.json();
+        if (errData.error) {
+          msg = errData.error === 'Invalid password' ? 'Contraseña incorrecta' : errData.error;
+        }
+      } catch (e) {
+        if (res.status >= 500) {
+          msg = 'Error interno del servidor backend (puerto 3001).';
+        }
+      }
+      throw new Error(msg);
     }
     const data = await res.json();
     this.setToken(data.token);
