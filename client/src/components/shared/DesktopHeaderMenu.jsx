@@ -336,14 +336,14 @@ export default function DesktopHeaderMenu({
                   setTheme(opt.value);
                   closeAll();
                 }}
-                className={`w-full flex items-center justify-between gap-3 p-2 text-sm font-medium rounded-xl transition-colors cursor-pointer ${
+                className={`w-full flex items-center justify-between gap-3 p-2 text-sm rounded-xl transition-colors cursor-pointer hover:bg-zinc-100/70 dark:hover:bg-white/5 ${
                   isSelected
-                    ? 'text-zinc-900 dark:text-white font-semibold bg-zinc-100/70 dark:bg-white/10'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5'
+                    ? 'text-zinc-900 dark:text-white font-semibold'
+                    : 'text-zinc-700 dark:text-zinc-300 font-medium'
                 }`}
               >
                 <span className="flex items-center gap-2.5">
-                  <OptIcon className="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
+                  <OptIcon className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'}`} />
                   <span>{opt.label}</span>
                 </span>
                 {isSelected && (
