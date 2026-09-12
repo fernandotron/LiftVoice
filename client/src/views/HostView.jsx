@@ -40,11 +40,11 @@ export const DEFAULT_VOICES = {
 };
 
 export const SPEAKER_LANGUAGES = [
-  { code: 'es', langCode: 'es-ES', label: 'Español (Ponente)' },
-  { code: 'en', langCode: 'en-US', label: 'English (Speaker)' },
-  { code: 'it', langCode: 'it-IT', label: 'Italiano (Relatore)' },
-  { code: 'pt', langCode: 'pt-BR', label: 'Português (Palestrante)' },
-  { code: 'auto', langCode: 'auto', label: 'Detección Automática' }
+  { code: 'es', langCode: 'es-ES', label: 'Español (Ponente)', nativeName: 'Español', voice: 'Voz del ponente' },
+  { code: 'en', langCode: 'en-US', label: 'English (Speaker)', nativeName: 'English', voice: 'Speaker voice' },
+  { code: 'it', langCode: 'it-IT', label: 'Italiano (Relatore)', nativeName: 'Italiano', voice: 'Voce del relatore' },
+  { code: 'pt', langCode: 'pt-BR', label: 'Português (Palestrante)', nativeName: 'Português', voice: 'Voz do palestrante' },
+  { code: 'auto', langCode: 'auto', label: 'Detección Automática', nativeName: 'Automático', voice: 'Detección automática' }
 ];
 
 export default function HostView({
@@ -1035,7 +1035,7 @@ export default function HostView({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-zinc-500 dark:text-zinc-400">Canal de Ponente:</span>
-                <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100 uppercase">{sourceLanguage.slice(0, 2)}</span>
+                <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100 uppercase">{sourceLanguage === 'auto' ? 'AUTO' : sourceLanguage.slice(0, 2)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-zinc-500 dark:text-zinc-400">Latencia Red:</span>
@@ -1408,38 +1408,76 @@ export default function HostView({
                   />
                 </div>
 
-                {/* Selector de Idioma del Ponente en una sola fila (Segmented Control) */}
-                <div className="space-y-1.5">
+                {/* Idioma del Ponente (cuadrícula 2x2 calcada de la sala del oyente) */}
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
                       Idioma del Ponente
                     </label>
-                    <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 truncate max-w-[140px]">
-                      {SPEAKER_LANGUAGES.find(l => l.langCode === sourceLanguage)?.label.split(' ')[0] || 'Español'}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSourceLanguage('auto');
+                        audioRecorderService.setLanguage('auto');
+                      }}
+                      className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1.5 border select-none ${
+                        sourceLanguage === 'auto'
+                          ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-2xs font-semibold'
+                          : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
+                      }`}
+                      title="Detección Automática Multilingüe"
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>Auto</span>
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-5 gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-2xs">
-                    {SPEAKER_LANGUAGES.map((langItem) => {
-                      const isSelected = sourceLanguage === langItem.langCode;
-                      const shortCode = langItem.code === 'auto' ? 'Auto' : langItem.code.toUpperCase();
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {SPEAKER_LANGUAGES.filter(l => l.code !== 'auto').map((lang) => {
+                      const isSelected = sourceLanguage !== 'auto' && (
+                        sourceLanguage === lang.langCode ||
+                        sourceLanguage === lang.code ||
+                        sourceLanguage.startsWith(lang.code)
+                      );
                       return (
                         <button
-                          key={langItem.langCode}
+                          key={lang.code}
                           type="button"
                           onClick={() => {
-                            setSourceLanguage(langItem.langCode);
-                            audioRecorderService.setLanguage(langItem.langCode);
+                            setSourceLanguage(lang.langCode);
+                            audioRecorderService.setLanguage(lang.langCode);
                           }}
-                          className={`h-8.5 flex items-center justify-center rounded-xl text-xs font-semibold transition-all cursor-pointer select-none ${
+                          className={`p-3 min-w-[44px] min-h-[44px] rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between select-none ${
                             isSelected
-                              ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-2xs border border-zinc-200/60 dark:border-white/10'
-                              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 border border-transparent'
+                              ? 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-600 ring-1 ring-zinc-400/30 dark:ring-zinc-600/30 shadow-2xs'
+                              : 'bg-white dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/40'
                           }`}
-                          title={langItem.label}
-                          aria-label={langItem.label}
                         >
-                          {shortCode}
+                          {/* Fila superior: Bandera a la izquierda, Badge a la derecha */}
+                          <div className="flex items-center justify-between mb-2.5">
+                            <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60 overflow-hidden shadow-2xs">
+                              <CountryFlag code={lang.code} className="w-4.5 h-4.5 rounded-full object-cover" />
+                            </div>
+                            {isSelected ? (
+                              <span className="w-6 h-6 inline-flex items-center justify-center text-zinc-900 dark:text-white">
+                                <Check className="w-4 h-4 stroke-[2.5]" />
+                              </span>
+                            ) : (
+                              <span className="h-6 px-2 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 text-[10px] font-mono font-medium text-zinc-400 dark:text-zinc-500 inline-flex items-center justify-center">
+                                {lang.code.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Fila inferior: Nombre de idioma y subtítulo */}
+                          <div>
+                            <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
+                              {lang.nativeName}
+                            </div>
+                            <div className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">
+                              {lang.voice}
+                            </div>
+                          </div>
                         </button>
                       );
                     })}
@@ -1647,7 +1685,7 @@ export default function HostView({
               <LiveCaptions
                 transcriptHistory={transcriptHistory}
                 interimText={liveInterimSpeech}
-                currentLanguage={sourceLanguage.slice(0, 2)}
+                currentLanguage={sourceLanguage === 'auto' ? 'es' : sourceLanguage.slice(0, 2)}
                 showOriginal={true}
                 medicalMode={medicalConfig.medicalMode}
                 className="flex-1 flex flex-col h-full min-h-0 w-full"
