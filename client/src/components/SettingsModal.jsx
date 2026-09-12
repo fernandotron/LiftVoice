@@ -11,7 +11,7 @@ export default function SettingsModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/60 dark:bg-black/75 backdrop-blur-xs animate-fadeIn"
+      className="fixed inset-0 z-[100] flex items-center justify-center sm:p-4 bg-black/60 dark:bg-black/75 animate-fadeIn"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
