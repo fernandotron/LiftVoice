@@ -1408,26 +1408,42 @@ export default function HostView({
                   />
                 </div>
 
-                {/* Speaker Language con SelectDropdown de standalone-assistant */}
+                {/* Selector de Idioma del Ponente en una sola fila (Segmented Control) */}
                 <div className="space-y-1.5">
-                  <label htmlFor="host-speaker-lang" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
-                    Idioma del Ponente
-                  </label>
-                  <SelectDropdown
-                    id="host-speaker-lang"
-                    aria-label="Idioma del Ponente"
-                    value={sourceLanguage}
-                    options={SPEAKER_LANGUAGES.map((langItem) => ({
-                      value: langItem.langCode,
-                      label: langItem.label
-                    }))}
-                    onChange={(_, val) => {
-                      if (val) {
-                        setSourceLanguage(val);
-                        audioRecorderService.setLanguage(val);
-                      }
-                    }}
-                  />
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+                      Idioma del Ponente
+                    </label>
+                    <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 truncate max-w-[140px]">
+                      {SPEAKER_LANGUAGES.find(l => l.langCode === sourceLanguage)?.label.split(' ')[0] || 'Español'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-2xs">
+                    {SPEAKER_LANGUAGES.map((langItem) => {
+                      const isSelected = sourceLanguage === langItem.langCode;
+                      const shortCode = langItem.code === 'auto' ? 'Auto' : langItem.code.toUpperCase();
+                      return (
+                        <button
+                          key={langItem.langCode}
+                          type="button"
+                          onClick={() => {
+                            setSourceLanguage(langItem.langCode);
+                            audioRecorderService.setLanguage(langItem.langCode);
+                          }}
+                          className={`h-8.5 flex items-center justify-center rounded-xl text-xs font-semibold transition-all cursor-pointer select-none ${
+                            isSelected
+                              ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-2xs border border-zinc-200/60 dark:border-white/10'
+                              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 border border-transparent'
+                          }`}
+                          title={langItem.label}
+                          aria-label={langItem.label}
+                        >
+                          {shortCode}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
