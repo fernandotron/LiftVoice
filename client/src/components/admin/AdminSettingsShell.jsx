@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Settings, Key, X, Check, Shield, Cpu, Zap, Volume2, Mic,
-  Sparkles, Stethoscope, Activity, BookOpen, Play, Loader2, Headphones,
+  Sparkles, Stethoscope, Activity, BookOpen, Play, Square, Loader2, Headphones,
   Radio, User, Users, ChevronRight, CheckCircle2, Lock, Server, Globe, VolumeX,
   Palette, Sun, Moon, Monitor, Eye, EyeOff, AlertCircle, ArrowLeft, Home
 } from 'lucide-react';
@@ -538,6 +538,14 @@ export default function AdminSettingsShell({
   };
 
   const handlePreviewVoice = async (langCode) => {
+    // Si la cabina seleccionada ya se está reproduciendo, detener la reproducción inmediatamente
+    if (previewingLang === langCode) {
+      if (previewAbortRef.current) previewAbortRef.current.abort();
+      try { audioPlayerService.stopAll(); } catch (e) {}
+      setPreviewingLang(null);
+      return;
+    }
+
     if (previewAbortRef.current) previewAbortRef.current.abort();
     const abortCtrl = new AbortController();
     previewAbortRef.current = abortCtrl;
@@ -573,6 +581,10 @@ export default function AdminSettingsShell({
         await audioPlayerService.playVoicePreview({
           voiceId: voice, lang: langCode, text: sampleText, audioBase64: data.audioBase64,
           mimeType: data.mimeType || 'audio/mpeg', gender
+        });
+      } else {
+        await audioPlayerService.playVoicePreview({
+          voiceId: voice, lang: langCode, text: sampleText, gender
         });
       }
     } catch (e) {
@@ -976,17 +988,16 @@ export default function AdminSettingsShell({
                     <button
                       type="button"
                       onClick={() => handlePreviewVoice(b.lang)}
-                      disabled={isPreviewing}
                       className={`w-full h-11 px-4 rounded-2xl text-xs sm:text-sm font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
                         isPreviewing
-                          ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                          ? 'bg-rose-50 hover:bg-rose-100/90 text-rose-600 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 shadow-2xs'
                           : 'bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-white/10 shadow-2xs'
                       }`}
                     >
                       {isPreviewing ? (
                         <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Reproduciendo muestra sonora...</span>
+                          <Square className="w-3.5 h-3.5 fill-current" />
+                          <span>Detener voz</span>
                         </>
                       ) : (
                         <>
