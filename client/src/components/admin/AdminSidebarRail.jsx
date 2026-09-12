@@ -137,34 +137,30 @@ export default function AdminSidebarRail({
         )}
       </div>
 
-      {/* Admin Session Profile Card (Footer of Rail) */}
-      <div className="p-3 border-t border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-zinc-900/30 flex-shrink-0">
-        <div className="flex items-center justify-between gap-2 p-2 rounded-2xl bg-white dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-white/10 shadow-2xs">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-bold flex items-center justify-center flex-shrink-0 shadow-2xs">
-              {initials}
+      {/* Admin Session Profile (Footer of Rail) */}
+      <div className="px-3.5 py-3 border-t border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-2.5 flex-shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs font-semibold flex items-center justify-center flex-shrink-0">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+              {adminUser?.email || 'admin@liftvoice.ai'}
             </div>
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-                {adminUser?.email || 'admin@liftvoice.ai'}
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                  Admin Master
-                </span>
-              </div>
+            <div className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-none mt-0.5">
+              Admin Master
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={handleLogoutClick}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer flex-shrink-0"
-            title="Cerrar sesión de administrador"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
         </div>
+
+        <button
+          type="button"
+          onClick={handleLogoutClick}
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer flex-shrink-0"
+          title="Cerrar sesión de administrador"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
