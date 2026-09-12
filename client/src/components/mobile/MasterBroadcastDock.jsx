@@ -96,7 +96,7 @@ export default function MasterBroadcastDock({
             type="button"
             onClick={handleBroadcastClick}
             disabled={isToggling}
-            className={`relative h-12 px-5 sm:px-6 rounded-full font-semibold text-xs tracking-tight flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer active:scale-95 touch-manipulation select-none whitespace-nowrap min-w-[110px] ${
+            className={`relative h-12 px-5 sm:px-6 rounded-full font-medium text-xs tracking-tight flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer active:scale-95 touch-manipulation select-none whitespace-nowrap min-w-[110px] ${
               isToggling ? 'opacity-70 cursor-wait' : ''
             } ${
               isBroadcasting
@@ -112,7 +112,7 @@ export default function MasterBroadcastDock({
               </>
             ) : (
               <>
-                <Mic className="w-4 h-4" />
+                <Mic className="w-4 h-4" strokeWidth={1.6} />
                 <span>Emitir</span>
               </>
             )}
@@ -127,7 +127,7 @@ export default function MasterBroadcastDock({
           title="Ajustar cabinas de idiomas y décalage"
           aria-label="Panel de cabinas"
         >
-          <SlidersHorizontal className="w-5 h-5" />
+          <SlidersHorizontal className="w-5 h-5" strokeWidth={1.6} />
         </button>
 
         {/* Satélite 4: Q&A Backchannel (48px circular neutro con badge reactivo) */}
@@ -138,7 +138,7 @@ export default function MasterBroadcastDock({
           title="Turnos de palabra y preguntas Q&A"
           aria-label={pendingQACount > 0 ? `Panel de preguntas, ${pendingQACount} pendientes` : 'Panel de preguntas'}
         >
-          <Hand className="w-5 h-5" />
+          <Hand className="w-5 h-5" strokeWidth={1.6} />
           {pendingQACount > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center animate-bounce shadow-xs">
               {pendingQACount}

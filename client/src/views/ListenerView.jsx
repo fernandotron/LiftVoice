@@ -552,7 +552,7 @@ export default function ListenerView({
                 <button
                   type="button"
                   onClick={handleUnlockAudio}
-                  className="min-h-[44px] px-4 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+                  className="min-h-[44px] px-4 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-medium shadow-2xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
                 >
                   Sintonizar
                 </button>

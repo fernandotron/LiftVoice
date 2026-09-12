@@ -56,14 +56,14 @@ export default function UnsavedChangesPrompt({ isOpen, onConfirm, onCancel }) {
           <button
             type="button"
             onClick={onCancel}
-            className="h-11 px-5 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-center order-2 sm:order-1"
+            className="h-11 px-5 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 font-medium text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-center order-2 sm:order-1"
           >
             Volver
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="h-11 px-5 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs sm:text-sm shadow-2xs transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center order-1 sm:order-2"
+            className="h-11 px-5 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-medium text-xs sm:text-sm shadow-2xs transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center order-1 sm:order-2"
           >
             Descartar cambios
           </button>

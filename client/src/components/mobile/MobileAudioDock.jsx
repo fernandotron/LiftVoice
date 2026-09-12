@@ -197,7 +197,6 @@ export default function MobileAudioDock({
             </>
           )}
 
-          {/* Botón Disparador Satélite Izquierdo */}
           {/* Botón Disparador Satélite Izquierdo (Idioma) */}
           <button
             type="button"
@@ -212,7 +211,7 @@ export default function MobileAudioDock({
             title={`Idioma: ${currentLanguage.nativeName}. Toca para cambiar.`}
             aria-label={`Idioma actual: ${currentLanguage.nativeName}. Toca para cambiar.`}
           >
-            <Globe className="w-6 h-6" />
+            <Globe className="w-5.5 h-5.5" strokeWidth={1.6} />
           </button>
         </div>
 
@@ -225,17 +224,17 @@ export default function MobileAudioDock({
             title={`Tamaño de subtítulos: ${captionSizeName}. Toca para cambiar.`}
             aria-label={`Tamaño de subtítulos: ${captionSizeName}. Toca para cambiar.`}
           >
-            <Type className="w-6 h-6" />
+            <Type className="w-5.5 h-5.5" strokeWidth={1.6} />
           </button>
 
           {/* Micro-toast flotante de confirmación de tamaño al pulsar */}
           {showSizeToast && (
             <div
-              className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-zinc-900/90 dark:bg-zinc-800/95 text-white dark:text-zinc-100 border border-zinc-200/20 dark:border-zinc-700/60 text-[10px] font-medium whitespace-nowrap shadow-lg backdrop-blur-md pointer-events-none animate-fadeIn flex items-center gap-1 z-50"
+              className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-zinc-900/90 dark:bg-zinc-800/95 text-white dark:text-zinc-100 border border-zinc-200/20 dark:border-zinc-700/60 text-[10px] font-normal whitespace-nowrap shadow-lg backdrop-blur-md pointer-events-none animate-fadeIn flex items-center gap-1 z-50"
               aria-live="polite"
             >
               <span>Subtítulos:</span>
-              <strong className="font-semibold">{captionSizeName}</strong>
+              <span className="font-normal">{captionSizeName}</span>
             </div>
           )}
         </div>
@@ -253,7 +252,7 @@ export default function MobileAudioDock({
             <button
               type="button"
               onClick={handleMuteClick}
-              className={`relative w-22 sm:w-28 flex-shrink min-w-0 h-12 rounded-full font-medium text-xs tracking-tight flex items-center justify-center transition-all cursor-pointer active:scale-95 touch-manipulation select-none overflow-hidden ${
+              className={`relative w-22 sm:w-28 flex-shrink min-w-0 h-12 rounded-full font-normal text-xs tracking-tight flex items-center justify-center transition-all cursor-pointer active:scale-95 touch-manipulation select-none overflow-hidden ${
                 !isUnlocked
                   ? 'bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-500 shadow-xs'
                   : isMuted
@@ -266,11 +265,11 @@ export default function MobileAudioDock({
               {isLive ? (
                 <GeminiFluidWave />
               ) : isMuted ? (
-                <span className="relative z-10 text-[11px] font-medium tracking-tight text-zinc-500 dark:text-zinc-400 select-none">
+                <span className="relative z-10 text-[11px] font-normal tracking-tight text-zinc-500 dark:text-zinc-400 select-none">
                   Silenciado
                 </span>
               ) : !isUnlocked ? (
-                <span className="relative z-10 text-[11px] font-semibold tracking-tight text-zinc-700 dark:text-zinc-300 select-none">
+                <span className="relative z-10 text-[11px] font-normal tracking-tight text-zinc-700 dark:text-zinc-300 select-none">
                   Sintonizar
                 </span>
               ) : null}
@@ -287,11 +286,11 @@ export default function MobileAudioDock({
           aria-label={!isUnlocked ? 'Sintonizar audio' : isMuted ? 'Activar sonido' : 'Silenciar audio'}
         >
           {!isUnlocked ? (
-            <Volume2 className="w-6 h-6 text-zinc-700 dark:text-zinc-300 transition-colors" />
+            <Volume2 className="w-5.5 h-5.5 text-zinc-700 dark:text-zinc-300 transition-colors" strokeWidth={1.6} />
           ) : isMuted ? (
-            <VolumeX className="w-6 h-6 text-rose-500 transition-colors" />
+            <VolumeX className="w-5.5 h-5.5 text-rose-500 transition-colors" strokeWidth={1.6} />
           ) : (
-            <Volume2 className="w-6 h-6 text-zinc-700 dark:text-zinc-300 transition-colors" />
+            <Volume2 className="w-5.5 h-5.5 text-zinc-700 dark:text-zinc-300 transition-colors" strokeWidth={1.6} />
           )}
         </button>
 
@@ -303,13 +302,13 @@ export default function MobileAudioDock({
           title={qaState === 'requested' ? 'Mano levantada (esperando turno)' : qaState === 'speaking' ? 'Tienes la palabra' : 'Pedir la palabra / Q&A'}
           aria-label={qaState === 'requested' ? 'Mano levantada (esperando turno)' : qaState === 'speaking' ? 'Tienes la palabra' : 'Pedir la palabra al ponente'}
         >
-          <Hand className={`w-6 h-6 transition-colors ${
+          <Hand className={`w-5.5 h-5.5 transition-colors ${
             qaState === 'requested'
               ? 'text-amber-500'
               : qaState === 'speaking'
               ? 'text-emerald-500'
               : 'text-zinc-700 dark:text-zinc-300'
-          }`} />
+          }`} strokeWidth={1.6} />
           {qaState === 'requested' && (
             <span className="absolute top-0.5 right-0.5 flex h-3 w-3 pointer-events-none">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
