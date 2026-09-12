@@ -404,8 +404,23 @@ export default function App() {
     }
   };
 
+  const isRoomView = currentView === 'host' || currentView === 'listener';
+
+  useEffect(() => {
+    if (isRoomView) {
+      document.documentElement.classList.add('overflow-hidden');
+      document.body.classList.add('overflow-hidden');
+      return () => {
+        document.documentElement.classList.remove('overflow-hidden');
+        document.body.classList.remove('overflow-hidden');
+      };
+    }
+  }, [isRoomView]);
+
   return (
-    <div className="min-h-dvh w-full max-w-full overflow-x-hidden bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-150">
+    <div className={`w-full max-w-full bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-150 ${
+      isRoomView ? 'h-dvh max-h-dvh overflow-hidden' : 'min-h-dvh overflow-x-hidden'
+    }`}>
       {/* Top Navigation for Home/Join/Create only (Host, Voices and Listener render their own native studio layout) */}
       {(currentView === 'home' || currentView === 'join' || currentView === 'create' || currentView === 'post-leave') && (
         <Navbar
@@ -420,7 +435,7 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-h-0">
+      <main className={`flex-1 flex flex-col min-h-0 ${isRoomView ? 'overflow-hidden' : ''}`}>
         {(currentView === 'home' || currentView === 'join' || currentView === 'create' || currentView === 'post-leave') && (
           <HomeView
             onCreateRoom={handleCreateRoom}

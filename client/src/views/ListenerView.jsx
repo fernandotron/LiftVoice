@@ -455,7 +455,7 @@ export default function ListenerView({
 
   if (isInitializing) {
     return (
-      <div className="h-dvh min-h-dvh w-full flex flex-col items-center justify-center bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6 space-y-4 text-center select-none animate-fadeIn">
+      <div className="fixed inset-0 z-50 w-full h-full flex flex-col items-center justify-center bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6 space-y-4 text-center select-none overflow-hidden animate-fadeIn">
         <div className="relative flex items-center justify-center">
           <div className="w-12 h-12 rounded-full border-2 border-zinc-200 dark:border-zinc-800 border-t-zinc-900 dark:border-t-zinc-100 animate-spin" />
           <Volume2 className="w-5 h-5 text-zinc-600 dark:text-zinc-400 absolute" />
