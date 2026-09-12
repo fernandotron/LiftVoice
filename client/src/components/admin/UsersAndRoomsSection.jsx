@@ -165,7 +165,7 @@ export default function UsersAndRoomsSection() {
               className="h-11 flex items-center justify-center gap-2 px-5 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-2xs"
             >
               <Download className="w-4 h-4" />
-              <span>Exportar CSV</span>
+              <span>Exportar reporte</span>
             </button>
           </div>
 
@@ -174,7 +174,7 @@ export default function UsersAndRoomsSection() {
               <thead className="bg-zinc-50/80 dark:bg-zinc-800/60 border-b border-zinc-200/80 dark:border-white/10 text-zinc-500 dark:text-zinc-400">
                 <tr>
                   <th className="px-5 py-3.5 font-medium">Usuario</th>
-                  <th className="px-5 py-3.5 font-medium">ID / Última Sala</th>
+                  <th className="px-5 py-3.5 font-medium">Código / Sala</th>
                   <th className="px-5 py-3.5 font-medium">Rol</th>
                   <th className="px-5 py-3.5 font-medium">Estado</th>
                   <th className="px-5 py-3.5 font-medium text-right">Acciones</th>
@@ -192,13 +192,13 @@ export default function UsersAndRoomsSection() {
                       <div className="text-xs text-blue-600 dark:text-blue-400 font-mono mt-0.5">{u.lastRoom || '-'}</div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase ${u.role === 'admin_master' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : u.role === 'host' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${u.role === 'admin_master' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : u.role === 'host' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'}`}>
                         {u.role === 'admin_master' ? <Shield className="w-3 h-3 mr-1" /> : null}
-                        {u.role}
+                        {u.role === 'admin_master' ? 'Admin Master' : u.role === 'host' ? 'Ponente' : 'Oyente'}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase border ${u.status === 'Activo' ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400' : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'}`}>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${u.status === 'Activo' ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400' : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'}`}>
                         <Circle className="w-1.5 h-1.5 mr-1.5 fill-current" />
                         {u.status}
                       </span>
@@ -249,7 +249,7 @@ export default function UsersAndRoomsSection() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {Object.entries(room.languageBreakdown || {}).map(([lang, count]) => (
-                    <span key={lang} className="text-[10px] font-mono uppercase bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700 px-2 py-0.5 rounded-full text-zinc-600 dark:text-zinc-400">
+                    <span key={lang} className="text-[10px] font-mono bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700 px-2 py-0.5 rounded-full text-zinc-600 dark:text-zinc-400">
                       {lang}: {count}
                     </span>
                   ))}
@@ -306,9 +306,9 @@ export default function UsersAndRoomsSection() {
                     defaultValue={editingUser.role} 
                     className="w-full h-11 px-4 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500/40 focus:outline-none cursor-pointer"
                   >
-                    <option value="listener">Oyente (Listener)</option>
-                    <option value="host">Ponente Autorizado (Host)</option>
-                    <option value="admin_master">Súper Administrador (Master)</option>
+                    <option value="listener">Oyente</option>
+                    <option value="host">Ponente autorizado</option>
+                    <option value="admin_master">Administrador master</option>
                   </select>
                 </div>
                 

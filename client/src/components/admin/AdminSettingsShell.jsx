@@ -100,13 +100,13 @@ const BOOTHS = [
 ];
 
 const TAB_METADATA = {
-  'stt': { title: 'Transcriptor de Audio (STT)', desc: 'Configura el motor de reconocimiento de voz en vivo y latencia' },
-  'tts': { title: 'Voces Neuronales por Cabina (TTS)', desc: 'Asigna timbres de voz natural para las 4 cabinas de traducción' },
-  'ai': { title: 'Modelos de Traducción IA', desc: 'Gestiona los LLM y motores de inferencia para la interpretación simultánea' },
-  'appearance': { title: 'Apariencia & Tema Visual', desc: 'Personaliza la interfaz, esquemas de color y modo oscuro/claro' },
-  'medical': { title: 'Modo Clínico & Glosario', desc: 'Activa vocabulario médico especializado y glosarios personalizados' },
-  'users-rooms': { title: 'Gestión de Usuarios & Salas', desc: 'Monitorea salas activas, participantes y audita el historial de conexiones' },
-  'keys': { title: 'Claves de API y Proveedores', desc: 'Administra tus credenciales de Deepgram, Google, ElevenLabs y OpenAI' }
+  'stt': { title: 'Motor de reconocimiento de voz', desc: 'Configura la transcripción en directo y los parámetros de captura acústica' },
+  'tts': { title: 'Voces de síntesis por cabina', desc: 'Asigna timbres de voz natural para las cuatro cabinas de interpretación' },
+  'ai': { title: 'Modelos de traducción', desc: 'Gestiona los modelos y la estrategia de inferencia para la interpretación simultánea' },
+  'appearance': { title: 'Apariencia y tema visual', desc: 'Personaliza la interfaz, esquemas de color y modo claro u oscuro' },
+  'medical': { title: 'Modo clínico y glosario', desc: 'Activa vocabulario médico especializado y reglas léxicas estrictas' },
+  'users-rooms': { title: 'Gestión de usuarios y salas', desc: 'Monitorea conferencias en directo, participantes y roles de acceso' },
+  'keys': { title: 'Claves de proveedores', desc: 'Administra tus credenciales de Deepgram, Google, ElevenLabs y OpenAI' }
 };
 
 // Opciones enriquecidas de dos niveles: Título nítido + Subtítulo técnico
@@ -678,13 +678,13 @@ export default function AdminSettingsShell({
 
   const engineSummary = `Cadena: ${sttEngine} + ${preferredEngine} + ${preferredTtsEngine}`;
   const ALL_TABS = [
-    { id: 'stt', label: 'Transcriptor (STT)', icon: Mic, badge: sttEngine === 'deepgram' ? 'Deepgram ' : (sttEngine ? sttEngine.charAt(0).toUpperCase() + sttEngine.slice(1).toLowerCase() : ''), reqPerm: PERMISSIONS.PERM_ROOM_AUDIO },
-    { id: 'tts', label: 'Voces por Idioma', icon: Volume2, badge: '4 cabinas', reqPerm: PERMISSIONS.PERM_ROOM_AUDIO },
-    { id: 'ai', label: 'Modelos de Traducción', icon: Cpu, badge: preferredEngine ? preferredEngine.charAt(0).toUpperCase() + preferredEngine.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_AI_MODELS },
-    { id: 'appearance', label: 'Apariencia & Tema', icon: Palette, badge: theme ? theme.charAt(0).toUpperCase() + theme.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_ACCESS_ADMIN },
-    { id: 'medical', label: 'Modo Clínico', icon: Stethoscope, badge: medicalMode ? 'Activo' : null, reqPerm: PERMISSIONS.PERM_AI_MODELS },
-    { id: 'users-rooms', label: 'Usuarios & Salas', icon: Users, badge: 'Directo', reqPerm: PERMISSIONS.PERM_ROOM_MANAGEMENT },
-    { id: 'keys', label: 'Claves de API', icon: Key, badge: activeKeysCount > 0 ? `${activeKeysCount} activas` : 'Pendientes', reqPerm: PERMISSIONS.PERM_API_KEYS }
+    { id: 'stt', label: 'Reconocimiento de voz', icon: Mic, badge: sttEngine === 'deepgram' ? 'Deepgram' : (sttEngine ? sttEngine.charAt(0).toUpperCase() + sttEngine.slice(1).toLowerCase() : ''), reqPerm: PERMISSIONS.PERM_ROOM_AUDIO },
+    { id: 'tts', label: 'Voces por idioma', icon: Volume2, badge: '4 cabinas', reqPerm: PERMISSIONS.PERM_ROOM_AUDIO },
+    { id: 'ai', label: 'Modelos de traducción', icon: Cpu, badge: preferredEngine ? preferredEngine.charAt(0).toUpperCase() + preferredEngine.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_AI_MODELS },
+    { id: 'appearance', label: 'Apariencia y tema', icon: Palette, badge: theme ? theme.charAt(0).toUpperCase() + theme.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_ACCESS_ADMIN },
+    { id: 'medical', label: 'Modo clínico', icon: Stethoscope, badge: medicalMode ? 'Activo' : null, reqPerm: PERMISSIONS.PERM_AI_MODELS },
+    { id: 'users-rooms', label: 'Usuarios y salas', icon: Users, badge: 'Directo', reqPerm: PERMISSIONS.PERM_ROOM_MANAGEMENT },
+    { id: 'keys', label: 'Claves de proveedores', icon: Key, badge: activeKeysCount > 0 ? `${activeKeysCount} activas` : 'Pendientes', reqPerm: PERMISSIONS.PERM_API_KEYS }
   ];
 
   const TABS = ALL_TABS.filter(tab => hasPermission(tab.reqPerm));
@@ -738,16 +738,16 @@ export default function AdminSettingsShell({
   const mainContent = (
     <div className={`flex-1 ${variant === 'modal' ? 'px-6 sm:px-8 pt-6 pb-8 space-y-8' : 'min-w-0 space-y-8'}`}>
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* PESTAÑA: TRANSCRIPTOR (STT)                                 */}
+      {/* PESTAÑA: RECONOCIMIENTO DE VOZ                              */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'stt' && (
         <div className="space-y-8 animate-fadeIn">
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Motor de Reconocimiento de Voz (STT)
+              Motor de reconocimiento de voz
             </h4>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
-              Selecciona el motor de transcripción en vivo del ponente y la estrategia de consumo de cuota.
+              Selecciona el motor de transcripción en directo del ponente y la estrategia de consumo de cuota.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
@@ -791,7 +791,7 @@ export default function AdminSettingsShell({
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
-                  Sincroniza en un clic el transcriptor (STT), motor de traducción (LLM) y voces (TTS) para optimizar costes o calidad.
+                  Sincroniza en un clic el reconocimiento de voz, la traducción y la síntesis vocal para optimizar costes o calidad.
                 </p>
               </div>
             </div>
@@ -847,13 +847,13 @@ export default function AdminSettingsShell({
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* PESTAÑA: VOCES POR IDIOMA (TTS)                             */}
+      {/* PESTAÑA: VOCES POR IDIOMA                                   */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'tts' && (
         <div className="space-y-8 animate-fadeIn">
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Motor de Síntesis Global (TTS)
+              Motor de síntesis vocal
             </h4>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Define el proveedor predeterminado y la sincronización temporal del audio de interpretación.
@@ -925,9 +925,6 @@ export default function AdminSettingsShell({
                           <span className="font-semibold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100">
                             {b.label}
                           </span>
-                          <span className="text-[11px] text-zinc-400 dark:text-zinc-500 ml-1.5 font-mono">
-                            ({b.lang.toUpperCase()})
-                          </span>
                         </div>
                       </div>
 
@@ -960,7 +957,7 @@ export default function AdminSettingsShell({
 
                     <div>
                       <label htmlFor={`admin-voice-${b.lang}`} className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                        Voz Asignada para {b.label}:
+                        Voz de interpretación
                       </label>
                       <SelectDropdown
                         id={`admin-voice-${b.lang}`}
@@ -994,7 +991,7 @@ export default function AdminSettingsShell({
                       ) : (
                         <>
                           <Play className="w-3.5 h-3.5 fill-current" />
-                          <span>Probar voz ({b.label})</span>
+                          <span>Probar voz</span>
                         </>
                       )}
                     </button>
@@ -1307,7 +1304,7 @@ export default function AdminSettingsShell({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label htmlFor="admin-key-deepgram" className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                    Deepgram API Key (STT Nova-3 + TTS Aura)
+                    Clave de Deepgram
                   </label>
                   {serverFlags.hasDeepgramKey && (
                     <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -1342,7 +1339,7 @@ export default function AdminSettingsShell({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label htmlFor="admin-key-gemini" className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                    Google Gemini / OpenRouter Key (Flash-Lite)
+                    Clave de Google Gemini
                   </label>
                   {serverFlags.hasGeminiKey && (
                     <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -1377,7 +1374,7 @@ export default function AdminSettingsShell({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label htmlFor="admin-key-qwen" className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                    Alibaba Qwen Key (DashScope / OpenRouter)
+                    Clave de Alibaba Qwen
                   </label>
                   {serverFlags.hasQwenKey && (
                     <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -1412,7 +1409,7 @@ export default function AdminSettingsShell({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label htmlFor="admin-key-elevenlabs" className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                    ElevenLabs API Key (Turbo v2.5)
+                    Clave de ElevenLabs
                   </label>
                   {serverFlags.hasElevenLabsKey && (
                     <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -1447,7 +1444,7 @@ export default function AdminSettingsShell({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label htmlFor="admin-key-openai" className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                    OpenAI API Key (Whisper + GPT-4o + TTS-1)
+                    Clave de OpenAI
                   </label>
                   {serverFlags.hasOpenAiKey && (
                     <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -1539,11 +1536,6 @@ export default function AdminSettingsShell({
                 );
               })}
             </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-zinc-50/50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-400 space-y-1.5">
-            <div className="font-semibold text-zinc-900 dark:text-zinc-200">Estado del Tema Activo</div>
-            <p>Modo seleccionado: <strong className="text-zinc-900 dark:text-zinc-100">{theme}</strong> (Resuelto actualmente en pantalla como: <strong className="text-zinc-900 dark:text-zinc-100">{resolvedTheme}</strong>)</p>
           </div>
         </div>
       )}

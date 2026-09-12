@@ -4,15 +4,15 @@ import { adminAuthService } from '../../services/adminAuthService.js';
 
 const TAB_CATEGORIES = [
   {
-    name: 'Conferencia & Audio',
+    name: 'Conferencia y audio',
     ids: ['stt', 'tts']
   },
   {
-    name: 'Inteligencia Artificial',
+    name: 'Inteligencia artificial',
     ids: ['ai', 'medical']
   },
   {
-    name: 'Gestión & Seguridad',
+    name: 'Gestión y seguridad',
     ids: ['users-rooms', 'keys', 'appearance']
   }
 ];
@@ -108,7 +108,7 @@ export default function AdminSidebarRail({
 
             return (
               <div key={cat.name} className="space-y-1">
-                <h4 className="px-3 text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider select-none mb-1.5">
+                <h4 className="px-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 select-none mb-2">
                   {cat.name}
                 </h4>
                 <div className="space-y-0.5">
@@ -149,8 +149,8 @@ export default function AdminSidebarRail({
                 {adminUser?.email || 'admin@liftvoice.ai'}
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-[9px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                  ADMIN MASTER
+                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                  Admin Master
                 </span>
               </div>
             </div>
