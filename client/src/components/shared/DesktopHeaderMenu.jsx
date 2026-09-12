@@ -54,6 +54,7 @@ export default function DesktopHeaderMenu({
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
   const themeItemRef = useRef(null);
+  const submenuRef = useRef(null);
   const themeCloseTimer = useRef(null);
 
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -96,32 +97,46 @@ export default function DesktopHeaderMenu({
   };
 
   // Posicionar submenú de tema
-  const handleOpenThemeSubmenu = (e) => {
+  const handleOpenThemeSubmenu = useCallback((e) => {
     cancelThemeClose();
-    const target = themeItemRef.current || e.currentTarget;
+    const target = themeItemRef.current || e?.currentTarget;
     if (!target) return;
     const rect = target.getBoundingClientRect();
-    const SUBMENU_WIDTH = 170;
+    const panelRect = menuRef.current?.getBoundingClientRect();
+    const SUBMENU_WIDTH = 180;
     const padding = 8;
 
-    let left = rect.right + 4;
+    const panelRight = panelRect ? panelRect.right : rect.right;
+    const panelLeft = panelRect ? panelRect.left : rect.left;
+
+    let left = panelRight + 4;
     if (left + SUBMENU_WIDTH > window.innerWidth - padding) {
-      left = Math.max(padding, rect.left - SUBMENU_WIDTH - 4);
+      left = Math.max(padding, panelLeft - SUBMENU_WIDTH - 4);
     }
 
     setThemeSubmenuPos({
-      top: rect.top - 4,
+      top: Math.max(padding, rect.top - 4),
       left
     });
     setIsThemeSubmenuOpen(true);
-  };
+  }, [cancelThemeClose]);
 
-  const handleCloseThemeWithGrace = () => {
+  const toggleThemeSubmenu = useCallback((e) => {
+    e?.stopPropagation();
+    if (isThemeSubmenuOpen) {
+      cancelThemeClose();
+      setIsThemeSubmenuOpen(false);
+    } else {
+      handleOpenThemeSubmenu(e);
+    }
+  }, [isThemeSubmenuOpen, cancelThemeClose, handleOpenThemeSubmenu]);
+
+  const handleCloseThemeWithGrace = useCallback(() => {
     cancelThemeClose();
     themeCloseTimer.current = setTimeout(() => {
       setIsThemeSubmenuOpen(false);
-    }, 160);
-  };
+    }, 220);
+  }, [cancelThemeClose]);
 
   // Cerrar al pulsar fuera, resize o Escape
   useEffect(() => {
@@ -129,6 +144,7 @@ export default function DesktopHeaderMenu({
 
     const handleClickOutside = (e) => {
       if (menuRef.current && menuRef.current.contains(e.target)) return;
+      if (submenuRef.current && submenuRef.current.contains(e.target)) return;
       if (triggerRef.current && triggerRef.current.contains(e.target)) return;
       closeAll();
     };
@@ -176,7 +192,7 @@ export default function DesktopHeaderMenu({
         <MenuLinesIcon className="w-4.5 h-4.5" />
       </button>
 
-      {/* Menú Desplegable Principal (Replicando standalone-assistant CLASE_BLOQUE_MENU con createPortal) */}
+      {/* Menú Desplegable Principal */}
       {isOpen && typeof document !== 'undefined' && createPortal(
         <div
           ref={menuRef}
@@ -205,15 +221,16 @@ export default function DesktopHeaderMenu({
               <span>Volver al inicio</span>
             </button>
 
-            {/* Opción de Tema con submenú */}
+            {/* Opción de Tema con submenú (toggle por click y hover) */}
             <button
               ref={themeItemRef}
               type="button"
               role="menuitem"
               aria-haspopup="menu"
               aria-expanded={isThemeSubmenuOpen}
-              onClick={handleOpenThemeSubmenu}
+              onClick={toggleThemeSubmenu}
               onMouseEnter={handleOpenThemeSubmenu}
+              onMouseLeave={handleCloseThemeWithGrace}
               className={`flex w-full items-center justify-between gap-3 p-2 rounded-xl text-sm font-medium transition-colors focus:outline-none cursor-pointer ${
                 isThemeSubmenuOpen
                   ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white'
@@ -228,7 +245,7 @@ export default function DesktopHeaderMenu({
                 )}
                 <span>Tema</span>
               </span>
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-shrink-0" />
+              <ChevronRight className={`w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-shrink-0 transition-transform duration-150 ${isThemeSubmenuOpen ? 'rotate-90 sm:rotate-0' : ''}`} />
             </button>
 
             {/* Copiar enlace */}
@@ -283,55 +300,58 @@ export default function DesktopHeaderMenu({
               </div>
             </>
           )}
+        </div>,
+        document.body
+      )}
 
-          {/* Submenú Flotante de Tema (Portaled y posicionado al flanco) */}
-          {isThemeSubmenuOpen && (
-            <div
-              role="menu"
-              aria-label="Seleccionar tema"
-              className="fixed z-[100000] min-w-[150px] p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)] border border-black/5 dark:border-white/10 overflow-hidden animate-fadeIn select-none"
-              style={{
-                top: `${themeSubmenuPos.top}px`,
-                left: `${themeSubmenuPos.left}px`
-              }}
-              onMouseEnter={cancelThemeClose}
-              onMouseLeave={handleCloseThemeWithGrace}
-            >
-              {[
-                { value: 'light', label: 'Claro', icon: Sun },
-                { value: 'dark', label: 'Oscuro', icon: Moon },
-                { value: 'system', label: 'Sistema', icon: Monitor },
-              ].map((opt) => {
-                const OptIcon = opt.icon;
-                const isSelected = theme === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={isSelected}
-                    onClick={() => {
-                      setTheme(opt.value);
-                      closeAll();
-                    }}
-                    className={`w-full flex items-center justify-between gap-3 p-2 text-sm font-medium rounded-xl transition-colors cursor-pointer ${
-                      isSelected
-                        ? 'text-zinc-900 dark:text-white font-semibold hover:bg-zinc-100/70 dark:hover:bg-white/5'
-                        : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <OptIcon className="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
-                      <span>{opt.label}</span>
-                    </span>
-                    {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100 flex-shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+      {/* Submenú Flotante de Tema: Portaled INDEPENDIENTEMENTE a document.body para que NUNCA sea clipeado por overflow-hidden */}
+      {isOpen && isThemeSubmenuOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={submenuRef}
+          role="menu"
+          aria-label="Seleccionar tema"
+          className="fixed z-[100000] min-w-[170px] p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-[0_8px_24px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] border border-black/5 dark:border-white/10 overflow-hidden animate-fadeIn select-none text-left"
+          style={{
+            top: `${themeSubmenuPos.top}px`,
+            left: `${themeSubmenuPos.left}px`
+          }}
+          onMouseEnter={cancelThemeClose}
+          onMouseLeave={handleCloseThemeWithGrace}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {[
+            { value: 'light', label: 'Claro', icon: Sun },
+            { value: 'dark', label: 'Oscuro', icon: Moon },
+            { value: 'system', label: 'Sistema', icon: Monitor },
+          ].map((opt) => {
+            const OptIcon = opt.icon;
+            const isSelected = theme === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={isSelected}
+                onClick={() => {
+                  setTheme(opt.value);
+                  closeAll();
+                }}
+                className={`w-full flex items-center justify-between gap-3 p-2 text-sm font-medium rounded-xl transition-colors cursor-pointer ${
+                  isSelected
+                    ? 'text-zinc-900 dark:text-white font-semibold bg-zinc-100/70 dark:bg-white/10'
+                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5'
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <OptIcon className="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
+                  <span>{opt.label}</span>
+                </span>
+                {isSelected && (
+                  <Check className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100 flex-shrink-0 stroke-[2.5]" />
+                )}
+              </button>
+            );
+          })}
         </div>,
         document.body
       )}
