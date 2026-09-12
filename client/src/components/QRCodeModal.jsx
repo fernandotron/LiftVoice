@@ -123,6 +123,13 @@ export default function QRCodeModal({
 
   const listenUrl = `${activeBaseUrl}/join?room=${encodeURIComponent(roomId)}`;
 
+  const isGenericTitle = !roomTitle || 
+    roomTitle.toLowerCase() === `sala ${roomId.toLowerCase()}` || 
+    roomTitle.toLowerCase() === roomId.toLowerCase() ||
+    roomTitle === 'Conferencia Principal 2026' ||
+    roomTitle === 'Keynote 2026';
+  const modalDisplayTitle = isGenericTitle ? 'Traducción Simultánea de Voz' : roomTitle;
+
   const handleStartTunnel = async () => {
     setIsGeneratingTunnel(true);
     setTunnelError(null);
@@ -187,7 +194,7 @@ export default function QRCodeModal({
     return (
       <div
         ref={modalContainerRef}
-        className="fixed inset-0 z-[1000] w-screen h-screen min-h-screen bg-zinc-950 text-white flex flex-col justify-between p-6 sm:p-10 lg:p-12 select-none overflow-y-auto animate-fadeIn"
+        className="fixed inset-0 z-[1000] w-screen h-screen min-h-screen bg-zinc-950 text-white flex flex-col justify-between p-4 sm:p-10 lg:p-12 select-none overflow-y-auto animate-fadeIn"
         role="dialog"
         aria-modal="true"
         aria-label="Modo Auditorio - Acceso a la Sala"
@@ -232,10 +239,10 @@ export default function QRCodeModal({
         </header>
 
         {/* Contenido Principal de Proyección: Centrado, Alto Impacto, Legible a 20 metros */}
-        <main className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-16 max-w-7xl mx-auto w-full my-auto py-6 sm:py-10">
+        <main className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 sm:gap-10 lg:gap-16 max-w-7xl mx-auto w-full my-auto py-4 sm:py-10">
           {/* Columna Izquierda: Código QR Gigante y Código de Sala */}
-          <div className="flex flex-col items-center justify-center text-center space-y-5 shrink-0">
-            <div className="p-6 sm:p-8 bg-white rounded-[32px] sm:rounded-[40px] shadow-[0_20px_80px_rgba(0,0,0,0.8)] ring-4 ring-white/10 flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center text-center space-y-4 sm:space-y-5 shrink-0">
+            <div className="p-4 sm:p-8 bg-white rounded-3xl sm:rounded-[40px] shadow-[0_20px_80px_rgba(0,0,0,0.8)] ring-4 ring-white/10 flex items-center justify-center">
               <QRCodeSVG
                 id="liftvoice-room-qr"
                 value={listenUrl}
@@ -244,6 +251,7 @@ export default function QRCodeModal({
                 includeMargin={false}
                 fgColor="#09090b"
                 bgColor="#ffffff"
+                className="w-56 h-56 sm:w-72 sm:h-72 lg:w-80 lg:h-80 max-w-full h-auto"
               />
             </div>
 
@@ -263,16 +271,16 @@ export default function QRCodeModal({
           </div>
 
           {/* Columna Derecha: Título de Conferencia y Pasos para la Audiencia */}
-          <div className="flex flex-col justify-center space-y-6 sm:space-y-8 text-left max-w-xl">
+          <div className="flex flex-col justify-center space-y-5 sm:space-y-8 text-left max-w-xl">
             <div>
-              <div className="sm:hidden inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-xs font-mono font-medium text-emerald-400 mb-3">
+              <div className="sm:hidden inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-xs font-mono font-medium text-emerald-400 mb-2.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Audio en vivo abierto</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
-                {roomTitle || 'Traducción Simultánea de Voz'}
+              <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
+                {modalDisplayTitle}
               </h1>
-              <p className="text-base sm:text-lg text-zinc-400 mt-3 leading-relaxed">
+              <p className="text-sm sm:text-lg text-zinc-400 mt-2 sm:mt-3 leading-relaxed">
                 Escucha la conferencia traducida en tiempo real directamente desde tu teléfono móvil.
               </p>
             </div>
@@ -362,35 +370,35 @@ export default function QRCodeModal({
         if (e.target === e.currentTarget) handleClose();
       }}
     >
-      {/* Modal Container con estética Studio 2026 */}
+      {/* Modal Container con estética Studio 2026 (Pantalla completa natural en móvil, flotante elegante en escritorio) */}
       <div 
-        className="relative flex flex-col w-full max-w-3xl max-h-[92dvh] bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-white/10 rounded-[28px] sm:rounded-[32px] shadow-2xl transition-all duration-300 overflow-hidden select-none text-left animate-fadeIn"
+        className="relative flex flex-col w-full h-full sm:h-auto sm:max-h-[92dvh] sm:max-w-3xl bg-white dark:bg-zinc-950 border-0 sm:border border-zinc-200/80 dark:border-white/10 rounded-none sm:rounded-[32px] shadow-2xl transition-all duration-300 overflow-hidden select-none text-left animate-fadeIn"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Línea de acento degradada Studio en la parte superior */}
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-blue-500/20 dark:via-blue-400/20 to-transparent pointer-events-none" />
 
         {/* ── 1. CABECERA DEL MODAL ─────────────────────────────────── */}
-        <header className="flex items-center justify-between px-6 sm:px-8 py-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs shrink-0">
-              <QrCode className="w-5 h-5" />
+        <header className="flex items-center justify-between px-4 sm:px-8 py-3.5 sm:py-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs shrink-0">
+              <QrCode className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
-              <h2 id="qr-modal-title" className="text-base sm:text-lg font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
+              <h2 id="qr-modal-title" className="text-sm sm:text-lg font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
                 Acceso a la Sala • Audiencia
               </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+              <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
                 Escaneo instantáneo para sintonizar las cabinas de voz en directo
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={toggleFullScreen}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               title="Modo Auditorio / Proyector (Pantalla completa)"
               aria-label="Modo Auditorio"
             >
@@ -399,7 +407,7 @@ export default function QRCodeModal({
             <button
               type="button"
               onClick={handleClose}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               title="Cerrar modal"
               aria-label="Cerrar"
             >
@@ -409,12 +417,12 @@ export default function QRCodeModal({
         </header>
 
         {/* ── 2. CUERPO UNIFICADO DE 2 COLUMNAS (GRID RESPONSIVE) ───── */}
-        <div className="flex-1 overflow-y-auto min-h-0 p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 items-center">
+        <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 lg:gap-10 items-center">
 
           {/* COLUMNA IZQUIERDA: Código QR, Código de Sala y Selector de Red */}
-          <div className="flex flex-col items-center justify-center text-center space-y-4">
+          <div className="flex flex-col items-center justify-center text-center space-y-3.5 sm:space-y-4">
             {/* Tarjeta contenedora del código QR en blanco puro con sombra Studio */}
-            <div className="p-5 sm:p-6 bg-white rounded-3xl border border-zinc-200/80 shadow-md ring-1 ring-black/5 flex items-center justify-center">
+            <div className="p-3.5 sm:p-6 bg-white rounded-2xl sm:rounded-3xl border border-zinc-200/80 shadow-md ring-1 ring-black/5 flex items-center justify-center">
               <QRCodeSVG
                 id="liftvoice-room-qr"
                 value={listenUrl}
@@ -423,6 +431,7 @@ export default function QRCodeModal({
                 includeMargin={false}
                 fgColor="#09090b"
                 bgColor="#ffffff"
+                className="w-44 h-44 sm:w-52 sm:h-52"
               />
             </div>
 
@@ -542,7 +551,7 @@ export default function QRCodeModal({
                 <span>Audio simultáneo en vivo</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight leading-snug">
-                {roomTitle || 'Traducción Simultánea de Voz'}
+                {modalDisplayTitle}
               </h3>
               <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
                 Escucha la conferencia en tu idioma con tus auriculares en tiempo real.
@@ -656,9 +665,9 @@ export default function QRCodeModal({
         </div>
 
         {/* ── 3. PIE DE ACCIONES (ESTILO STUDIO 2026) ────────────────── */}
-        <footer className="px-6 sm:px-8 py-4 bg-zinc-50/80 dark:bg-zinc-900/40 border-t border-zinc-200/80 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <footer className="px-4 sm:px-8 py-3.5 sm:py-4 bg-zinc-50/95 dark:bg-zinc-900/90 backdrop-blur-md border-t border-zinc-200/80 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="w-full sm:w-auto flex-1 min-w-0 text-left">
-            <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+            <div className="text-[10px] sm:text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
               Vínculo directo de oyente
             </div>
             <div className="text-xs font-mono text-zinc-700 dark:text-zinc-300 truncate max-w-full sm:max-w-md mt-0.5 select-all">
@@ -670,7 +679,7 @@ export default function QRCodeModal({
             <button
               type="button"
               onClick={handleCopyLink}
-              className="flex-1 sm:flex-none h-10 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 hover:bg-zinc-200/80 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-200 font-medium text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
+              className="flex-1 sm:flex-none h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 hover:bg-zinc-200/80 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-200 font-medium text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
             >
               {copied ? (
                 <>
@@ -688,11 +697,11 @@ export default function QRCodeModal({
             <button
               type="button"
               onClick={handleDownloadQR}
-              className="flex-1 sm:flex-none h-10 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 hover:bg-zinc-200/80 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-200 font-medium text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
+              className="flex-1 sm:flex-none h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 hover:bg-zinc-200/80 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-200 font-medium text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
               title="Descargar código QR"
             >
               <Download className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-              <span>Descargar código QR</span>
+              <span>Descargar QR</span>
             </button>
           </div>
         </footer>
