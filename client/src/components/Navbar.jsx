@@ -42,11 +42,8 @@ export default function Navbar({
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <span className="font-medium text-base text-zinc-900 dark:text-zinc-50 tracking-tight">
+              <span className="font-semibold text-base text-zinc-900 dark:text-zinc-50 tracking-tight">
                 LiftVoice
-              </span>
-              <span className="text-[10px] font-medium px-1.5 sm:px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 text-zinc-600 dark:text-zinc-400 hidden sm:inline-block">
-                Studio 2026
               </span>
             </div>
           </button>
@@ -87,11 +84,13 @@ export default function Navbar({
             </div>
           )}
 
-          {/* Connection Status Pill */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
-            <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`} />
-            <span>{latency}ms</span>
-          </div>
+          {/* Connection Status Pill - Only visible when inside a room */}
+          {roomId && (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
+              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`} />
+              <span>{latency}ms</span>
+            </div>
+          )}
 
           {currentRole === 'host' && (
             <button
