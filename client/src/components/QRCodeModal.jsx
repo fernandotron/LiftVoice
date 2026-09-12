@@ -394,7 +394,7 @@ export default function QRCodeModal({
             <div className="p-3 rounded-2xl bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-400 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-medium text-zinc-800 dark:text-zinc-200">
-                  <Wifi className="w-3.5 h-3.5 text-emerald-500" />
+                  <Wifi className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   <span>Wi-Fi local: {effectiveIp}:{typeof window !== 'undefined' && window.location.port ? window.location.port : '5174'}</span>
                 </div>
                 {isLoopback && availableIps.length > 1 && (
@@ -422,8 +422,8 @@ export default function QRCodeModal({
                         }}
                         className={`text-[10px] px-2.5 py-1 rounded-xl border font-mono transition-colors cursor-pointer ${
                           effectiveIp === iface.address
-                            ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white font-semibold'
-                            : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100'
+                            ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white font-semibold shadow-2xs'
+                            : 'bg-white dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/15 hover:text-zinc-900 dark:hover:text-white dark:hover:border-white/20'
                         }`}
                       >
                         {iface.name}: {iface.address}
