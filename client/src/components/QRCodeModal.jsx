@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { QrCode, Copy, Check, ExternalLink, Download, Maximize2, Minimize2, X, Headphones, Globe, Wifi, Smartphone, Sparkles, Loader2, Radio, Lock } from 'lucide-react';
+import {
+  QrCode, Copy, Check, Download, Maximize2, Minimize2, X,
+  Headphones, Globe, Wifi, Smartphone, Loader2, Radio,
+  Sparkles, AlertCircle, ShieldAlert
+} from 'lucide-react';
 
 export default function QRCodeModal({
   roomId = 'MAIN',
@@ -11,10 +15,12 @@ export default function QRCodeModal({
 }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedRoomCode, setCopiedRoomCode] = useState(false);
   const [networkMode, setNetworkMode] = useState('local'); // 'local' | 'public' | 'custom'
   const [publicUrl, setPublicUrl] = useState('');
   const [customDomain, setCustomDomain] = useState('');
   const [isGeneratingTunnel, setIsGeneratingTunnel] = useState(false);
+  const [tunnelError, setTunnelError] = useState(null);
   const [detectedLocalIp, setDetectedLocalIp] = useState(localIp || '192.168.1.12');
   const [customIp, setCustomIp] = useState('');
   const [isEditingIp, setIsEditingIp] = useState(false);
@@ -57,6 +63,7 @@ export default function QRCodeModal({
 
   const handleStartTunnel = async () => {
     setIsGeneratingTunnel(true);
+    setTunnelError(null);
     try {
       const token = localStorage.getItem('liftvoice_admin_token') || '';
       const res = await fetch('/api/tunnel/start', { 
@@ -67,17 +74,29 @@ export default function QRCodeModal({
       if (data.publicUrl) {
         setPublicUrl(data.publicUrl);
         setNetworkMode('public');
+      } else {
+        setTunnelError(data.error || 'No se pudo generar el túnel público 4G/5G. Utiliza la conexión Wi-Fi local.');
+        setNetworkMode('local');
       }
     } catch (err) {
       console.warn('Could not start public tunnel:', err);
+      setTunnelError('Error al contactar con el túnel público. Utiliza la Red Wi-Fi local de la sala.');
+      setNetworkMode('local');
+    } finally {
+      setIsGeneratingTunnel(false);
     }
-    setIsGeneratingTunnel(false);
   };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(listenUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyRoomCode = () => {
+    navigator.clipboard.writeText(roomId);
+    setCopiedRoomCode(true);
+    setTimeout(() => setCopiedRoomCode(false), 2000);
   };
 
   const handleDownloadQR = () => {
@@ -103,274 +122,258 @@ export default function QRCodeModal({
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex ${
-      isFullScreen 
-        ? 'items-center justify-center p-0 bg-zinc-950' 
-        : 'flex-col justify-end sm:justify-center sm:items-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:p-4 bg-black/40 backdrop-blur-[3px]'
-    } transition-all duration-150`}>
-      {/* Backdrop tap to dismiss on mobile */}
-      {!isFullScreen && (
-        <div 
-          className="flex-1 sm:hidden cursor-pointer" 
-          onClick={onClose} 
-          aria-label="Cerrar ventana" 
-        />
-      )}
-      <div className={`relative w-full transition-all duration-150 overflow-hidden shadow-2xl ${
-        isFullScreen
-          ? 'w-screen h-screen max-w-none rounded-none p-8 sm:p-12 flex flex-col justify-between bg-zinc-950 text-white'
-          : 'sm:max-w-md rounded-[28px] p-5 sm:p-7 bg-white dark:bg-[#1f1f1f] border border-zinc-200/80 dark:border-white/10 text-zinc-900 dark:text-zinc-100 max-h-[88dvh] sm:max-h-[90dvh] overflow-y-auto pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-7 animate-sheet-up sm:zoom-in-95 duration-200'
-      }`}>
-        {/* Header Bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              isFullScreen ? 'bg-zinc-900 border border-zinc-800 text-white' : 'bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100'
-            }`}>
-              <QrCode className="w-4 h-4" />
+    <div 
+      className={`fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 md:p-6 transition-all duration-200 ${
+        isFullScreen 
+          ? 'bg-zinc-950 p-0' 
+          : 'bg-black/60 dark:bg-black/75 backdrop-blur-[4px]'
+      }`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="qr-modal-title"
+      onClick={(e) => {
+        if (!isFullScreen && e.target === e.currentTarget) onClose();
+      }}
+    >
+      {/* Modal Container con estética Studio 2026 */}
+      <div 
+        className={`relative flex flex-col w-full bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-white/10 shadow-2xl transition-all duration-300 overflow-hidden select-none text-left ${
+          isFullScreen 
+            ? 'w-screen h-screen max-w-none rounded-none p-6 sm:p-10 justify-between' 
+            : 'max-w-3xl max-h-[92dvh] rounded-[28px] sm:rounded-[32px] animate-fadeIn'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Línea de acento degradada Studio en la parte superior */}
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-blue-500/20 dark:via-blue-400/20 to-transparent pointer-events-none" />
+
+        {/* ── 1. CABECERA DEL MODAL ─────────────────────────────────── */}
+        <header className="flex items-center justify-between px-6 sm:px-8 py-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs shrink-0">
+              <QrCode className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className={`font-semibold text-sm tracking-tight ${isFullScreen ? 'text-white' : 'text-zinc-900 dark:text-zinc-50'}`}>
-                {isFullScreen ? 'Proyección de Sala en Auditorio' : 'Acceso de Asistentes'}
-              </h3>
-              <p className={`text-[11px] ${isFullScreen ? 'text-zinc-400' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                {isFullScreen ? 'Escaneo directo para audiencia en vivo' : 'Escaneo de sala y selección de canal de voz'}
+            <div className="min-w-0">
+              <h2 id="qr-modal-title" className="text-base sm:text-lg font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
+                Acceso a la Sala • Audiencia
+              </h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                Escaneo instantáneo para sintonizar las cabinas de voz en directo
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2 shrink-0">
             <button
+              type="button"
               onClick={() => setIsFullScreen(!isFullScreen)}
-              className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
-                isFullScreen
-                  ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-400 hover:text-white'
-                  : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
-              }`}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               title={isFullScreen ? "Salir de pantalla completa" : "Modo Auditorio / Proyector"}
+              aria-label={isFullScreen ? "Salir de pantalla completa" : "Modo Auditorio"}
             >
               {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
             <button
+              type="button"
               onClick={onClose}
-              className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
-                isFullScreen
-                  ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-400 hover:text-white'
-                  : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
-              }`}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              title="Cerrar modal"
+              aria-label="Cerrar"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Network Mode Switcher or Universal Cloud QR Badge */}
-        {!isFullScreen && (
-          isLoopback ? (
-            <div className="my-3.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center gap-1">
-              <button
-                onClick={() => setNetworkMode('local')}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  networkMode === 'local'
-                    ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-2xs font-semibold'
-                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                }`}
-              >
-                <Wifi className="w-3.5 h-3.5" />
-                <span>Red Wi-Fi</span>
-              </button>
+        {/* ── 2. CUERPO UNIFICADO DE 2 COLUMNAS (GRID RESPONSIVE) ───── */}
+        <div className={`flex-1 overflow-y-auto min-h-0 p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 items-center ${
+          isFullScreen ? 'max-w-5xl mx-auto w-full my-auto' : ''
+        }`}>
 
-              <button
-                onClick={() => {
-                  if (!publicUrl) handleStartTunnel();
-                  else setNetworkMode('public');
-                }}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  networkMode === 'public'
-                    ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-2xs font-semibold'
-                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                }`}
-              >
-                {isGeneratingTunnel ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Smartphone className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
-                )}
-                <span>Datos 4G/5G</span>
-              </button>
-            </div>
-          ) : (
-            <div className="my-3 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
-                <Globe className="w-4 h-4" />
-              </div>
-              <div className="text-left flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-emerald-950">QR Universal para toda la sala</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 font-bold">
-                    Wi-Fi + 4G/5G
-                  </span>
-                </div>
-                <p className="text-[11px] text-emerald-800/90 mt-0.5 leading-tight">
-                  Válido tanto para la Wi-Fi del auditorio como para datos móviles. Si la Wi-Fi falla o cambia a 4G/5G, la conexión se mantiene intacta.
-                </p>
-              </div>
-            </div>
-          )
-        )}
-
-        {/* Center QR Display */}
-        {isFullScreen ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 my-auto items-center">
-            <div className="lg:col-span-6 flex flex-col items-center justify-center text-center space-y-5">
-              <div className="p-6 bg-white rounded-3xl shadow-2xl border-4 border-zinc-800">
-                <QRCodeSVG
-                  id="liftvoice-room-qr"
-                  value={listenUrl}
-                  size={300}
-                  level="H"
-                  includeMargin={false}
-                  fgColor="#000000"
-                  bgColor="#ffffff"
-                />
-              </div>
-
-              <div className="inline-flex items-center gap-3 px-5 py-2 rounded-xl bg-zinc-900 border border-zinc-800">
-                <span className="text-xs font-mono text-zinc-400">Código de sala:</span>
-                <span className="text-xl font-mono font-bold text-white tracking-widest">{roomId}</span>
-              </div>
-            </div>
-
-            <div className="lg:col-span-6 space-y-6 text-left">
-              <div>
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono font-medium mb-3">
-                  <Radio className="w-3.5 h-3.5 animate-pulse" />
-                  Audio neuronal en directo
-                </span>
-                <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight leading-tight">
-                  {roomTitle || 'Traducción Simultánea de Voz'}
-                </h1>
-                <p className="text-sm text-zinc-400 mt-2">
-                  Escucha la conferencia en tu idioma nativo con auriculares en tiempo real.
-                </p>
-              </div>
-
-              <div className="space-y-3.5 pt-2">
-                <div className="flex items-start gap-3.5 p-3.5 rounded-xl bg-zinc-900 border border-zinc-800">
-                  <div className="w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center font-bold text-xs flex-shrink-0">
-                    1
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-white">Escanea el código QR con tu móvil</h4>
-                    <p className="text-xs text-zinc-400 mt-0.5">
-                      Abre la cámara de tu smartphone para acceder directamente a la sintonía.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3.5 p-3.5 rounded-xl bg-zinc-900 border border-zinc-800">
-                  <div className="w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center font-bold text-xs flex-shrink-0">
-                    2
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-white">Conecta tus auriculares</h4>
-                    <p className="text-xs text-zinc-400 mt-0.5">
-                      AirPods, Bluetooth o cable. Puedes bloquear la pantalla y el audio seguirá sonando.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3.5 p-3.5 rounded-xl bg-zinc-900 border border-zinc-800">
-                  <div className="w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center font-bold text-xs flex-shrink-0">
-                    3
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-white">Elige tu canal de idioma</h4>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="px-2.5 py-1 rounded-md bg-zinc-800 text-xs text-white font-medium border border-zinc-700">
-                        🇺🇸 English
-                      </span>
-                      <span className="px-2.5 py-1 rounded-md bg-zinc-800 text-xs text-white font-medium border border-zinc-700">
-                        🇪🇸 Español
-                      </span>
-                      <span className="px-2.5 py-1 rounded-md bg-zinc-800 text-xs text-white font-medium border border-zinc-700">
-                        🇮🇹 Italiano
-                      </span>
-                      <span className="px-2.5 py-1 rounded-md bg-zinc-800 text-xs text-white font-medium border border-zinc-700">
-                        🇧🇷 Português
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center text-center space-y-3.5 my-2">
-            <div className="p-3 bg-white rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700">
+          {/* COLUMNA IZQUIERDA: Código QR, Código de Sala y Selector de Red */}
+          <div className="flex flex-col items-center justify-center text-center space-y-4">
+            {/* Tarjeta contenedora del código QR en blanco puro con sombra Studio */}
+            <div className="p-5 sm:p-6 bg-white rounded-3xl border border-zinc-200/80 shadow-md ring-1 ring-black/5 flex items-center justify-center">
               <QRCodeSVG
                 id="liftvoice-room-qr"
                 value={listenUrl}
-                size={180}
+                size={isFullScreen ? 280 : 210}
                 level="H"
                 includeMargin={false}
-                fgColor="#000000"
+                fgColor="#09090b"
                 bgColor="#ffffff"
               />
             </div>
 
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 font-mono text-xs text-zinc-700 dark:text-zinc-200">
-                <span className="text-zinc-400 dark:text-zinc-500 font-semibold">SALA:</span>
-                <span className="text-zinc-900 dark:text-zinc-100 text-sm tracking-widest font-bold">{roomId}</span>
+            {/* Píldora destacada del Código de Sala con copia en 1 clic */}
+            <div className="flex items-center justify-between gap-3 px-4 py-2 bg-zinc-100/90 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl w-full max-w-[280px]">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[10px] font-mono font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                  SALA:
+                </span>
+                <span className="font-mono text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-wider truncate">
+                  {roomId}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyRoomCode}
+                className="p-1.5 rounded-xl hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer flex-shrink-0"
+                title="Copiar código de sala"
+                aria-label="Copiar código de sala"
+              >
+                {copiedRoomCode ? <Check className="w-3.5 h-3.5 text-emerald-500 stroke-[2.5]" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            {/* Selector de Red Segmentado (Wi-Fi vs 4G en local, o Universal en Cloud) */}
+            {isLoopback ? (
+              <div className="w-full max-w-[280px] space-y-2">
+                <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-100/80 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNetworkMode('local');
+                      setTunnelError(null);
+                    }}
+                    className={`h-9 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none ${
+                      networkMode === 'local'
+                        ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-2xs border border-zinc-200/60 dark:border-white/10'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-transparent'
+                    }`}
+                  >
+                    <Wifi className="w-3.5 h-3.5" />
+                    <span>Red Wi-Fi</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!publicUrl) handleStartTunnel();
+                      else setNetworkMode('public');
+                    }}
+                    className={`h-9 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none ${
+                      networkMode === 'public'
+                        ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-2xs border border-zinc-200/60 dark:border-white/10'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-transparent'
+                    }`}
+                  >
+                    {isGeneratingTunnel ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Smartphone className="w-3.5 h-3.5" />
+                    )}
+                    <span>Datos 4G/5G</span>
+                  </button>
+                </div>
+
+                {/* Banner de error transparente si el túnel falló */}
+                {tunnelError && (
+                  <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2 text-left animate-fadeIn">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <span>{tunnelError}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="w-full max-w-[280px] p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center gap-2.5 text-left">
+                <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
+                    QR Universal Seguro
+                  </div>
+                  <div className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    Válido para Wi-Fi y datos móviles 4G/5G
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* COLUMNA DERECHA: Instrucciones para la audiencia y diagnóstico */}
+          <div className="flex flex-col space-y-6 text-left">
+            {/* Título de sala y badge de emisión */}
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-mono font-semibold text-emerald-700 dark:text-emerald-300 mb-2.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Audio simultáneo en vivo</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight leading-snug">
+                {roomTitle || 'Traducción Simultánea de Voz'}
+              </h3>
+              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                Escucha la conferencia en tu idioma con tus auriculares en tiempo real.
+              </p>
+            </div>
+
+            {/* Los 3 Pasos Clave para Asistentes (Timeline Studio 2026) */}
+            <div className="space-y-4">
+              <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 transition-colors">
+                <div className="w-7 h-7 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                  1
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Escanea el código QR
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                    Abre la cámara de tu teléfono móvil (iOS o Android). No requiere descargar aplicaciones.
+                  </p>
+                </div>
               </div>
 
-              <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400 pt-1">
-                <span className="flex items-center gap-1 text-zinc-600 dark:text-zinc-400">
-                  <Headphones className="w-3 h-3" />
-                  Usa auriculares
-                </span>
-                <span>&bull;</span>
-                <span>🇺🇸 EN</span>
-                <span>🇪🇸 ES</span>
-                <span>🇮🇹 IT</span>
-                <span>🇧🇷 PT</span>
+              <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 transition-colors">
+                <div className="w-7 h-7 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                  2
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Conecta tus auriculares
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                    AirPods, Bluetooth o cable. Puedes apagar la pantalla y la sintonía seguirá sonando.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 transition-colors">
+                <div className="w-7 h-7 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                  3
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Elige tu cabina de idioma
+                  </h4>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span className="px-2 py-0.5 rounded-lg bg-zinc-200/70 dark:bg-white/10 text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
+                      🇺🇸 English
+                    </span>
+                    <span className="px-2 py-0.5 rounded-lg bg-zinc-200/70 dark:bg-white/10 text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
+                      🇪🇸 Español
+                    </span>
+                    <span className="px-2 py-0.5 rounded-lg bg-zinc-200/70 dark:bg-white/10 text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
+                      🇮🇹 Italiano
+                    </span>
+                    <span className="px-2 py-0.5 rounded-lg bg-zinc-200/70 dark:bg-white/10 text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
+                      🇧🇷 Português
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Network Connection Tip */}
-        <div className={`mt-3 p-3 rounded-xl text-[11px] text-left space-y-2 ${
-          isFullScreen ? 'bg-zinc-900 border border-zinc-800 text-zinc-400' : 'bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400'
-        }`}>
-          {!isLoopback ? (
-            <>
+            {/* Diagnóstico de red & Selector de IPs alternativas */}
+            <div className="p-3 rounded-2xl bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-400 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-semibold text-emerald-700 dark:text-emerald-400">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <Globe className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span>Enlace Cloud Público Seguro (HTTPS)</span>
+                <div className="flex items-center gap-2 font-medium text-zinc-800 dark:text-zinc-200">
+                  <Wifi className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Wi-Fi local: {effectiveIp}:{typeof window !== 'undefined' && window.location.port ? window.location.port : '5174'}</span>
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 font-semibold">
-                  Universal
-                </span>
-              </div>
-              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Este código QR es único y universal. La audiencia puede conectarse mediante la red Wi-Fi del evento o con sus propios datos móviles (4G/5G). Si un asistente se desconecta de la Wi-Fi o apaga y enciende la pantalla, la conexión se recupera al instante sin reiniciar la app.
-              </p>
-            </>
-          ) : networkMode === 'local' ? (
-            <>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 font-semibold text-zinc-900 dark:text-zinc-100">
-                  <Wifi className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span>Wi-Fi: {effectiveIp}:{typeof window !== 'undefined' && window.location.port ? window.location.port : '5174'}</span>
-                </div>
-                {availableIps.length > 1 && (
+                {isLoopback && availableIps.length > 1 && (
                   <button
+                    type="button"
                     onClick={() => setIsEditingIp(!isEditingIp)}
-                    className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
                   >
                     {isEditingIp ? 'Cerrar' : 'Cambiar IP'}
                   </button>
@@ -378,86 +381,58 @@ export default function QRCodeModal({
               </div>
 
               {isEditingIp && (
-                <div className="pt-1 space-y-1.5 animate-fadeIn">
-                  <input
-                    type="text"
-                    value={customIp || effectiveIp}
-                    onChange={(e) => setCustomIp(e.target.value)}
-                    placeholder="Ej: 192.168.1.12"
-                    className="w-full h-10 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-2xl px-3.5 text-xs text-zinc-900 dark:text-zinc-100 font-mono"
-                  />
-                  {availableIps.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {availableIps.map((iface, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            setCustomIp(iface.address);
-                            setIsEditingIp(false);
-                          }}
-                          className={`text-[10px] px-2.5 py-1 rounded-xl border cursor-pointer font-mono ${
-                            (customIp || effectiveIp) === iface.address
-                              ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 border-zinc-950 dark:border-white'
-                              : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
-                          }`}
-                        >
-                          {iface.name}: {iface.address}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                <div className="pt-2 space-y-2 animate-fadeIn border-t border-zinc-200 dark:border-white/10">
+                  <div className="text-[11px] text-zinc-500">Selecciona el adaptador de red de tu Wi-Fi:</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {availableIps.map((iface, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setCustomIp(iface.address);
+                          setIsEditingIp(false);
+                        }}
+                        className={`text-[10px] px-2.5 py-1 rounded-xl border font-mono transition-colors cursor-pointer ${
+                          effectiveIp === iface.address
+                            ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white font-semibold'
+                            : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100'
+                        }`}
+                      >
+                        {iface.name}: {iface.address}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
-
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                El teléfono móvil debe estar conectado a la misma red Wi-Fi. Si navegas con datos móviles de tu operador (4G/5G), pulsa la pestaña <strong>Datos 4G/5G</strong> arriba.
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400">
-                <Globe className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Enlace Público Seguro HTTPS</span>
-              </div>
-              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Accesible desde cualquier móvil con datos 4G/5G o cualquier red Wi-Fi sin necesidad de estar en la misma red local.
-              </p>
-            </>
-          )}
+            </div>
+          </div>
         </div>
 
-        {/* Footer Link & Actions */}
-        <div className={`mt-4 pt-3 border-t flex flex-col sm:flex-row items-center gap-2.5 justify-between ${
-          isFullScreen ? 'border-zinc-800' : 'border-zinc-200 dark:border-zinc-800'
-        }`}>
-          <div className="w-full sm:w-auto flex-1 truncate text-left">
-            <div className="text-[10px] text-zinc-400 font-mono flex items-center gap-1.5">
-              <span>Enlace Directo</span>
-              {networkMode === 'public' && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 font-medium">
-                  4G/5G público
-                </span>
-              )}
+        {/* ── 3. PIE DE ACCIONES (ESTILO STUDIO 2026) ────────────────── */}
+        <footer className="px-6 sm:px-8 py-4 bg-zinc-50/80 dark:bg-zinc-900/40 border-t border-zinc-200/80 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="w-full sm:w-auto flex-1 min-w-0 text-left">
+            <div className="text-[10px] uppercase font-mono tracking-wider text-zinc-400 dark:text-zinc-500">
+              Vínculo Directo de Oyente
             </div>
-            <div className={`text-xs font-mono truncate max-w-[280px] ${isFullScreen ? 'text-zinc-300' : 'text-zinc-700 dark:text-zinc-300'}`}>
+            <div className="text-xs font-mono text-zinc-700 dark:text-zinc-300 truncate max-w-full sm:max-w-md mt-0.5">
               {listenUrl}
             </div>
           </div>
 
-          <div className="w-full sm:w-auto flex items-center gap-2">
+          <div className="w-full sm:w-auto flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={handleCopyLink}
-              className="flex-1 sm:flex-none h-10 sm:h-9 px-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs font-semibold cursor-pointer shadow-2xs transition-colors flex items-center justify-center gap-1.5 active:scale-95"
+              className="flex-1 sm:flex-none h-10 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
             >
               {copied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
-                  <span>Copiado</span>
+                  <Check className="w-4 h-4 text-emerald-500 stroke-[2.5]" />
+                  <span>Enlace Copiado</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-3.5 h-3.5" />
+                  <Copy className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                   <span>Copiar Enlace</span>
                 </>
               )}
@@ -466,15 +441,14 @@ export default function QRCodeModal({
             <button
               type="button"
               onClick={handleDownloadQR}
-              className="flex-1 sm:flex-none h-10 sm:h-9 px-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs font-semibold cursor-pointer shadow-2xs transition-colors flex items-center justify-center gap-1.5 active:scale-95"
-              title="Descargar imagen PNG"
+              className="flex-1 sm:flex-none h-10 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
+              title="Descargar código QR en alta resolución (PNG)"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
               <span>Descargar PNG</span>
             </button>
           </div>
-        </div>
-
+        </footer>
       </div>
     </div>
   );
