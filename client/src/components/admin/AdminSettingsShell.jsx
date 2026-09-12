@@ -1424,7 +1424,29 @@ export default function AdminSettingsShell({
       {/* PESTAÑA: CLAVES DE API                                      */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'keys' && (
-        <div className="space-y-8 animate-fadeIn">
+        <form
+          onSubmit={(e) => e.preventDefault()}
+          autoComplete="off"
+          className="space-y-8 animate-fadeIn"
+        >
+          {/* Honeypot / dummy inputs to neutralize aggressive browser password manager autofill */}
+          <input
+            type="text"
+            name="prevent_autofill_username"
+            style={{ display: 'none' }}
+            tabIndex={-1}
+            aria-hidden="true"
+            autoComplete="off"
+          />
+          <input
+            type="password"
+            name="prevent_autofill_password"
+            style={{ display: 'none' }}
+            tabIndex={-1}
+            aria-hidden="true"
+            autoComplete="off"
+          />
+
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
               Credenciales de Proveedores
@@ -1449,6 +1471,13 @@ export default function AdminSettingsShell({
                 <div className="relative flex items-center">
                   <input
                     id="admin-key-deepgram"
+                    name="api_key_deepgram"
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
                     type={showKeys.deepgram ? 'text' : 'password'}
                     value={deepgramKey}
                     onChange={(e) => { setDeepgramKey(e.target.value); markKeyTouched('deepgram'); setIsDirty(true); }}
@@ -1484,6 +1513,13 @@ export default function AdminSettingsShell({
                 <div className="relative flex items-center">
                   <input
                     id="admin-key-gemini"
+                    name="api_key_gemini"
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
                     type={showKeys.gemini ? 'text' : 'password'}
                     value={geminiKey}
                     onChange={(e) => { setGeminiKey(e.target.value); markKeyTouched('gemini'); setIsDirty(true); }}
@@ -1519,6 +1555,13 @@ export default function AdminSettingsShell({
                 <div className="relative flex items-center">
                   <input
                     id="admin-key-qwen"
+                    name="api_key_qwen"
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
                     type={showKeys.qwen ? 'text' : 'password'}
                     value={qwenKey}
                     onChange={(e) => { setQwenKey(e.target.value); markKeyTouched('qwen'); setIsDirty(true); }}
@@ -1554,6 +1597,13 @@ export default function AdminSettingsShell({
                 <div className="relative flex items-center">
                   <input
                     id="admin-key-elevenlabs"
+                    name="api_key_elevenlabs"
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
                     type={showKeys.eleven ? 'text' : 'password'}
                     value={elevenLabsKey}
                     onChange={(e) => { setElevenLabsKey(e.target.value); markKeyTouched('eleven'); setIsDirty(true); }}
@@ -1589,6 +1639,13 @@ export default function AdminSettingsShell({
                 <div className="relative flex items-center">
                   <input
                     id="admin-key-openai"
+                    name="api_key_openai"
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
                     type={showKeys.openai ? 'text' : 'password'}
                     value={openaiKey}
                     onChange={(e) => { setOpenaiKey(e.target.value); markKeyTouched('openai'); setIsDirty(true); }}
@@ -1610,7 +1667,7 @@ export default function AdminSettingsShell({
               </div>
             </div>
           </div>
-        </div>
+        </form>
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}

@@ -50,24 +50,38 @@ export default function AdminSidebarRail({
     <div className="w-full flex-1 flex flex-col justify-between overflow-hidden">
       {/* Search Input Box - 44px rounded-2xl as in standalone-assistant */}
       <div className="p-3 sm:p-3.5 border-b border-zinc-200/80 dark:border-white/10 flex-shrink-0">
-        <div className="relative">
+        <form
+          role="search"
+          onSubmit={(e) => e.preventDefault()}
+          autoComplete="off"
+          className="relative"
+        >
           <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
-            type="text"
+            id="admin-sidebar-section-search"
+            name="section_search_query"
+            type="search"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar sección..."
-            className="w-full h-11 pl-10 pr-8 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+            className="w-full h-11 pl-10 pr-8 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all [&::-webkit-search-cancel-button]:hidden"
           />
           {search && (
             <button
+              type="button"
               onClick={() => setSearch('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-0.5 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
-        </div>
+        </form>
       </div>
 
       {/* Tabs Navigation Body */}
