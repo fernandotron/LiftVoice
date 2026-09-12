@@ -522,6 +522,13 @@ export class TranslationService {
     this.qwenEndpoint = config.qwenEndpoint || process.env.QWEN_ENDPOINT || '';
     this.preferredEngine = config.preferredEngine || 'gemini'; // 'gemini' | 'qwen' | 'openai' | 'google' | 'auto'
 
+    this.openaiModel = config.openaiModel || 'gpt-4o-mini';
+    this.openaiTemperature = config.openaiTemperature !== undefined ? parseFloat(config.openaiTemperature) : 0.1;
+    this.geminiTemperature = config.geminiTemperature !== undefined ? parseFloat(config.geminiTemperature) : 0.1;
+    this.qwenTemperature = config.qwenTemperature !== undefined ? parseFloat(config.qwenTemperature) : 0.1;
+    this.aiStrategy = config.aiStrategy || 'json_single'; // 'json_single' | 'parallel' | 'fallback'
+    this.googleNeuralMode = config.googleNeuralMode || 'universal';
+
     // Medical Mode & Clinical Glossary configuration
     this.medicalMode = Boolean(config.medicalMode || process.env.MEDICAL_MODE === 'true');
     this.medicalSpecialty = config.medicalSpecialty || 'general'; // 'general' | 'cardiology' | 'pharmacology' | 'surgery'
@@ -535,16 +542,33 @@ export class TranslationService {
     this.openaiApiKey = key;
   }
 
+  setOpenaiConfig({ model, temperature }) {
+    if (model !== undefined) this.openaiModel = model;
+    if (temperature !== undefined) this.openaiTemperature = parseFloat(temperature) || 0.1;
+    console.log(`[TranslationService] 🤖 OpenAI configured (Model: ${this.openaiModel}, Temp: ${this.openaiTemperature})`);
+  }
+
+  setStrategy(strategy) {
+    if (strategy !== undefined) this.aiStrategy = strategy;
+    console.log(`[TranslationService] 🎯 AI Strategy configured: ${this.aiStrategy}`);
+  }
+
   setDeeplConfig({ apiKey }) {
     if (apiKey !== undefined) this.deeplApiKey = apiKey;
     console.log(`[TranslationService] 🌐 DeepL configured (Key: ${this.deeplApiKey ? 'SET' : 'NONE'})`);
   }
 
-  setGeminiConfig({ apiKey, model, preferredEngine }) {
+  setGeminiConfig({ apiKey, model, preferredEngine, temperature }) {
     if (apiKey !== undefined) this.geminiApiKey = apiKey;
     if (model !== undefined) this.geminiModel = model;
     if (preferredEngine !== undefined) this.preferredEngine = preferredEngine;
-    console.log(`[TranslationService] ⚡ Google Gemini 3.1 Flash-Lite configured (Model: ${this.geminiModel || 'google/gemini-3.1-flash-lite'}, Engine: ${this.preferredEngine})`);
+    if (temperature !== undefined) this.geminiTemperature = parseFloat(temperature) || 0.1;
+    console.log(`[TranslationService] ⚡ Google Gemini configured (Model: ${this.geminiModel || 'google/gemini-3.1-flash-lite'}, Temp: ${this.geminiTemperature}, Engine: ${this.preferredEngine})`);
+  }
+
+  setGoogleNeuralMode(mode) {
+    if (mode !== undefined) this.googleNeuralMode = mode;
+    console.log(`[TranslationService] 🌐 Google Neural Mode configured: ${this.googleNeuralMode}`);
   }
 
   setMedicalConfig({ medicalMode, medicalSpecialty, customGlossary }) {
@@ -556,12 +580,13 @@ export class TranslationService {
     console.log(`[TranslationService] 🩺 Clinical Mode updated: ${this.medicalMode ? 'ACTIVE' : 'OFF'} (Specialty: ${this.medicalSpecialty}, Custom Terms: ${this.customGlossary.length})`);
   }
 
-  setQwenConfig({ apiKey, model, endpoint, preferredEngine }) {
+  setQwenConfig({ apiKey, model, endpoint, preferredEngine, temperature }) {
     if (apiKey !== undefined) this.qwenApiKey = apiKey;
     if (model !== undefined) this.qwenModel = model;
     if (endpoint !== undefined) this.qwenEndpoint = endpoint;
     if (preferredEngine !== undefined) this.preferredEngine = preferredEngine;
-    console.log(`[TranslationService] 🤖 Alibaba Qwen 3.8 configured (Model: ${this.qwenModel || 'qwen-3.8-27b'}, Endpoint: ${this.qwenEndpoint || 'cloud'}, Engine: ${this.preferredEngine})`);
+    if (temperature !== undefined) this.qwenTemperature = parseFloat(temperature) || 0.1;
+    console.log(`[TranslationService] 🤖 Alibaba Qwen 3.8 configured (Model: ${this.qwenModel || 'qwen-3.8-27b'}, Temp: ${this.qwenTemperature}, Endpoint: ${this.qwenEndpoint || 'cloud'}, Engine: ${this.preferredEngine})`);
   }
 
   /**
@@ -614,16 +639,21 @@ export class TranslationService {
     const hasQwenKey = Boolean(this.qwenApiKey || (this.qwenEndpoint && (this.qwenEndpoint.includes('localhost') || this.qwenEndpoint.includes('127.0.0.1'))));
     const hasOpenaiKey = Boolean(this.openaiApiKey || process.env.OPENAI_API_KEY);
 
-    // Build hierarchical execution order: preferred engine first, then: DeepL -> Gemini -> Qwen -> OpenAI -> Google Free
+    // Build hierarchical execution order: based on aiStrategy and preferredEngine
     const candidateEngines = [];
-    if (engine && engine !== 'auto') {
-      candidateEngines.push(engine);
-    }
-    ['deepl', 'gemini', 'qwen', 'openai', 'google'].forEach(eng => {
-      if (!candidateEngines.includes(eng)) {
-        candidateEngines.push(eng);
+    if (this.aiStrategy === 'fallback') {
+      // Fallback mode: Gemini primary with immediate OpenAI backup
+      candidateEngines.push('gemini', 'openai', 'qwen', 'google');
+    } else {
+      if (engine && engine !== 'auto') {
+        candidateEngines.push(engine);
       }
-    });
+      ['deepl', 'gemini', 'qwen', 'openai', 'google'].forEach(eng => {
+        if (!candidateEngines.includes(eng)) {
+          candidateEngines.push(eng);
+        }
+      });
+    }
 
     for (const eng of candidateEngines) {
       if (result) break;
@@ -874,7 +904,7 @@ Respond ONLY with valid JSON in this exact structure:
         contents: [{ role: 'user', parts: [{ text: systemPrompt }] }],
         generationConfig: {
           response_mime_type: 'application/json',
-          temperature: 0.2,
+          temperature: this.geminiTemperature !== undefined ? this.geminiTemperature : 0.1,
           maxOutputTokens: 500
         }
       });
@@ -886,7 +916,7 @@ Respond ONLY with valid JSON in this exact structure:
       body = JSON.stringify({
         model: this.geminiModel || 'google/gemini-3.1-flash-lite',
         messages: [{ role: 'user', content: systemPrompt }],
-        temperature: 0.2,
+        temperature: this.geminiTemperature !== undefined ? this.geminiTemperature : 0.1,
         max_tokens: 500
       });
     }
@@ -1027,7 +1057,7 @@ Respond ONLY with valid JSON in this exact structure:
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: systemPrompt }],
-        temperature: 0.2,
+        temperature: this.qwenTemperature !== undefined ? this.qwenTemperature : 0.1,
         max_tokens: 500
       }),
       signal: AbortSignal.timeout(2800)
@@ -1120,10 +1150,10 @@ Respond ONLY with valid JSON in this exact structure:
         'Authorization': `Bearer ${this.openaiApiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: this.openaiModel || 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
-        temperature: 0.2,
+        temperature: this.openaiTemperature !== undefined ? this.openaiTemperature : 0.1,
         max_tokens: 300
       }),
       signal: AbortSignal.timeout(2800)

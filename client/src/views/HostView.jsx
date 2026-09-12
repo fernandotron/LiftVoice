@@ -230,6 +230,45 @@ export default function HostView({
     audioRecorderService.setLanguage(sourceLanguage);
   }, [sourceLanguage]);
 
+  // Synchronize dynamic parameters when admin config is saved or on mount
+  useEffect(() => {
+    try {
+      const savedVad = localStorage.getItem('lv_stt_vad');
+      if (savedVad) audioRecorderService.setVadSensitivity(savedVad);
+      const savedDecalage = localStorage.getItem('lv_decalage_mode');
+      if (savedDecalage) audioRecorderService.setDecalageMode(savedDecalage);
+      const savedLang = localStorage.getItem('lv_stt_lang');
+      if (savedLang && savedLang !== 'auto') {
+        setSourceLanguage(savedLang);
+        audioRecorderService.setLanguage(savedLang);
+      }
+    } catch (e) {}
+
+    const handleConfigSaved = (e) => {
+      const cfg = e.detail;
+      if (!cfg) return;
+      if (cfg.sttLang && cfg.sttLang !== 'auto') {
+        setSourceLanguage(cfg.sttLang);
+        audioRecorderService.setLanguage(cfg.sttLang);
+      }
+      if (cfg.sttVad) {
+        audioRecorderService.setVadSensitivity(cfg.sttVad);
+      }
+      if (cfg.decalageMode) {
+        audioRecorderService.setDecalageMode(cfg.decalageMode);
+      }
+      if (cfg.medicalMode !== undefined || cfg.medicalSpecialty || cfg.customGlossary) {
+        setMedicalConfig({
+          medicalMode: Boolean(cfg.medicalMode),
+          medicalSpecialty: cfg.medicalSpecialty || 'general',
+          customGlossary: Array.isArray(cfg.customGlossary) ? cfg.customGlossary : []
+        });
+      }
+    };
+    window.addEventListener('liftvoice_config_saved', handleConfigSaved);
+    return () => window.removeEventListener('liftvoice_config_saved', handleConfigSaved);
+  }, []);
+
   const handleCopyMeetingLink = () => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const url = `${origin}/join?room=${roomId}`;

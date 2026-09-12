@@ -6,6 +6,7 @@ import {
   Palette, Sun, Moon, Monitor, Eye, EyeOff, AlertCircle, ArrowLeft, Home
 } from 'lucide-react';
 import { audioPlayerService } from '../../services/audioPlayer.js';
+import { audioRecorderService } from '../../services/audioRecorder.js';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
 import SelectDropdown from '../shared/SelectDropdown.jsx';
@@ -302,6 +303,14 @@ export default function AdminSettingsShell({
   const [customGlossary, setCustomGlossary] = useState(() => safeGetItem('lv_custom_glossary'));
 
   const [decalageMode, setDecalageMode] = useState(() => safeGetItem('lv_decalage_mode', 'natural'));
+  const [sttLang, setSttLang] = useState(() => safeGetItem('lv_stt_lang', 'auto'));
+  const [sttVad, setSttVad] = useState(() => safeGetItem('lv_stt_vad', 'standard'));
+  const [aiStrategy, setAiStrategy] = useState(() => safeGetItem('lv_ai_strategy', 'json_single'));
+  const [geminiTemp, setGeminiTemp] = useState(() => safeGetItem('lv_gemini_temp', '0.1'));
+  const [qwenTemp, setQwenTemp] = useState(() => safeGetItem('lv_qwen_temp', '0.1'));
+  const [openaiModel, setOpenaiModel] = useState(() => safeGetItem('lv_openai_model', 'gpt-4o-mini'));
+  const [openaiTemp, setOpenaiTemp] = useState(() => safeGetItem('lv_openai_temp', '0.1'));
+  const [googleNeuralMode, setGoogleNeuralMode] = useState(() => safeGetItem('lv_google_neural_mode', 'universal'));
 
   const [isDirty, setIsDirty] = useState(false);
   
@@ -312,8 +321,10 @@ export default function AdminSettingsShell({
     if (!initialState && !isCheckingAuth) {
       setInitialState({
         sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
-        deepgramKey, geminiKey, geminiModel, elevenLabsKey, openaiKey, qwenKey, qwenModel, qwenEndpoint, qwenTtsEndpoint,
-        preferredEngine, medicalMode, medicalSpecialty, customGlossary, decalageMode
+        deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
+        qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
+        preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
+        sttLang, sttVad, googleNeuralMode
       });
     }
   }, [isCheckingAuth]);
@@ -322,14 +333,18 @@ export default function AdminSettingsShell({
     if (initialState) {
       const current = {
         sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
-        deepgramKey, geminiKey, geminiModel, elevenLabsKey, openaiKey, qwenKey, qwenModel, qwenEndpoint, qwenTtsEndpoint,
-        preferredEngine, medicalMode, medicalSpecialty, customGlossary, decalageMode
+        deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
+        qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
+        preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
+        sttLang, sttVad, googleNeuralMode
       };
       setIsDirty(JSON.stringify(current) !== JSON.stringify(initialState));
     }
   }, [sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
-      deepgramKey, geminiKey, geminiModel, elevenLabsKey, openaiKey, qwenKey, qwenModel, qwenEndpoint, qwenTtsEndpoint,
-      preferredEngine, medicalMode, medicalSpecialty, customGlossary, decalageMode]);
+      deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
+      qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
+      preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
+      sttLang, sttVad, googleNeuralMode]);
       
   const handleCloseAttempt = (e) => {
     if (e) e.preventDefault();
@@ -499,6 +514,15 @@ export default function AdminSettingsShell({
             if (data.preferredTtsEngine && !localStorage.getItem('lv_tts_engine')) setPreferredTtsEngine(data.preferredTtsEngine);
             if (data.voiceConfig && !localStorage.getItem('lv_voice_config')) setVoiceConfig(prev => ({ ...prev, ...data.voiceConfig }));
             if (data.qwenTtsEndpoint && !localStorage.getItem('lv_qwen_tts_endpoint')) setQwenTtsEndpoint(data.qwenTtsEndpoint);
+            if (data.sttLang && !localStorage.getItem('lv_stt_lang')) setSttLang(data.sttLang);
+            if (data.sttVad && !localStorage.getItem('lv_stt_vad')) setSttVad(data.sttVad);
+            if (data.aiStrategy && !localStorage.getItem('lv_ai_strategy')) setAiStrategy(data.aiStrategy);
+            if (data.geminiTemp && !localStorage.getItem('lv_gemini_temp')) setGeminiTemp(data.geminiTemp);
+            if (data.qwenTemp && !localStorage.getItem('lv_qwen_temp')) setQwenTemp(data.qwenTemp);
+            if (data.openaiModel && !localStorage.getItem('lv_openai_model')) setOpenaiModel(data.openaiModel);
+            if (data.openaiTemp && !localStorage.getItem('lv_openai_temp')) setOpenaiTemp(data.openaiTemp);
+            if (data.decalageMode && !localStorage.getItem('lv_decalage_mode')) setDecalageMode(data.decalageMode);
+            if (data.googleNeuralMode && !localStorage.getItem('lv_google_neural_mode')) setGoogleNeuralMode(data.googleNeuralMode);
           }
         })
         .catch(() => {});
@@ -611,40 +635,65 @@ export default function AdminSettingsShell({
         },
         body: JSON.stringify({
           preferredSttEngine: sttEngine, sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
+          sttLang, sttVad,
           openaiKey: touchedKeys.has('openai') ? openaiKey : undefined,
+          openaiModel, openaiTemp,
           elevenLabsKey: touchedKeys.has('eleven') ? elevenLabsKey : undefined,
           deepgramKey: touchedKeys.has('deepgram') ? deepgramKey : undefined,
           geminiKey: touchedKeys.has('gemini') ? geminiKey : undefined,
           geminiModel: geminiModel || '',
+          geminiTemp,
           qwenKey: touchedKeys.has('qwen') ? qwenKey : undefined,
           qwenModel: qwenModel || '',
+          qwenTemp,
           qwenEndpoint: touchedKeys.has('qwenEndpoint') ? qwenEndpoint : undefined,
           qwenTtsEndpoint: touchedKeys.has('qwenTtsEndpoint') ? qwenTtsEndpoint : undefined,
           preferredEngine, preferredTranslationEngine: preferredEngine,
-          medicalMode, medicalSpecialty, customGlossary: parsedGlossary, decalageMode
+          aiStrategy,
+          medicalMode, medicalSpecialty, customGlossary: parsedGlossary, decalageMode,
+          googleNeuralMode
         })
       });
 
       if (!resp.ok) throw new Error(`Error del servidor (${resp.status}) al guardar configuración`);
 
       safeSetItem('lv_stt_engine', sttEngine);
+      safeSetItem('lv_stt_lang', sttLang);
+      safeSetItem('lv_stt_vad', sttVad);
       safeSetItem('lv_tts_engine', preferredTtsEngine);
       safeSetItem('lv_voice_config', voiceConfig);
       safeSetItem('lv_voice_gender', voiceGender);
       safeSetItem('lv_openai_key', openaiKey);
+      safeSetItem('lv_openai_model', openaiModel);
+      safeSetItem('lv_openai_temp', openaiTemp);
       safeSetItem('lv_eleven_key', elevenLabsKey);
       safeSetItem('lv_deepgram_key', deepgramKey);
       safeSetItem('lv_gemini_key', geminiKey);
       safeSetItem('lv_gemini_model', geminiModel);
+      safeSetItem('lv_gemini_temp', geminiTemp);
       safeSetItem('lv_qwen_key', qwenKey);
       safeSetItem('lv_qwen_model', qwenModel);
+      safeSetItem('lv_qwen_temp', qwenTemp);
       safeSetItem('lv_qwen_endpoint', qwenEndpoint);
       safeSetItem('lv_qwen_tts_endpoint', qwenTtsEndpoint);
       safeSetItem('lv_preferred_engine', preferredEngine);
+      safeSetItem('lv_ai_strategy', aiStrategy);
       safeSetItem('lv_medical_mode', medicalMode ? 'true' : 'false');
       safeSetItem('lv_medical_specialty', medicalSpecialty);
       safeSetItem('lv_custom_glossary', customGlossary);
       safeSetItem('lv_decalage_mode', decalageMode);
+      safeSetItem('lv_google_neural_mode', googleNeuralMode);
+
+      // Propagar al grabador de audio en vivo del cliente
+      try {
+        if (typeof audioRecorderService !== 'undefined') {
+          if (sttLang) audioRecorderService.setLanguage(sttLang);
+          if (sttVad) audioRecorderService.setVadSensitivity(sttVad);
+          if (decalageMode) audioRecorderService.setDecalageMode(decalageMode);
+        }
+      } catch (e) {
+        console.warn('[AdminSettingsShell] Could not apply audioRecorder settings:', e);
+      }
 
       if (effectiveRoomId) {
         fetch(`/api/rooms/${effectiveRoomId}/voices`, {
@@ -655,8 +704,11 @@ export default function AdminSettingsShell({
 
       const savedCfg = {
         sttEngine, preferredTtsEngine, voiceConfig, voiceGender, preferredEngine,
-        openaiKey, elevenLabsKey, deepgramKey, geminiKey, geminiModel, qwenKey, qwenModel, qwenEndpoint, qwenTtsEndpoint,
-        medicalMode, medicalSpecialty, customGlossary: parsedGlossary, decalageMode
+        sttLang, sttVad, aiStrategy,
+        openaiKey, openaiModel, openaiTemp,
+        elevenLabsKey, deepgramKey, geminiKey, geminiModel, geminiTemp,
+        qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
+        medicalMode, medicalSpecialty, customGlossary: parsedGlossary, decalageMode, googleNeuralMode
       };
 
       setIsSaving(false);
@@ -827,9 +879,9 @@ export default function AdminSettingsShell({
                 <SelectDropdown
                   id="admin-stt-lang"
                   aria-label="Detección de idioma del ponente"
-                  value="auto"
+                  value={sttLang}
                   options={STT_LANG_OPTIONS}
-                  onChange={() => { setIsDirty(true); }}
+                  onChange={(e) => { setSttLang(e.target.value); setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
@@ -844,9 +896,9 @@ export default function AdminSettingsShell({
                 <SelectDropdown
                   id="admin-stt-vad"
                   aria-label="Filtro de silencio y VAD"
-                  value="standard"
+                  value={sttVad}
                   options={STT_VAD_OPTIONS}
-                  onChange={() => { setIsDirty(true); }}
+                  onChange={(e) => { setSttVad(e.target.value); setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
@@ -1055,9 +1107,9 @@ export default function AdminSettingsShell({
                 <SelectDropdown
                   id="admin-ai-strategy"
                   aria-label="Estrategia de generación multilingüe"
-                  value="json_single"
+                  value={aiStrategy}
                   options={AI_STRATEGY_OPTIONS}
-                  onChange={() => { setIsDirty(true); }}
+                  onChange={(e) => { setAiStrategy(e.target.value); setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
@@ -1101,9 +1153,9 @@ export default function AdminSettingsShell({
                   </label>
                   <SelectDropdown
                     id="admin-gemini-temp"
-                    value="0.1"
+                    value={geminiTemp}
                     options={TEMPERATURE_OPTIONS}
-                    onChange={() => { setIsDirty(true); }}
+                    onChange={(e) => { setGeminiTemp(e.target.value); setIsDirty(true); }}
                     className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                   />
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
@@ -1135,9 +1187,9 @@ export default function AdminSettingsShell({
                     </label>
                     <SelectDropdown
                       id="admin-qwen-temp"
-                      value="0.1"
+                      value={qwenTemp}
                       options={TEMPERATURE_OPTIONS}
-                      onChange={() => { setIsDirty(true); }}
+                      onChange={(e) => { setQwenTemp(e.target.value); setIsDirty(true); }}
                       className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                     />
                   </div>
@@ -1181,9 +1233,9 @@ export default function AdminSettingsShell({
                   </label>
                   <SelectDropdown
                     id="admin-openai-model"
-                    value="gpt-4o-mini"
+                    value={openaiModel}
                     options={OPENAI_MODEL_OPTIONS}
-                    onChange={() => { setIsDirty(true); }}
+                    onChange={(e) => { setOpenaiModel(e.target.value); setIsDirty(true); }}
                     className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                   />
                 </div>
@@ -1194,9 +1246,9 @@ export default function AdminSettingsShell({
                   </label>
                   <SelectDropdown
                     id="admin-openai-temp"
-                    value="0.1"
+                    value={openaiTemp}
                     options={TEMPERATURE_OPTIONS}
-                    onChange={() => { setIsDirty(true); }}
+                    onChange={(e) => { setOpenaiTemp(e.target.value); setIsDirty(true); }}
                     className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                   />
                 </div>
@@ -1206,13 +1258,15 @@ export default function AdminSettingsShell({
             {preferredEngine === 'google' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                  <label htmlFor="admin-google-neural-mode" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                     Modo Google Neural
                   </label>
                   <SelectDropdown
-                    value="universal"
+                    id="admin-google-neural-mode"
+                    aria-label="Modo Google Neural"
+                    value={googleNeuralMode}
                     options={GOOGLE_NEURAL_OPTIONS}
-                    onChange={() => { setIsDirty(true); }}
+                    onChange={(e) => { setGoogleNeuralMode(e.target.value); setIsDirty(true); }}
                     className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                   />
                 </div>

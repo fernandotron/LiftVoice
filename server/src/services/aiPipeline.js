@@ -18,25 +18,66 @@ export class AIPipeline {
     this.openaiApiKey = process.env.OPENAI_API_KEY || '';
   }
 
-  setApiKeys({ openaiApiKey, deepgramApiKey, elevenLabsApiKey, deeplApiKey, geminiApiKey, geminiModel, qwenApiKey, qwenModel, qwenEndpoint, qwenTtsEndpoint, preferredEngine, medicalMode, medicalSpecialty, customGlossary, preferredTtsEngine, voiceConfig, voiceGender, preferredSttEngine, sttEngine }) {
+  setApiKeys({
+    openaiApiKey,
+    openaiModel,
+    openaiTemp,
+    deepgramApiKey,
+    elevenLabsApiKey,
+    deeplApiKey,
+    geminiApiKey,
+    geminiModel,
+    geminiTemp,
+    qwenApiKey,
+    qwenModel,
+    qwenTemp,
+    qwenEndpoint,
+    qwenTtsEndpoint,
+    preferredEngine,
+    aiStrategy,
+    medicalMode,
+    medicalSpecialty,
+    customGlossary,
+    preferredTtsEngine,
+    voiceConfig,
+    voiceGender,
+    preferredSttEngine,
+    sttEngine,
+    sttLang,
+    sttVad,
+    decalageMode,
+    googleNeuralMode
+  }) {
     if (openaiApiKey !== undefined && openaiApiKey !== null) {
       this.openaiApiKey = openaiApiKey;
       translationService.setApiKey(openaiApiKey);
     }
+    if (openaiModel !== undefined || openaiTemp !== undefined) {
+      translationService.setOpenaiConfig({ model: openaiModel, temperature: openaiTemp });
+    }
     if (deeplApiKey !== undefined && typeof translationService.setDeeplConfig === 'function') {
       translationService.setDeeplConfig({ apiKey: deeplApiKey });
     }
-    if (geminiApiKey !== undefined || geminiModel !== undefined) {
-      translationService.setGeminiConfig({ apiKey: geminiApiKey, model: geminiModel, preferredEngine });
+    if (geminiApiKey !== undefined || geminiModel !== undefined || geminiTemp !== undefined) {
+      translationService.setGeminiConfig({ apiKey: geminiApiKey, model: geminiModel, preferredEngine, temperature: geminiTemp });
     }
-    if (qwenApiKey !== undefined || qwenModel !== undefined || qwenEndpoint !== undefined || preferredEngine !== undefined) {
-      translationService.setQwenConfig({ apiKey: qwenApiKey, model: qwenModel, endpoint: qwenEndpoint, preferredEngine });
+    if (qwenApiKey !== undefined || qwenModel !== undefined || qwenEndpoint !== undefined || preferredEngine !== undefined || qwenTemp !== undefined) {
+      translationService.setQwenConfig({ apiKey: qwenApiKey, model: qwenModel, endpoint: qwenEndpoint, preferredEngine, temperature: qwenTemp });
+    }
+    if (googleNeuralMode !== undefined && typeof translationService.setGoogleNeuralMode === 'function') {
+      translationService.setGoogleNeuralMode(googleNeuralMode);
     }
     if (preferredEngine !== undefined) {
       translationService.preferredEngine = preferredEngine;
     }
+    if (aiStrategy !== undefined) {
+      translationService.setStrategy(aiStrategy);
+    }
     if (medicalMode !== undefined || medicalSpecialty !== undefined || customGlossary !== undefined) {
       translationService.setMedicalConfig({ medicalMode, medicalSpecialty, customGlossary });
+    }
+    if (decalageMode !== undefined) {
+      this.decalageMode = decalageMode;
     }
     ttsService.setConfig({
       openaiApiKey,
@@ -54,6 +95,12 @@ export class AIPipeline {
     const targetStt = preferredSttEngine || sttEngine;
     if (targetStt) {
       sttService.setPreferredEngine(targetStt);
+    }
+    if (sttLang !== undefined) {
+      sttService.setLanguage(sttLang);
+    }
+    if (sttVad !== undefined) {
+      sttService.setVad(sttVad);
     }
   }
 

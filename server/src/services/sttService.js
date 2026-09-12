@@ -17,6 +17,8 @@ export class STTService {
     this.deepgramApiKey = config.deepgramApiKey || process.env.DEEPGRAM_API_KEY || '';
     this.geminiApiKey = config.geminiApiKey || process.env.GEMINI_API_KEY || '';
     this.preferredSttEngine = config.preferredSttEngine || 'deepgram';
+    this.sttLanguage = config.sttLanguage || 'auto';
+    this.sttVad = config.sttVad || 'standard';
   }
 
   setApiKey(openaiKey, deepgramKey = null, geminiKey = null) {
@@ -35,12 +37,27 @@ export class STTService {
     if (engine) this.preferredSttEngine = engine;
   }
 
+  setLanguage(lang) {
+    if (lang !== undefined) {
+      this.sttLanguage = lang;
+      console.log(`[STTService] 🎙️ Language configured: ${this.sttLanguage}`);
+    }
+  }
+
+  setVad(vad) {
+    if (vad !== undefined) {
+      this.sttVad = vad;
+      console.log(`[STTService] 🎙️ VAD sensitivity configured: ${this.sttVad}`);
+    }
+  }
+
   async transcribeWithDeepgram(audioBuffer, mimeType = 'audio/webm', language = 'auto', options = {}) {
     const startTime = Date.now();
     const key = options.deepgramApiKey || this.deepgramApiKey;
     if (!key) throw new Error('No Deepgram API key configured');
 
-    const cleanLang = (language && language !== 'auto') ? language.slice(0, 2).toLowerCase() : null;
+    const effectiveLang = (language && language !== 'auto') ? language : (this.sttLanguage && this.sttLanguage !== 'auto' ? this.sttLanguage : null);
+    const cleanLang = effectiveLang ? effectiveLang.slice(0, 2).toLowerCase() : null;
     // Nova-2 is Deepgram's multi-lingual model supporting auto-detection across 30+ languages
     const model = (cleanLang === 'en') ? 'nova-3' : 'nova-2';
     let url = `https://api.deepgram.com/v1/listen?model=${model}&smart_format=true&punctuate=true`;
@@ -48,6 +65,15 @@ export class STTService {
       url += `&language=${cleanLang}`;
     } else {
       url += '&detect_language=true';
+    }
+
+    const vadSensitivity = options.sttVad || this.sttVad || 'standard';
+    if (vadSensitivity === 'aggressive') {
+      url += '&utterance_end_ms=1500&vad_turnoff=800';
+    } else if (vadSensitivity === 'high') {
+      url += '&utterance_end_ms=800&vad_turnoff=400';
+    } else {
+      url += '&utterance_end_ms=1000';
     }
 
     if (options.medicalMode) {
@@ -118,8 +144,9 @@ export class STTService {
     }
     formData.append('temperature', isMedical ? '0.0' : '0.2');
 
-    if (language && language !== 'auto') {
-      formData.append('language', language);
+    const effectiveLang = (language && language !== 'auto') ? language : (this.sttLanguage && this.sttLanguage !== 'auto' ? this.sttLanguage : null);
+    if (effectiveLang) {
+      formData.append('language', effectiveLang.slice(0, 2).toLowerCase());
     }
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -190,12 +217,11 @@ export class STTService {
       throw new Error(`Gemini Transcribe Live error ${res.status}: ${errText}`);
     }
 
-    const data = await res.json();
-    const transcript = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+    const effectiveLang = (language && language !== 'auto') ? language : (this.sttLanguage && this.sttLanguage !== 'auto' ? this.sttLanguage : 'es');
 
     return {
       text: transcript,
-      detectedLanguage: language !== 'auto' ? language : 'es',
+      detectedLanguage: effectiveLang,
       confidence: 0.98,
       latencyMs: Date.now() - startTime,
       engine: 'Google Gemini 3.5 Transcribe Live'

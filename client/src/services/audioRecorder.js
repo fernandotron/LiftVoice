@@ -259,10 +259,26 @@ class AudioRecorderService {
     if (typeof modeOrVal === 'number') {
       // 650ms (quick) to 1400ms (natural keynote)
       this.silenceThresholdMs = Math.round(650 + (modeOrVal / 100) * 750);
-    } else if (modeOrVal === 'fast') {
+    } else if (modeOrVal === 'fast' || modeOrVal === 'quick') {
       this.silenceThresholdMs = 700;
+    } else if (modeOrVal === 'paused') {
+      this.silenceThresholdMs = 1400;
     } else if (modeOrVal === 'natural') {
       this.silenceThresholdMs = 950;
+    }
+  }
+
+  setVadSensitivity(level) {
+    this.vadSensitivity = level || 'standard';
+    if (level === 'high') {
+      this.silenceThresholdMs = 600;
+      this.vadThreshold = 0.012;
+    } else if (level === 'aggressive') {
+      this.silenceThresholdMs = 1300;
+      this.vadThreshold = 0.035;
+    } else {
+      this.silenceThresholdMs = 950;
+      this.vadThreshold = 0.02;
     }
   }
 
