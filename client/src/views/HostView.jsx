@@ -34,7 +34,7 @@ export const ALL_CABINS = [
 
 export const DEFAULT_VOICES = {
   es: 'es-ES-ElviraNeural',
-  en: 'aura-orion-en',
+  en: 'aura-asteria-en',
   it: 'it-IT-ElsaNeural',
   pt: 'pt-BR-FranciscaNeural'
 };
@@ -59,7 +59,7 @@ export default function HostView({
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [isTogglingBroadcast, setIsTogglingBroadcast] = useState(false);
   const [broadcastError, setBroadcastError] = useState(null);
-  const [sourceLanguage, setSourceLanguage] = useState('es-ES');
+  const [sourceLanguage, setSourceLanguage] = useState('auto');
   const sourceLanguageRef = useRef(sourceLanguage);
   useEffect(() => {
     sourceLanguageRef.current = sourceLanguage;
@@ -130,7 +130,7 @@ export default function HostView({
     ? 'Micrófono Predeterminado'
     : (devices.find(d => d.deviceId === selectedDevice)?.label || 'Micrófono Externo');
 
-  const currentSpeakerLang = SPEAKER_LANGUAGES.find(l => l.langCode === sourceLanguage) || SPEAKER_LANGUAGES[0];
+  const currentSpeakerLang = SPEAKER_LANGUAGES.find(l => l.langCode === sourceLanguage || l.code === sourceLanguage) || SPEAKER_LANGUAGES.find(l => l.code === 'auto') || SPEAKER_LANGUAGES[0];
 
   const isGenericRoomTitle = !roomTitle ||
     roomTitle.toLowerCase() === `sala ${roomId.toLowerCase()}` ||
@@ -190,7 +190,7 @@ export default function HostView({
   });
 
   const [preferredEngine, setPreferredEngine] = useState(() => {
-    return localStorage.getItem('lv_preferred_engine') || 'qwen';
+    return localStorage.getItem('lv_preferred_engine') || 'gemini';
   });
 
   const [sttEngine, setSttEngine] = useState(() => {
@@ -245,7 +245,7 @@ export default function HostView({
       const savedDecalage = localStorage.getItem('lv_decalage_mode');
       if (savedDecalage) audioRecorderService.setDecalageMode(savedDecalage);
       const savedLang = localStorage.getItem('lv_stt_lang');
-      if (savedLang && savedLang !== 'auto') {
+      if (savedLang) {
         setSourceLanguage(savedLang);
         audioRecorderService.setLanguage(savedLang);
       }
@@ -254,7 +254,7 @@ export default function HostView({
     const handleConfigSaved = (e) => {
       const cfg = e.detail;
       if (!cfg) return;
-      if (cfg.sttLang && cfg.sttLang !== 'auto') {
+      if (cfg.sttLang) {
         setSourceLanguage(cfg.sttLang);
         audioRecorderService.setLanguage(cfg.sttLang);
       }
@@ -288,9 +288,29 @@ export default function HostView({
   };
 
   useEffect(() => {
-    audioRecorderService.getAudioInputDevices().then((devs) => {
-      if (Array.isArray(devs) && devs.length) setDevices(devs);
-    }).catch(() => {});
+    const refreshDevices = async () => {
+      try {
+        const devs = await audioRecorderService.getAudioInputDevices();
+        if (Array.isArray(devs) && devs.length) setDevices(devs);
+      } catch (e) {}
+    };
+
+    refreshDevices();
+
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', refreshDevices);
+    }
+
+    audioRecorderService.onDeviceAutoSwitched = (fallbackDev) => {
+      setSelectedDevice(fallbackDev || 'default');
+    };
+
+    return () => {
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.removeEventListener) {
+        navigator.mediaDevices.removeEventListener('devicechange', refreshDevices);
+      }
+      audioRecorderService.onDeviceAutoSwitched = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -333,7 +353,9 @@ export default function HostView({
     const unsubTranscript = socketService.on('transcript_event', (item) => {
       if (!isMounted || !item) return;
       setTranscriptHistory(prev => {
-        if (prev.some(p => p.id === item.id)) return prev;
+        if (prev.some(p => p.id === item.id)) {
+          return prev.map(p => p.id === item.id ? { ...p, ...item, translations: { ...(p.translations || {}), ...(item.translations || {}) } } : p);
+        }
         const last = prev[prev.length - 1];
         if (last && last.originalText === item.originalText && Math.abs((item.timestamp || 0) - (last.timestamp || 0)) < 4000) {
           return prev;
@@ -507,7 +529,7 @@ export default function HostView({
     };
   }, []);
 
-  const sendSpeechToEngines = (finalText) => {
+  const sendSpeechToEngines = (finalText, detectedLang) => {
     if (!finalText || !finalText.trim()) return;
     const cleanText = finalText.trim();
     const now = Date.now();
@@ -542,7 +564,16 @@ export default function HostView({
     setLiveInterimSpeech('');
 
     const currentSrc = sourceLanguageRef.current;
-    const sendLang = (!currentSrc || currentSrc === 'auto') ? 'auto' : currentSrc.slice(0, 2);
+    let sendLang = (!currentSrc || currentSrc === 'auto') ? 'auto' : currentSrc;
+    if (sendLang === 'auto' && detectedLang && detectedLang !== 'auto' && detectedLang !== 'multi') {
+      sendLang = detectedLang;
+    }
+    if (sendLang !== 'auto') {
+      const srcLower = sendLang.toLowerCase();
+      sendLang = (srcLower.startsWith('pt') && srcLower.includes('br'))
+        ? 'pt-BR'
+        : (sendLang.length > 2 ? sendLang.slice(0, 2) : sendLang);
+    }
 
     // Transmit strictly ONE single socket event to server AI pipeline for translation and multi-booth TTS
     // Pass empty array [] so Lazy Cabins only synthesizes audio for active listeners or host-monitored booth
@@ -605,17 +636,21 @@ export default function HostView({
           onSpeechAudio: (audioBase64, mimeType, lang) => {
             // When Deepgram / server STT is selected, send audio to server AI pipeline
             const activeLang = sourceLanguageRef.current;
-            const targetLang = (lang && lang !== 'auto') 
-              ? (lang.length > 2 ? lang.slice(0, 2) : lang)
+            const srcLower = (activeLang || '').toLowerCase();
+            const resolvedActive = (srcLower.startsWith('pt') && srcLower.includes('br'))
+              ? 'pt-BR'
               : (activeLang === 'auto' ? 'auto' : (activeLang ? activeLang.slice(0, 2) : 'auto'));
+            const targetLang = (lang && lang !== 'auto') 
+              ? (lang.toLowerCase().includes('br') ? 'pt-BR' : (lang.length > 2 ? lang.slice(0, 2) : lang))
+              : resolvedActive;
             socketService.sendSpeechAudio(audioBase64, mimeType, targetLang, {
               medicalMode: medicalConfigRef.current.medicalMode,
               medicalSpecialty: medicalConfigRef.current.medicalSpecialty,
               customGlossary: medicalConfigRef.current.customGlossary
             });
           },
-          onSpeechText: (finalText) => {
-            sendSpeechToEngines(finalText);
+          onSpeechText: (finalText, detectedLang) => {
+            sendSpeechToEngines(finalText, detectedLang);
           }
         });
         setIsBroadcasting(true);
@@ -1081,68 +1116,63 @@ export default function HostView({
               </div>
             </div>
 
-            {/* Directorio de Participantes Unificado Listener-Style */}
-            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 shadow-2xs overflow-hidden">
-              <div className="px-3.5 py-2.5 border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between">
+            {/* Sección de Participantes Directa (sin contenedor envolvente) */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between px-0.5">
                 <div className="flex items-center gap-2">
-                  <Users className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-                  <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                  <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
                     Participantes en Sala
                   </span>
-                </div>
-                <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-zinc-800/70 text-[10px] font-mono font-semibold text-zinc-700 dark:text-zinc-300">
                     {rawParticipants.length + 1}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsAttendeesModalOpen(true)}
-                    className="text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer font-medium"
-                  >
-                    Ver todos
-                  </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAttendeesModalOpen(true)}
+                  className="text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer font-medium"
+                >
+                  Ver todos
+                </button>
               </div>
 
               {/* Buscador si hay participantes */}
               {rawParticipants.length > 2 && (
-                <div className="p-2 border-b border-zinc-200/60 dark:border-zinc-800/60">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-                    <input
-                      type="text"
-                      value={participantSearch}
-                      onChange={(e) => setParticipantSearch(e.target.value)}
-                      placeholder="Buscar participante..."
-                      className="w-full h-7 pl-8 pr-3 rounded-full bg-white dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all"
-                    />
-                  </div>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={participantSearch}
+                    onChange={(e) => setParticipantSearch(e.target.value)}
+                    placeholder="Buscar participante..."
+                    className="w-full h-8 pl-8.5 pr-3 rounded-2xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all"
+                  />
                 </div>
               )}
 
               {/* Lista de usuarios conectados */}
-              <div className="max-h-64 overflow-y-auto p-1.5 space-y-1">
+              <div className="space-y-2">
                 {/* Ponente / Anfitrión Fila Pinned */}
-                <div className="flex items-center justify-between p-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-800/40">
-                  <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 shadow-2xs">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div className="relative shrink-0">
-                      <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-bold">
+                      <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 flex items-center justify-center text-xs font-bold border border-zinc-300/60 dark:border-zinc-700/60">
                         P
                       </div>
-                      <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-zinc-900" />
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-900" />
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                         Tú (Anfitrión)
                       </div>
-                      <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
                         Emisión principal
                       </div>
                     </div>
                   </div>
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1 shrink-0">
-                    <span className={`w-1 h-1 rounded-full ${isBroadcasting ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
-                    {isBroadcasting ? 'EN DIRECTO' : 'EN SALA'}
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-zinc-200/70 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-300/60 dark:border-zinc-700/60 flex items-center gap-1.5 shrink-0">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isBroadcasting ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+                    <span>{isBroadcasting ? 'En Directo' : 'En Sala'}</span>
                   </span>
                 </div>
 
@@ -1168,30 +1198,33 @@ export default function HostView({
                     return (
                       <div
                         key={att.id}
-                        className="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 transition-colors"
+                        className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900/80 shadow-2xs transition-all"
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center text-xs font-bold shrink-0 border border-zinc-300/60 dark:border-zinc-700/60">
                             {initials}
                           </div>
-                          <div className="min-w-0 flex items-center gap-1.5">
-                            <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                          <div className="min-w-0">
+                            <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate block">
                               {att.name || 'Oyente'}
+                            </span>
+                            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium block">
+                              Oyente conectado
                             </span>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
-                            <CountryFlag code={att.lang || 'es'} className="w-3 h-3 rounded-full object-cover shrink-0" />
-                            <span className="text-[9px] font-mono font-medium text-zinc-500 uppercase">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700 shadow-2xs">
+                            <CountryFlag code={att.lang || 'es'} className="w-3.5 h-3.5 rounded-full object-cover shrink-0" />
+                            <span className="text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-400 uppercase">
                               {att.lang || 'es'}
                             </span>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleKickAttendee(att.id, att.name)}
-                            className="px-2 py-0.5 text-[10px] text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                            className="px-2.5 py-1 text-[11px] text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors cursor-pointer"
                           >
                             Expulsar
                           </button>
@@ -1412,7 +1445,7 @@ export default function HostView({
           <div className="mx-5 border-b border-zinc-200 dark:border-zinc-800/80 flex-shrink-0" />
 
           {/* Left Sidebar Scrollable Body */}
-          <div className="flex-1 overflow-y-auto px-5 pt-4 pb-5 flex flex-col justify-between space-y-5">
+          <div className="flex-1 overflow-y-auto px-5 pt-4 pb-2 space-y-4">
             <div className="space-y-4">
               {/* Sección 1: Configuración de Entrada */}
               <div className="space-y-3">
@@ -1431,12 +1464,27 @@ export default function HostView({
                     value={selectedDevice}
                     options={[
                       { value: 'default', label: 'Micrófono Predeterminado' },
-                      ...devices.map((d, i) => ({
-                        value: d.deviceId,
-                        label: d.label || `Micrófono ${i + 1}`
-                      }))
+                      ...devices
+                        .filter(d => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications')
+                        .map((d, i) => ({
+                          value: d.deviceId,
+                          label: d.label || `Micrófono ${i + 1}`
+                        }))
                     ]}
-                    onChange={(_, val) => setSelectedDevice(val || 'default')}
+                    onChange={async (_, val) => {
+                      const newDev = val || 'default';
+                      setSelectedDevice(newDev);
+                      if (isBroadcasting) {
+                        try {
+                          await audioRecorderService.switchDevice(newDev);
+                        } catch (err) {
+                          console.error('[HostView] Error en conmutación en caliente de micrófono:', err);
+                          setBroadcastError('No se pudo conmutar al nuevo micrófono. Se mantiene el dispositivo previo.');
+                        }
+                      } else {
+                        audioRecorderService.setDevice(newDev);
+                      }
+                    }}
                   />
                 </div>
 
@@ -1594,34 +1642,34 @@ export default function HostView({
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Botón Maestro de Emisión Anclado al Pie */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleToggleBroadcast}
-                disabled={isTogglingBroadcast}
-                className={`w-full h-11 min-h-[44px] rounded-2xl font-semibold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] border ${
-                  isTogglingBroadcast ? 'opacity-70 cursor-wait' : ''
-                } ${
-                  isBroadcasting
-                    ? 'bg-rose-600 text-white hover:bg-rose-700 border-transparent shadow-rose-600/20'
-                    : 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-transparent'
-                }`}
-              >
-                {isBroadcasting ? (
-                  <>
-                    <div className="w-2.5 h-2.5 rounded-xs bg-white animate-pulse" />
-                    <span>Detener Emisión ({formatDuration(broadcastSeconds)})</span>
-                  </>
-                ) : (
-                  <>
-                    <Mic className="w-4 h-4 text-current" />
-                    <span>Iniciar Emisión en Directo</span>
-                  </>
-                )}
-              </button>
-            </div>
+          {/* Botón Maestro de Emisión Anclado al Pie */}
+          <div className="px-5 pb-5 pt-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={handleToggleBroadcast}
+              disabled={isTogglingBroadcast}
+              className={`w-full h-11 min-h-[44px] rounded-2xl font-semibold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] border ${
+                isTogglingBroadcast ? 'opacity-70 cursor-wait' : ''
+              } ${
+                isBroadcasting
+                  ? 'bg-rose-600 text-white hover:bg-rose-700 border-transparent shadow-rose-600/20'
+                  : 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-transparent'
+              }`}
+            >
+              {isBroadcasting ? (
+                <>
+                  <div className="w-2.5 h-2.5 rounded-xs bg-white animate-pulse" />
+                  <span>Detener Emisión ({formatDuration(broadcastSeconds)})</span>
+                </>
+              ) : (
+                <>
+                  <Mic className="w-4 h-4 text-current" />
+                  <span>Iniciar Emisión en Directo</span>
+                </>
+              )}
+            </button>
           </div>
         </aside>
 
@@ -1629,113 +1677,117 @@ export default function HostView({
         {/* ZONA 2: STUDIO STAGE (CENTRAL CANVAS)                       */}
         {/* ─────────────────────────────────────────────────────────── */}
         <section className="flex-1 min-w-0 flex flex-col h-full bg-white dark:bg-zinc-950 overflow-hidden">
-          {/* Canvas Header (Alineado con datum line h-14 de las columnas laterales) */}
-          <div className="h-14 border-b border-zinc-200 dark:border-zinc-800/80 px-6 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0">
-            <div>
-              <h1 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
-                <span>{stageTitle}</span>
-                <span className={`w-1.5 h-1.5 rounded-full ${isBroadcasting ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
-              </h1>
-              <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                {roomStats.totalListeners} oyente{roomStats.totalListeners === 1 ? '' : 's'} conectados · Emisión neuronal en 4 cabinas
-              </p>
-            </div>
+          {/* Canvas Header (Alineado con datum line h-14 de las columnas laterales, 100% de ancho) */}
+          <div className="h-14 border-b border-zinc-200 dark:border-zinc-800/80 px-5 sm:px-6 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0 w-full">
+            <div className="w-full flex items-center justify-between">
+              <div>
+                <h1 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
+                  <span>{stageTitle}</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isBroadcasting ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+                </h1>
+                <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                  {roomStats.totalListeners} oyente{roomStats.totalListeners === 1 ? '' : 's'} conectados · Emisión neuronal en 4 cabinas
+                </p>
+              </div>
 
-            <div className="flex items-center gap-2.5">
-              {/* Font Size Cycler (rounded-lg como ListenerView) */}
-              <button
-                type="button"
-                onClick={() => setCaptionSize(prev => prev === 'sm' ? 'md' : prev === 'md' ? 'lg' : prev === 'lg' ? 'xl' : 'sm')}
-                className="h-8 px-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                title={`Tamaño de subtítulos: ${captionSize.toUpperCase()}`}
-              >
-                <Type className="w-3.5 h-3.5 text-zinc-400" />
-                <span>{captionSize.toUpperCase()}</span>
-              </button>
-
-              {activeQuestion ? (
-                <div className="h-8 px-3 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800/60 text-rose-800 dark:text-rose-300 text-xs font-semibold flex items-center gap-1.5 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                  <span className="truncate max-w-[110px]">Q&A: {activeQuestion.name}</span>
-                  <button
-                    onClick={() => handleCloseQuestion(activeQuestion.questionId)}
-                    className="ml-1 px-1.5 py-0.5 rounded bg-rose-600 text-white text-[9px] font-bold cursor-pointer"
-                  >
-                    Cerrar
-                  </button>
-                </div>
-              ) : qaQueue.some(q => q.status === 'pending') ? (
+              <div className="flex items-center gap-2.5">
+                {/* Font Size Cycler (rounded-lg como ListenerView) */}
                 <button
-                  onClick={() => {
-                    setInspectorTab('qa');
-                    setIsDesktopInspectorOpen(true);
-                  }}
-                  className="h-8 px-3 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs animate-pulse cursor-pointer"
+                  type="button"
+                  onClick={() => setCaptionSize(prev => prev === 'sm' ? 'md' : prev === 'md' ? 'lg' : prev === 'lg' ? 'xl' : 'sm')}
+                  className="h-8 px-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  title={`Tamaño de subtítulos: ${captionSize.toUpperCase()}`}
                 >
-                  <Hand className="w-3.5 h-3.5" />
-                  <span>{qaQueue.filter(q => q.status === 'pending').length} Q&A</span>
+                  <Type className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>{captionSize.toUpperCase()}</span>
                 </button>
-              ) : null}
+
+                {activeQuestion ? (
+                  <div className="h-8 px-3 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800/60 text-rose-800 dark:text-rose-300 text-xs font-semibold flex items-center gap-1.5 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                    <span className="truncate max-w-[110px]">Q&A: {activeQuestion.name}</span>
+                    <button
+                      onClick={() => handleCloseQuestion(activeQuestion.questionId)}
+                      className="ml-1 px-1.5 py-0.5 rounded bg-rose-600 text-white text-[9px] font-bold cursor-pointer"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                ) : qaQueue.some(q => q.status === 'pending') ? (
+                  <button
+                    onClick={() => {
+                      setInspectorTab('qa');
+                      setIsDesktopInspectorOpen(true);
+                    }}
+                    className="h-8 px-3 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs animate-pulse cursor-pointer"
+                  >
+                    <Hand className="w-3.5 h-3.5" />
+                    <span>{qaQueue.filter(q => q.status === 'pending').length} Q&A</span>
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
 
           {/* Canvas Body con Subtítulos y Barra de Emisión Manual */}
-          <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden p-4 sm:p-6 space-y-3">
-            {/* Error Banner */}
-            {broadcastError && (
-              <div className="flex-shrink-0">
-                <Banner
-                  icon={<XCircle className="w-4 h-4 text-white" strokeWidth={2.4} />}
-                  color="#ef4444"
-                  title="Error al acceder al micrófono"
-                  desc={broadcastError}
-                  action={
-                    <button
-                      type="button"
-                      onClick={() => setBroadcastError(null)}
-                      className="h-8 px-3 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      Cerrar
-                    </button>
-                  }
+          <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden p-4 sm:px-6 sm:pt-6 sm:pb-3 space-y-3">
+            <div className="w-full max-w-4xl mx-auto flex-1 min-h-0 flex flex-col space-y-3">
+              {/* Error Banner */}
+              {broadcastError && (
+                <div className="flex-shrink-0">
+                  <Banner
+                    icon={<XCircle className="w-4 h-4 text-white" strokeWidth={2.4} />}
+                    color="#ef4444"
+                    title="Error al acceder al micrófono"
+                    desc={broadcastError}
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => setBroadcastError(null)}
+                        className="h-8 px-3 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        Cerrar
+                      </button>
+                    }
+                  />
+                </div>
+              )}
+
+              {/* Subtítulos a Pantalla Completa */}
+              <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
+                <LiveCaptions
+                  transcriptHistory={transcriptHistory}
+                  interimText={liveInterimSpeech}
+                  currentLanguage={sourceLanguage === 'auto' ? 'es' : sourceLanguage.slice(0, 2)}
+                  showOriginal={true}
+                  medicalMode={medicalConfig.medicalMode}
+                  className="flex-1 flex flex-col h-full min-h-0 w-full"
+                  maxHeightClass="flex-1 h-full min-h-0"
+                  captionSize={captionSize}
                 />
               </div>
-            )}
+            </div>
+          </div>
 
-            {/* Subtítulos a Pantalla Completa */}
-            <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
-              <LiveCaptions
-                transcriptHistory={transcriptHistory}
-                interimText={liveInterimSpeech}
-                currentLanguage={sourceLanguage === 'auto' ? 'es' : sourceLanguage.slice(0, 2)}
-                showOriginal={true}
-                medicalMode={medicalConfig.medicalMode}
-                className="flex-1 flex flex-col h-full min-h-0 w-full"
-                maxHeightClass="flex-1 h-full min-h-0"
-                captionSize={captionSize}
+          {/* Desktop Bottom Prompt (Alineado en altura, espaciado interior y redondez con el botón de la izquierda) */}
+          <div className="hidden sm:flex px-6 pb-5 pt-2 flex-shrink-0 w-full">
+            <form onSubmit={handleSendCustomText} className="flex items-center gap-2.5 w-full max-w-4xl mx-auto">
+              <input
+                type="text"
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+                placeholder="Escribe cualquier frase aquí para emitir por voz en las 4 cabinas..."
+                className="flex-1 h-11 min-h-[44px] bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl px-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all shadow-2xs"
               />
-            </div>
-
-            {/* Desktop Bottom Prompt (Limpio, sin barra flotante redundante de retorno) */}
-            <div className="hidden sm:flex flex-col gap-2 pt-1 flex-shrink-0">
-              <form onSubmit={handleSendCustomText} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={manualText}
-                  onChange={(e) => setManualText(e.target.value)}
-                  placeholder="Escribe cualquier frase aquí para emitir por voz en las 4 cabinas..."
-                  className="flex-1 h-11 min-h-[44px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 rounded-full px-5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-white/30 transition-colors shadow-2xs"
-                />
-                <button
-                  type="submit"
-                  disabled={!manualText.trim()}
-                  className="h-11 min-h-[44px] px-5 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-1.5 shadow-xs active:scale-95"
-                >
-                  <span>Emitir</span>
-                  <Send className="w-3.5 h-3.5" />
-                </button>
-              </form>
-            </div>
+              <button
+                type="submit"
+                disabled={!manualText.trim()}
+                className="h-11 min-h-[44px] px-5 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-2 shadow-xs active:scale-[0.99] border border-transparent"
+              >
+                <span>Emitir</span>
+                <AudioLines className="w-4 h-4" />
+              </button>
+            </form>
           </div>
         </section>
 

@@ -130,7 +130,11 @@ export class STTService {
     if (!key) throw new Error('No OpenAI API key configured');
 
     const formData = new FormData();
-    const extension = mimeType.includes('wav') ? 'wav' : mimeType.includes('mp3') ? 'mp3' : 'webm';
+    const extension = mimeType.includes('wav') ? 'wav'
+      : mimeType.includes('mp3') ? 'mp3'
+      : (mimeType.includes('mp4') || mimeType.includes('m4a') || mimeType.includes('aac')) ? 'm4a'
+      : mimeType.includes('ogg') ? 'ogg'
+      : 'webm';
     formData.append('file', audioBuffer, {
       filename: `speech.${extension}`,
       contentType: mimeType
@@ -217,6 +221,8 @@ export class STTService {
       throw new Error(`Gemini Transcribe Live error ${res.status}: ${errText}`);
     }
 
+    const data = await res.json();
+    const transcript = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
     const effectiveLang = (language && language !== 'auto') ? language : (this.sttLanguage && this.sttLanguage !== 'auto' ? this.sttLanguage : 'es');
 
     return {

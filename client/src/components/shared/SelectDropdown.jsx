@@ -56,8 +56,8 @@ export default function SelectDropdown({
       const labelStr = typeof opt.label === 'string' ? opt.label : (opt.label != null ? String(opt.label) : String(rawVal ?? ''));
       let desc = opt.description ? String(opt.description).trim() : null;
 
-      // Limpiar prefijos numéricos ("1. ", "2) ", "3 - ")
-      let cleanLabel = labelStr.replace(/^\d+[\.\)\-]\s*/, '').trim();
+      // Limpiar prefijos numéricos de lista ("1. ", "2) ", "3 - ") sin romper números decimales ("0.1 - ", "0.3 - ")
+      let cleanLabel = labelStr.replace(/^\d+(?!\.\d)[\.\)\-]\s*/, '').trim();
 
       // Si no hay subtítulo/descripción explícita, extraer de paréntesis al final ("Título (Subtítulo)")
       if (!desc) {

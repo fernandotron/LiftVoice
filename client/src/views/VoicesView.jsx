@@ -26,7 +26,7 @@ const LANG_PILLS = [
 
 const DEFAULT_ACTIVE_VOICES = {
   es: 'es-ES-ElviraNeural',
-  en: 'aura-orion-en',
+  en: 'aura-asteria-en',
   it: 'it-IT-ElsaNeural',
   pt: 'pt-BR-FranciscaNeural'
 };

@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
 import { Loader2, ArrowLeft } from 'lucide-react';
+import CountryFlag from '../components/shared/CountryFlag.jsx';
+import { detectBrowserLanguage } from './ListenerView.jsx';
+
+const CABIN_CHOICES = [
+  { code: 'es', label: 'Español', flag: 'ES' },
+  { code: 'en', label: 'English', flag: 'US' },
+  { code: 'it', label: 'Italiano', flag: 'IT' },
+  { code: 'pt', label: 'Português', flag: 'BR' }
+];
 
 function FloatingCapsuleInput({
   id,
@@ -55,6 +64,7 @@ function FloatingCapsuleInput({
 
 export default function AttendeeLobbyView({
   roomId = 'MAIN',
+  initialLang = null,
   onBack = () => {},
   onSubmit = () => {}
 }) {
@@ -85,6 +95,13 @@ export default function AttendeeLobbyView({
     }
   });
 
+  const [selectedLang, setSelectedLang] = useState(() => {
+    if (initialLang && ['es', 'en', 'it', 'pt'].includes(initialLang.toLowerCase())) {
+      return initialLang.toLowerCase();
+    }
+    return detectBrowserLanguage();
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isValidEmail = email.trim().includes('@') && email.trim().includes('.');
@@ -98,7 +115,8 @@ export default function AttendeeLobbyView({
     onSubmit({
       name: name.trim(),
       email: email.trim(),
-      phone: phone.trim()
+      phone: phone.trim(),
+      lang: selectedLang
     });
   };
 
@@ -169,6 +187,33 @@ export default function AttendeeLobbyView({
             onChange={(e) => setPhone(e.target.value)}
             autoComplete="tel"
           />
+
+          {/* Selector de Cabina Lingüística */}
+          <div className="space-y-1.5 pt-1">
+            <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 pl-1">
+              Idioma de interpretación
+            </label>
+            <div className="grid grid-cols-4 gap-1.5 bg-zinc-100 dark:bg-[#141416] p-1 rounded-2xl border border-zinc-200/80 dark:border-zinc-800">
+              {CABIN_CHOICES.map(c => {
+                const isActive = selectedLang === c.code;
+                return (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setSelectedLang(c.code)}
+                    className={`h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-medium transition-all duration-150 cursor-pointer ${
+                      isActive
+                        ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <CountryFlag code={c.code} className="w-3.5 h-3.5 rounded-full" />
+                    <span>{c.code.toUpperCase()}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Primary CTA Button: 'Continuar' (Separated with mt-5) */}
           <button

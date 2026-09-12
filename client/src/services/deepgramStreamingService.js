@@ -24,7 +24,7 @@ const ASR_CHUNK_MS = 100;
 const ASR_VAD_SILENCE_THRESHOLD = 0.008;
 const ASR_VAD_HANGOVER_SECONDS = 0.6;
 const ASR_MAX_WS_BUFFERED_BYTES = 262144; // 256 KB
-const ASR_MAX_BACKLOG_BYTES = 262144;
+const ASR_MAX_BACKLOG_BYTES = 524288; // 512 KB ≈ 16.4s de PCM a 16 kHz
 const ASR_FIRST_PARTIAL_TIMEOUT_MS = 1500;
 const ASR_CLOSE_DRAIN_TIMEOUT_MS = 1500;
 
@@ -40,11 +40,18 @@ export class DeepgramStreamingService {
     this.startSeq = 0;
     this.backlog = new PcmBacklog(ASR_MAX_BACKLOG_BYTES);
 
+    this.tokenMetadata = {
+      token: null,
+      expiresAt: 0,
+      listenUrl: null,
+      model: null
+    };
+
     this.lastConfig = null;
     this.lastCallbacks = null;
     this.reconnectTimer = null;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 8;
+    this.maxReconnectAttempts = 15;
     this.wasActiveBeforeHidden = false;
 
     this.firstByteSentAt = null;
@@ -53,6 +60,7 @@ export class DeepgramStreamingService {
     this.onFirstPartialLatency = null;
     this.onFirstPartialTimeout = null;
     this.onVisibilityChange = null;
+    this.onOnlineHandler = null;
 
     this.status = 'idle'; // 'idle' | 'connecting' | 'listening' | 'reconnecting' | 'degraded' | 'error'
     this.statusListeners = new Set();
@@ -94,12 +102,30 @@ export class DeepgramStreamingService {
     this.isActive = true;
     this.setStatus('connecting');
 
+    this.tokenMetadata = {
+      token: null,
+      expiresAt: 0,
+      listenUrl: null,
+      model: null
+    };
+
     this.lastConfig = config;
     this.lastCallbacks = callbacks;
     this.reconnectAttempts = 0;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+
+    // Escucha de reanudación de red para reconexión instantánea al recuperar Wi-Fi
+    if (typeof window !== 'undefined' && !this.onOnlineHandler) {
+      this.onOnlineHandler = () => {
+        if (this.isActive && (!this.ws || this.ws.readyState !== WebSocket.OPEN)) {
+          console.log('[DeepgramStreaming] 🌐 Conectividad restaurada (online): reconectando inmediatamente...');
+          this.reconnect(this.lastConfig, this.lastCallbacks).catch(() => {});
+        }
+      };
+      window.addEventListener('online', this.onOnlineHandler);
     }
 
     // Desbloqueo síncrono de AudioContext para cumplir políticas de Autoplay en iOS Safari / Android
@@ -139,7 +165,7 @@ export class DeepgramStreamingService {
   /**
    * Reconexión in-place: reabre únicamente el canal WebSocket reutilizando el grafo de audio vivo
    */
-  async reconnect(config = {}, callbacks = {}) {
+  async reconnect(config = {}, callbacks = {}, forceRefreshToken = false) {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -163,9 +189,21 @@ export class DeepgramStreamingService {
     this.closeSocketOnly();
 
     let transportConfig = { ...this.lastConfig };
-    if (!transportConfig.token || !transportConfig.listenUrl) {
-      const tokenRes = await this.mintToken(this.lastConfig);
-      transportConfig = { ...transportConfig, ...tokenRes };
+    const now = Date.now();
+    const tokenIsFresh = this.tokenMetadata.token && (now < this.tokenMetadata.expiresAt - 10000);
+
+    if (!tokenIsFresh || forceRefreshToken || !transportConfig.listenUrl) {
+      try {
+        const tokenRes = await this.mintToken({ ...this.lastConfig, forceRefresh: Boolean(forceRefreshToken) });
+        transportConfig = { ...transportConfig, ...tokenRes };
+      } catch (tokenErr) {
+        console.warn('[DeepgramStreaming] Error al mintear token en reconexión:', tokenErr);
+        throw tokenErr;
+      }
+    } else {
+      transportConfig.token = this.tokenMetadata.token;
+      transportConfig.listenUrl = this.tokenMetadata.listenUrl || transportConfig.listenUrl;
+      transportConfig.model = this.tokenMetadata.model || transportConfig.model;
     }
 
     if (seq !== this.startSeq || !this.isActive) return;
@@ -190,10 +228,16 @@ export class DeepgramStreamingService {
     this.backlog.clear();
     this.clearFirstPartialTimer();
     this.setStatus('idle');
+    this.tokenMetadata = { token: null, expiresAt: 0, listenUrl: null, model: null };
 
     if (this.onVisibilityChange && typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.onVisibilityChange);
       this.onVisibilityChange = null;
+    }
+
+    if (this.onOnlineHandler && typeof window !== 'undefined') {
+      window.removeEventListener('online', this.onOnlineHandler);
+      this.onOnlineHandler = null;
     }
 
     if (this.workletNode) {
@@ -217,6 +261,32 @@ export class DeepgramStreamingService {
     this.audioContext = null;
   }
 
+  /**
+   * Conmuta la pista de entrada de audio en caliente sin reiniciar
+   * el AudioContext, el AudioWorklet ni la conexión WebSocket abierta.
+   * @param {MediaStream} newStream - Nuevo stream obtenido de getUserMedia
+   */
+  async switchStream(newStream) {
+    if (!this.audioContext || !this.workletNode) {
+      throw new Error('[DeepgramStreaming] No hay grafo de audio activo para conmutar');
+    }
+    if (!newStream || !newStream.getAudioTracks().length) {
+      throw new Error('[DeepgramStreaming] El nuevo stream no contiene pistas de audio válidas');
+    }
+
+    const newSourceNode = this.audioContext.createMediaStreamSource(newStream);
+    newSourceNode.connect(this.workletNode);
+
+    if (this.sourceNode) {
+      try {
+        this.sourceNode.disconnect();
+      } catch (e) {}
+    }
+
+    this.sourceNode = newSourceNode;
+    console.log('[DeepgramStreaming] 🎙️ Micrófono conmutado en caliente en el grafo de audio (WebSocket intacto).');
+  }
+
   async mintToken(config = {}) {
     const res = await fetch('/api/asr-token', {
       method: 'POST',
@@ -225,14 +295,22 @@ export class DeepgramStreamingService {
         language: config.language || config.lang || 'es',
         medicalMode: Boolean(config.medicalMode),
         customGlossary: config.customGlossary || [],
-        keyterms: config.keyterms || []
+        keyterms: config.keyterms || [],
+        forceRefresh: Boolean(config.forceRefresh)
       })
     });
     if (!res.ok) {
       const errText = await res.text();
       throw new Error(`Token minting failed (${res.status}): ${errText}`);
     }
-    return await res.json();
+    const data = await res.json();
+    this.tokenMetadata = {
+      token: data.token,
+      expiresAt: Date.now() + ((data.expiresIn || 60) * 1000),
+      listenUrl: data.listenUrl,
+      model: data.model
+    };
+    return data;
   }
 
   // --- Montaje del Grafo de Audio: Mic -> Worklet -> Gain(0) -> Destination ---
@@ -348,10 +426,11 @@ export class DeepgramStreamingService {
     this.firstPartialSeen = false;
     this.clearFirstPartialTimer();
     this.onFirstPartialLatency = callbacks.onFirstPartialLatency;
-    this.onFirstPartialTimeout = callbacks.onFirstPartialTimeout;
+    const isEnglish = (config.language === 'en' || (typeof config.language === 'string' && config.language.startsWith('en-')));
+    const fallbackModel = isEnglish ? 'nova-3' : 'nova-2';
 
     const params = new URLSearchParams({
-      model: config.model || 'nova-3',
+      model: config.model || fallbackModel,
       language: config.language || 'multi',
       encoding: 'linear16',
       sample_rate: String(config.sampleRate || ASR_SAMPLE_RATE),
@@ -440,9 +519,15 @@ export class DeepgramStreamingService {
       clearTimeout(connectTimer);
       this.clearKeepAlive();
       this.clearFirstPartialTimer();
+      const isAuthFailure = event.code === 1008 || event.code === 4401 || event.code === 4403 ||
+        (typeof event.reason === 'string' && /auth|token|unauthorized|expired/i.test(event.reason));
+
       if (this.isActive) {
         this.setStatus('reconnecting');
-        this.scheduleReconnect(event.code !== 1000 ? `Cierre anormal (${event.code})` : 'Cierre de socket (1000)');
+        const reasonMsg = isAuthFailure
+          ? `Token de concesión caducado o rechazado (${event.code})`
+          : (event.code !== 1000 ? `Cierre anormal (${event.code}: ${event.reason || 'red'})` : 'Cierre de socket (1000)');
+        this.scheduleReconnect(reasonMsg, isAuthFailure);
       }
       if (callbacks.onClose) {
         callbacks.onClose({ code: event.code, wasClean: event.wasClean });
@@ -450,21 +535,25 @@ export class DeepgramStreamingService {
     };
   }
 
-  scheduleReconnect(reason = '') {
+  scheduleReconnect(reason = '', forceRefreshToken = false) {
     if (!this.isActive) return;
-    const maxAttempts = this.maxReconnectAttempts || 8;
+    const maxAttempts = this.maxReconnectAttempts || 15;
 
     if (this.reconnectAttempts < maxAttempts) {
       this.reconnectAttempts++;
-      const delay = Math.min(1000 * Math.pow(1.4, this.reconnectAttempts - 1), 6000);
-      console.warn(`[DeepgramStreaming] ${reason}. Auto-reconexión #${this.reconnectAttempts}/${maxAttempts} en ${delay}ms`);
+      // Fase 1 (intentos 1 a 4): retroceso rápido (1s, 1.4s, 2s, 2.8s) para microcortes
+      // Fase 2 (intentos 5 a 15): intervalo sostenido de 5s para migraciones de red / roaming Wi-Fi
+      const delay = this.reconnectAttempts <= 4
+        ? Math.min(1000 * Math.pow(1.4, this.reconnectAttempts - 1), 3500)
+        : 5000;
+      console.warn(`[DeepgramStreaming] ${reason}. Auto-reconexión #${this.reconnectAttempts}/${maxAttempts} en ${Math.round(delay)}ms`);
 
       if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
       this.reconnectTimer = setTimeout(() => {
         if (!this.isActive) return;
-        this.reconnect(this.lastConfig, this.lastCallbacks).catch((err) => {
+        this.reconnect(this.lastConfig, this.lastCallbacks, forceRefreshToken).catch((err) => {
           console.error(`[DeepgramStreaming] Intento de reconexión #${this.reconnectAttempts} falló:`, err);
-          this.scheduleReconnect(err.message || 'Error en reconexión');
+          this.scheduleReconnect(err.message || 'Error en reconexión', forceRefreshToken);
         });
       }, delay);
     } else {

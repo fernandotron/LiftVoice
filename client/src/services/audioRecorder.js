@@ -1,5 +1,33 @@
 import { deepgramStreamingService } from './deepgramStreamingService.js';
 
+const MULTILINGUAL_MEDICAL_LEXICONS = {
+  es: [
+    'anamnesis', 'cefalea', 'disnea', 'hipertensión', 'cardiopatía',
+    'isquemia', 'auscultación', 'edema', 'eritrocitos', 'leucocitos',
+    'taquicardia', 'bradicardia', 'hemoglobina', 'glucemia', 'electrocardiograma'
+  ],
+  en: [
+    'anamnesis', 'headache', 'dyspnea', 'hypertension', 'heart disease',
+    'ischemia', 'auscultation', 'edema', 'erythrocytes', 'leukocytes',
+    'tachycardia', 'bradycardia', 'hemoglobin', 'glycemia', 'electrocardiogram'
+  ],
+  it: [
+    'anamnesi', 'cefalea', 'dispnea', 'ipertensione', 'cardiopatia',
+    'ischemia', 'auscultazione', 'edema', 'eritrociti', 'leucociti',
+    'tachicardia', 'bradicardia', 'emoglobina', 'glicemia', 'elettrocardiogramma'
+  ],
+  pt: [
+    'anamnese', 'cefaleia', 'dispneia', 'hipertensão', 'cardiopatia',
+    'isquemia', 'ausculta', 'edema', 'eritrócitos', 'leucócitos',
+    'taquicardia', 'bradicardia', 'hemoglobina', 'glicemia', 'eletrocardiograma'
+  ]
+};
+
+function getLocalizedMedicalKeyterms(lang) {
+  const code = (lang || 'es').slice(0, 2).toLowerCase();
+  return MULTILINGUAL_MEDICAL_LEXICONS[code] || MULTILINGUAL_MEDICAL_LEXICONS.es;
+}
+
 /**
  * LiftVoice Natural Dictation & Continuous Speech Recognition Engine (2026 Edition)
  * Provides seamless dictation (word-by-word real-time display) and natural pause finalization.
@@ -236,6 +264,10 @@ class AudioRecorderService {
     this.isCommitting = false;
     this.acousticResetTimer = null;
 
+    this.sourceNode = null;
+    this.onDeviceAutoSwitched = null;
+    this.vadInterval = null;
+
     // Deepgram Ultra-Low Latency Streaming Service Integration
     this.deepgramStreamingService = deepgramStreamingService;
     this.onStreamingStatusCallbacks = new Set();
@@ -287,8 +319,36 @@ class AudioRecorderService {
       if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
         return [];
       }
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      return devices.filter(d => d.kind === 'audioinput');
+      const rawDevices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = rawDevices.filter(d => d.kind === 'audioinput');
+
+      // Filtrar alias virtuales del SO ('default', 'communications') y deduplicar por etiqueta
+      const sanitized = [];
+      const seenLabels = new Set();
+      const seenDeviceIds = new Set(['default', 'communications']);
+
+      for (const d of audioInputs) {
+        if (!d.deviceId || seenDeviceIds.has(d.deviceId)) continue;
+
+        let cleanLabel = (d.label || '').trim();
+        // Limpiar prefijos de Windows como "Predeterminado - ", "Default - ", "Comunicaciones - "
+        cleanLabel = cleanLabel.replace(/^(Predeterminado|Default|Comunicaciones)\s*-\s*/i, '').trim();
+
+        if (cleanLabel && seenLabels.has(cleanLabel)) {
+          continue;
+        }
+
+        if (cleanLabel) seenLabels.add(cleanLabel);
+        seenDeviceIds.add(d.deviceId);
+
+        sanitized.push({
+          deviceId: d.deviceId,
+          groupId: d.groupId,
+          label: cleanLabel || `Micrófono ${sanitized.length + 1}`
+        });
+      }
+
+      return sanitized;
     } catch (e) {
       console.warn('[AudioRecorder] Could not enumerate devices:', e);
       return [];
@@ -296,7 +356,226 @@ class AudioRecorderService {
   }
 
   setDevice(deviceId) {
-    this.selectedDeviceId = deviceId;
+    this.selectedDeviceId = deviceId || 'default';
+  }
+
+  /**
+   * Conmuta el hardware de captura de audio en caliente sin interrumpir
+   * la sesión de grabación ni reiniciar el WebSocket a Deepgram.
+   */
+  async switchDevice(newDeviceId) {
+    this.selectedDeviceId = newDeviceId || 'default';
+    if (!this.isRecording) {
+      return;
+    }
+
+    console.log(`[AudioRecorder] 🔄 Iniciando conmutación en caliente de micrófono hacia: ${this.selectedDeviceId}`);
+    const oldStream = this.mediaStream;
+
+    const constraints = {
+      audio: {
+        deviceId: this.selectedDeviceId !== 'default' ? { exact: this.selectedDeviceId } : undefined,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 44100
+      }
+    };
+
+    let newStream;
+    try {
+      newStream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err) {
+      console.warn('[AudioRecorder] Conmutación con restricción exacta falló, reintentando con audio predeterminado:', err);
+      newStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+    }
+
+    // 1. Conmutar en el AudioContext del analizador (VU meter)
+    if (this.audioCtx && this.analyserNode) {
+      try {
+        const newSource = this.audioCtx.createMediaStreamSource(newStream);
+        newSource.connect(this.analyserNode);
+        if (this.sourceNode) {
+          try { this.sourceNode.disconnect(); } catch (e) {}
+        }
+        this.sourceNode = newSource;
+      } catch (nodeErr) {
+        console.warn('[AudioRecorder] Error al enlazar nuevo MediaStreamAudioSourceNode al analizador:', nodeErr);
+      }
+    }
+
+    // 2. Conmutar en Deepgram Streaming Service si está activo (Web Audio Node Swap sin reconexión de WebSocket)
+    if (this.deepgramStreamingService && this.deepgramStreamingService.active) {
+      try {
+        await this.deepgramStreamingService.switchStream(newStream);
+      } catch (e) {
+        console.error('[AudioRecorder] Error en switchStream de Deepgram:', e);
+      }
+    }
+
+    // 3. Reiniciar MediaRecorder para chunks si está activo (Firefox / Server Chunk fallback)
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      try {
+        this.mediaRecorder.stop();
+      } catch (e) {}
+      this.initMediaRecorderForChunks(newStream);
+    }
+
+    // 4. Detener pistas del stream anterior para apagar físicamente el hardware
+    if (oldStream) {
+      oldStream.getTracks().forEach(track => {
+        try {
+          track.onended = null;
+          track.stop();
+        } catch (e) {}
+      });
+    }
+
+    this.mediaStream = newStream;
+    this.attachTrackEndedListener(newStream);
+    console.log('[AudioRecorder] ✅ Conmutación de micrófono completada con éxito.');
+  }
+
+  /**
+   * Monitor de desconexión física de hardware (ej: USB o Bluetooth desconectado en plena charla)
+   */
+  attachTrackEndedListener(stream) {
+    if (!stream) return;
+    const track = stream.getAudioTracks()[0];
+    if (!track) return;
+
+    track.onended = async () => {
+      if (!this.isRecording) return;
+      console.warn('[AudioRecorder] ⚠️ El micrófono activo se ha desconectado físicamente. Auto-conmutando a default.');
+      try {
+        await this.switchDevice('default');
+        if (this.onDeviceAutoSwitched) {
+          this.onDeviceAutoSwitched('default');
+        }
+      } catch (e) {
+        console.error('[AudioRecorder] Fallo al auto-recuperar micrófono por defecto tras desconexión física:', e);
+      }
+    };
+  }
+
+  /**
+   * Red de Seguridad para navegadores sin Web Speech API (Firefox / Safari sin dictado nativo)
+   * o cuando los servicios de streaming primarios se degradan.
+   */
+  startServerChunkPipeline() {
+    this.sttEngine = 'server_chunk';
+    console.log('[AudioRecorder] 🛡️ Activando Red de Seguridad de Transcripción por Chunks en Servidor (Server-Side ASR).');
+    this.initMediaRecorderForChunks(this.mediaStream);
+    this.setupVadChunkTrigger();
+  }
+
+  initMediaRecorderForChunks(stream) {
+    if (typeof MediaRecorder === 'undefined' || !stream) return;
+
+    let mimeType = 'audio/webm;codecs=opus';
+    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+      mimeType = 'audio/webm;codecs=opus';
+    } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+      mimeType = 'audio/webm';
+    } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+      mimeType = 'audio/mp4'; // Safari macOS / iOS
+    } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+      mimeType = 'audio/ogg;codecs=opus'; // Firefox
+    }
+
+    this.mediaRecorderMimeType = mimeType;
+    this.audioChunks = [];
+
+    try {
+      this.mediaRecorder = new MediaRecorder(stream, { mimeType });
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          this.audioChunks.push(event.data);
+        }
+      };
+      this.mediaRecorder.start(250);
+    } catch (e) {
+      console.error('[AudioRecorder] Error al inicializar MediaRecorder de chunks:', e);
+    }
+  }
+
+  setupVadChunkTrigger() {
+    if (this.vadInterval) {
+      clearInterval(this.vadInterval);
+      this.vadInterval = null;
+    }
+
+    let speechActive = false;
+    let silenceStart = 0;
+    let chunkSpeechStart = 0;
+    const SILENCE_COMMIT_MS = this.silenceThresholdMs || 950;
+    const MAX_CHUNK_DURATION_MS = 6500; // Corte máximo para mantener latencia acotada
+
+    this.vadInterval = setInterval(() => {
+      if (!this.isRecording || this.sttEngine !== 'server_chunk') {
+        if (this.vadInterval) clearInterval(this.vadInterval);
+        this.vadInterval = null;
+        return;
+      }
+
+      const isVoiced = this.audioLevel > 18; // Umbral RMS del analizador Web Audio
+      const now = Date.now();
+
+      if (isVoiced) {
+        if (!speechActive) {
+          speechActive = true;
+          chunkSpeechStart = now;
+          this.notifyInterim('🎙️ Escuchando ponencia...');
+        }
+        silenceStart = 0;
+
+        if (now - chunkSpeechStart > MAX_CHUNK_DURATION_MS) {
+          this.flushAndEmitChunk();
+          chunkSpeechStart = now;
+        }
+      } else if (speechActive) {
+        if (!silenceStart) {
+          silenceStart = now;
+        } else if (now - silenceStart >= SILENCE_COMMIT_MS) {
+          speechActive = false;
+          silenceStart = 0;
+          this.flushAndEmitChunk();
+        }
+      }
+    }, 100);
+  }
+
+  flushAndEmitChunk() {
+    if (!this.mediaRecorder || this.mediaRecorder.state !== 'recording') return;
+    const recorder = this.mediaRecorder;
+
+    recorder.onstop = () => {
+      const chunks = [...this.audioChunks];
+      this.audioChunks = [];
+
+      if (this.isRecording && this.mediaRecorder) {
+        try { this.mediaRecorder.start(250); } catch (e) {}
+      }
+
+      const blob = new Blob(chunks, { type: this.mediaRecorderMimeType });
+      if (blob.size > 800) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = (reader.result || '').split(',')[1];
+          if (base64 && this.onSpeechAudioCallback) {
+            this.notifyInterim('⚡ Procesando voz con IA...');
+            this.onSpeechAudioCallback(base64, this.mediaRecorderMimeType, this.sourceLanguage);
+          }
+        };
+        reader.readAsDataURL(blob);
+      }
+    };
+
+    try {
+      recorder.stop();
+    } catch (e) {}
   }
 
   setLanguage(lang) {
@@ -305,10 +584,21 @@ class AudioRecorderService {
     this.sourceLanguage = targetLang;
 
     if (this.sttEngine === 'deepgram' && this.isRecording && this.deepgramStreamingService.active) {
+      const targetLower = (targetLang || '').toLowerCase();
       const langCode = (targetLang && targetLang !== 'auto')
-        ? (targetLang.length > 2 ? targetLang.slice(0, 2) : targetLang)
+        ? (targetLower.startsWith('pt') && targetLower.includes('br') ? 'pt-BR' : (targetLang.length > 2 ? targetLang.slice(0, 2) : targetLang))
         : 'multi';
       const opts = this.recordingOptions || {};
+      
+      let keyterms = [];
+      if (opts.medicalMode) {
+        keyterms.push(...getLocalizedMedicalKeyterms(langCode));
+      }
+      if (Array.isArray(opts.customGlossary)) {
+        keyterms.push(...opts.customGlossary);
+      }
+      this.currentKeyterms = keyterms;
+
       this.deepgramStreamingService.reconnect({
         language: langCode,
         medicalMode: opts.medicalMode,
@@ -331,11 +621,11 @@ class AudioRecorderService {
           if (!clean) return;
 
           if (isFinal) {
-            console.log(`[AudioRecorder] ⚡ Deepgram Stream is_final: "${clean}"`);
+            console.log(`[AudioRecorder] ⚡ Deepgram Stream is_final: "${clean}" (detected: ${detectedLanguage || langCode})`);
             this.currentPendingText = '';
             this.notifyInterim('');
             if (this.onSpeechTextCallback) {
-              this.onSpeechTextCallback(clean);
+              this.onSpeechTextCallback(clean, detectedLanguage || langCode);
             }
           } else {
             this.currentPendingText = clean;
@@ -448,27 +738,27 @@ class AudioRecorderService {
         try { await this.audioCtx.resume(); } catch (e) {}
       }
       const source = this.audioCtx.createMediaStreamSource(this.mediaStream);
+      this.sourceNode = source;
       this.analyserNode = this.audioCtx.createAnalyser();
       this.analyserNode.fftSize = 256;
       this.analyserNode.smoothingTimeConstant = 0.5;
       source.connect(this.analyserNode);
 
+      this.attachTrackEndedListener(this.mediaStream);
+
       this.isRecording = true;
       this.startLevelMeter();
 
       if (this.sttEngine === 'deepgram') {
-        // High-fidelity direct WebSocket streaming via Nova-3 and AudioWorklet
+        // High-fidelity direct WebSocket streaming via Nova-2/Nova-3 and AudioWorklet
+        const srcLower = (this.sourceLanguage || '').toLowerCase();
         const langCode = (this.sourceLanguage && this.sourceLanguage !== 'auto')
-          ? (this.sourceLanguage.length > 2 ? this.sourceLanguage.slice(0, 2) : this.sourceLanguage)
+          ? (srcLower.startsWith('pt') && srcLower.includes('br') ? 'pt-BR' : (this.sourceLanguage.length > 2 ? this.sourceLanguage.slice(0, 2) : this.sourceLanguage))
           : 'multi';
 
         let keyterms = [];
         if (options.medicalMode) {
-          keyterms.push(
-            'anamnesis', 'cefalea', 'disnea', 'hipertensión', 'cardiopatía',
-            'isquemia', 'auscultación', 'edema', 'eritrocitos', 'leucocitos',
-            'taquicardia', 'bradicardia', 'hemoglobina', 'glucemia', 'electrocardiograma'
-          );
+          keyterms.push(...getLocalizedMedicalKeyterms(langCode));
         }
         if (Array.isArray(options.customGlossary)) {
           keyterms.push(...options.customGlossary);
@@ -507,7 +797,7 @@ class AudioRecorderService {
                   this.currentPendingText = '';
                   this.notifyInterim('');
                   if (this.onSpeechTextCallback) {
-                    this.onSpeechTextCallback(clean);
+                    this.onSpeechTextCallback(clean, detectedLanguage || langCode);
                   }
                 } else {
                   this.currentPendingText = clean;
@@ -578,7 +868,8 @@ class AudioRecorderService {
   initSpeechRecognition(retryCount = 0) {
     const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionClass) {
-      console.warn('[AudioRecorder] Web Speech Recognition API not supported in this browser.');
+      console.warn('[AudioRecorder] Web Speech Recognition API no soportada en este navegador (Firefox/Safari). Activando Red de Seguridad de Transcripción por Chunks en Servidor.');
+      this.startServerChunkPipeline();
       return;
     }
 
@@ -915,6 +1206,16 @@ class AudioRecorderService {
     if (this.animationFrame) {
       cancelAnimationFrame(this.animationFrame);
       this.animationFrame = null;
+    }
+
+    if (this.vadInterval) {
+      clearInterval(this.vadInterval);
+      this.vadInterval = null;
+    }
+
+    if (this.sourceNode) {
+      try { this.sourceNode.disconnect(); } catch (e) {}
+      this.sourceNode = null;
     }
 
     if (this.audioCtx) {

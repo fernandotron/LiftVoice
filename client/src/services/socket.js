@@ -26,7 +26,7 @@ class SocketService {
             if (this.currentRole === 'HOST') {
               this.joinAsHost(this.currentRoomId);
             } else if (this.currentRole === 'LISTENER') {
-              this.joinAsListener(this.currentRoomId, this.currentLang || 'en', this.userProfile || {});
+              this.joinAsListener(this.currentRoomId, this.currentLang || 'es', this.userProfile || {});
             }
           }
         }).catch(() => {});
@@ -184,7 +184,7 @@ class SocketService {
           if (this.currentRole === 'HOST') {
             this.joinAsHost(this.currentRoomId);
           } else if (this.currentRole === 'LISTENER') {
-            this.joinAsListener(this.currentRoomId, this.currentLang || 'en', this.userProfile || {});
+            this.joinAsListener(this.currentRoomId, this.currentLang || 'es', this.userProfile || {});
           }
         }
       }).catch(() => {});
@@ -272,7 +272,7 @@ class SocketService {
     });
   }
 
-  joinAsListener(roomId, lang = 'en', userProfile = {}) {
+  joinAsListener(roomId, lang = 'es', userProfile = {}) {
     this.isKicked = false;
     this.currentRoomId = roomId;
     this.currentRole = 'LISTENER';

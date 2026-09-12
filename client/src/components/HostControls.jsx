@@ -220,11 +220,13 @@ export default function HostControls({
               className="w-full h-11 bg-zinc-900 border border-white/10 rounded-2xl px-3 text-xs text-zinc-200 focus:outline-none focus:border-white transition-all cursor-pointer"
             >
               <option value="default">🎙️ Micrófono Predeterminado</option>
-              {devices.map((d) => (
-                <option key={d.deviceId} value={d.deviceId}>
-                  {d.label || `Micrófono (${d.deviceId.slice(0, 8)}...)`}
-                </option>
-              ))}
+              {devices
+                .filter(d => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications')
+                .map((d) => (
+                  <option key={d.deviceId} value={d.deviceId}>
+                    {d.label || `Micrófono (${d.deviceId.slice(0, 8)}...)`}
+                  </option>
+                ))}
             </select>
           </div>
 
@@ -400,10 +402,10 @@ export default function HostControls({
           <button
             type="submit"
             disabled={!manualText.trim()}
-            className="h-11 px-5 rounded-2xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-1.5"
+            className="h-11 px-5 rounded-2xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-2"
           >
-            <Send className="w-3.5 h-3.5" />
             <span>Emitir</span>
+            <AudioLines className="w-4 h-4" />
           </button>
         </form>
       </div>

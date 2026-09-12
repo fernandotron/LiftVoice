@@ -22,13 +22,13 @@ import {
   Moon,
   Pencil,
   Users,
-  Search
+  Search,
+  AudioLines
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import LanguageSelector, { SUPPORTED_LANGUAGES } from '../components/LanguageSelector.jsx';
 import LiveCaptions from '../components/LiveCaptions.jsx';
 import CountryFlag from '../components/shared/CountryFlag.jsx';
-import GeminiFluidWave from '../components/shared/GeminiFluidWave.jsx';
 import MobileAudioDock from '../components/mobile/MobileAudioDock.jsx';
 import LanguageBottomSheet from '../components/mobile/LanguageBottomSheet.jsx';
 import MobileQAPill from '../components/mobile/MobileQAPill.jsx';
@@ -36,6 +36,29 @@ import Banner from '../components/shared/Banner.jsx';
 import DesktopHeaderMenu from '../components/shared/DesktopHeaderMenu.jsx';
 import { socketService } from '../services/socket.js';
 import { audioPlayerService } from '../services/audioPlayer.js';
+
+export function detectBrowserLanguage() {
+  try {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlLang = params.get('lang');
+      const validLangs = ['es', 'en', 'it', 'pt'];
+      if (urlLang && validLangs.includes(urlLang.toLowerCase())) {
+        return urlLang.toLowerCase();
+      }
+      const savedLang = localStorage.getItem('lv_preferred_lang');
+      if (savedLang && validLangs.includes(savedLang.toLowerCase())) {
+        return savedLang.toLowerCase();
+      }
+      const navLang = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+      const prefix = navLang.slice(0, 2).toLowerCase();
+      if (validLangs.includes(prefix)) {
+        return prefix;
+      }
+    }
+  } catch (e) {}
+  return 'es';
+}
 
 export default function ListenerView({
   roomId = 'MAIN',
@@ -112,23 +135,7 @@ export default function ListenerView({
     socketService.registerAttendeeLead(roomId, updated);
   };
 
-  const [selectedLanguage, setSelectedLanguage] = useState(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
-        const urlLang = params.get('lang');
-        const validLangs = ['es', 'en', 'it', 'pt'];
-        if (urlLang && validLangs.includes(urlLang.toLowerCase())) {
-          return urlLang.toLowerCase();
-        }
-        const savedLang = localStorage.getItem('lv_preferred_lang');
-        if (savedLang && validLangs.includes(savedLang.toLowerCase())) {
-          return savedLang.toLowerCase();
-        }
-      }
-    } catch (e) {}
-    return 'es';
-  });
+  const [selectedLanguage, setSelectedLanguage] = useState(() => detectBrowserLanguage());
   const [isLanguageSheetOpen, setIsLanguageSheetOpen] = useState(false);
   const selectedLangRef = useRef(selectedLanguage);
 
@@ -160,9 +167,9 @@ export default function ListenerView({
   // Dynamic Caption Size for Audience Reading Comfort ('sm' | 'md' | 'lg' | 'xl')
   const [captionSize, setCaptionSize] = useState(() => {
     try {
-      return localStorage.getItem('lv_caption_size') || 'md';
+      return localStorage.getItem('lv_caption_size') || 'lg';
     } catch (e) {
-      return 'md';
+      return 'lg';
     }
   });
   const [isInitializing, setIsInitializing] = useState(true);
@@ -217,7 +224,9 @@ export default function ListenerView({
     const unsubTranscript = socketService.on('transcript_event', (item) => {
       if (!item) return;
       setTranscriptHistory(prev => {
-        if (prev.some(p => p.id === item.id)) return prev;
+        if (prev.some(p => p.id === item.id)) {
+          return prev.map(p => p.id === item.id ? { ...p, ...item, translations: { ...(p.translations || {}), ...(item.translations || {}) } } : p);
+        }
         const last = prev[prev.length - 1];
         if (last && last.originalText === item.originalText && Math.abs((item.timestamp || 0) - (last.timestamp || 0)) < 4000) {
           return prev;
@@ -814,10 +823,21 @@ export default function ListenerView({
                 </span>
               </div>
 
-              {/* Visualizer wave if playing and not muted */}
+              {/* Visualizer indicator if playing and not muted */}
               {isPlayingAudio && !isMuted && (
-                <div className="h-10 rounded-xl overflow-hidden bg-zinc-900/10 dark:bg-zinc-900/60">
-                  <GeminiFluidWave className="w-full h-full" />
+                <div className="relative h-9 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 flex items-center justify-between px-3 overflow-hidden shadow-2xs select-none">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <AudioLines className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300 truncate">
+                      Audio en vivo activo
+                    </span>
+                  </div>
+                  <div className="flex items-end gap-0.5 h-3 shrink-0">
+                    <span className="w-0.5 h-full bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                    <span className="w-0.5 h-2 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+                    <span className="w-0.5 h-3 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                    <span className="w-0.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '450ms' }} />
+                  </div>
                 </div>
               )}
 
@@ -856,42 +876,46 @@ export default function ListenerView({
 
         {/* ZONE 3: DOMINANT REAL-TIME TRANSCRIPTION CANVAS (flex-1) */}
         <section className="flex-1 min-w-0 flex flex-col h-full bg-white dark:bg-zinc-950 overflow-hidden">
-          {/* Canvas Header */}
-          <div className="h-14 border-b border-zinc-200 dark:border-zinc-800/80 px-6 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0">
-            <div>
-              <h1 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
-                <span>Transcripción en Tiempo Real</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              </h1>
-              <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                La transcripción aparecerá aquí cuando esté disponible
-              </p>
-            </div>
+          {/* Canvas Header (100% de ancho alineado con columnas laterales) */}
+          <div className="h-14 border-b border-zinc-200 dark:border-zinc-800/80 px-5 sm:px-6 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0 w-full">
+            <div className="w-full flex items-center justify-between">
+              <div>
+                <h1 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
+                  <span>Transcripción en Tiempo Real</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                </h1>
+                <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                  La transcripción aparecerá aquí cuando esté disponible
+                </p>
+              </div>
 
-            <div className="flex items-center gap-2.5">
-              {/* Caption size switch */}
-              <button
-                type="button"
-                onClick={handleCycleCaptionSize}
-                className="h-8 px-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Cambiar tamaño de fuente"
-              >
-                <Type className="w-3.5 h-3.5 text-zinc-400" />
-                <span>{captionSize.toUpperCase()}</span>
-              </button>
+              <div className="flex items-center gap-2.5">
+                {/* Caption size switch */}
+                <button
+                  type="button"
+                  onClick={handleCycleCaptionSize}
+                  className="h-8 px-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Cambiar tamaño de fuente"
+                >
+                  <Type className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>{captionSize.toUpperCase()}</span>
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Canvas Body */}
           <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden p-4 sm:p-6">
-            <LiveCaptions
-              transcriptHistory={transcriptHistory}
-              currentLanguage={selectedLanguage}
-              showOriginal={true}
-              captionSize={captionSize}
-              className="flex-1 flex flex-col h-full min-h-0 w-full"
-              maxHeightClass="flex-1 h-full min-h-0"
-            />
+            <div className="w-full max-w-4xl mx-auto flex-1 min-h-0 flex flex-col">
+              <LiveCaptions
+                transcriptHistory={transcriptHistory}
+                currentLanguage={selectedLanguage}
+                showOriginal={true}
+                captionSize={captionSize}
+                className="flex-1 flex flex-col h-full min-h-0 w-full"
+                maxHeightClass="flex-1 h-full min-h-0"
+              />
+            </div>
           </div>
         </section>
 
@@ -1161,40 +1185,40 @@ export default function ListenerView({
                         </div>
                       </div>
 
-                      {/* Directorio de Participantes */}
-                      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 shadow-2xs overflow-hidden">
-                        <div className="px-3.5 py-2.5 border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between">
+                      {/* Sección de Participantes Directa (sin contenedor envolvente) */}
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between px-0.5">
                           <div className="flex items-center gap-2">
-                            <Users className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-                            <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                            <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
                               Participantes en Sala
                             </span>
+                            <span className="px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-zinc-800/70 text-[10px] font-mono font-semibold text-zinc-700 dark:text-zinc-300">
+                              {fullParticipants.length}
+                            </span>
                           </div>
-                          <span className="px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-zinc-800/70 text-[10px] font-mono font-semibold text-zinc-700 dark:text-zinc-300">
-                            {fullParticipants.length}
+                          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                            En directo
                           </span>
                         </div>
 
                         {/* Buscador si hay más de 5 participantes */}
                         {fullParticipants.length > 5 && (
-                          <div className="p-2 border-b border-zinc-200/60 dark:border-zinc-800/60">
-                            <div className="relative">
-                              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-                              <input
-                                type="text"
-                                value={participantSearch}
-                                onChange={(e) => setParticipantSearch(e.target.value)}
-                                placeholder="Buscar participante..."
-                                className="w-full h-7 pl-8 pr-3 rounded-full bg-white dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all"
-                              />
-                            </div>
+                          <div className="relative">
+                            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                            <input
+                              type="text"
+                              value={participantSearch}
+                              onChange={(e) => setParticipantSearch(e.target.value)}
+                              placeholder="Buscar participante..."
+                              className="w-full h-8 pl-8.5 pr-3 rounded-2xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all"
+                            />
                           </div>
                         )}
 
                         {/* Lista de usuarios conectados */}
-                        <div className="max-h-60 overflow-y-auto p-1.5 space-y-1">
+                        <div className="space-y-2">
                           {sortedParticipants.length === 0 ? (
-                            <div className="py-4 text-center text-xs text-zinc-400 dark:text-zinc-500">
+                            <div className="py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
                               No hay participantes que coincidan
                             </div>
                           ) : (
@@ -1213,27 +1237,27 @@ export default function ListenerView({
                                 return (
                                   <div
                                     key="host"
-                                    className="flex items-center justify-between p-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-800/40"
+                                    className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 shadow-2xs transition-all"
                                   >
-                                    <div className="flex items-center gap-2 min-w-0">
+                                    <div className="flex items-center gap-3 min-w-0">
                                       <div className="relative shrink-0">
-                                        <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-bold">
+                                        <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 flex items-center justify-center text-xs font-bold border border-zinc-300/60 dark:border-zinc-700/60">
                                           P
                                         </div>
-                                        <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-zinc-900" />
+                                        <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-900" />
                                       </div>
                                       <div className="min-w-0">
                                         <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                                           {p.name || 'Ponente'}
                                         </div>
-                                        <div className="text-[10px] text-indigo-600 dark:text-indigo-400">
-                                          Anfitrión
+                                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
+                                          Anfitrión de la sala
                                         </div>
                                       </div>
                                     </div>
-                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1 shrink-0">
-                                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                                      EN VIVO
+                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-zinc-200/70 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-300/60 dark:border-zinc-700/60 flex items-center gap-1.5 shrink-0">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      <span>En Vivo</span>
                                     </span>
                                   </div>
                                 );
@@ -1242,36 +1266,41 @@ export default function ListenerView({
                               return (
                                 <div
                                   key={p.id}
-                                  className={`flex items-center justify-between p-2 rounded-xl transition-colors ${
+                                  className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
                                     isSelf
-                                      ? 'bg-zinc-200/60 dark:bg-zinc-800/60'
-                                      : 'hover:bg-zinc-200/40 dark:hover:bg-zinc-800/40'
+                                      ? 'border-zinc-300 dark:border-zinc-700 bg-zinc-200/50 dark:bg-zinc-800/60 shadow-2xs'
+                                      : 'border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900/80 shadow-2xs'
                                   }`}
                                 >
-                                  <div className="flex items-center gap-2 min-w-0">
+                                  <div className="flex items-center gap-3 min-w-0">
                                     <div
-                                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 border ${
                                         isSelf
-                                          ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
-                                          : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                                          ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-950 dark:border-white'
+                                          : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-300/60 dark:border-zinc-700/60'
                                       }`}
                                     >
                                       {initials}
                                     </div>
-                                    <div className="min-w-0 flex items-center gap-1.5">
-                                      <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                                        {p.name || 'Oyente'}
-                                      </span>
-                                      {isSelf && (
-                                        <span className="px-1 py-0.2 rounded text-[9px] font-medium bg-zinc-300/70 dark:bg-zinc-700/70 text-zinc-700 dark:text-zinc-300 shrink-0">
-                                          Tú
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate">
+                                          {p.name || 'Oyente'}
                                         </span>
-                                      )}
+                                        {isSelf && (
+                                          <span className="px-1.5 py-0.2 rounded-md text-[9px] font-semibold bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shrink-0">
+                                            Tú
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium block">
+                                        {isSelf ? 'Tu sesión' : 'Oyente conectado'}
+                                      </span>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/70 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs shrink-0">
-                                    <CountryFlag code={p.lang || 'es'} className="w-3 h-3 rounded-full object-cover shrink-0" />
-                                    <span className="text-[9px] font-mono font-medium text-zinc-500 uppercase">
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700 shadow-2xs shrink-0">
+                                    <CountryFlag code={p.lang || 'es'} className="w-3.5 h-3.5 rounded-full object-cover shrink-0" />
+                                    <span className="text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-400 uppercase">
                                       {p.lang || 'es'}
                                     </span>
                                   </div>

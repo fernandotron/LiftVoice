@@ -54,6 +54,7 @@ class AudioPlayerService {
     this.isMuted = false;
     this.volume = 1.0;
     this.playbackRate = 1.0;
+    this.basePlaybackRate = 1.0;
     this.nextStartTime = 0;
     this.activeSources = new Set();
     this.currentLanguage = 'es';
@@ -393,7 +394,9 @@ class AudioPlayerService {
   }
 
   setPlaybackRate(rate) {
-    this.playbackRate = Math.max(0.8, Math.min(1.5, rate));
+    const cleanRate = Math.max(0.8, Math.min(1.5, rate));
+    this.basePlaybackRate = cleanRate;
+    this.playbackRate = cleanRate;
     if (this.htmlAudioTag) {
       this.htmlAudioTag.playbackRate = this.playbackRate;
     }
@@ -460,6 +463,7 @@ class AudioPlayerService {
       }
     }
     this.activeSources.clear();
+    this.suspendedChunks = [];
     if (this.audioCtx) {
       this.nextStartTime = this.audioCtx.currentTime;
     }
@@ -480,11 +484,7 @@ class AudioPlayerService {
     if (this.isMuted || !packet) return;
 
     if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && packet.lang !== this.currentLanguage) {
-      if (packet.isListenerDirect) {
-        this.currentLanguage = packet.lang;
-      } else {
-        return;
-      }
+      return;
     }
 
     // Sequence through FIFO decode queue on Web Audio API (Universal for Desktop, iOS Safari & Android)
@@ -533,7 +533,7 @@ class AudioPlayerService {
     if (this.isContextSuspended()) {
       if (!this.suspendedChunks) this.suspendedChunks = [];
       this.suspendedChunks.push(packet);
-      if (this.suspendedChunks.length > 6) this.suspendedChunks.shift();
+      if (this.suspendedChunks.length > 2) this.suspendedChunks.shift();
       return;
     }
 
@@ -548,29 +548,48 @@ class AudioPlayerService {
     // Decode audio data safely across all browsers
     const audioBuffer = await this.decodeAudioDataSafe(bytes.buffer);
     if (!audioBuffer) return;
+
+    // Discard chunk if language changed while decoding was asynchronously running
+    if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && packet.lang !== this.currentLanguage) {
+      return;
+    }
     
-    const sourceNode = this.audioCtx.createBufferSource();
-    sourceNode.buffer = audioBuffer;
-    sourceNode.playbackRate.setValueAtTime(this.playbackRate, this.audioCtx.currentTime);
-
-    // Micro cross-fade gain node to eliminate clicks at chunk boundaries
-    const chunkGain = this.audioCtx.createGain();
-    sourceNode.connect(chunkGain);
-    chunkGain.connect(this.gainNode);
-
     const now = this.audioCtx.currentTime;
     // Clean up stale nextStartTime if it drifted into the past or wildly ahead
     if (this.activeSources.size === 0 && (this.nextStartTime < now || this.nextStartTime > now + 1.0)) {
       this.nextStartTime = now;
     }
 
+    // Adaptive catch-up rate calculation: anti-chipmunk curve with Hard Resync
+    const baseRate = this.basePlaybackRate || this.playbackRate || 1.0;
+    const queueLeadTime = Math.max(0, this.nextStartTime - now);
+    let effectiveRate = baseRate;
+    if (queueLeadTime > 4.8) {
+      // Hard Resync: latency is excessive (network stutter/tab sleep); snap to live stream
+      this.nextStartTime = now;
+      effectiveRate = baseRate;
+    } else if (queueLeadTime > 3.2) {
+      effectiveRate = Math.min(1.2, baseRate * 1.07); // controlled catch-up (+117 cents, clean speech)
+    } else if (queueLeadTime > 1.8) {
+      effectiveRate = Math.min(1.15, baseRate * 1.04); // subtle imperceptible recovery (+68 cents)
+    }
+
+    const sourceNode = this.audioCtx.createBufferSource();
+    sourceNode.buffer = audioBuffer;
+    sourceNode.playbackRate.setValueAtTime(effectiveRate, this.audioCtx.currentTime);
+
+    // Micro cross-fade gain node to eliminate clicks at chunk boundaries
+    const chunkGain = this.audioCtx.createGain();
+    sourceNode.connect(chunkGain);
+    chunkGain.connect(this.gainNode);
+
     // If chaining onto an existing active stream, start precisely at nextStartTime; otherwise give 60ms lead time
     const isChaining = this.activeSources.size > 0 && this.nextStartTime > now;
     const startTime = isChaining ? this.nextStartTime : Math.max(now + 0.06, this.nextStartTime);
-    const duration = audioBuffer.duration / this.playbackRate;
+    const duration = audioBuffer.duration / effectiveRate;
 
-    // Apply smooth linear 12ms fade-in and fade-out with collision prevention
-    const fade = Math.min(0.012, duration / 4);
+    // Apply smooth linear 8ms equal-power cross-fade
+    const fade = Math.min(0.008, duration / 4);
     if (fade > 0.002 && duration > fade * 2) {
       chunkGain.gain.setValueAtTime(0.001, startTime);
       chunkGain.gain.linearRampToValueAtTime(1.0, startTime + fade);
@@ -582,7 +601,8 @@ class AudioPlayerService {
     }
 
     sourceNode.start(startTime);
-    this.nextStartTime = startTime + duration;
+    // Overlap consecutive chunks by 8ms to eliminate gaps and baches between utterances
+    this.nextStartTime = Math.max(now, startTime + duration - 0.008);
     const activeItem = { sourceNode, chunkGain };
     this.activeSources.add(activeItem);
     this.isPlaying = true;

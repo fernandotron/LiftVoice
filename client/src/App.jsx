@@ -267,7 +267,8 @@ export default function App() {
 
   const handleCheckInComplete = (profileData) => {
     if (!pendingJoinRoom) return;
-    const { roomId: targetRoomId, lang: targetLang } = pendingJoinRoom;
+    const { roomId: targetRoomId, lang: initialTargetLang } = pendingJoinRoom;
+    const targetLang = profileData?.lang || initialTargetLang || 'es';
     const cleanId = normalizeRoomCode(targetRoomId);
 
     try {
@@ -469,6 +470,7 @@ export default function App() {
         {currentView === 'lobby' && (
           <AttendeeLobbyView
             roomId={pendingJoinRoom?.roomId || roomId || 'MAIN'}
+            initialLang={pendingJoinRoom?.lang}
             onBack={handleCheckInClose}
             onSubmit={handleCheckInComplete}
           />

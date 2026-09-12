@@ -858,6 +858,29 @@ export class TranslationService {
     };
   }
 
+  normalizeTranslationKeys(rawTranslations = {}) {
+    if (!rawTranslations || typeof rawTranslations !== 'object') return {};
+    const normalized = {};
+    for (const [key, val] of Object.entries(rawTranslations)) {
+      if (!val || typeof val !== 'string') continue;
+      const k = key.toLowerCase().trim().replace(/[-_]/g, '');
+      let targetKey = key.toLowerCase().trim();
+      if (k.startsWith('pt') || k === 'portuguese' || k === 'portugues') {
+        targetKey = 'pt';
+      } else if (k.startsWith('es') || k === 'spanish' || k === 'espanol') {
+        targetKey = 'es';
+      } else if (k.startsWith('it') || k === 'italian' || k === 'italiano') {
+        targetKey = 'it';
+      } else if (k.startsWith('en') || k === 'english' || k === 'ingles') {
+        targetKey = 'en';
+      } else if (targetKey.length > 2) {
+        targetKey = targetKey.slice(0, 2);
+      }
+      normalized[targetKey] = val.trim();
+    }
+    return normalized;
+  }
+
   async translateWithGemini(text, detectedSource, options = {}) {
     const key = this.geminiApiKey || process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || '';
     if (!key) {
@@ -917,7 +940,8 @@ Respond ONLY with valid JSON in this exact structure:
         model: this.geminiModel || 'google/gemini-3.1-flash-lite',
         messages: [{ role: 'user', content: systemPrompt }],
         temperature: this.geminiTemperature !== undefined ? this.geminiTemperature : 0.1,
-        max_tokens: 500
+        max_tokens: 500,
+        response_format: { type: 'json_object' }
       });
     }
 
@@ -954,6 +978,10 @@ Respond ONLY with valid JSON in this exact structure:
       throw new Error('[TranslationService] Gemini returned no translations in JSON');
     }
 
+    const normalizedTranslations = this.normalizeTranslationKeys(parsed.translations);
+    const standardKeys = ['en', 'es', 'it', 'pt'];
+    const omittedKeys = standardKeys.filter(k => !normalizedTranslations[k] || !normalizedTranslations[k].trim());
+
     const defaultTranslations = {
       en: text, es: text, it: text, pt: text
     };
@@ -962,8 +990,9 @@ Respond ONLY with valid JSON in this exact structure:
       detectedSource: parsed.detectedSource || detectedSource || 'auto',
       translations: {
         ...defaultTranslations,
-        ...parsed.translations
-      }
+        ...normalizedTranslations
+      },
+      omittedKeys
     };
   }
 
@@ -1058,7 +1087,8 @@ Respond ONLY with valid JSON in this exact structure:
         model,
         messages: [{ role: 'user', content: systemPrompt }],
         temperature: this.qwenTemperature !== undefined ? this.qwenTemperature : 0.1,
-        max_tokens: 500
+        max_tokens: 500,
+        ...(endpoint.includes('openrouter.ai') ? { response_format: { type: 'json_object' } } : {})
       }),
       signal: AbortSignal.timeout(2800)
     });
@@ -1083,6 +1113,10 @@ Respond ONLY with valid JSON in this exact structure:
       throw new Error('[TranslationService] Qwen returned no translations in JSON');
     }
 
+    const normalizedTranslations = this.normalizeTranslationKeys(parsed.translations);
+    const standardKeys = ['en', 'es', 'it', 'pt'];
+    const omittedKeys = standardKeys.filter(k => !normalizedTranslations[k] || !normalizedTranslations[k].trim());
+
     const defaultTranslations = {
       en: text, es: text, it: text, pt: text
     };
@@ -1091,8 +1125,9 @@ Respond ONLY with valid JSON in this exact structure:
       detectedSource: parsed.detectedSource || detectedSource || 'auto',
       translations: {
         ...defaultTranslations,
-        ...parsed.translations
-      }
+        ...normalizedTranslations
+      },
+      omittedKeys
     };
   }
 
@@ -1179,14 +1214,19 @@ Respond ONLY with valid JSON in this exact structure:
       throw new Error('[TranslationService] OpenAI returned no translations in JSON');
     }
 
+    const normalizedTranslations = this.normalizeTranslationKeys(parsed.translations);
+    const standardKeys = ['en', 'es', 'it', 'pt'];
+    const omittedKeys = standardKeys.filter(k => !normalizedTranslations[k] || !normalizedTranslations[k].trim());
+
     return {
       detectedSource: parsed.detectedSource || detectedSource || 'auto',
       translations: {
-        en: parsed.translations.en || text,
-        es: parsed.translations.es || text,
-        it: parsed.translations.it || text,
-        pt: parsed.translations.pt || text
-      }
+        en: normalizedTranslations.en || text,
+        es: normalizedTranslations.es || text,
+        it: normalizedTranslations.it || text,
+        pt: normalizedTranslations.pt || text
+      },
+      omittedKeys
     };
   }
 

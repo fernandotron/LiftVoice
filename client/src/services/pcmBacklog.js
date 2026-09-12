@@ -5,11 +5,11 @@
  * (durante una reconexión de red o congestión de buffer). Se reproduce en orden FIFO
  * al reabrir el socket o al aliviarse la congestión.
  *
- * Si excede el tope configurado (ej. 256 KB ≈ 8s de audio), descarta los bloques
+ * Si excede el tope configurado (ej. 512 KB ≈ 16.4s de audio a 16 kHz), descarta los bloques
  * MÁS VIEJOS (drop-oldest), protegiendo la memoria del navegador.
  */
 export class PcmBacklog {
-  constructor(maxBytes = 262144) {
+  constructor(maxBytes = 524288) {
     this.maxBytes = maxBytes;
     this.chunks = [];
     this.bytes = 0;

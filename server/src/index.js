@@ -375,7 +375,7 @@ app.get('/api/config', async (req, res) => {
       preferredSttEngine: sttService.preferredSttEngine || 'deepgram',
       sttLang: sttService.sttLanguage || 'auto',
       sttVad: sttService.sttVad || 'standard',
-      preferredTtsEngine: ttsService.preferredTtsEngine || 'deepgram',
+      preferredTtsEngine: ttsService.preferredTtsEngine || 'auto',
       decalageMode: aiPipeline.decalageMode || 'natural',
       googleNeuralMode: translationService.googleNeuralMode || 'universal',
       preferredTranslationEngine: translationService.preferredEngine || 'gemini',
@@ -520,11 +520,13 @@ app.post('/api/config', requireAdminAuth, (req, res) => {
     voiceConfig,
     voiceGender
   });
+  cachedGrantToken = null;
   res.json({ success: true, message: 'API keys, STT, TTS and Translation settings updated successfully' });
 });
 
 // In-memory token cache for Deepgram Grant tokens (avoids roundtrips on rapid client reconnections)
 let cachedGrantToken = null; // { token, expiresAt }
+let grantTokenPromiseInFlight = null; // Single-flight mutex to coalesce concurrent token requests
 
 // Ephemeral ASR Token for Direct Deepgram Streaming WebSocket (Nova-3) (#ISSUE-01)
 app.post('/api/asr-token', async (req, res) => {
@@ -535,7 +537,8 @@ app.post('/api/asr-token', async (req, res) => {
       return res.status(500).json({ error: 'Deepgram API key not configured on server' });
     }
 
-    const requestedLang = req.body.language || req.body.lang || 'auto';
+    const body = req.body || {};
+    const requestedLang = (typeof body.language === 'string' && body.language) || (typeof body.lang === 'string' && body.lang) || 'auto';
     let deepgramLang = 'multi';
     if (requestedLang && requestedLang !== 'auto') {
       const short = requestedLang.slice(0, 2).toLowerCase();
@@ -555,57 +558,82 @@ app.post('/api/asr-token', async (req, res) => {
       .map(s => s.trim())
       .filter(Boolean);
 
+    const forceRefresh = Boolean(body.forceRefresh);
     let token = null;
     let expiresIn = 60;
     const now = Date.now();
 
-    // Reutilizar token en caché si aún restan al menos 15 segundos de validez
-    if (cachedGrantToken && now < cachedGrantToken.expiresAt - 15000) {
+    // Reutilizar token en caché si no se fuerza refresco y aún restan al menos 15 segundos de validez
+    if (!forceRefresh && cachedGrantToken && now < cachedGrantToken.expiresAt - 15000) {
       token = cachedGrantToken.token;
       expiresIn = Math.max(10, Math.round((cachedGrantToken.expiresAt - now) / 1000));
     } else {
-      try {
-        const grantRes = await fetch('https://api.deepgram.com/v1/auth/grant', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Token ${apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ ttl_seconds: 60 }),
-          signal: AbortSignal.timeout(5000)
-        });
-        if (grantRes.ok) {
-          const grantData = await grantRes.json();
-          token = grantData.access_token || grantData.key;
-          expiresIn = grantData.expires_in || 60;
-          cachedGrantToken = {
-            token,
-            expiresAt: now + (expiresIn * 1000)
-          };
-        } else {
-          const errText = await grantRes.text().catch(() => '');
-          console.warn(`[ASR Token] Deepgram grant failed (${grantRes.status}): ${errText.slice(0, 300)}`);
-          return res.status(502).json({
-            error: 'Deepgram Grant API error or insufficient permissions on configured key. Please check Deepgram project permissions.',
-            code: 'GRANT_API_UNAVAILABLE',
-            status: grantRes.status
-          });
-        }
-      } catch (gErr) {
-        console.warn('[ASR Token] Grant fetch exception:', gErr.message);
-        return res.status(502).json({
-          error: 'Failed to connect to Deepgram Grant API: ' + gErr.message,
-          code: 'GRANT_API_NETWORK_ERROR'
-        });
+      if (forceRefresh) {
+        cachedGrantToken = null;
       }
+
+      // Single-flight mutex pattern: compartir petición en vuelo con peticiones concurrentes
+      if (!grantTokenPromiseInFlight) {
+        grantTokenPromiseInFlight = (async () => {
+          try {
+            const grantRes = await fetch('https://api.deepgram.com/v1/auth/grant', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Token ${apiKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ ttl_seconds: 60 }),
+              signal: AbortSignal.timeout(5000)
+            });
+            if (grantRes.ok) {
+              const grantData = await grantRes.json();
+              const newToken = grantData.access_token || grantData.key;
+              const newExpiresIn = grantData.expires_in || 60;
+              cachedGrantToken = {
+                token: newToken,
+                expiresAt: Date.now() + (newExpiresIn * 1000)
+              };
+              return { success: true, token: newToken, expiresIn: newExpiresIn };
+            } else {
+              const errText = await grantRes.text().catch(() => '');
+              console.warn(`[ASR Token] Deepgram grant failed (${grantRes.status}): ${errText.slice(0, 300)}`);
+              return {
+                success: false,
+                status: grantRes.status,
+                error: 'Deepgram Grant API error or insufficient permissions on configured key. Please check Deepgram project permissions.',
+                code: 'GRANT_API_UNAVAILABLE'
+              };
+            }
+          } catch (gErr) {
+            console.warn('[ASR Token] Grant fetch exception:', gErr.message);
+            return {
+              success: false,
+              status: 502,
+              error: 'Failed to connect to Deepgram Grant API: ' + gErr.message,
+              code: 'GRANT_API_NETWORK_ERROR'
+            };
+          } finally {
+            grantTokenPromiseInFlight = null;
+          }
+        })();
+      }
+
+      const grantResult = await grantTokenPromiseInFlight;
+      if (!grantResult || !grantResult.success) {
+        return res.status((grantResult && grantResult.status) || 502).json(grantResult || { error: 'Unknown grant error' });
+      }
+      token = grantResult.token;
+      expiresIn = grantResult.expiresIn;
     }
+
+    const sttModel = (deepgramLang === 'en') ? 'nova-3' : 'nova-2';
 
     return res.json({
       success: true,
       token,
       expiresIn,
       listenUrl: 'wss://api.deepgram.com/v1/listen',
-      model: 'nova-3',
+      model: sttModel,
       language: deepgramLang,
       keyterms: [...new Set(keyterms)].slice(0, 50),
       mipOptOut: Boolean(req.body.medicalMode)

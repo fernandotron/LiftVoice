@@ -30,7 +30,9 @@ class RoomManager {
       for (const [id, room] of this.rooms.entries()) {
         if (!room || reapedRooms.has(room)) continue;
         const isAbandoned = !room.hostSocket && (!room.listeners || room.listeners.size === 0);
-        const isIdle = (now - (room.lastActivity || room.createdAt)) > 20 * 60 * 1000;
+        const hasHistoryOrAttendees = (room.transcriptHistory && room.transcriptHistory.length > 0) || (room.registeredAttendees && room.registeredAttendees.size > 0);
+        const maxIdleMs = hasHistoryOrAttendees ? 60 * 60 * 1000 : 20 * 60 * 1000;
+        const isIdle = (now - (room.lastActivity || room.createdAt)) > maxIdleMs;
         if (isAbandoned && isIdle) {
           reapedRooms.add(room);
           console.log(`[RoomManager] Reaped inactive room ${id}`);
@@ -116,6 +118,10 @@ class RoomManager {
         targetLanguages: ['es', 'en', 'it', 'pt'],
         autoDetectSource: true,
         defaultLanguage: 'es',
+        decalageMode: 'natural',
+        decalageValue: 50,
+        vadSensitivity: 'standard',
+        lazyCabins: true
       }
     };
 
@@ -870,6 +876,28 @@ class RoomManager {
       room.transcriptHistory.shift();
     }
     room.metrics.sentencesProcessed++;
+
+    this.broadcastToRoom(roomId, {
+      type: 'TRANSCRIPT_EVENT',
+      item: transcriptItem
+    });
+  }
+
+  updateTranscriptItem(roomId, transcriptItem) {
+    const room = this.getRoom(roomId);
+    if (!room || !transcriptItem) return;
+
+    const idx = room.transcriptHistory.findIndex(i => i.id === transcriptItem.id);
+    if (idx !== -1) {
+      room.transcriptHistory[idx] = {
+        ...room.transcriptHistory[idx],
+        ...transcriptItem,
+        translations: {
+          ...(room.transcriptHistory[idx].translations || {}),
+          ...(transcriptItem.translations || {})
+        }
+      };
+    }
 
     this.broadcastToRoom(roomId, {
       type: 'TRANSCRIPT_EVENT',

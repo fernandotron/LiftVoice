@@ -50,7 +50,6 @@ const DEFAULT_GENDERS = {
 
 const BOOTH_VOICE_OPTIONS = {
   es: [
-    { id: 'aura-asteria-en', name: 'Deepgram Aura', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
     { id: 'es-ES-ElviraNeural', name: 'Google Elvira', gender: 'female', engine: 'google', desc: 'Fluida y natural • Universal' },
     { id: 'es-ES-AlvaroNeural', name: 'Google Álvaro', gender: 'male', engine: 'google', desc: 'Claro y profesional • Universal' },
     { id: 'qwen3-tts-es', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
@@ -74,7 +73,6 @@ const BOOTH_VOICE_OPTIONS = {
     { id: 'pNInz6obpgDQGcFmaJgB', name: 'ElevenLabs Adam', gender: 'male', engine: 'elevenlabs', desc: 'Keynote magistral • 11Labs' }
   ],
   it: [
-    { id: 'aura-asteria-en', name: 'Deepgram Aura', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
     { id: 'it-IT-ElsaNeural', name: 'Google Elsa', gender: 'female', engine: 'google', desc: 'Italiano fluido y expresivo • Universal' },
     { id: 'it-IT-CosimoNeural', name: 'Google Cosimo', gender: 'male', engine: 'google', desc: 'Sereno y refinado • Universal' },
     { id: 'qwen3-tts-it', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
@@ -83,7 +81,6 @@ const BOOTH_VOICE_OPTIONS = {
     { id: 'AZnzlk1XvdvUeBnXmlld', name: 'ElevenLabs Domi', gender: 'female', engine: 'elevenlabs', desc: 'Asertiva y dinámica • 11Labs' }
   ],
   pt: [
-    { id: 'aura-asteria-en', name: 'Deepgram Aura', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
     { id: 'pt-BR-FranciscaNeural', name: 'Google Francisca', gender: 'female', engine: 'google', desc: 'Portugués brasileño suave • Universal' },
     { id: 'pt-BR-AntonioNeural', name: 'Google Antonio', gender: 'male', engine: 'google', desc: 'Enérgico y amigable • Universal' },
     { id: 'qwen3-tts-pt', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
@@ -355,6 +352,39 @@ export default function AdminSettingsShell({
     }
   };
 
+  const revertToInitialState = () => {
+    if (initialState) {
+      if (initialState.sttEngine !== undefined) setSttEngine(initialState.sttEngine);
+      if (initialState.preferredTtsEngine !== undefined) setPreferredTtsEngine(initialState.preferredTtsEngine);
+      if (initialState.voiceConfig !== undefined) setVoiceConfig(initialState.voiceConfig);
+      if (initialState.voiceGender !== undefined) setVoiceGender(initialState.voiceGender);
+      if (initialState.deepgramKey !== undefined) setDeepgramKey(initialState.deepgramKey);
+      if (initialState.geminiKey !== undefined) setGeminiKey(initialState.geminiKey);
+      if (initialState.geminiModel !== undefined) setGeminiModel(initialState.geminiModel);
+      if (initialState.geminiTemp !== undefined) setGeminiTemp(initialState.geminiTemp);
+      if (initialState.elevenLabsKey !== undefined) setElevenLabsKey(initialState.elevenLabsKey);
+      if (initialState.openaiKey !== undefined) setOpenaiKey(initialState.openaiKey);
+      if (initialState.openaiModel !== undefined) setOpenaiModel(initialState.openaiModel);
+      if (initialState.openaiTemp !== undefined) setOpenaiTemp(initialState.openaiTemp);
+      if (initialState.qwenKey !== undefined) setQwenKey(initialState.qwenKey);
+      if (initialState.qwenModel !== undefined) setQwenModel(initialState.qwenModel);
+      if (initialState.qwenTemp !== undefined) setQwenTemp(initialState.qwenTemp);
+      if (initialState.qwenEndpoint !== undefined) setQwenEndpoint(initialState.qwenEndpoint);
+      if (initialState.qwenTtsEndpoint !== undefined) setQwenTtsEndpoint(initialState.qwenTtsEndpoint);
+      if (initialState.preferredEngine !== undefined) setPreferredEngine(initialState.preferredEngine);
+      if (initialState.aiStrategy !== undefined) setAiStrategy(initialState.aiStrategy);
+      if (initialState.medicalMode !== undefined) setMedicalMode(initialState.medicalMode);
+      if (initialState.medicalSpecialty !== undefined) setMedicalSpecialty(initialState.medicalSpecialty);
+      if (initialState.customGlossary !== undefined) setCustomGlossary(initialState.customGlossary);
+      if (initialState.decalageMode !== undefined) setDecalageMode(initialState.decalageMode);
+      if (initialState.sttLang !== undefined) setSttLang(initialState.sttLang);
+      if (initialState.sttVad !== undefined) setSttVad(initialState.sttVad);
+      if (initialState.googleNeuralMode !== undefined) setGoogleNeuralMode(initialState.googleNeuralMode);
+      setIsDirty(false);
+      setTouchedKeys(new Set());
+    }
+  };
+
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -510,19 +540,68 @@ export default function AdminSettingsShell({
               hasElevenLabsKey: Boolean(data.hasElevenLabsKey),
               hasOpenAiKey: Boolean(data.hasOpenAiKey)
             });
-            if (data.preferredSttEngine && !localStorage.getItem('lv_stt_engine')) setSttEngine(data.preferredSttEngine);
-            if (data.preferredTtsEngine && !localStorage.getItem('lv_tts_engine')) setPreferredTtsEngine(data.preferredTtsEngine);
-            if (data.voiceConfig && !localStorage.getItem('lv_voice_config')) setVoiceConfig(prev => ({ ...prev, ...data.voiceConfig }));
-            if (data.qwenTtsEndpoint && !localStorage.getItem('lv_qwen_tts_endpoint')) setQwenTtsEndpoint(data.qwenTtsEndpoint);
-            if (data.sttLang && !localStorage.getItem('lv_stt_lang')) setSttLang(data.sttLang);
-            if (data.sttVad && !localStorage.getItem('lv_stt_vad')) setSttVad(data.sttVad);
-            if (data.aiStrategy && !localStorage.getItem('lv_ai_strategy')) setAiStrategy(data.aiStrategy);
-            if (data.geminiTemp && !localStorage.getItem('lv_gemini_temp')) setGeminiTemp(data.geminiTemp);
-            if (data.qwenTemp && !localStorage.getItem('lv_qwen_temp')) setQwenTemp(data.qwenTemp);
-            if (data.openaiModel && !localStorage.getItem('lv_openai_model')) setOpenaiModel(data.openaiModel);
-            if (data.openaiTemp && !localStorage.getItem('lv_openai_temp')) setOpenaiTemp(data.openaiTemp);
-            if (data.decalageMode && !localStorage.getItem('lv_decalage_mode')) setDecalageMode(data.decalageMode);
-            if (data.googleNeuralMode && !localStorage.getItem('lv_google_neural_mode')) setGoogleNeuralMode(data.googleNeuralMode);
+            const loadedStt = data.preferredSttEngine || sttEngine;
+            const loadedTransEngine = data.preferredTranslationEngine || preferredEngine;
+            const loadedTtsEngine = data.preferredTtsEngine || preferredTtsEngine;
+            const loadedVoiceCfg = data.voiceConfig ? { ...voiceConfig, ...data.voiceConfig } : voiceConfig;
+            const loadedVoiceGender = data.voiceGender ? { ...voiceGender, ...data.voiceGender } : voiceGender;
+            const loadedQwenTts = data.qwenTtsEndpoint !== undefined ? data.qwenTtsEndpoint : qwenTtsEndpoint;
+            const loadedSttLang = data.sttLang || sttLang;
+            const loadedSttVad = data.sttVad || sttVad;
+            const loadedAiStrategy = data.aiStrategy || aiStrategy;
+            const loadedGeminiModel = data.geminiModel || geminiModel;
+            const loadedGeminiTemp = data.geminiTemp || geminiTemp;
+            const loadedQwenModel = data.qwenModel || qwenModel;
+            const loadedQwenTemp = data.qwenTemp || qwenTemp;
+            const loadedOpenaiModel = data.openaiModel || openaiModel;
+            const loadedOpenaiTemp = data.openaiTemp || openaiTemp;
+            const loadedDecalage = data.decalageMode || decalageMode;
+            const loadedGoogleNeural = data.googleNeuralMode || googleNeuralMode;
+
+            if (data.preferredSttEngine) setSttEngine(data.preferredSttEngine);
+            if (data.preferredTranslationEngine) setPreferredEngine(data.preferredTranslationEngine);
+            if (data.preferredTtsEngine) setPreferredTtsEngine(data.preferredTtsEngine);
+            if (data.voiceConfig) setVoiceConfig(loadedVoiceCfg);
+            if (data.voiceGender) setVoiceGender(loadedVoiceGender);
+            if (data.qwenTtsEndpoint !== undefined) setQwenTtsEndpoint(data.qwenTtsEndpoint);
+            if (data.sttLang) setSttLang(data.sttLang);
+            if (data.sttVad) setSttVad(data.sttVad);
+            if (data.aiStrategy) setAiStrategy(data.aiStrategy);
+            if (data.geminiModel) setGeminiModel(data.geminiModel);
+            if (data.geminiTemp) setGeminiTemp(data.geminiTemp);
+            if (data.qwenModel) setQwenModel(data.qwenModel);
+            if (data.qwenTemp) setQwenTemp(data.qwenTemp);
+            if (data.openaiModel) setOpenaiModel(data.openaiModel);
+            if (data.openaiTemp) setOpenaiTemp(data.openaiTemp);
+            if (data.decalageMode) setDecalageMode(data.decalageMode);
+            if (data.googleNeuralMode) setGoogleNeuralMode(data.googleNeuralMode);
+
+            // Sincronizar el estado inicial de referencia para que NO aparezca "Modificaciones sin guardar" al abrir el modal
+            setInitialState({
+              sttEngine: loadedStt,
+              preferredTtsEngine: loadedTtsEngine,
+              voiceConfig: loadedVoiceCfg,
+              voiceGender: loadedVoiceGender,
+              deepgramKey, geminiKey,
+              geminiModel: loadedGeminiModel,
+              geminiTemp: loadedGeminiTemp,
+              elevenLabsKey, openaiKey,
+              openaiModel: loadedOpenaiModel,
+              openaiTemp: loadedOpenaiTemp,
+              qwenKey,
+              qwenModel: loadedQwenModel,
+              qwenTemp: loadedQwenTemp,
+              qwenEndpoint,
+              qwenTtsEndpoint: loadedQwenTts,
+              preferredEngine: loadedTransEngine,
+              aiStrategy: loadedAiStrategy,
+              medicalMode, medicalSpecialty, customGlossary,
+              decalageMode: loadedDecalage,
+              sttLang: loadedSttLang,
+              sttVad: loadedSttVad,
+              googleNeuralMode: loadedGoogleNeural
+            });
+            setIsDirty(false);
           }
         })
         .catch(() => {});
@@ -1901,6 +1980,7 @@ export default function AdminSettingsShell({
           isOpen={showUnsavedPrompt}
           onCancel={() => setShowUnsavedPrompt(false)}
           onConfirm={() => {
+            revertToInitialState();
             setShowUnsavedPrompt(false);
             onClose();
           }}
@@ -1946,7 +2026,7 @@ export default function AdminSettingsShell({
       {shouldShowFooter && (
         <AdminStickyFooter variant="page" onSave={handleSave} onCancel={handleReturn} isDirty={isDirty} isSaving={isSaving} isSaved={isSaved} />
       )}
-      <UnsavedChangesPrompt isOpen={showUnsavedPrompt} onCancel={() => setShowUnsavedPrompt(false)} onConfirm={() => { setShowUnsavedPrompt(false); executeReturn(); }} />
+      <UnsavedChangesPrompt isOpen={showUnsavedPrompt} onCancel={() => setShowUnsavedPrompt(false)} onConfirm={() => { revertToInitialState(); setShowUnsavedPrompt(false); executeReturn(); }} />
     </div>
   );
 }

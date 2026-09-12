@@ -169,7 +169,7 @@ export class AIPipeline {
         sourceLanguage: arg3 || 'auto'
       };
     }
-    const { roomId, text, audioBuffer, mimeType, sourceLanguage = 'auto', seqId = 1, forceLanguages = [], medicalMode, medicalSpecialty, customGlossary } = opts;
+    let { roomId, text, audioBuffer, mimeType, sourceLanguage = 'auto', seqId = 1, forceLanguages = [], medicalMode, medicalSpecialty, customGlossary } = opts;
     const pipelineStart = Date.now();
     const packetId = `pkt_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     let spokenText = (text || '').trim();
@@ -356,10 +356,36 @@ export class AIPipeline {
     // Broadcast transcript immediately for ultra-fast live captions (<500ms)
     roomManager.addTranscriptItem(roomId, transcriptItem);
 
-    // Step 3: Selective Parallel TTS generation & Audio Distribution (Lazy Cabins)
+    // Step 3: Bulkhead Orchestration: Fast Lane for healthy cabins + Healing Lane for omitted cabins
     const ttsStart = Date.now();
+    const cleanSpoken = spokenText.trim().toLowerCase();
+    const sourceShort = (detectedLang || sourceLanguage || 'es').slice(0, 2).toLowerCase();
+    const reportedOmitted = new Set(transResult.omittedKeys || []);
 
-    const ttsPromises = targetLangs.map(async (lang) => {
+    const isUniversalCognate = (txt) => {
+      const COGNATES = new Set([
+        'doctor', 'hospital', 'covid', 'covid-19', 'diabetes', 'hepatitis', 'shock',
+        'parkinson', 'alzheimer', 'ecg', 'ekg', 'icu', 'uci', 'dna', 'arn', 'adn'
+      ]);
+      return COGNATES.has(txt.toLowerCase().trim());
+    };
+
+    const isOmittedOrUntranslated = (lang) => {
+      if (lang === sourceShort) return false;
+      if (reportedOmitted.has(lang)) return true;
+      const tVal = (transResult.translations[lang] || '').trim();
+      if (!tVal) return true;
+      // Si el texto es idéntico palabra por palabra al texto de origen en idioma distinto, es un fallback no traducido
+      // salvo que se trate de un término médico internacional o acrónimo universal
+      if (tVal.toLowerCase() === cleanSpoken && cleanSpoken.length > 5 && !isUniversalCognate(cleanSpoken)) return true;
+      return false;
+    };
+
+    const healthyLangs = targetLangs.filter(l => !isOmittedOrUntranslated(l));
+    const healingLangs = targetLangs.filter(l => isOmittedOrUntranslated(l));
+
+    // VÍA RÁPIDA (Fast Lane): Sintetizar y difundir de inmediato las cabinas sanas sin demora (<180ms)
+    const fastLanePromises = healthyLangs.map(async (lang) => {
       const translatedText = transResult.translations[lang] || spokenText;
       if (!translatedText) return;
 
@@ -380,22 +406,60 @@ export class AIPipeline {
           });
         }
       } catch (err) {
-        console.error(`[AIPipeline] Error synthesizing TTS for lang ${lang}:`, err.message);
+        console.error(`[AIPipeline] Error synthesizing TTS for healthy lang ${lang}:`, err.message);
       }
     });
 
-    // Wait for parallel TTS synthesis of the current sentence to preserve chronological seqId order
-    // Uses 4500ms safety limit to prevent hangs while avoiding out-of-order packet drops
+    // VÍA DE AUTO-RECUPERACIÓN (Healing Lane): Auto-sanar cabinas omitidas con oyentes activos (<80ms)
+    // Se ejecuta en paralelo sin bloquear la vía rápida (Aislamiento Bulkhead)
+    if (healingLangs.length > 0) {
+      console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Bulkhead activado para cabina(s) omitida(s): [${healingLangs.join(', ')}]. Auto-sanando en paralelo...`);
+      for (const lang of healingLangs) {
+        (async () => {
+          try {
+            const healedRes = await translationService.translateWithFreeEngine(spokenText, detectedLang, [lang]);
+            const healedText = (healedRes && healedRes.translations && healedRes.translations[lang]) || spokenText;
+            transResult.translations[lang] = healedText;
+            transcriptItem.translations[lang] = healedText;
+
+            // Actualizar el historial de la sala y notificar a los oyentes de esa cabina
+            roomManager.updateTranscriptItem(roomId, transcriptItem);
+
+            // Sintetizar y difundir audio TTS para la cabina sanada
+            const audioResult = await ttsService.synthesize(healedText, lang);
+            if (audioResult) {
+              roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
+                id: `${packetId}_${lang}_healed`,
+                seqId,
+                lang,
+                text: healedText,
+                audioBase64: audioResult.audioBase64,
+                useClientWebSpeech: audioResult.useClientWebSpeech,
+                mimeType: audioResult.mimeType || 'audio/mpeg',
+                duration: audioResult.durationMs,
+                latencyMs: Date.now() - pipelineStart,
+                timestamp: Date.now()
+              });
+              console.log(`[AIPipeline] 🩹 [Room: ${roomId}] Cabina '${lang}' auto-sanada y difundida con éxito (<${Date.now() - pipelineStart}ms).`);
+            }
+          } catch (hErr) {
+            console.warn(`[AIPipeline] Micro-fallback de auto-sanación falló para cabina '${lang}':`, hErr.message);
+          }
+        })();
+      }
+    }
+
+    // Esperar síntesis de la vía rápida para mantener métricas de latencia de ultra-baja demora
     try {
       await Promise.race([
-        Promise.all(ttsPromises),
+        Promise.all(fastLanePromises),
         new Promise((_, reject) => setTimeout(() => reject(new Error('TTS_TIMEOUT')), 4500))
       ]);
     } catch (ttsErr) {
       if (ttsErr?.message === 'TTS_TIMEOUT') {
-        console.warn(`[AIPipeline] ⏱️ TTS synthesis timed out for packet ${packetId} (seq ${seqId}) after 4500ms`);
+        console.warn(`[AIPipeline] ⏱️ Síntesis TTS de vía rápida excedió tiempo límite para paquete ${packetId} (seq ${seqId})`);
       } else {
-        console.warn('[AIPipeline] Background TTS error:', ttsErr);
+        console.warn('[AIPipeline] Error en TTS de vía rápida:', ttsErr);
       }
     }
 

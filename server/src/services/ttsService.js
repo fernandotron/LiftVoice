@@ -28,20 +28,20 @@ export class TTSService {
       hi: { openai: 'alloy', edge: 'hi-IN-SwaraNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en' }
     };
 
-    // User-configured voice choices per language
+    // User-configured voice choices per language (Canonical Neural Defaults)
     this.voiceConfig = {
-      en: 'alloy',
-      es: 'nova',
-      it: 'shimmer',
-      pt: 'echo',
-      fr: 'shimmer',
-      de: 'alloy',
-      zh: 'nova',
-      ja: 'shimmer',
-      ar: 'echo',
-      ru: 'onyx',
-      ko: 'nova',
-      hi: 'alloy',
+      es: 'es-ES-ElviraNeural',
+      en: 'aura-asteria-en',
+      it: 'it-IT-ElsaNeural',
+      pt: 'pt-BR-FranciscaNeural',
+      fr: 'fr-FR-DeniseNeural',
+      de: 'de-DE-KatjaNeural',
+      zh: 'zh-CN-XiaoxiaoNeural',
+      ja: 'ja-JP-NanamiNeural',
+      ar: 'ar-SA-ZariyahNeural',
+      ru: 'ru-RU-SvetlanaNeural',
+      ko: 'ko-KR-SunHiNeural',
+      hi: 'hi-IN-SwaraNeural',
       ...(config.voiceConfig || {})
     };
 
