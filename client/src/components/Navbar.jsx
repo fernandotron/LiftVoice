@@ -82,7 +82,7 @@ export default function Navbar({
                 onClick={onOpenSettings}
                 className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
               >
-                Configuración
+                Ajustes de Sala
               </button>
             </div>
           )}
@@ -123,8 +123,8 @@ export default function Navbar({
             <button
               onClick={onOpenSettings}
               className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
-              title="Configuración"
-              aria-label="Configuración"
+              title="Ajustes de Sala"
+              aria-label="Ajustes de Sala"
             >
               <Settings className="w-4 h-4" />
             </button>
