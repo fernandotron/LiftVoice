@@ -8,6 +8,10 @@ import {
 import { audioPlayerService } from '../../services/audioPlayer.js';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
+import SelectDropdown from '../shared/SelectDropdown.jsx';
+import AdminSidebarRail from './AdminSidebarRail.jsx';
+import AdminStickyFooter from './AdminStickyFooter.jsx';
+import UnsavedChangesPrompt from './UnsavedChangesPrompt.jsx';
 import { AdminLoginCard } from './AdminLoginCard.jsx';
 import { adminAuthService } from '../../services/adminAuthService.js';
 import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions.js';
@@ -43,54 +47,54 @@ const DEFAULT_GENDERS = {
 
 const BOOTH_VOICE_OPTIONS = {
   es: [
-    { id: 'aura-asteria-en', name: 'Deepgram Aura (Multilingüe)', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200 ⚡' },
-    { id: 'es-ES-ElviraNeural', name: 'Google Elvira', gender: 'female', engine: 'google', desc: 'Fluida y natural • Universal 🌐' },
-    { id: 'es-ES-AlvaroNeural', name: 'Google Álvaro', gender: 'male', engine: 'google', desc: 'Claro y profesional • Universal 🌐' },
-    { id: 'qwen3-tts-es', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen 🎙️' },
-    { id: 'nova', name: 'OpenAI Nova', gender: 'female', engine: 'openai', desc: 'Expresiva y cálida • OpenAI 🤖' },
-    { id: 'alloy', name: 'OpenAI Alloy', gender: 'neutral', engine: 'openai', desc: 'Neutra y corporativa • OpenAI 🤖' },
-    { id: 'echo', name: 'OpenAI Echo', gender: 'male', engine: 'openai', desc: 'Barítono suave • OpenAI 🤖' },
-    { id: '21m00Tcm4TlvDq8ikWAM', name: 'ElevenLabs Rachel', gender: 'female', engine: 'elevenlabs', desc: 'Fotorrealismo insignia • 11Labs 🌟' },
-    { id: 'ErXwobaYiN019PkySvjV', name: 'ElevenLabs Antoni', gender: 'male', engine: 'elevenlabs', desc: 'Cinematográfico • 11Labs 🌟' }
+    { id: 'aura-asteria-en', name: 'Deepgram Aura (Multilingüe)', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
+    { id: 'es-ES-ElviraNeural', name: 'Google Elvira', gender: 'female', engine: 'google', desc: 'Fluida y natural • Universal' },
+    { id: 'es-ES-AlvaroNeural', name: 'Google Álvaro', gender: 'male', engine: 'google', desc: 'Claro y profesional • Universal' },
+    { id: 'qwen3-tts-es', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
+    { id: 'nova', name: 'OpenAI Nova', gender: 'female', engine: 'openai', desc: 'Expresiva y cálida • OpenAI' },
+    { id: 'alloy', name: 'OpenAI Alloy', gender: 'neutral', engine: 'openai', desc: 'Neutra y corporativa • OpenAI' },
+    { id: 'echo', name: 'OpenAI Echo', gender: 'male', engine: 'openai', desc: 'Barítono suave • OpenAI' },
+    { id: '21m00Tcm4TlvDq8ikWAM', name: 'ElevenLabs Rachel', gender: 'female', engine: 'elevenlabs', desc: 'Fotorrealismo insignia • 11Labs' },
+    { id: 'ErXwobaYiN019PkySvjV', name: 'ElevenLabs Antoni', gender: 'male', engine: 'elevenlabs', desc: 'Cinematográfico • 11Labs' }
   ],
   en: [
-    { id: 'aura-asteria-en', name: 'Deepgram Asteria', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200 ⚡' },
-    { id: 'aura-orion-en', name: 'Deepgram Orion', gender: 'male', engine: 'deepgram', desc: 'Barítono confiado ~140ms • Saldo $200 ⚡' },
-    { id: 'aura-luna-en', name: 'Deepgram Luna', gender: 'female', engine: 'deepgram', desc: 'Serena y pausada • Saldo $200 ⚡' },
-    { id: 'aura-stella-en', name: 'Deepgram Stella', gender: 'female', engine: 'deepgram', desc: 'Directa e institucional • Saldo $200 ⚡' },
-    { id: 'aura-arcas-en', name: 'Deepgram Arcas', gender: 'male', engine: 'deepgram', desc: 'Amigable y cercano • Saldo $200 ⚡' },
-    { id: 'qwen3-tts-en', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen 🎙️' },
-    { id: 'en-US-JennyNeural', name: 'Google Jenny', gender: 'female', engine: 'google', desc: 'Articulación nítida • Universal 🌐' },
-    { id: 'en-US-GuyNeural', name: 'Google Guy', gender: 'male', engine: 'google', desc: 'Seguro y cálido • Universal 🌐' },
-    { id: 'alloy', name: 'OpenAI Alloy', gender: 'neutral', engine: 'openai', desc: 'Neutra y dinámica • OpenAI 🤖' },
-    { id: 'nova', name: 'OpenAI Nova', gender: 'female', engine: 'openai', desc: 'Modulación viva • OpenAI 🤖' },
-    { id: 'pNInz6obpgDQGcFmaJgB', name: 'ElevenLabs Adam', gender: 'male', engine: 'elevenlabs', desc: 'Keynote magistral • 11Labs 🌟' }
+    { id: 'aura-asteria-en', name: 'Deepgram Asteria', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
+    { id: 'aura-orion-en', name: 'Deepgram Orion', gender: 'male', engine: 'deepgram', desc: 'Barítono confiado ~140ms • Saldo $200' },
+    { id: 'aura-luna-en', name: 'Deepgram Luna', gender: 'female', engine: 'deepgram', desc: 'Serena y pausada • Saldo $200' },
+    { id: 'aura-stella-en', name: 'Deepgram Stella', gender: 'female', engine: 'deepgram', desc: 'Directa e institucional • Saldo $200' },
+    { id: 'aura-arcas-en', name: 'Deepgram Arcas', gender: 'male', engine: 'deepgram', desc: 'Amigable y cercano • Saldo $200' },
+    { id: 'qwen3-tts-en', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
+    { id: 'en-US-JennyNeural', name: 'Google Jenny', gender: 'female', engine: 'google', desc: 'Articulación nítida • Universal' },
+    { id: 'en-US-GuyNeural', name: 'Google Guy', gender: 'male', engine: 'google', desc: 'Seguro y cálido • Universal' },
+    { id: 'alloy', name: 'OpenAI Alloy', gender: 'neutral', engine: 'openai', desc: 'Neutra y dinámica • OpenAI' },
+    { id: 'nova', name: 'OpenAI Nova', gender: 'female', engine: 'openai', desc: 'Modulación viva • OpenAI' },
+    { id: 'pNInz6obpgDQGcFmaJgB', name: 'ElevenLabs Adam', gender: 'male', engine: 'elevenlabs', desc: 'Keynote magistral • 11Labs' }
   ],
   it: [
-    { id: 'aura-asteria-en', name: 'Deepgram Aura (Multilingüe)', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200 ⚡' },
-    { id: 'it-IT-ElsaNeural', name: 'Google Elsa', gender: 'female', engine: 'google', desc: 'Italiano fluido y expresivo • Universal 🌐' },
-    { id: 'it-IT-CosimoNeural', name: 'Google Cosimo', gender: 'male', engine: 'google', desc: 'Sereno y refinado • Universal 🌐' },
-    { id: 'qwen3-tts-it', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen 🎙️' },
-    { id: 'shimmer', name: 'OpenAI Shimmer', gender: 'female', engine: 'openai', desc: 'Luminosa y clara • OpenAI 🤖' },
-    { id: 'alloy', name: 'OpenAI Alloy', gender: 'neutral', engine: 'openai', desc: 'Versátil • OpenAI 🤖' },
-    { id: 'AZnzlk1XvdvUeBnXmlld', name: 'ElevenLabs Domi', gender: 'female', engine: 'elevenlabs', desc: 'Asertiva y dinámica • 11Labs 🌟' }
+    { id: 'aura-asteria-en', name: 'Deepgram Aura (Multilingüe)', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
+    { id: 'it-IT-ElsaNeural', name: 'Google Elsa', gender: 'female', engine: 'google', desc: 'Italiano fluido y expresivo • Universal' },
+    { id: 'it-IT-CosimoNeural', name: 'Google Cosimo', gender: 'male', engine: 'google', desc: 'Sereno y refinado • Universal' },
+    { id: 'qwen3-tts-it', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
+    { id: 'shimmer', name: 'OpenAI Shimmer', gender: 'female', engine: 'openai', desc: 'Luminosa y clara • OpenAI' },
+    { id: 'alloy', name: 'OpenAI Alloy', gender: 'neutral', engine: 'openai', desc: 'Versátil • OpenAI' },
+    { id: 'AZnzlk1XvdvUeBnXmlld', name: 'ElevenLabs Domi', gender: 'female', engine: 'elevenlabs', desc: 'Asertiva y dinámica • 11Labs' }
   ],
   pt: [
-    { id: 'aura-asteria-en', name: 'Deepgram Aura (Multilingüe)', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200 ⚡' },
-    { id: 'pt-BR-FranciscaNeural', name: 'Google Francisca', gender: 'female', engine: 'google', desc: 'Portugués brasileño suave • Universal 🌐' },
-    { id: 'pt-BR-AntonioNeural', name: 'Google Antonio', gender: 'male', engine: 'google', desc: 'Enérgico y amigable • Universal 🌐' },
-    { id: 'qwen3-tts-pt', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen 🎙️' },
-    { id: 'echo', name: 'OpenAI Echo', gender: 'male', engine: 'openai', desc: 'Voz pausada y clara • OpenAI 🤖' },
-    { id: 'nova', name: 'OpenAI Nova', gender: 'female', engine: 'openai', desc: 'Expresiva • OpenAI 🤖' },
-    { id: 'ErXwobaYiN019PkySvjV', name: 'ElevenLabs Antoni', gender: 'male', engine: 'elevenlabs', desc: 'Locución natural • 11Labs 🌟' }
+    { id: 'aura-asteria-en', name: 'Deepgram Aura (Multilingüe)', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
+    { id: 'pt-BR-FranciscaNeural', name: 'Google Francisca', gender: 'female', engine: 'google', desc: 'Portugués brasileño suave • Universal' },
+    { id: 'pt-BR-AntonioNeural', name: 'Google Antonio', gender: 'male', engine: 'google', desc: 'Enérgico y amigable • Universal' },
+    { id: 'qwen3-tts-pt', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
+    { id: 'echo', name: 'OpenAI Echo', gender: 'male', engine: 'openai', desc: 'Voz pausada y clara • OpenAI' },
+    { id: 'nova', name: 'OpenAI Nova', gender: 'female', engine: 'openai', desc: 'Expresiva • OpenAI' },
+    { id: 'ErXwobaYiN019PkySvjV', name: 'ElevenLabs Antoni', gender: 'male', engine: 'elevenlabs', desc: 'Locución natural • 11Labs' }
   ]
 };
 
 const BOOTHS = [
-  { lang: 'es', label: 'Español', flag: '🇪🇸', badge: 'Cabina Principal' },
-  { lang: 'en', label: 'English', flag: '🇺🇸', badge: 'Cabina Global' },
-  { lang: 'it', label: 'Italiano', flag: '🇮🇹', badge: 'Cabina Europea' },
-  { lang: 'pt', label: 'Português', flag: '🇧🇷', badge: 'Cabina Iberoamérica' }
+  { lang: 'es', label: 'Español', flag: 'ES', badge: 'Cabina Principal' },
+  { lang: 'en', label: 'English', flag: 'US', badge: 'Cabina Global' },
+  { lang: 'it', label: 'Italiano', flag: 'IT', badge: 'Cabina Europea' },
+  { lang: 'pt', label: 'Português', flag: 'BR', badge: 'Cabina Iberoamérica' }
 ];
 
 export default function AdminSettingsShell({
@@ -181,6 +185,43 @@ export default function AdminSettingsShell({
 
   const [decalageMode, setDecalageMode] = useState(() => safeGetItem('lv_decalage_mode', 'natural'));
 
+  const [isDirty, setIsDirty] = useState(false);
+  
+  // Track dirtiness based on state changes. We can do it by saving initial state.
+  const [initialState, setInitialState] = useState(null);
+  
+  useEffect(() => {
+    if (!initialState && !isCheckingAuth) {
+      setInitialState({
+        sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
+        deepgramKey, geminiKey, geminiModel, elevenLabsKey, openaiKey, qwenKey, qwenModel, qwenEndpoint, qwenTtsEndpoint,
+        preferredEngine, medicalMode, medicalSpecialty, customGlossary, decalageMode
+      });
+    }
+  }, [isCheckingAuth]);
+
+  useEffect(() => {
+    if (initialState) {
+      const current = {
+        sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
+        deepgramKey, geminiKey, geminiModel, elevenLabsKey, openaiKey, qwenKey, qwenModel, qwenEndpoint, qwenTtsEndpoint,
+        preferredEngine, medicalMode, medicalSpecialty, customGlossary, decalageMode
+      };
+      setIsDirty(JSON.stringify(current) !== JSON.stringify(initialState));
+    }
+  }, [sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
+      deepgramKey, geminiKey, geminiModel, elevenLabsKey, openaiKey, qwenKey, qwenModel, qwenEndpoint, qwenTtsEndpoint,
+      preferredEngine, medicalMode, medicalSpecialty, customGlossary, decalageMode]);
+      
+  const handleCloseAttempt = (e) => {
+    if (e) e.preventDefault();
+    if (isDirty) {
+      setShowUnsavedPrompt(true);
+    } else {
+      onClose();
+    }
+  };
+
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -193,6 +234,7 @@ export default function AdminSettingsShell({
     hasOpenAiKey: false
   });
 
+  const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
   const [showKeys, setShowKeys] = useState({});
   const toggleShowKey = (keyName) => {
     setShowKeys(prev => ({ ...prev, [keyName]: !prev[keyName] }));
@@ -489,6 +531,8 @@ export default function AdminSettingsShell({
 
       setIsSaving(false);
       setIsSaved(true);
+      setInitialState(savedCfg);
+      setIsDirty(false);
 
       if (onSaveConfig) onSaveConfig(savedCfg);
       window.dispatchEvent(new CustomEvent('liftvoice_config_saved', { detail: savedCfg }));
@@ -514,8 +558,9 @@ export default function AdminSettingsShell({
     openaiKey || serverFlags.hasOpenAiKey
   ].filter(Boolean).length;
 
+  const engineSummary = `Cadena: ${sttEngine} + ${preferredEngine} + ${preferredTtsEngine}`;
   const ALL_TABS = [
-    { id: 'stt', label: 'Transcriptor (STT)', icon: Mic, badge: sttEngine === 'deepgram' ? 'Deepgram ⚡' : (sttEngine ? sttEngine.charAt(0).toUpperCase() + sttEngine.slice(1).toLowerCase() : ''), reqPerm: PERMISSIONS.PERM_ROOM_AUDIO },
+    { id: 'stt', label: 'Transcriptor (STT)', icon: Mic, badge: sttEngine === 'deepgram' ? 'Deepgram ' : (sttEngine ? sttEngine.charAt(0).toUpperCase() + sttEngine.slice(1).toLowerCase() : ''), reqPerm: PERMISSIONS.PERM_ROOM_AUDIO },
     { id: 'tts', label: 'Voces por Idioma', icon: Volume2, badge: '4 cabinas', reqPerm: PERMISSIONS.PERM_ROOM_AUDIO },
     { id: 'ai', label: 'Modelos de Traducción', icon: Cpu, badge: preferredEngine ? preferredEngine.charAt(0).toUpperCase() + preferredEngine.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_AI_MODELS },
     { id: 'appearance', label: 'Apariencia & Tema', icon: Palette, badge: theme ? theme.charAt(0).toUpperCase() + theme.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_ACCESS_ADMIN },
@@ -556,90 +601,8 @@ export default function AdminSettingsShell({
     }
   };
 
+  const renderSidebarContent = () => (<AdminSidebarRail tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} engineSummary={engineSummary} />);
 
-  const renderSidebarContent = () => (
-    <>
-      {variant === 'modal' && (
-        <div className="flex items-center justify-between mb-4 md:mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center shadow-xs flex-shrink-0">
-              <Settings className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 id="settings-dialog-title" className="font-bold text-sm text-zinc-900 dark:text-zinc-50 tracking-tight">Configuración</h3>
-              <p className="text-[11px] text-zinc-400 dark:text-zinc-500">LiftVoice Studio 2026</p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer transition-colors" aria-label="Cerrar configuración">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      <div 
-        role="tablist"
-        aria-label="Secciones de configuración"
-        className={`flex ${variant === 'page' ? 'md:flex-col p-1.5 rounded-2xl bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/80 dark:border-zinc-800/80' : 'md:flex-col pb-1 md:pb-0'} overflow-x-auto no-scrollbar gap-1.5`}
-      >
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id} role="tab" aria-selected={isActive}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
-                isActive
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white font-semibold shadow-xs border border-zinc-200/60 dark:border-zinc-700/60'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/50 dark:hover:bg-zinc-800/40'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Icon className={`w-4 h-4 ${isActive ? 'text-zinc-950 dark:text-white' : 'text-zinc-400 dark:text-zinc-500'}`} />
-                <span>{tab.label}</span>
-              </div>
-              {tab.badge && (
-                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md ml-2 hidden sm:inline-block ${
-                  isActive
-                    ? 'bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
-                    : 'bg-zinc-200/60 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400'
-                }`}>{tab.badge}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className={`hidden md:block ${variant === 'page' ? 'p-4 mt-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/80 dark:border-zinc-800/80' : 'p-3.5 mt-auto rounded-2xl bg-zinc-100/50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/10'} space-y-2 text-zinc-600 dark:text-zinc-400 text-xs`}>
-        <div className="flex items-center justify-between font-semibold text-zinc-900 dark:text-zinc-100">
-          <span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-amber-500" /><span>Cadena Activa</span></span>
-          <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">ONLINE</span>
-        </div>
-        <p className="text-[11px] leading-relaxed">STT: <strong className="text-zinc-900 dark:text-zinc-100">{sttEngine === 'deepgram' ? 'Deepgram Nova-3 ⚡' : sttEngine === 'webspeech' ? 'Web Speech API' : 'Whisper-1'}</strong></p>
-        <p className="text-[11px] leading-relaxed">Traducción: <strong className="text-zinc-900 dark:text-zinc-100">{preferredEngine === 'gemini' ? 'Gemini 3.1 Flash-Lite ⚡' : preferredEngine === 'qwen' ? 'Alibaba Qwen 3.8' : 'GPT-4o Mini'}</strong></p>
-        <p className="text-[11px] leading-relaxed">TTS: <strong className="text-zinc-900 dark:text-zinc-100">{preferredTtsEngine === 'deepgram' ? 'Deepgram Aura ⚡' : preferredTtsEngine === 'google' ? 'Google Neural Universal' : preferredTtsEngine}</strong></p>
-      </div>
-
-      {variant === 'page' && (
-        <div className="hidden md:block pt-4 space-y-2">
-          <button type="button" onClick={() => { adminAuthService.logout().then(() => setIsAuthenticated(false)); }} className="w-full h-9 rounded-xl bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all active:scale-[0.99]">
-            <X className="w-4 h-4" /><span>Cerrar Sesión</span>
-          </button>
-          <button type="button" onClick={handleSave} disabled={isSaving} className="w-full h-11 rounded-xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all active:scale-[0.99] disabled:opacity-50">
-            {isSaved ? <><Check className="w-4 h-4 stroke-[3] text-emerald-500" /><span>Preferencias Guardadas</span></> : isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Guardando...</span></> : <><CheckCircle2 className="w-4 h-4" /><span>Guardar Preferencias</span></>}
-          </button>
-        </div>
-      )}
-      
-      {variant === 'modal' && (
-         <div className="pt-2">
-          <button type="button" onClick={() => { adminAuthService.logout().then(() => setIsAuthenticated(false)); }} className="w-full h-9 rounded-xl border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-500/10 text-red-600 dark:text-red-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-[0.99]">
-            <Lock className="w-3.5 h-3.5" /><span>Cerrar Sesión Admin</span>
-          </button>
-         </div>
-      )}
-    </>
-  );
 
   const mainContent = (
     <div className={`flex-1 ${variant === 'modal' ? 'p-6 md:p-8 overflow-y-auto space-y-6' : 'min-w-0 space-y-6'}`}>
@@ -664,7 +627,7 @@ export default function AdminSettingsShell({
                 }`}
               >
                 <div className="text-xs font-bold flex items-center gap-1.5">
-                  <span>💰 Modo Saldo Deepgram</span>
+                  <span> Modo Saldo Deepgram</span>
                 </div>
                 <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-snug">
                   Nova-3 + Gemini 3.1 + Aura TTS (Gasta tus $200)
@@ -681,7 +644,7 @@ export default function AdminSettingsShell({
                 }`}
               >
                 <div className="text-xs font-bold flex items-center gap-1.5">
-                  <span>🌐 100% Económico / Free</span>
+                  <span> 100% Económico / Free</span>
                 </div>
                 <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-snug">
                   WebSpeech + Gemini + Google Neural ($0)
@@ -698,7 +661,7 @@ export default function AdminSettingsShell({
                 }`}
               >
                 <div className="text-xs font-bold flex items-center gap-1.5">
-                  <span>🌟 Máxima Calidad VIP</span>
+                  <span> Máxima Calidad VIP</span>
                 </div>
                 <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-snug">
                   Nova-3 + GPT-4o + ElevenLabs Turbo
@@ -730,7 +693,7 @@ export default function AdminSettingsShell({
                 {[
                   {
                     id: 'deepgram',
-                    title: '1. Deepgram Nova-3 Streaming (Predeterminado ⚡)',
+                    title: '1. Deepgram Nova-3 Streaming (Predeterminado )',
                     tag: 'Saldo $200 disponible • ~150ms',
                     badgeColor: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
                     desc: 'Modelo acústico insignia de Deepgram. Transcripción streaming ultra-rápida con puntuación inteligente y detección automática de idioma.',
@@ -738,7 +701,7 @@ export default function AdminSettingsShell({
                   },
                   {
                     id: 'gemini_live',
-                    title: '2. Google Gemini 3.5 Transcribe Live (Cloud 🌐)',
+                    title: '2. Google Gemini 3.5 Transcribe Live (Cloud )',
                     tag: 'Google Cloud • $0.54/hr',
                     badgeColor: 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-800',
                     desc: 'Nuevo modelo de transcripción multimodal de Google (Agosto 2026). Gran resistencia a reverberación acústica y acentos variados.',
@@ -746,7 +709,7 @@ export default function AdminSettingsShell({
                   },
                   {
                     id: 'whisper',
-                    title: '3. OpenAI Whisper (Whisper-1 🤖)',
+                    title: '3. OpenAI Whisper (Whisper-1 )',
                     tag: 'Alta precisión multilingüe',
                     badgeColor: 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800',
                     desc: 'Reconocimiento robusto con gran resistencia a ruido ambiente, ideal para ponencias muy técnicas o simposios médicos.',
@@ -754,7 +717,7 @@ export default function AdminSettingsShell({
                   },
                   {
                     id: 'webspeech',
-                    title: '4. Web Speech API (Navegador Local 💻)',
+                    title: '4. Web Speech API (Navegador Local )',
                     tag: '100% gratis & nativo',
                     badgeColor: 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800',
                     desc: 'Utiliza el motor integrado en Chrome, Edge o Safari. Funciona directamente en tu dispositivo sin servidores externos ni coste alguno.',
@@ -796,7 +759,7 @@ export default function AdminSettingsShell({
                       <div className="flex flex-wrap gap-2 pl-6.5 pt-1">
                         {engine.features.map((feat, i) => (
                           <span key={i} className="text-[10px] text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
-                            ✓ {feat}
+                             {feat}
                           </span>
                         ))}
                       </div>
@@ -827,19 +790,19 @@ export default function AdminSettingsShell({
                   <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">Motor de Síntesis Preferido:</span>
                   <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Selecciona el motor global o déjalo en Auto Inteligente.</span>
                 </div>
-                <select
+                <SelectDropdown
                   value={preferredTtsEngine}
                   onChange={(e) => handlePreferredTtsEngineChange(e.target.value)}
                   aria-label="Motor de síntesis preferido"
                   className="h-9 px-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs text-zinc-800 dark:text-zinc-200 font-medium focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 shadow-xs cursor-pointer"
                 >
-                  <option value="deepgram">1. Deepgram Aura / Aura-2 (Consume tus $200 de saldo ⚡)</option>
-                  <option value="google">2. Google Neural Universal (100% Gratis & Ilimitado 🌐)</option>
-                  <option value="qwen_tts">3. Alibaba Qwen3-TTS / CosyVoice (Ultra-rápido 97ms 🎙️)</option>
-                  <option value="elevenlabs">4. ElevenLabs Turbo v2.5 (Hiper-realista VIP 🌟)</option>
-                  <option value="openai">OpenAI TTS-1 (Alloy, Nova, Echo, Shimmer 🤖)</option>
-                  <option value="auto">Auto Inteligente (Mejor voz activa ⚡)</option>
-                </select>
+                  <option value="deepgram">1. Deepgram Aura / Aura-2 (Consume tus $200 de saldo )</option>
+                  <option value="google">2. Google Neural Universal (100% Gratis & Ilimitado )</option>
+                  <option value="qwen_tts">3. Alibaba Qwen3-TTS / CosyVoice (Ultra-rápido 97ms )</option>
+                  <option value="elevenlabs">4. ElevenLabs Turbo v2.5 (Hiper-realista VIP )</option>
+                  <option value="openai">OpenAI TTS-1 (Alloy, Nova, Echo, Shimmer )</option>
+                  <option value="auto">Auto Inteligente (Mejor voz activa )</option>
+                </SelectDropdown>
               </div>
 
               {/* 4 Language Cabins Grid */}
@@ -881,7 +844,7 @@ export default function AdminSettingsShell({
                                 : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
                             }`}
                           >
-                            👩 Fem
+                             Fem
                           </button>
                           <button
                             type="button"
@@ -893,7 +856,7 @@ export default function AdminSettingsShell({
                                 : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
                             }`}
                           >
-                            👨 Masc
+                             Masc
                           </button>
                         </div>
                       </div>
@@ -903,7 +866,7 @@ export default function AdminSettingsShell({
                         <label htmlFor={`admin-voice-${b.lang}`} className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 block">
                           Voz Asignada para {b.label}:
                         </label>
-                        <select
+                        <SelectDropdown
                           id={`admin-voice-${b.lang}`}
                           aria-label={`Voz asignada para cabina ${b.label}`}
                           value={currentVoice}
@@ -915,7 +878,7 @@ export default function AdminSettingsShell({
                               {v.name} ({v.desc})
                             </option>
                           ))}
-                        </select>
+                        </SelectDropdown>
                       </div>
 
                       {/* Preview Audition Button */}
@@ -964,10 +927,10 @@ export default function AdminSettingsShell({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
-                  { id: 'gemini', title: 'Gemini 3.1 Flash-Lite', subtitle: 'Ultra-rápido ~120ms', tag: 'Recomendado ⚡', badgeColor: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' },
-                  { id: 'qwen', title: 'Alibaba Qwen 3.8', subtitle: 'Open-Weights 27B', tag: 'Romances 🇨🇳', badgeColor: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
-                  { id: 'openai', title: 'GPT-4o Mini', subtitle: 'Alta precisión clínica', tag: 'OpenAI 🤖', badgeColor: 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800' },
-                  { id: 'google', title: 'Google Neural', subtitle: 'Universal <90ms', tag: '100% gratis 🌐', badgeColor: 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800' }
+                  { id: 'gemini', title: 'Gemini 3.1 Flash-Lite', subtitle: 'Ultra-rápido ~120ms', tag: 'Recomendado ', badgeColor: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' },
+                  { id: 'qwen', title: 'Alibaba Qwen 3.8', subtitle: 'Open-Weights 27B', tag: 'Romances ', badgeColor: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
+                  { id: 'openai', title: 'GPT-4o Mini', subtitle: 'Alta precisión clínica', tag: 'OpenAI ', badgeColor: 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800' },
+                  { id: 'google', title: 'Google Neural', subtitle: 'Universal <90ms', tag: '100% gratis ', badgeColor: 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800' }
                 ].map((eng) => (
                   <button
                     key={eng.id}
@@ -1002,15 +965,15 @@ export default function AdminSettingsShell({
                     <label className="text-xs text-zinc-700 dark:text-zinc-300 font-medium block">
                       Modelo de Gemini:
                     </label>
-                    <select
+                    <SelectDropdown
                       value={geminiModel}
-                      onChange={(e) => setGeminiModel(e.target.value)}
+                      onChange={(e) => {setGeminiModel(e.target.value); setIsDirty(true);}}
                       className="w-full h-10 px-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 transition-colors shadow-xs cursor-pointer"
                     >
-                      <option value="google/gemini-3.1-flash-lite">google/gemini-3.1-flash-lite (Sin CoT obligatorio • Recomendado ⚡)</option>
+                      <option value="google/gemini-3.1-flash-lite">google/gemini-3.1-flash-lite (Sin CoT obligatorio • Recomendado )</option>
                       <option value="google/gemini-3.5-flash-lite">google/gemini-3.5-flash-lite (Razonamiento adaptativo)</option>
                       <option value="gemini-2.0-flash">gemini-2.0-flash (Google AI Studio directo)</option>
-                    </select>
+                    </SelectDropdown>
                     <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                       Genera las 4 traducciones en una sola llamada estructurada JSON con latencia ultrabaja.
                     </p>
@@ -1029,16 +992,16 @@ export default function AdminSettingsShell({
                     <label className="text-xs text-zinc-700 dark:text-zinc-300 font-medium block">
                       Modelo de Qwen:
                     </label>
-                    <select
+                    <SelectDropdown
                       value={qwenModel}
-                      onChange={(e) => setQwenModel(e.target.value)}
+                      onChange={(e) => {setQwenModel(e.target.value); setIsDirty(true);}}
                       className="w-full h-10 px-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 transition-colors shadow-xs cursor-pointer"
                     >
                       <option value="qwen/qwen-3.8-27b">qwen/qwen-3.8-27b (Oficial OpenRouter Cloud)</option>
                       <option value="qwen/qwen-3.8-flash">qwen/qwen-3.8-flash (Ultra-baja latencia)</option>
                       <option value="qwen3.8:27b-instruct-q4_k_m">qwen3.8:27b-instruct-q4_k_m (Ollama Local GGUF)</option>
                       <option value="qwen3.5:9b-instruct-q4_k_m">qwen3.5:9b-instruct-q4_k_m (Ollama Ligero 5.5GB)</option>
-                    </select>
+                    </SelectDropdown>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1050,7 +1013,7 @@ export default function AdminSettingsShell({
                       <input
                         type="text"
                         value={qwenEndpoint}
-                        onChange={(e) => { setQwenEndpoint(e.target.value); markKeyTouched('qwenEndpoint'); }}
+                        onChange={(e) => { setQwenEndpoint(e.target.value); markKeyTouched('qwenEndpoint'); ; setIsDirty(true);}}
                         placeholder="http://localhost:11434/v1"
                         className="w-full h-9.5 px-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-mono text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 transition-all shadow-xs"
                       />
@@ -1064,7 +1027,7 @@ export default function AdminSettingsShell({
                       <input
                         type="text"
                         value={qwenTtsEndpoint}
-                        onChange={(e) => { setQwenTtsEndpoint(e.target.value); markKeyTouched('qwenTtsEndpoint'); }}
+                        onChange={(e) => { setQwenTtsEndpoint(e.target.value); markKeyTouched('qwenTtsEndpoint'); ; setIsDirty(true);}}
                         placeholder="http://localhost:8000/v1/audio/speech"
                         className="w-full h-9.5 px-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-mono text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 transition-all shadow-xs"
                       />
@@ -1120,16 +1083,16 @@ export default function AdminSettingsShell({
                     <label className="text-xs text-zinc-700 dark:text-zinc-300 font-medium block">
                       Especialidad Principal de la Conferencia:
                     </label>
-                    <select
+                    <SelectDropdown
                       value={medicalSpecialty}
-                      onChange={(e) => setMedicalSpecialty(e.target.value)}
+                      onChange={(e) => {setMedicalSpecialty(e.target.value); setIsDirty(true);}}
                       className="w-full h-10 px-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 transition-colors shadow-xs cursor-pointer"
                     >
-                      <option value="general">🩺 Medicina General / Urgencias & Cuidados Críticos</option>
-                      <option value="cardiology">🫀 Cardiología & Hemodinámica (ECG, IAM, Fibrilación)</option>
-                      <option value="pharmacology">💊 Farmacología Clínica & Dosificaciones (DCI / INN)</option>
-                      <option value="surgery">🔪 Cirugía General, Anestesiología & Quirófano</option>
-                    </select>
+                      <option value="general"> Medicina General / Urgencias & Cuidados Críticos</option>
+                      <option value="cardiology"> Cardiología & Hemodinámica (ECG, IAM, Fibrilación)</option>
+                      <option value="pharmacology"> Farmacología Clínica & Dosificaciones (DCI / INN)</option>
+                      <option value="surgery"> Cirugía General, Anestesiología & Quirófano</option>
+                    </SelectDropdown>
                   </div>
 
                   <div className="space-y-2">
@@ -1140,7 +1103,7 @@ export default function AdminSettingsShell({
                     <textarea
                       rows={4}
                       value={customGlossary}
-                      onChange={(e) => setCustomGlossary(e.target.value)}
+                      onChange={(e) => {setCustomGlossary(e.target.value); setIsDirty(true);}}
                       placeholder="SpO2, ECG, enoxaparina, amiodarona, troponina, IAM, shock cardiogénico, CIE-11..."
                       className="w-full p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-mono text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 transition-all shadow-xs resize-none"
                     />
@@ -1179,11 +1142,11 @@ export default function AdminSettingsShell({
                   <div className="flex items-center gap-2">
                     {serverFlags.hasDeepgramKey && (
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                        ✓ En servidor (.env)
+                         En servidor (.env)
                       </span>
                     )}
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-bold">
-                      💰 $200 SALDO DISPONIBLE
+                       $200 SALDO DISPONIBLE
                     </span>
                   </div>
                 </div>
@@ -1194,7 +1157,7 @@ export default function AdminSettingsShell({
                     aria-label="Clave de API de Deepgram"
                     type={showKeys.deepgram ? 'text' : 'password'}
                     value={deepgramKey}
-                    onChange={(e) => { setDeepgramKey(e.target.value); markKeyTouched('deepgram'); }}
+                    onChange={(e) => { setDeepgramKey(e.target.value); markKeyTouched('deepgram'); ; setIsDirty(true);}}
                     placeholder={serverFlags.hasDeepgramKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'Clave de Deepgram (Nova-3 y Aura)...'}
                     className="w-full h-10 pl-3.5 pr-10 bg-zinc-50/70 dark:bg-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 transition-all shadow-xs"
                   />
@@ -1208,7 +1171,7 @@ export default function AdminSettingsShell({
                   </button>
                 </div>
                 <p className="text-[10.5px] text-emerald-600 dark:text-emerald-400">
-                  💡 Tus $200 de saldo cubren más de 15 eventos completos de 5 horas con transcripción en vivo y síntesis de voz en cabinas.
+                   Tus $200 de saldo cubren más de 15 eventos completos de 5 horas con transcripción en vivo y síntesis de voz en cabinas.
                 </p>
               </div>
 
@@ -1227,7 +1190,7 @@ export default function AdminSettingsShell({
                   <div className="flex items-center gap-2">
                     {serverFlags.hasGeminiKey && (
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                        ✓ En servidor (.env)
+                         En servidor (.env)
                       </span>
                     )}
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-semibold">
@@ -1242,7 +1205,7 @@ export default function AdminSettingsShell({
                     aria-label="Clave de Google Gemini o OpenRouter"
                     type={showKeys.gemini ? 'text' : 'password'}
                     value={geminiKey}
-                    onChange={(e) => { setGeminiKey(e.target.value); markKeyTouched('gemini'); }}
+                    onChange={(e) => { setGeminiKey(e.target.value); markKeyTouched('gemini'); ; setIsDirty(true);}}
                     placeholder={serverFlags.hasGeminiKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'AIzaSy... o sk-or-v1-...'}
                     className="w-full h-10 pl-3.5 pr-10 bg-zinc-50/70 dark:bg-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 transition-all shadow-xs"
                   />
@@ -1272,7 +1235,7 @@ export default function AdminSettingsShell({
                   <div className="flex items-center gap-2">
                     {serverFlags.hasQwenKey && (
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                        ✓ En servidor (.env)
+                         En servidor (.env)
                       </span>
                     )}
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-medium">
@@ -1287,7 +1250,7 @@ export default function AdminSettingsShell({
                     aria-label="Clave de API de Alibaba Qwen"
                     type={showKeys.qwen ? 'text' : 'password'}
                     value={qwenKey}
-                    onChange={(e) => { setQwenKey(e.target.value); markKeyTouched('qwen'); }}
+                    onChange={(e) => { setQwenKey(e.target.value); markKeyTouched('qwen'); ; setIsDirty(true);}}
                     placeholder={serverFlags.hasQwenKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'sk-or-v1-... o sk-...'}
                     className="w-full h-10 pl-3.5 pr-10 bg-zinc-50/70 dark:bg-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 transition-all shadow-xs"
                   />
@@ -1317,7 +1280,7 @@ export default function AdminSettingsShell({
                   <div className="flex items-center gap-2">
                     {serverFlags.hasElevenLabsKey && (
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                        ✓ En servidor (.env)
+                         En servidor (.env)
                       </span>
                     )}
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-medium">
@@ -1332,7 +1295,7 @@ export default function AdminSettingsShell({
                     aria-label="Clave de API de ElevenLabs"
                     type={showKeys.eleven ? 'text' : 'password'}
                     value={elevenLabsKey}
-                    onChange={(e) => { setElevenLabsKey(e.target.value); markKeyTouched('eleven'); }}
+                    onChange={(e) => { setElevenLabsKey(e.target.value); markKeyTouched('eleven'); ; setIsDirty(true);}}
                     placeholder={serverFlags.hasElevenLabsKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'xi_api_key...'}
                     className="w-full h-10 pl-3.5 pr-10 bg-zinc-50/70 dark:bg-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 transition-all shadow-xs"
                   />
@@ -1362,7 +1325,7 @@ export default function AdminSettingsShell({
                   <div className="flex items-center gap-2">
                     {serverFlags.hasOpenAiKey && (
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                        ✓ En servidor (.env)
+                         En servidor (.env)
                       </span>
                     )}
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-medium">
@@ -1377,7 +1340,7 @@ export default function AdminSettingsShell({
                     aria-label="Clave de API de OpenAI"
                     type={showKeys.openai ? 'text' : 'password'}
                     value={openaiKey}
-                    onChange={(e) => { setOpenaiKey(e.target.value); markKeyTouched('openai'); }}
+                    onChange={(e) => { setOpenaiKey(e.target.value); markKeyTouched('openai'); ; setIsDirty(true);}}
                     placeholder={serverFlags.hasOpenAiKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'sk-proj-...'}
                     className="w-full h-10 pl-3.5 pr-10 bg-zinc-50/70 dark:bg-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 transition-all shadow-xs"
                   />
@@ -1468,7 +1431,7 @@ export default function AdminSettingsShell({
                 className="p-1 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-md text-rose-500 hover:text-rose-700 dark:hover:text-rose-200 transition-colors cursor-pointer flex-shrink-0"
                 aria-label="Cerrar mensaje de error"
               >
-                ✕
+                
               </button>
             </div>
           )}
@@ -1508,7 +1471,7 @@ export default function AdminSettingsShell({
     if (variant === 'modal') {
       return (
         <div className="w-full max-w-4xl h-[90dvh] sm:h-[640px] max-h-[90dvh] sm:max-h-[92vh] rounded-[28px] bg-white dark:bg-[#1f1f1f] shadow-2xl flex items-center justify-center relative">
-          <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 z-10"><X className="w-6 h-6"/></button>
+          <button onClick={handleCloseAttempt} className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 z-10"><X className="w-6 h-6"/></button>
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       );
@@ -1520,7 +1483,7 @@ export default function AdminSettingsShell({
     if (variant === 'modal') {
       return (
         <div className="w-full max-w-4xl h-[90dvh] sm:h-[640px] max-h-[90dvh] sm:max-h-[92vh] rounded-[28px] bg-white dark:bg-[#1f1f1f] shadow-2xl overflow-hidden relative">
-           <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 z-10"><X className="w-6 h-6"/></button>
+           <button onClick={handleCloseAttempt} className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 z-10"><X className="w-6 h-6"/></button>
            <AdminLoginCard onLoginSuccess={() => setIsAuthenticated(true)} />
         </div>
       );
@@ -1540,17 +1503,7 @@ export default function AdminSettingsShell({
         </div>
         <div className="flex-1 flex flex-col justify-between h-full overflow-hidden bg-white dark:bg-[#1f1f1f]">
           {mainContent}
-          <div className="p-4 sm:p-5 border-t border-zinc-200/80 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] flex items-center justify-between flex-shrink-0">
-            <p className="text-[10px] sm:text-xs text-zinc-500 dark:text-zinc-400">
-              {saveError && <span className="text-red-500 font-medium flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" />{saveError}</span>}
-            </p>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button type="button" onClick={onClose} disabled={isSaving} className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/50 dark:hover:bg-white/5 transition-colors cursor-pointer">Cancelar</button>
-              <button type="button" onClick={handleSave} disabled={isSaving} className="px-5 py-2 rounded-xl bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm transition-all active:scale-95 disabled:opacity-50">
-                {isSaved ? <><Check className="w-4 h-4 stroke-[3]" /><span>Guardado</span></> : isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Guardando...</span></> : <span>Guardar cambios</span>}
-              </button>
-            </div>
-          </div>
+          <AdminStickyFooter onSave={handleSave} onCancel={handleCloseAttempt} isDirty={isDirty} isSaving={isSaving} isSaved={isSaved} />
         </div>
       </div>
     );
@@ -1600,6 +1553,8 @@ export default function AdminSettingsShell({
           {mainContent}
         </section>
       </main>
+      <AdminStickyFooter onSave={handleSave} onCancel={handleReturn} isDirty={isDirty} isSaving={isSaving} isSaved={isSaved} />
+      <UnsavedChangesPrompt isOpen={showUnsavedPrompt} onCancel={() => setShowUnsavedPrompt(false)} onConfirm={() => { setShowUnsavedPrompt(false); onClose(); }} />
     </div>
   );
 }
