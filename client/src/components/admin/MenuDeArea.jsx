@@ -198,7 +198,7 @@ export default function MenuDeArea({
                       }}
                       className={`group w-full flex items-center gap-3.5 px-3.5 py-3 rounded-2xl text-left transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-500 dark:focus-visible:ring-white/40 ${
                         esActiva
-                          ? 'text-zinc-900 dark:text-white font-semibold hover:bg-zinc-100/70 dark:hover:bg-white/5 active:bg-zinc-200/60 dark:active:bg-white/10'
+                          ? 'bg-zinc-100/80 dark:bg-white/10 text-zinc-900 dark:text-white font-semibold'
                           : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5 active:bg-zinc-200/60 dark:active:bg-white/10 font-normal'
                       }`}
                     >
@@ -216,29 +216,22 @@ export default function MenuDeArea({
                       )}
 
                       {/* Texto del área */}
-                      <span className={`truncate flex-1 text-[15px] ${esActiva ? 'font-semibold text-zinc-900 dark:text-white' : 'font-normal'}`}>
+                      <span className={`truncate min-w-0 flex-1 text-[15px] ${esActiva ? 'font-semibold text-zinc-900 dark:text-white' : 'font-normal'}`}>
                         {o.title || o.label}
                       </span>
 
-                      {/* Badge contextual si existe */}
-                      {o.badge && (
-                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-                          esActiva
-                            ? 'bg-zinc-200 dark:bg-white/20 text-zinc-900 dark:text-white border-zinc-300 dark:border-white/20'
-                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
-                        }`}>
+                      {/* En la opción seleccionada mostramos el check a la derecha (sin etiqueta para evitar recargar y cortes). En las no seleccionadas mostramos su etiqueta/badge si existe, sin espacio fantasma. */}
+                      {esActiva ? (
+                        <Check
+                          className="shrink-0 text-zinc-900 dark:text-white w-4 h-4"
+                          strokeWidth={2.5}
+                          aria-hidden="true"
+                        />
+                      ) : o.badge ? (
+                        <span className="shrink-0 text-[10px] font-mono px-2 py-0.5 rounded-full border bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200/80 dark:border-zinc-700/80">
                           {o.badge}
                         </span>
-                      )}
-
-                      {/* Check simple a la derecha */}
-                      <Check
-                        className={`shrink-0 transition-opacity text-zinc-900 dark:text-white w-4 h-4 ${
-                          esActiva ? 'opacity-100' : 'opacity-0'
-                        }`}
-                        strokeWidth={2.5}
-                        aria-hidden="true"
-                      />
+                      ) : null}
                     </button>
                   );
                 })}
