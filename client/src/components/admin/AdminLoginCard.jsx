@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Lock, Loader2, ArrowLeft, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lock, Loader2, ArrowLeft, Shield, ShieldAlert } from 'lucide-react';
 import { adminAuthService } from '../../services/adminAuthService.js';
 
 export function AdminLoginCard({
@@ -11,16 +11,34 @@ export function AdminLoginCard({
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev <= 1) {
+          setError(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutSeconds]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!password.trim()) return;
+    if (!password.trim() || lockoutSeconds > 0) return;
     setError(null);
     setLoading(true);
     try {
       await adminAuthService.login(password.trim());
       onLoginSuccess();
     } catch (err) {
+      if (err.status === 429 && err.retryAfter) {
+        setLockoutSeconds(err.retryAfter);
+      }
       setError(err.message || 'Contraseña incorrecta');
     } finally {
       setLoading(false);
@@ -53,24 +71,32 @@ export function AdminLoginCard({
           placeholder="Contraseña de administrador"
           autoFocus
           required
-          className="w-full h-12 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-full px-5 text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all"
+          disabled={lockoutSeconds > 0}
+          className="w-full h-12 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-full px-5 text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         />
 
-        {error && (
+        {lockoutSeconds > 0 ? (
+          <div className="px-4 py-2.5 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-xs font-medium text-amber-700 dark:text-amber-300 text-center flex items-center justify-center gap-1.5">
+            <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Bloqueo temporal por seguridad: {Math.floor(lockoutSeconds / 60)}:{(lockoutSeconds % 60).toString().padStart(2, '0')} min</span>
+          </div>
+        ) : error ? (
           <div className="px-4 py-2.5 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs font-medium text-rose-600 dark:text-rose-400 text-center">
             {error}
           </div>
-        )}
+        ) : null}
 
         <button
           type="submit"
-          disabled={loading || !password.trim()}
+          disabled={loading || !password.trim() || lockoutSeconds > 0}
           className="w-full h-12 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm disabled:opacity-40 cursor-pointer transition-all active:scale-[0.99]"
         >
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin text-zinc-400 mr-2" />
           ) : null}
-          <span>{loading ? 'Verificando...' : 'Desbloquear'}</span>
+          <span>
+            {lockoutSeconds > 0 ? `Reintento en ${lockoutSeconds}s` : (loading ? 'Verificando...' : 'Desbloquear')}
+          </span>
         </button>
       </form>
 

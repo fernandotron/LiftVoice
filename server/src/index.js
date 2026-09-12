@@ -10,7 +10,16 @@ import { fileURLToPath } from 'url';
 import { roomManager } from './roomManager.js';
 import { aiPipeline } from './services/aiPipeline.js';
 import { userManager } from './services/userManager.js';
-import { createAdminSession, invalidateAdminSession, verifyAdminSession, validateAdminPassword, requireAdminAuth } from './services/adminAuth.js';
+import { 
+  createAdminSession, 
+  invalidateAdminSession, 
+  verifyAdminSession, 
+  validateAdminPassword, 
+  requireAdminAuth,
+  checkRateLimit,
+  recordFailedAttempt,
+  recordSuccessfulAttempt
+} from './services/adminAuth.js';
 
 dotenv.config();
 
@@ -122,17 +131,47 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// --- Admin Auth Endpoints ---
+// --- Admin Auth Endpoints (Protected by Rate Limiting & Timing Attack Shields) ---
 app.post('/api/admin/login', (req, res) => {
+  const ip = getClientIp(req);
+
+  // 1. Anti-brute force / Rate limit check
+  const rateLimitStatus = checkRateLimit(ip);
+  if (rateLimitStatus.isLocked) {
+    res.setHeader('Retry-After', rateLimitStatus.remainingSeconds);
+    return res.status(429).json({
+      error: `Demasiados intentos fallidos. Acceso bloqueado temporalmente por seguridad. Reintente en ${rateLimitStatus.remainingSeconds} segundos.`,
+      retryAfter: rateLimitStatus.remainingSeconds
+    });
+  }
+
   const { password } = req.body;
   if (!password) {
-    return res.status(400).json({ error: 'Password required' });
+    return res.status(400).json({ error: 'Contraseña requerida' });
   }
+
+  // 2. Timing-safe constant-time validation
   if (validateAdminPassword(password)) {
+    recordSuccessfulAttempt(ip);
     const token = createAdminSession();
     return res.json({ success: true, token });
   }
-  return res.status(401).json({ error: 'Invalid password' });
+
+  // 3. Record failed attempt and evaluate lockout threshold
+  const failure = recordFailedAttempt(ip);
+  if (failure.isLocked) {
+    res.setHeader('Retry-After', failure.remainingSeconds);
+    return res.status(429).json({
+      error: `Has superado el límite de 5 intentos fallidos. IP bloqueada durante 15 minutos.`,
+      retryAfter: failure.remainingSeconds
+    });
+  }
+
+  const remainingAttempts = failure.maxAttempts - failure.attemptsCount;
+  return res.status(401).json({
+    error: `Contraseña incorrecta. Te quedan ${remainingAttempts} intento${remainingAttempts === 1 ? '' : 's'} antes del bloqueo temporal.`,
+    remainingAttempts
+  });
 });
 
 app.post('/api/admin/logout', (req, res) => {

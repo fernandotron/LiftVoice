@@ -25,17 +25,24 @@ export const adminAuthService = {
 
     if (!res.ok) {
       let msg = 'Contraseña incorrecta';
+      let retryAfter = null;
       try {
         const errData = await res.json();
         if (errData.error) {
           msg = errData.error === 'Invalid password' ? 'Contraseña incorrecta' : errData.error;
+        }
+        if (errData.retryAfter) {
+          retryAfter = Number(errData.retryAfter);
         }
       } catch (e) {
         if (res.status >= 500) {
           msg = 'Error interno del servidor backend (puerto 3001).';
         }
       }
-      throw new Error(msg);
+      const errorObj = new Error(msg);
+      errorObj.status = res.status;
+      errorObj.retryAfter = retryAfter;
+      throw errorObj;
     }
     const data = await res.json();
     this.setToken(data.token);
