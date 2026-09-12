@@ -768,7 +768,7 @@ export default function AdminSettingsShell({
     }
   }, [hasPermission, activeTab, TABS]);
 
-  const handleReturn = () => {
+  const executeReturn = () => {
     if (effectiveRoomId && onNavigateHost) {
       onNavigateHost();
     } else if (onNavigateHome) {
@@ -783,6 +783,89 @@ export default function AdminSettingsShell({
       }
     }
   };
+
+  const handleReturn = () => {
+    if (isDirty) {
+      setShowUnsavedPrompt(true);
+    } else {
+      executeReturn();
+    }
+  };
+
+  const renderPageHeader = () => (
+    <header className="sticky top-0 z-40 w-full border-b border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md pt-safe transition-colors duration-150">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-15 sm:h-16">
+        {/* Left: Brand Logo + Context + Attached Room Badge */}
+        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+          <button
+            type="button"
+            onClick={handleReturn}
+            className="flex items-center gap-2 sm:gap-2.5 text-left cursor-pointer group select-none shrink-0"
+            title={effectiveRoomId ? 'Volver a la sala' : 'Volver al inicio'}
+          >
+            <div className="flex items-center gap-1 shrink-0">
+              <div className="w-1 h-5 bg-zinc-900 dark:bg-zinc-100 rounded-full group-hover:bg-zinc-700 dark:group-hover:bg-zinc-300 transition-colors" />
+              <div className="w-1 h-3.5 bg-zinc-900 dark:bg-zinc-100 rounded-full group-hover:bg-zinc-700 dark:group-hover:bg-zinc-300 transition-colors" />
+            </div>
+            <span className="font-semibold text-base text-zinc-900 dark:text-zinc-50 tracking-tight">
+              LiftVoice
+            </span>
+          </button>
+
+          <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline-block">•</span>
+
+          <span className="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 truncate">
+            Configuración del Sistema
+          </span>
+
+          {effectiveRoomId && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-[11px] font-mono font-medium text-emerald-700 dark:text-emerald-300 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Sala: {effectiveRoomId}</span>
+            </span>
+          )}
+        </div>
+
+        {/* Right: Theme Toggle + Return Button */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
+            aria-label="Cambiar tema de color"
+            title={`Tema actual: ${theme === 'system' ? 'Sistema (' + resolvedTheme + ')' : theme}`}
+          >
+            {resolvedTheme === 'dark' ? (
+              <Sun className="w-4 h-4 text-zinc-400 hover:text-zinc-100" />
+            ) : (
+              <Moon className="w-4 h-4 text-zinc-600 hover:text-zinc-900" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleReturn}
+            className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 font-medium text-xs flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
+            title={effectiveRoomId ? 'Volver a la sala de emisión' : 'Volver al inicio'}
+          >
+            {effectiveRoomId ? (
+              <>
+                <ArrowLeft className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                <span className="hidden sm:inline">Volver a la sala</span>
+                <span className="sm:hidden">Sala</span>
+              </>
+            ) : (
+              <>
+                <Home className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                <span className="hidden sm:inline">Volver al inicio</span>
+                <span className="sm:hidden">Inicio</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </header>
+  );
 
   const currentTabMeta = TAB_METADATA[activeTab] || {
     title: 'Configuración',
@@ -1656,37 +1739,8 @@ export default function AdminSettingsShell({
     }
     return (
       <div className="min-h-dvh w-full max-w-full bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-150 font-sans">
-        {/* Header de /admin idéntico al diseño general */}
-        <header className="sticky top-0 z-40 w-full border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md pt-safe transition-colors duration-150">
-          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-15 sm:h-16">
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <div className="flex items-center gap-1 flex-shrink-0 select-none">
-                <div className="w-1 h-5 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
-                <div className="w-1 h-3.5 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
-              </div>
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="font-semibold text-base text-zinc-900 dark:text-zinc-50 tracking-tight">LiftVoice</span>
-                <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline-block">•</span>
-                <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 truncate">Configuración del Sistema</span>
-              </div>
-            </div>
-            {effectiveRoomId && (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 shadow-2xs">
-                <Radio className="w-3.5 h-3.5 text-emerald-500 animate-pulse flex-shrink-0" />
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">Sala:</span>
-                <span className="font-mono font-bold text-xs text-zinc-900 dark:text-zinc-100">{effectiveRoomId}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              <button type="button" onClick={toggleTheme} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs" aria-label="Cambiar tema de color">
-                {resolvedTheme === 'dark' ? <Sun className="w-4 h-4 text-zinc-400 hover:text-zinc-100" /> : <Moon className="w-4 h-4 text-zinc-600 hover:text-zinc-900" />}
-              </button>
-              <button type="button" onClick={handleReturn} className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95">
-                {effectiveRoomId ? <><ArrowLeft className="w-3.5 h-3.5" /><span className="hidden sm:inline">Volver a la sala</span><span className="sm:hidden">Sala</span></> : <><Home className="w-3.5 h-3.5" /><span>Volver al inicio</span></>}
-              </button>
-            </div>
-          </div>
-        </header>
+        {/* Header unificado de /admin con diseño Studio 2026 */}
+        {renderPageHeader()}
 
         {/* Contenido interactivo con diseño exacto a la entrada de la sala */}
         <main className="flex-1 flex flex-col justify-between overflow-y-auto min-h-0">
@@ -1816,36 +1870,8 @@ export default function AdminSettingsShell({
   // variant === 'page'
   return (
     <div className="min-h-dvh w-full max-w-full bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-150 font-sans">
-      <header className="sticky top-0 z-40 w-full border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md pt-safe transition-colors duration-150">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-15 sm:h-16">
-          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-            <div className="flex items-center gap-1 flex-shrink-0 select-none">
-              <div className="w-1 h-5 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
-              <div className="w-1 h-3.5 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
-            </div>
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-semibold text-base text-zinc-900 dark:text-zinc-50 tracking-tight">LiftVoice</span>
-              <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline-block">•</span>
-              <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 truncate">Configuración del Sistema</span>
-            </div>
-          </div>
-          {effectiveRoomId && (
-            <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 shadow-2xs">
-              <Radio className="w-3.5 h-3.5 text-emerald-500 animate-pulse flex-shrink-0" />
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">Sala:</span>
-              <span className="font-mono font-bold text-xs text-zinc-900 dark:text-zinc-100">{effectiveRoomId}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <button type="button" onClick={toggleTheme} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs" aria-label="Cambiar tema de color">
-              {resolvedTheme === 'dark' ? <Sun className="w-4 h-4 text-zinc-400 hover:text-zinc-100" /> : <Moon className="w-4 h-4 text-zinc-600 hover:text-zinc-900" />}
-            </button>
-            <button type="button" onClick={handleReturn} className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95">
-              {effectiveRoomId ? <><ArrowLeft className="w-3.5 h-3.5" /><span className="hidden sm:inline">Volver a la sala</span><span className="sm:hidden">Sala</span></> : <><Home className="w-3.5 h-3.5" /><span>Volver al inicio</span></>}
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Header unificado de /admin con diseño Studio 2026 */}
+      {renderPageHeader()}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col md:flex-row gap-6 lg:gap-8">
         <aside className="hidden md:block w-full md:w-64 lg:w-72 flex-shrink-0 select-none">
           <div className="sticky top-24 space-y-4">
@@ -1876,7 +1902,7 @@ export default function AdminSettingsShell({
         </section>
       </main>
       <AdminStickyFooter onSave={handleSave} onCancel={handleReturn} isDirty={isDirty} isSaving={isSaving} isSaved={isSaved} />
-      <UnsavedChangesPrompt isOpen={showUnsavedPrompt} onCancel={() => setShowUnsavedPrompt(false)} onConfirm={() => { setShowUnsavedPrompt(false); onClose(); }} />
+      <UnsavedChangesPrompt isOpen={showUnsavedPrompt} onCancel={() => setShowUnsavedPrompt(false)} onConfirm={() => { setShowUnsavedPrompt(false); executeReturn(); }} />
     </div>
   );
 }
