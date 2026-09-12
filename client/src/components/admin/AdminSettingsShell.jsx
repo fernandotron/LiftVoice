@@ -10,6 +10,7 @@ import { useTheme } from '../../contexts/ThemeContext.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
 import { AdminLoginCard } from './AdminLoginCard.jsx';
 import { adminAuthService } from '../../services/adminAuthService.js';
+import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions.js';
 
 const safeGetItem = (key, fallback = '') => {
   try {
@@ -111,6 +112,8 @@ export default function AdminSettingsShell({
     }
     return null;
   });
+
+  const { hasPermission } = usePermissions();
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -511,14 +514,31 @@ export default function AdminSettingsShell({
     openaiKey || serverFlags.hasOpenAiKey
   ].filter(Boolean).length;
 
-  const TABS = [
-    { id: 'stt', label: 'Transcriptor (STT)', icon: Mic, badge: sttEngine === 'deepgram' ? 'Deepgram ⚡' : (sttEngine ? sttEngine.charAt(0).toUpperCase() + sttEngine.slice(1).toLowerCase() : '') },
-    { id: 'tts', label: 'Voces por Idioma', icon: Volume2, badge: '4 cabinas' },
-    { id: 'ai', label: 'Modelos de Traducción', icon: Cpu, badge: preferredEngine ? preferredEngine.charAt(0).toUpperCase() + preferredEngine.slice(1).toLowerCase() : '' },
-    { id: 'appearance', label: 'Apariencia & Tema', icon: Palette, badge: theme ? theme.charAt(0).toUpperCase() + theme.slice(1).toLowerCase() : '' },
-    { id: 'medical', label: 'Modo Clínico', icon: Stethoscope, badge: medicalMode ? 'Activo' : null },
-    { id: 'keys', label: 'Claves de API', icon: Key, badge: activeKeysCount > 0 ? `${activeKeysCount} activas` : 'Pendientes' }
+  const ALL_TABS = [
+    { id: 'stt', label: 'Transcriptor (STT)', icon: Mic, badge: sttEngine === 'deepgram' ? 'Deepgram ⚡' : (sttEngine ? sttEngine.charAt(0).toUpperCase() + sttEngine.slice(1).toLowerCase() : ''), reqPerm: PERMISSIONS.PERM_ROOM_AUDIO },
+    { id: 'tts', label: 'Voces por Idioma', icon: Volume2, badge: '4 cabinas', reqPerm: PERMISSIONS.PERM_ROOM_AUDIO },
+    { id: 'ai', label: 'Modelos de Traducción', icon: Cpu, badge: preferredEngine ? preferredEngine.charAt(0).toUpperCase() + preferredEngine.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_AI_MODELS },
+    { id: 'appearance', label: 'Apariencia & Tema', icon: Palette, badge: theme ? theme.charAt(0).toUpperCase() + theme.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_ACCESS_ADMIN },
+    { id: 'medical', label: 'Modo Clínico', icon: Stethoscope, badge: medicalMode ? 'Activo' : null, reqPerm: PERMISSIONS.PERM_AI_MODELS },
+    { id: 'keys', label: 'Claves de API', icon: Key, badge: activeKeysCount > 0 ? `${activeKeysCount} activas` : 'Pendientes', reqPerm: PERMISSIONS.PERM_API_KEYS }
   ];
+
+  const TABS = ALL_TABS.filter(tab => hasPermission(tab.reqPerm));
+
+  useEffect(() => {
+    if (TABS.length > 0 && !TABS.find(t => t.id === activeTab)) {
+      if (activeTab === 'keys') {
+        // Just let it be for the "Access Denied" badge display? Or redirect?
+        // Issue: "redirige a la primera pestaña autorizada o muestra un estado de acceso denegado"
+        // Let's redirect to first authorized tab if it's completely disallowed and we don't have a specific AccessDenied UI, but wait! The issue says: 
+        // "Si el usuario no tiene PERM_API_KEYS, la pestaña de claves de API no aparece (o muestra estado de acceso denegado con badge si se navega directamente por ?panel=keys)"
+        // It's easier to just redirect to the first available tab to satisfy "redirige a la primera pestaña autorizada"
+        setActiveTab(TABS[0].id);
+      } else {
+        setActiveTab(TABS[0].id);
+      }
+    }
+  }, [hasPermission, activeTab, TABS]);
 
   const handleReturn = () => {
     if (effectiveRoomId && onNavigateHost) {

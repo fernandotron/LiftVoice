@@ -1205,7 +1205,7 @@ export default function HostView({
                 onClick: () => (onNavigateVoices ? onNavigateVoices() : setIsVoiceCatalogOpen(true))
               },
               {
-                label: 'Configuración de Sala',
+                label: 'Ajustes de Sala',
                 onClick: () => onOpenSettings && onOpenSettings()
               }
             ]}
