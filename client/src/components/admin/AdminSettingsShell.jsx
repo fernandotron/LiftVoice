@@ -1523,9 +1523,9 @@ export default function AdminSettingsShell({
                     key={item.id}
                     type="button"
                     onClick={() => setTheme(item.id)}
-                    className={`p-5 rounded-2xl border text-left cursor-pointer transition-all ${
+                    className={`p-5 rounded-2xl border-2 text-left cursor-pointer transition-all ${
                       isSelected
-                        ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border-zinc-950 dark:border-white shadow-xs ring-1 ring-zinc-950/10'
+                        ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border-zinc-950 dark:border-white shadow-xs'
                         : 'bg-zinc-50/50 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/10'
                     }`}
                   >
@@ -1536,7 +1536,11 @@ export default function AdminSettingsShell({
                         <ItemIcon className="w-4.5 h-4.5" />
                       </div>
                       {isSelected && (
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <Check
+                          className="w-5 h-5 text-zinc-950 dark:text-white shrink-0"
+                          strokeWidth={2.5}
+                          aria-hidden="true"
+                        />
                       )}
                     </div>
                     <div className="font-semibold text-xs sm:text-sm">{item.label}</div>
