@@ -117,13 +117,13 @@ export default function Navbar({
             )}
           </button>
 
-          {/* Settings Button - Only visible to host */}
-          {currentRole === 'host' && (
+          {/* Settings Button - Only visible when onOpenSettings is provided and not a listener */}
+          {onOpenSettings && currentRole !== 'listener' && (
             <button
               onClick={onOpenSettings}
               className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
-              title="Ajustes de Sala"
-              aria-label="Ajustes de Sala"
+              title="Configuración de Administrador"
+              aria-label="Configuración de Administrador"
             >
               <Settings className="w-4 h-4" />
             </button>

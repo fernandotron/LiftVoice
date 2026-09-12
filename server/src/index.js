@@ -14,6 +14,7 @@ import {
   createAdminSession, 
   invalidateAdminSession, 
   verifyAdminSession, 
+  getAdminSession,
   validateAdminPassword, 
   requireAdminAuth,
   checkRateLimit,
@@ -145,16 +146,25 @@ app.post('/api/admin/login', (req, res) => {
     });
   }
 
-  const { password } = req.body;
+  const { email, password } = req.body;
   if (!password) {
     return res.status(400).json({ error: 'Contraseña requerida' });
   }
 
   // 2. Timing-safe constant-time validation
   if (validateAdminPassword(password)) {
+    const adminEmail = (email && typeof email === 'string' && email.trim()) ? email.trim() : 'admin@liftvoice.ai';
     recordSuccessfulAttempt(ip);
-    const token = createAdminSession();
-    return res.json({ success: true, token });
+    const token = createAdminSession({ email: adminEmail });
+    return res.json({ 
+      success: true, 
+      token,
+      user: {
+        email: adminEmail,
+        name: adminEmail.split('@')[0],
+        role: 'admin_master'
+      }
+    });
   }
 
   // 3. Record failed attempt and evaluate lockout threshold
@@ -184,8 +194,14 @@ app.post('/api/admin/logout', (req, res) => {
 app.get('/api/admin/verify', (req, res) => {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
-  if (verifyAdminSession(token)) {
-    return res.json({ authenticated: true, role: 'admin_master', permissions: ['ADMIN_PANEL', 'API_KEYS', 'MANAGE_ROOMS'] });
+  const session = getAdminSession(token);
+  if (session) {
+    return res.json({ 
+      authenticated: true, 
+      role: 'admin_master', 
+      user: session.user,
+      permissions: ['ADMIN_PANEL', 'API_KEYS', 'MANAGE_ROOMS'] 
+    });
   }
   return res.status(401).json({ authenticated: false });
 });

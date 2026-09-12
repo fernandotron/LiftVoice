@@ -89,9 +89,17 @@ export function recordSuccessfulAttempt(ip) {
   console.log(`[Security Audit] Autenticación administrativa exitosa desde IP ${ip} a las ${new Date().toISOString()}.`);
 }
 
-export function createAdminSession() {
+export function createAdminSession(userData = {}) {
   const token = crypto.randomBytes(32).toString('hex');
-  sessions.set(token, { expiresAt: Date.now() + SESSION_TTL });
+  const email = (userData && userData.email) ? userData.email : 'admin@liftvoice.ai';
+  sessions.set(token, { 
+    expiresAt: Date.now() + SESSION_TTL,
+    user: {
+      email,
+      name: email.split('@')[0],
+      role: 'admin_master'
+    }
+  });
   return token;
 }
 
@@ -101,15 +109,19 @@ export function invalidateAdminSession(token) {
   }
 }
 
-export function verifyAdminSession(token) {
-  if (!token) return false;
+export function getAdminSession(token) {
+  if (!token) return null;
   const session = sessions.get(token);
-  if (!session) return false;
+  if (!session) return null;
   if (Date.now() > session.expiresAt) {
     sessions.delete(token);
-    return false;
+    return null;
   }
-  return true;
+  return session;
+}
+
+export function verifyAdminSession(token) {
+  return Boolean(getAdminSession(token));
 }
 
 /**

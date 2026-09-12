@@ -414,7 +414,7 @@ export default function App() {
           latency={latency}
           isConnected={isConnected}
           onOpenQR={() => setIsQrOpen(true)}
-          onOpenSettings={undefined}
+          onOpenSettings={currentView !== 'join' ? () => setIsSettingsOpen(true) : undefined}
           onNavigateHome={handleNavigateHome}
         />
       )}
@@ -465,10 +465,7 @@ export default function App() {
             roomTitle={roomTitle}
             onLeave={handleLeave}
             localIp={localIp}
-            onOpenSettings={() => {
-              window.history.pushState({}, '', '/admin' + (roomId ? `?room=${roomId}` : ''));
-              setCurrentView('admin');
-            }}
+            onOpenSettings={() => setIsSettingsOpen(true)}
             onNavigateVoices={() => setCurrentView('voices')}
           />
         )}
@@ -478,10 +475,7 @@ export default function App() {
             roomId={roomId || 'MAIN'}
             onNavigateStudio={() => setCurrentView('host')}
             onNavigateHome={handleNavigateHome}
-            onOpenSettings={() => {
-              window.history.pushState({}, '', '/admin' + (roomId ? `?room=${roomId}` : ''));
-              setCurrentView('admin');
-            }}
+            onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenQR={() => setIsQrOpen(true)}
           />
         )}
@@ -510,6 +504,9 @@ export default function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         roomId={roomId}
+        onSaveConfig={(savedCfg) => {
+          window.dispatchEvent(new CustomEvent('liftvoice_config_updated', { detail: savedCfg }));
+        }}
       />
 
       <QRCodeModal

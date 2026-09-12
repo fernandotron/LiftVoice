@@ -98,6 +98,25 @@ const BOOTHS = [
   { lang: 'pt', label: 'Português', flag: 'BR', badge: 'Cabina Iberoamérica' }
 ];
 
+const TAB_METADATA = {
+  'stt': { title: 'Transcriptor de Audio (STT)', desc: 'Configura el motor de reconocimiento de voz en vivo y latencia' },
+  'tts': { title: 'Voces Neuronales por Cabina (TTS)', desc: 'Asigna timbres de voz natural para las 4 cabinas de traducción' },
+  'ai': { title: 'Modelos de Traducción IA', desc: 'Gestiona los LLM y motores de inferencia para la interpretación simultánea' },
+  'appearance': { title: 'Apariencia & Tema Visual', desc: 'Personaliza la interfaz, esquemas de color y modo oscuro/claro' },
+  'medical': { title: 'Modo Clínico & Glosario', desc: 'Activa vocabulario médico especializado y glosarios personalizados' },
+  'users-rooms': { title: 'Gestión de Usuarios & Salas', desc: 'Monitorea salas activas, participantes y audita el historial de conexiones' },
+  'keys': { title: 'Claves de API y Proveedores', desc: 'Administra tus credenciales de Deepgram, Google, ElevenLabs y OpenAI' }
+};
+
+export function DegradadoCabecera() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute top-full inset-x-0 h-4 bg-gradient-to-b from-white dark:from-zinc-950 to-transparent z-10"
+    />
+  );
+}
+
 export default function AdminSettingsShell({
   variant = 'modal', // 'modal' | 'page'
   isOpen = true,
@@ -603,11 +622,18 @@ export default function AdminSettingsShell({
     }
   };
 
-  const renderSidebarContent = () => (<AdminSidebarRail tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} engineSummary={engineSummary} />);
-
+  const renderSidebarContent = () => (
+    <AdminSidebarRail
+      tabs={TABS}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      engineSummary={engineSummary}
+      onLogout={() => setIsAuthenticated(false)}
+    />
+  );
 
   const mainContent = (
-    <div className={`flex-1 ${variant === 'modal' ? 'p-6 md:p-8 overflow-y-auto space-y-6' : 'min-w-0 space-y-6'}`}>
+    <div className={`flex-1 ${variant === 'modal' ? 'p-5 sm:p-6 space-y-5 sm:space-y-6' : 'min-w-0 space-y-6'}`}>
 {/* 1-Click Strategy Presets Bar */}
           <div className="p-4 sm:p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 space-y-3">
             <div className="flex items-center justify-between">
@@ -1479,8 +1505,8 @@ export default function AdminSettingsShell({
   if (isCheckingAuth) {
     if (variant === 'modal') {
       return (
-        <div className="w-full max-w-4xl h-[90dvh] sm:h-[640px] max-h-[90dvh] sm:max-h-[92vh] rounded-[28px] bg-white dark:bg-zinc-900/95 shadow-2xl flex items-center justify-center relative">
-          <button onClick={handleCloseAttempt} className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 z-10 cursor-pointer"><X className="w-6 h-6"/></button>
+        <div className="w-full max-w-5xl h-[92vh] sm:h-[680px] max-h-[92vh] rounded-[28px] sm:rounded-[30px] bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xl flex items-center justify-center relative">
+          <button onClick={handleCloseAttempt} className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 z-10 cursor-pointer rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><X className="w-5 h-5"/></button>
           <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
         </div>
       );
@@ -1491,8 +1517,8 @@ export default function AdminSettingsShell({
   if (!isAuthenticated) {
     if (variant === 'modal') {
       return (
-        <div className="w-full max-w-4xl h-[90dvh] sm:h-[640px] max-h-[90dvh] sm:max-h-[92vh] rounded-[28px] bg-white dark:bg-zinc-900/95 border border-zinc-200/80 dark:border-white/10 shadow-2xl overflow-hidden relative flex items-center justify-center p-4 sm:p-6">
-           <button onClick={handleCloseAttempt} className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 z-10 cursor-pointer"><X className="w-6 h-6"/></button>
+        <div className="w-full max-w-md my-auto rounded-[28px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/10 shadow-2xl overflow-hidden relative flex items-center justify-center p-2 sm:p-4">
+           <button onClick={handleCloseAttempt} className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 z-10 cursor-pointer rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><X className="w-5 h-5"/></button>
            <AdminLoginCard
              onLoginSuccess={() => setIsAuthenticated(true)}
              onCancel={handleCloseAttempt}
@@ -1569,15 +1595,89 @@ export default function AdminSettingsShell({
   }
 
   if (variant === 'modal') {
+    const currentTabMeta = TAB_METADATA[activeTab] || {
+      title: 'Configuración',
+      desc: 'Panel de administración del sistema'
+    };
+
     return (
-      <div className="w-full max-w-4xl h-[90dvh] sm:h-[640px] max-h-[90dvh] sm:max-h-[92vh] rounded-[28px] bg-white dark:bg-[#1f1f1f] border border-zinc-200/80 dark:border-white/10 shadow-2xl flex flex-col md:flex-row overflow-hidden text-left" ref={modalContainerRef}>
-        <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-zinc-200/80 dark:border-white/5 bg-zinc-50/60 dark:bg-[#1f1f1f] p-3 sm:p-5 flex flex-col justify-between flex-shrink-0 select-none">
+      <div 
+        className="w-full max-w-5xl h-[92vh] sm:h-[680px] max-h-[92vh] rounded-[28px] sm:rounded-[30px] bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xl flex flex-col md:flex-row overflow-hidden text-left" 
+        ref={modalContainerRef}
+      >
+        {/* Left Sidebar Rail */}
+        <div className="w-full md:w-60 lg:w-64 border-b md:border-b-0 md:border-r border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/40 flex flex-col justify-between flex-shrink-0 select-none">
           {renderSidebarContent()}
         </div>
-        <div className="flex-1 flex flex-col justify-between h-full overflow-hidden bg-white dark:bg-[#1f1f1f]">
-          {mainContent}
-          <AdminStickyFooter onSave={handleSave} onCancel={handleCloseAttempt} isDirty={isDirty} isSaving={isSaving} isSaved={isSaved} />
+
+        {/* Right Content Panel */}
+        <div className="flex-1 flex flex-col justify-between h-full overflow-hidden bg-white dark:bg-zinc-950 min-w-0">
+          {/* Modal Header */}
+          <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-5 sm:px-6 pt-4 sm:pt-5 pb-3.5 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md">
+            <DegradadoCabecera />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
+                  {currentTabMeta.title}
+                </h2>
+                {effectiveRoomId && (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-[10px] font-mono font-medium text-emerald-700 dark:text-emerald-300 flex-shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Sala: {effectiveRoomId}</span>
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                {currentTabMeta.desc}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
+                title={`Tema actual: ${theme === 'system' ? 'Sistema (' + resolvedTheme + ')' : theme}`}
+                aria-label="Cambiar tema de color"
+              >
+                {resolvedTheme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                type="button"
+                onClick={handleCloseAttempt}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Cerrar panel de administración"
+                aria-label="Cerrar panel"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </header>
+
+          {/* Scrollable Content Body */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {mainContent}
+          </div>
+
+          {/* Sticky Actions Footer */}
+          <AdminStickyFooter 
+            onSave={handleSave} 
+            onCancel={handleCloseAttempt} 
+            isDirty={isDirty} 
+            isSaving={isSaving} 
+            isSaved={isSaved} 
+          />
         </div>
+
+        {/* Unsaved Changes Prompt */}
+        <UnsavedChangesPrompt
+          isOpen={showUnsavedPrompt}
+          onCancel={() => setShowUnsavedPrompt(false)}
+          onConfirm={() => {
+            setShowUnsavedPrompt(false);
+            onClose();
+          }}
+        />
       </div>
     );
   }

@@ -7,17 +7,46 @@ export const adminAuthService = {
     localStorage.setItem('liftvoice_admin_token', token);
   },
 
-  clearToken() {
-    localStorage.removeItem('liftvoice_admin_token');
+  getAdminUser() {
+    try {
+      const saved = localStorage.getItem('liftvoice_admin_user');
+      return saved ? JSON.parse(saved) : { email: 'admin@liftvoice.ai', name: 'Administrador', role: 'admin_master' };
+    } catch (e) {
+      return { email: 'admin@liftvoice.ai', name: 'Administrador', role: 'admin_master' };
+    }
   },
 
-  async login(password) {
+  setAdminUser(user) {
+    try {
+      localStorage.setItem('liftvoice_admin_user', JSON.stringify(user));
+    } catch (e) {}
+  },
+
+  clearToken() {
+    localStorage.removeItem('liftvoice_admin_token');
+    localStorage.removeItem('liftvoice_admin_user');
+  },
+
+  async login(emailOrPassword, maybePassword) {
+    let email = 'admin@liftvoice.ai';
+    let password = '';
+
+    if (typeof emailOrPassword === 'object' && emailOrPassword !== null) {
+      email = emailOrPassword.email || 'admin@liftvoice.ai';
+      password = emailOrPassword.password || '';
+    } else if (maybePassword !== undefined) {
+      email = emailOrPassword || 'admin@liftvoice.ai';
+      password = maybePassword;
+    } else {
+      password = emailOrPassword;
+    }
+
     let res;
     try {
       res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
+        body: JSON.stringify({ email: email.trim(), password: password.trim() })
       });
     } catch (networkErr) {
       throw new Error('No se pudo conectar con el servidor backend (puerto 3001).');
@@ -46,6 +75,11 @@ export const adminAuthService = {
     }
     const data = await res.json();
     this.setToken(data.token);
+    if (data.user) {
+      this.setAdminUser(data.user);
+    } else {
+      this.setAdminUser({ email, name: email.split('@')[0], role: 'admin_master' });
+    }
     return data;
   },
 
@@ -74,6 +108,10 @@ export const adminAuthService = {
       if (!res.ok) {
         this.clearToken();
         return false;
+      }
+      const data = await res.json();
+      if (data.user) {
+        this.setAdminUser(data.user);
       }
       return true;
     } catch (err) {
