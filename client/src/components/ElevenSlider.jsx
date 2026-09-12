@@ -26,7 +26,7 @@ export default function ElevenSlider({
       <div className="flex items-center justify-between text-xs">
         <span className="font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight">{label}</span>
         {formatValue && (
-          <span className="font-mono text-xs font-semibold tabular-numbers text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-200/80 dark:border-zinc-700/80">
+          <span className="font-mono text-xs font-semibold tabular-numbers text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-full border border-zinc-200/80 dark:border-zinc-700/80">
             {formatValue(value)}
           </span>
         )}
