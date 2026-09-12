@@ -872,6 +872,9 @@ export default function AdminSettingsShell({
     desc: 'Panel de administración del sistema'
   };
 
+  const TABS_WITH_FORM = ['stt', 'tts', 'ai', 'medical', 'keys'];
+  const shouldShowFooter = TABS_WITH_FORM.includes(activeTab) || isDirty;
+
   const renderSidebarContent = () => (
     <AdminSidebarRail
       tabs={TABS}
@@ -1687,6 +1690,11 @@ export default function AdminSettingsShell({
                 );
               })}
             </div>
+
+            <div className="flex items-center gap-2.5 mt-6 p-3.5 rounded-2xl bg-zinc-100/60 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-500 dark:text-zinc-400">
+              <Check className="w-4 h-4 text-emerald-500 shrink-0 stroke-[2.5]" />
+              <span>El tema seleccionado se aplica y guarda automáticamente en tu navegador sin necesidad de confirmación manual.</span>
+            </div>
           </div>
         </div>
       )}
@@ -1844,15 +1852,17 @@ export default function AdminSettingsShell({
             {mainContent}
           </div>
 
-          {/* Sticky Actions Footer */}
-          <AdminStickyFooter 
-            variant="modal"
-            onSave={handleSave} 
-            onCancel={handleCloseAttempt} 
-            isDirty={isDirty} 
-            isSaving={isSaving} 
-            isSaved={isSaved} 
-          />
+          {/* Sticky Actions Footer (oculto en secciones con auto-guardado si no hay cambios) */}
+          {shouldShowFooter && (
+            <AdminStickyFooter 
+              variant="modal"
+              onSave={handleSave} 
+              onCancel={handleCloseAttempt} 
+              isDirty={isDirty} 
+              isSaving={isSaving} 
+              isSaved={isSaved} 
+            />
+          )}
         </div>
 
         {/* Unsaved Changes Prompt */}
@@ -1902,7 +1912,9 @@ export default function AdminSettingsShell({
           {mainContent}
         </section>
       </main>
-      <AdminStickyFooter variant="page" onSave={handleSave} onCancel={handleReturn} isDirty={isDirty} isSaving={isSaving} isSaved={isSaved} />
+      {shouldShowFooter && (
+        <AdminStickyFooter variant="page" onSave={handleSave} onCancel={handleReturn} isDirty={isDirty} isSaving={isSaving} isSaved={isSaved} />
+      )}
       <UnsavedChangesPrompt isOpen={showUnsavedPrompt} onCancel={() => setShowUnsavedPrompt(false)} onConfirm={() => { setShowUnsavedPrompt(false); executeReturn(); }} />
     </div>
   );
