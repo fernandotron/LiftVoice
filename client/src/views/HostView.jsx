@@ -1456,7 +1456,7 @@ export default function HostView({
                       }`}
                       title="Detección Automática Multilingüe"
                     >
-                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <Sparkles className="w-3 h-3" />
                       <span>Auto</span>
                     </button>
                   </div>

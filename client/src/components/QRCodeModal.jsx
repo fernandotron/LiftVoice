@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   QrCode, Copy, Check, Download, Maximize2, Minimize2, X,
@@ -27,6 +27,7 @@ export default function QRCodeModal({
   const [customIp, setCustomIp] = useState('');
   const [isEditingIp, setIsEditingIp] = useState(false);
   const [availableIps, setAvailableIps] = useState([]);
+  const modalContainerRef = useRef(null);
 
   // Auto-detect local network IP and public tunnel info
   useEffect(() => {
@@ -40,7 +41,66 @@ export default function QRCodeModal({
       .catch(() => {});
   }, []);
 
+  // Sync state with native browser Fullscreen API
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  // Keyboard shortcut: Escape to exit fullscreen or close modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (document.fullscreenElement) {
+          document.exitFullscreen?.().catch(() => {});
+        } else if (isFullScreen) {
+          setIsFullScreen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullScreen]);
+
   if (!isOpen) return null;
+
+  const toggleFullScreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        const el = modalContainerRef.current || document.documentElement;
+        if (el.requestFullscreen) {
+          await el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+          await el.webkitRequestFullscreen();
+        }
+        setIsFullScreen(true);
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        }
+        setIsFullScreen(false);
+      }
+    } catch (err) {
+      console.warn('Native fullscreen request fallback:', err);
+      setIsFullScreen((prev) => !prev);
+    }
+  };
+
+  const handleClose = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+    onClose();
+  };
 
   const isLoopback = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const effectiveIp = customIp.trim() || detectedLocalIp || localIp || '192.168.1.12';
@@ -123,27 +183,188 @@ export default function QRCodeModal({
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
+  if (isFullScreen) {
+    return (
+      <div
+        ref={modalContainerRef}
+        className="fixed inset-0 z-[1000] w-screen h-screen min-h-screen bg-zinc-950 text-white flex flex-col justify-between p-6 sm:p-10 lg:p-12 select-none overflow-y-auto animate-fadeIn"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Modo Auditorio - Acceso a la Sala"
+      >
+        {/* Barra Superior Discreta de Control */}
+        <header className="flex items-center justify-between w-full max-w-7xl mx-auto shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <div className="w-1.5 h-6 bg-white rounded-full" />
+              <div className="w-1.5 h-4 bg-white/70 rounded-full" />
+            </div>
+            <span className="font-semibold text-lg sm:text-xl tracking-tight text-white">
+              LiftVoice
+            </span>
+            <span className="text-zinc-700 hidden sm:inline">•</span>
+            <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-xs font-mono font-medium text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Sintonización en vivo abierta</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={toggleFullScreen}
+              className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-zinc-200 hover:text-white text-xs font-medium flex items-center gap-2 cursor-pointer transition-colors shadow-2xs active:scale-95"
+              title="Salir de pantalla completa (Esc)"
+            >
+              <Minimize2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Salir de pantalla completa</span>
+              <span className="sm:hidden">Salir</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-zinc-200 hover:text-white flex items-center justify-center cursor-pointer transition-colors shadow-2xs active:scale-95"
+              title="Cerrar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </header>
+
+        {/* Contenido Principal de Proyección: Centrado, Alto Impacto, Legible a 20 metros */}
+        <main className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-16 max-w-7xl mx-auto w-full my-auto py-6 sm:py-10">
+          {/* Columna Izquierda: Código QR Gigante y Código de Sala */}
+          <div className="flex flex-col items-center justify-center text-center space-y-5 shrink-0">
+            <div className="p-6 sm:p-8 bg-white rounded-[32px] sm:rounded-[40px] shadow-[0_20px_80px_rgba(0,0,0,0.8)] ring-4 ring-white/10 flex items-center justify-center">
+              <QRCodeSVG
+                id="liftvoice-room-qr"
+                value={listenUrl}
+                size={340}
+                level="H"
+                includeMargin={false}
+                fgColor="#09090b"
+                bgColor="#ffffff"
+              />
+            </div>
+
+            {/* Código de Sala Destacado */}
+            <div className="flex items-center justify-center gap-3 px-6 py-2.5 rounded-2xl bg-white/5 border border-white/10 w-full max-w-xs shadow-inner">
+              <span className="text-xs font-mono uppercase tracking-wider text-zinc-400">
+                Sala:
+              </span>
+              <span className="font-mono text-xl sm:text-2xl font-bold text-white tracking-widest">
+                {roomId}
+              </span>
+            </div>
+
+            <p className="font-mono text-xs sm:text-sm text-zinc-400 max-w-sm truncate select-all">
+              {listenUrl}
+            </p>
+          </div>
+
+          {/* Columna Derecha: Título de Conferencia y Pasos para la Audiencia */}
+          <div className="flex flex-col justify-center space-y-6 sm:space-y-8 text-left max-w-xl">
+            <div>
+              <div className="sm:hidden inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-xs font-mono font-medium text-emerald-400 mb-3">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Audio en vivo abierto</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
+                {roomTitle || 'Traducción Simultánea de Voz'}
+              </h1>
+              <p className="text-base sm:text-lg text-zinc-400 mt-3 leading-relaxed">
+                Escucha la conferencia traducida en tiempo real directamente desde tu teléfono móvil.
+              </p>
+            </div>
+
+            {/* 3 Pasos Grandes y Visibles */}
+            <div className="space-y-3.5">
+              <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
+                <div className="w-8 h-8 rounded-xl bg-white text-zinc-950 font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
+                  1
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">
+                    Escanea el código QR con tu móvil
+                  </h3>
+                  <p className="text-sm text-zinc-400 mt-0.5 leading-relaxed">
+                    Abre la cámara de tu smartphone. Conexión instantánea sin descargas ni registros.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
+                <div className="w-8 h-8 rounded-xl bg-white text-zinc-950 font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
+                  2
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">
+                    Conecta tus auriculares
+                  </h3>
+                  <p className="text-sm text-zinc-400 mt-0.5 leading-relaxed">
+                    Usa auriculares Bluetooth o con cable para una escucha nítida sin interferir con la sala.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
+                <div className="w-8 h-8 rounded-xl bg-white text-zinc-950 font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
+                  3
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-semibold text-white">
+                    Elige tu cabina de idioma
+                  </h3>
+                  <div className="flex flex-wrap gap-2 mt-2.5">
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 text-xs font-medium text-zinc-200">
+                      <CountryFlag code="en" className="w-4 h-4 rounded-full shrink-0" />
+                      <span>English</span>
+                    </span>
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 text-xs font-medium text-zinc-200">
+                      <CountryFlag code="es" className="w-4 h-4 rounded-full shrink-0" />
+                      <span>Español</span>
+                    </span>
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 text-xs font-medium text-zinc-200">
+                      <CountryFlag code="it" className="w-4 h-4 rounded-full shrink-0" />
+                      <span>Italiano</span>
+                    </span>
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 text-xs font-medium text-zinc-200">
+                      <CountryFlag code="pt" className="w-4 h-4 rounded-full shrink-0" />
+                      <span>Português</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        {/* Pie Discreto de Proyección */}
+        <footer className="flex items-center justify-between text-xs text-zinc-500 border-t border-white/10 pt-4 w-full max-w-7xl mx-auto shrink-0">
+          <div className="flex items-center gap-2">
+            <Wifi className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Red Wi-Fi: {effectiveIp}:{typeof window !== 'undefined' && window.location.port ? window.location.port : '5174'}</span>
+          </div>
+          <span className="text-zinc-500 hidden sm:inline">Presiona Esc para salir del modo proyector</span>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div 
-      className={`fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 md:p-6 transition-all duration-200 ${
-        isFullScreen 
-          ? 'bg-zinc-950 p-0' 
-          : 'bg-black/60 dark:bg-black/75 backdrop-blur-[4px]'
-      }`}
+      ref={modalContainerRef}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 md:p-6 bg-black/60 dark:bg-black/75 backdrop-blur-[4px] transition-all duration-200 select-none"
       role="dialog"
       aria-modal="true"
       aria-labelledby="qr-modal-title"
       onClick={(e) => {
-        if (!isFullScreen && e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) handleClose();
       }}
     >
       {/* Modal Container con estética Studio 2026 */}
       <div 
-        className={`relative flex flex-col w-full bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-white/10 shadow-2xl transition-all duration-300 overflow-hidden select-none text-left ${
-          isFullScreen 
-            ? 'w-screen h-screen max-w-none rounded-none p-6 sm:p-10 justify-between' 
-            : 'max-w-3xl max-h-[92dvh] rounded-[28px] sm:rounded-[32px] animate-fadeIn'
-        }`}
+        className="relative flex flex-col w-full max-w-3xl max-h-[92dvh] bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-white/10 rounded-[28px] sm:rounded-[32px] shadow-2xl transition-all duration-300 overflow-hidden select-none text-left animate-fadeIn"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Línea de acento degradada Studio en la parte superior */}
@@ -168,16 +389,16 @@ export default function QRCodeModal({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => setIsFullScreen(!isFullScreen)}
+              onClick={toggleFullScreen}
               className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              title={isFullScreen ? "Salir de pantalla completa" : "Modo Auditorio / Proyector"}
-              aria-label={isFullScreen ? "Salir de pantalla completa" : "Modo Auditorio"}
+              title="Modo Auditorio / Proyector (Pantalla completa)"
+              aria-label="Modo Auditorio"
             >
-              {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              <Maximize2 className="w-4 h-4" />
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               title="Cerrar modal"
               aria-label="Cerrar"
@@ -188,9 +409,7 @@ export default function QRCodeModal({
         </header>
 
         {/* ── 2. CUERPO UNIFICADO DE 2 COLUMNAS (GRID RESPONSIVE) ───── */}
-        <div className={`flex-1 overflow-y-auto min-h-0 p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 items-center ${
-          isFullScreen ? 'max-w-5xl mx-auto w-full my-auto' : ''
-        }`}>
+        <div className="flex-1 overflow-y-auto min-h-0 p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 items-center">
 
           {/* COLUMNA IZQUIERDA: Código QR, Código de Sala y Selector de Red */}
           <div className="flex flex-col items-center justify-center text-center space-y-4">
@@ -199,7 +418,7 @@ export default function QRCodeModal({
               <QRCodeSVG
                 id="liftvoice-room-qr"
                 value={listenUrl}
-                size={isFullScreen ? 280 : 210}
+                size={210}
                 level="H"
                 includeMargin={false}
                 fgColor="#09090b"
