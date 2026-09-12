@@ -826,22 +826,8 @@ export default function AdminSettingsShell({
           )}
         </div>
 
-        {/* Right: Theme Toggle + Return Button */}
+        {/* Right: Return Button */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
-            aria-label="Cambiar tema de color"
-            title={`Tema actual: ${theme === 'system' ? 'Sistema (' + resolvedTheme + ')' : theme}`}
-          >
-            {resolvedTheme === 'dark' ? (
-              <Sun className="w-4 h-4 text-zinc-400 hover:text-zinc-100" />
-            ) : (
-              <Moon className="w-4 h-4 text-zinc-600 hover:text-zinc-900" />
-            )}
-          </button>
-
           <button
             type="button"
             onClick={handleReturn}
