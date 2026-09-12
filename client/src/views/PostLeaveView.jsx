@@ -27,7 +27,7 @@ export default function PostLeaveView({
   const handleCopyCode = () => {
     if (!roomId) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const fullUrl = `${origin}/?room=${roomId}&lang=${selectedLanguage}`;
+    const fullUrl = `${origin}/join?room=${roomId}&lang=${selectedLanguage}`;
     navigator.clipboard?.writeText(fullUrl).then(() => {
       setHasCopied(true);
       setTimeout(() => setHasCopied(false), 2000);

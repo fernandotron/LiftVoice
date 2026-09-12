@@ -53,7 +53,7 @@ export default function QRCodeModal({
     activeBaseUrl = `${protocol}//${host}${port}`;
   }
 
-  const listenUrl = `${activeBaseUrl}/?room=${encodeURIComponent(roomId)}`;
+  const listenUrl = `${activeBaseUrl}/join?room=${encodeURIComponent(roomId)}`;
 
   const handleStartTunnel = async () => {
     setIsGeneratingTunnel(true);

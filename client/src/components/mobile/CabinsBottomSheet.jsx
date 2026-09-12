@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Headphones, Play, Sparkles, Globe } from 'lucide-react';
+import { X, Headphones, Play, Sparkles, Globe, Bell } from 'lucide-react';
 import ElevenSlider from '../ElevenSlider.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
 
@@ -106,10 +106,11 @@ export default function CabinsBottomSheet({
               <button
                 type="button"
                 onClick={onTestAudio}
-                className="px-2.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 text-[11px] font-mono font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
+                className="px-2.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 text-[11px] font-mono font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
                 title="Emitir tono de prueba 440Hz"
               >
-                🔔 Tono Test
+                <Bell className="w-3 h-3 text-zinc-600 dark:text-zinc-300" />
+                <span>Tono Test</span>
               </button>
 
               {monitoredLang !== 'none' && (

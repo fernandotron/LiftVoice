@@ -48,7 +48,7 @@ export default function ListenerView({
   const handleCopyMeetingLink = () => {
     if (!roomId) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const url = `${origin}/?room=${roomId}&lang=${selectedLanguage}`;
+    const url = `${origin}/join?room=${roomId}&lang=${selectedLanguage}`;
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(url).then(() => {
         setHasCopiedLink(true);

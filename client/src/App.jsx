@@ -8,6 +8,7 @@ import ListenerView from './views/ListenerView.jsx';
 import VoicesView from './views/VoicesView.jsx';
 import PostLeaveView from './views/PostLeaveView.jsx';
 import AttendeeLobbyView from './views/AttendeeLobbyView.jsx';
+import AdminSettingsView from './views/AdminSettingsView.jsx';
 import { socketService } from './services/socket.js';
 import { audioPlayerService } from './services/audioPlayer.js';
 
@@ -45,19 +46,138 @@ export function normalizeRoomCode(input) {
   return clean;
 }
 
+export function getInitialRouteState() {
+  if (typeof window === 'undefined') {
+    return {
+      currentView: 'home',
+      roomId: null,
+      roomTitle: 'Conferencia Principal 2026',
+      pendingJoinRoom: null
+    };
+  }
+
+  const pathname = window.location.pathname || '';
+  const params = new URLSearchParams(window.location.search);
+  let roomParam = params.get('room');
+  const isHostParam = params.get('host') === 'true' || pathname.includes('/host');
+  const viewParam = params.get('view');
+  const modeParam = params.get('mode');
+
+  const isAdminRoute = pathname.startsWith('/admin') || viewParam === 'admin';
+  const isJoinRoute = pathname.startsWith('/join') || modeParam === 'listener';
+
+  if (isAdminRoute) {
+    const normalized = roomParam ? normalizeRoomCode(roomParam) : (localStorage.getItem('lv_active_room_id') || null);
+    return {
+      currentView: 'admin',
+      roomId: normalized,
+      roomTitle: normalized ? `Sala ${normalized}` : 'Conferencia Principal 2026',
+      pendingJoinRoom: null
+    };
+  }
+
+  if (viewParam === 'voices') {
+    return {
+      currentView: 'voices',
+      roomId: roomParam ? normalizeRoomCode(roomParam) : null,
+      roomTitle: roomParam ? `Sala ${normalizeRoomCode(roomParam)}` : 'Conferencia Principal 2026',
+      pendingJoinRoom: null
+    };
+  }
+
+  if (isJoinRoute) {
+    if (!roomParam) {
+      return {
+        currentView: 'join',
+        roomId: null,
+        roomTitle: 'Conferencia Principal 2026',
+        pendingJoinRoom: null
+      };
+    }
+    const normalized = normalizeRoomCode(roomParam);
+    if (hasValidAttendeeProfile()) {
+      try {
+        localStorage.setItem('lv_active_room_id', normalized);
+      } catch (e) {}
+      return {
+        currentView: 'listener',
+        roomId: normalized,
+        roomTitle: `Sala ${normalized}`,
+        pendingJoinRoom: null
+      };
+    } else {
+      return {
+        currentView: 'lobby',
+        roomId: normalized,
+        roomTitle: `Sala ${normalized}`,
+        pendingJoinRoom: { roomId: normalized, lang: params.get('lang') }
+      };
+    }
+  }
+
+  if (!roomParam && isHostParam) {
+    roomParam = localStorage.getItem('lv_active_room_id') || generateMeetRoomCode();
+    try {
+      window.history.replaceState({}, '', `?room=${roomParam}&host=true`);
+    } catch (e) {}
+  }
+
+  if (roomParam) {
+    const normalized = normalizeRoomCode(roomParam);
+    if (isHostParam) {
+      try {
+        localStorage.setItem('lv_active_room_id', normalized);
+      } catch (e) {}
+      return {
+        currentView: 'host',
+        roomId: normalized,
+        roomTitle: `Sala ${normalized}`,
+        pendingJoinRoom: null
+      };
+    } else {
+      if (hasValidAttendeeProfile()) {
+        try {
+          localStorage.setItem('lv_active_room_id', normalized);
+        } catch (e) {}
+        return {
+          currentView: 'listener',
+          roomId: normalized,
+          roomTitle: `Sala ${normalized}`,
+          pendingJoinRoom: null
+        };
+      } else {
+        return {
+          currentView: 'lobby',
+          roomId: normalized,
+          roomTitle: `Sala ${normalized}`,
+          pendingJoinRoom: { roomId: normalized, lang: params.get('lang') }
+        };
+      }
+    }
+  }
+
+  return {
+    currentView: 'home',
+    roomId: null,
+    roomTitle: 'Conferencia Principal 2026',
+    pendingJoinRoom: null
+  };
+}
+
 export default function App() {
-  const [currentView, setCurrentView] = useState('home'); // 'home' | 'host' | 'listener' | 'post-leave'
+  const [initialRoute] = useState(() => getInitialRouteState());
+  const [currentView, setCurrentView] = useState(initialRoute.currentView);
   const [leaveDetails, setLeaveDetails] = useState(null); // { roomId, selectedLanguage, reason, message }
-  const [roomId, setRoomId] = useState(null);
-  const [roomTitle, setRoomTitle] = useState('Conferencia Principal 2026');
-  const [pendingJoinRoom, setPendingJoinRoom] = useState(null); // { roomId, lang }
+  const [roomId, setRoomId] = useState(initialRoute.roomId);
+  const [roomTitle, setRoomTitle] = useState(initialRoute.roomTitle);
+  const [pendingJoinRoom, setPendingJoinRoom] = useState(initialRoute.pendingJoinRoom); // { roomId, lang }
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [latency, setLatency] = useState(12);
   const [localIp, setLocalIp] = useState('192.168.1.12');
 
-  // Detect URL search params or paths on initial load
+  // Detect URL search params or paths on initial load & popstate
   useEffect(() => {
     // Fetch network info from server to obtain local IP
     fetch('/api/network-info')
@@ -69,44 +189,12 @@ export default function App() {
 
     // Parse URL helper
     const parseUrlState = () => {
-      const params = new URLSearchParams(window.location.search);
-      let roomParam = params.get('room');
-      const isHostParam = params.get('host') === 'true' || window.location.pathname.includes('/host');
-
-      if (!roomParam && isHostParam) {
-        roomParam = localStorage.getItem('lv_active_room_id') || generateMeetRoomCode();
-        window.history.replaceState({}, '', `?room=${roomParam}&host=true`);
-      }
-
-      if (roomParam) {
-        const normalized = normalizeRoomCode(roomParam);
-        if (isHostParam) {
-          setRoomId(normalized);
-          localStorage.setItem('lv_active_room_id', normalized);
-          setRoomTitle(`Sala ${normalized}`);
-          setCurrentView('host');
-        } else {
-          // Listener entry via direct URL/QR: check if identified first
-          if (hasValidAttendeeProfile()) {
-            setRoomId(normalized);
-            localStorage.setItem('lv_active_room_id', normalized);
-            setRoomTitle(`Sala ${normalized}`);
-            setCurrentView('listener');
-          } else {
-            // Unidentified listener: show Lobby screen BEFORE entering room!
-            setPendingJoinRoom({ roomId: normalized, lang: params.get('lang') });
-            setRoomId(normalized);
-            setRoomTitle(`Sala ${normalized}`);
-            setCurrentView('lobby');
-          }
-        }
-      } else {
-        setRoomId(null);
-        setCurrentView('home');
-      }
+      const nextRoute = getInitialRouteState();
+      setRoomId(nextRoute.roomId);
+      setRoomTitle(nextRoute.roomTitle);
+      setPendingJoinRoom(nextRoute.pendingJoinRoom);
+      setCurrentView(nextRoute.currentView);
     };
-
-    parseUrlState();
 
     const handlePopState = () => {
       parseUrlState();
@@ -140,6 +228,8 @@ export default function App() {
 
   const handleJoinRoom = (id, lang = null) => {
     const cleanId = normalizeRoomCode(id);
+    const isJoinFlow = currentView === 'join' || window.location.pathname.startsWith('/join');
+    const basePath = isJoinFlow ? '/join' : '';
     if (hasValidAttendeeProfile()) {
       // Returning identified listener: enter directly into room
       setRoomId(cleanId);
@@ -151,7 +241,7 @@ export default function App() {
       }
       setRoomTitle(`Sala ${cleanId}`);
       setCurrentView('listener');
-      const query = lang ? `?room=${cleanId}&lang=${lang}` : `?room=${cleanId}`;
+      const query = lang ? `${basePath}?room=${cleanId}&lang=${lang}` : `${basePath}?room=${cleanId}`;
       window.history.pushState({}, '', query);
     } else {
       // First-time listener: open Lobby screen BEFORE entering room!
@@ -159,7 +249,7 @@ export default function App() {
       setRoomId(cleanId);
       setRoomTitle(`Sala ${cleanId}`);
       setCurrentView('lobby');
-      const query = lang ? `?room=${cleanId}&lang=${lang}` : `?room=${cleanId}`;
+      const query = lang ? `${basePath}?room=${cleanId}&lang=${lang}` : `${basePath}?room=${cleanId}`;
       window.history.pushState({}, '', query);
     }
   };
@@ -183,6 +273,9 @@ export default function App() {
     // Unlock Web Audio context via user gesture immediately
     audioPlayerService.unlockAudio(cleanId, targetLang || 'es').catch(() => {});
 
+    const isJoinFlow = window.location.pathname.startsWith('/join');
+    const basePath = isJoinFlow ? '/join' : '';
+
     setPendingJoinRoom(null);
     setRoomId(cleanId);
     localStorage.setItem('lv_active_room_id', cleanId);
@@ -193,15 +286,21 @@ export default function App() {
     }
     setRoomTitle(`Sala ${cleanId}`);
     setCurrentView('listener');
-    const query = targetLang ? `?room=${cleanId}&lang=${targetLang}` : `?room=${cleanId}`;
+    const query = targetLang ? `${basePath}?room=${cleanId}&lang=${targetLang}` : `${basePath}?room=${cleanId}`;
     window.history.pushState({}, '', query);
   };
 
   const handleCheckInClose = () => {
+    const isListenerFlow = window.location.pathname.startsWith('/join') || window.location.search.includes('mode=listener');
     setPendingJoinRoom(null);
-    setCurrentView('home');
-    if (window.location.search.includes('room=')) {
-      window.history.replaceState({}, '', window.location.pathname || '/');
+    if (isListenerFlow) {
+      setCurrentView('join');
+      window.history.replaceState({}, '', '/join');
+    } else {
+      setCurrentView('home');
+      if (window.location.search.includes('room=')) {
+        window.history.replaceState({}, '', window.location.pathname || '/');
+      }
     }
   };
 
@@ -209,6 +308,7 @@ export default function App() {
     const roomToLeave = roomId || localStorage.getItem('lv_active_room_id') || localStorage.getItem('lv_last_room_id');
     const userLang = options?.selectedLanguage || localStorage.getItem('lv_preferred_lang') || 'es';
     const reason = options?.reason || 'voluntary';
+    const isListenerFlow = currentView === 'listener' || window.location.pathname.startsWith('/join') || options?.isListener || options?.role === 'listener';
 
     localStorage.removeItem('lv_active_room_id');
 
@@ -231,7 +331,7 @@ export default function App() {
 
     const isDesktop = options?.isDesktop ?? (typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches);
 
-    // En escritorio al salir voluntariamente ("Volver al inicio"), se navega directo a Home sin modal post-leave.
+    // En escritorio al salir voluntariamente ("Volver al inicio"), se navega directo a Home/Join sin modal post-leave.
     // Solo se muestra post-leave si fue expulsado por moderador o si estamos en móvil.
     const shouldShowPostLeave = reason === 'kicked' || (!isDesktop && (currentView === 'listener' || options?.isMobile));
 
@@ -240,25 +340,38 @@ export default function App() {
         roomId: roomToLeave,
         selectedLanguage: userLang,
         reason,
-        message: options?.message || ''
+        message: options?.message || '',
+        isListener: isListenerFlow
       });
       setRoomId(null);
       setCurrentView('post-leave');
-      window.history.pushState({}, '', window.location.pathname || '/');
+      window.history.pushState({}, '', isListenerFlow ? '/join' : (window.location.pathname || '/'));
     } else {
       setRoomId(null);
       setLeaveDetails(null);
-      setCurrentView('home');
-      window.history.pushState({}, '', window.location.pathname || '/');
+      if (isListenerFlow) {
+        setCurrentView('join');
+        window.history.pushState({}, '', '/join');
+      } else {
+        setCurrentView('home');
+        window.history.pushState({}, '', '/');
+      }
     }
   };
 
-  // Si en escritorio quedó en post-leave por salida voluntaria, redirigir directamente a Home
+  // Si en escritorio quedó en post-leave por salida voluntaria, redirigir directamente a Home o Join
   useEffect(() => {
     if (currentView === 'post-leave') {
       const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches;
       if (isDesktop && leaveDetails?.reason !== 'kicked') {
-        setCurrentView('home');
+        const isListener = leaveDetails?.isListener || window.location.pathname.startsWith('/join');
+        if (isListener) {
+          setCurrentView('join');
+          window.history.pushState({}, '', '/join');
+        } else {
+          setCurrentView('home');
+          window.history.pushState({}, '', '/');
+        }
         setLeaveDetails(null);
       }
     }
@@ -269,16 +382,23 @@ export default function App() {
   };
 
   const handleNavigateHome = () => {
+    const isListenerFlow = currentView === 'join' || window.location.pathname.startsWith('/join') || leaveDetails?.isListener;
     setLeaveDetails(null);
-    setCurrentView('home');
+    if (isListenerFlow) {
+      setCurrentView('join');
+      window.history.pushState({}, '', '/join');
+    } else {
+      setCurrentView('home');
+      window.history.pushState({}, '', '/');
+    }
   };
 
   return (
     <div className="min-h-dvh w-full max-w-full overflow-x-hidden bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-150">
-      {/* Top Navigation for Home only (Host, Voices and Listener render their own native studio layout) */}
-      {(currentView === 'home' || currentView === 'post-leave') && (
+      {/* Top Navigation for Home/Join only (Host, Voices and Listener render their own native studio layout) */}
+      {(currentView === 'home' || currentView === 'join' || currentView === 'post-leave') && (
         <Navbar
-          currentRole={null}
+          currentRole={currentView === 'join' ? 'listener' : null}
           roomId={roomId}
           latency={latency}
           isConnected={isConnected}
@@ -290,10 +410,31 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-h-0">
-        {(currentView === 'home' || currentView === 'post-leave') && (
+        {(currentView === 'home' || currentView === 'join' || currentView === 'post-leave') && (
           <HomeView
             onCreateRoom={handleCreateRoom}
             onJoinRoom={handleJoinRoom}
+            isAttendeeOnly={currentView === 'join' || window.location.pathname.startsWith('/join')}
+          />
+        )}
+
+        {currentView === 'admin' && (
+          <AdminSettingsView
+            roomId={roomId}
+            onNavigateHost={() => {
+              const targetRoom = roomId || localStorage.getItem('lv_active_room_id');
+              if (targetRoom) {
+                window.history.pushState({}, '', `?room=${targetRoom}&host=true`);
+                setCurrentView('host');
+              } else {
+                window.history.pushState({}, '', '/');
+                setCurrentView('home');
+              }
+            }}
+            onNavigateHome={() => {
+              window.history.pushState({}, '', '/');
+              setCurrentView('home');
+            }}
           />
         )}
 
@@ -311,7 +452,10 @@ export default function App() {
             roomTitle={roomTitle}
             onLeave={handleLeave}
             localIp={localIp}
-            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenSettings={() => {
+              window.history.pushState({}, '', '/admin' + (roomId ? `?room=${roomId}` : ''));
+              setCurrentView('admin');
+            }}
             onNavigateVoices={() => setCurrentView('voices')}
           />
         )}
@@ -321,7 +465,10 @@ export default function App() {
             roomId={roomId || 'MAIN'}
             onNavigateStudio={() => setCurrentView('host')}
             onNavigateHome={handleNavigateHome}
-            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenSettings={() => {
+              window.history.pushState({}, '', '/admin' + (roomId ? `?room=${roomId}` : ''));
+              setCurrentView('admin');
+            }}
             onOpenQR={() => setIsQrOpen(true)}
           />
         )}

@@ -12,7 +12,8 @@ import { SUPPORTED_LANGUAGES } from '../components/LanguageSelector.jsx';
  */
 export default function HomeView({
   onCreateRoom = () => {},
-  onJoinRoom = () => {}
+  onJoinRoom = () => {},
+  isAttendeeOnly = false
 }) {
   const [joinPin, setJoinPin] = useState('');
   const [customRoomName, setCustomRoomName] = useState('');
@@ -80,7 +81,9 @@ export default function HomeView({
           </h1>
 
           <p className="text-sm sm:text-base text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto leading-relaxed">
-            Escucha o retransmite conferencias en tiempo real con audio sincronizado en varios idiomas.
+            {isAttendeeOnly
+              ? 'Ingresa a tu sala para escuchar la conferencia y leer subtítulos sincronizados en tu idioma.'
+              : 'Escucha o retransmite conferencias en tiempo real con audio sincronizado en varios idiomas.'}
           </p>
         </div>
 
@@ -124,45 +127,47 @@ export default function HomeView({
 
         {/* Section: Action Cards + Mobile Role Switcher */}
         <div className="space-y-4 sm:space-y-6 w-full">
-          {/* Mobile View Switcher (Oyente vs Ponente) */}
-          <div className="lg:hidden flex p-1.5 bg-zinc-100 dark:bg-zinc-900 rounded-full border border-zinc-200/90 dark:border-zinc-800 max-w-sm mx-auto shadow-2xs w-full" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mobileTab === 'join'}
-              onClick={() => setMobileTab('join')}
-              className={`flex-1 py-2.5 px-4 text-xs sm:text-sm font-semibold rounded-full flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                mobileTab === 'join'
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              }`}
-            >
-              <Headphones className="w-4 h-4" />
-              <span>Oyente</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mobileTab === 'host'}
-              onClick={() => setMobileTab('host')}
-              className={`flex-1 py-2.5 px-4 text-xs sm:text-sm font-semibold rounded-full flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                mobileTab === 'host'
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              }`}
-            >
-              <Mic className="w-4 h-4" />
-              <span>Ponente</span>
-            </button>
-          </div>
+          {/* Mobile View Switcher (Oyente vs Ponente) — Oculto en modo oyente exclusivo */}
+          {!isAttendeeOnly && (
+            <div className="lg:hidden flex p-1.5 bg-zinc-100 dark:bg-zinc-900 rounded-full border border-zinc-200/90 dark:border-zinc-800 max-w-sm mx-auto shadow-2xs w-full" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobileTab === 'join'}
+                onClick={() => setMobileTab('join')}
+                className={`flex-1 py-2.5 px-4 text-xs sm:text-sm font-semibold rounded-full flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  mobileTab === 'join'
+                    ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+              >
+                <Headphones className="w-4 h-4" />
+                <span>Oyente</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobileTab === 'host'}
+                onClick={() => setMobileTab('host')}
+                className={`flex-1 py-2.5 px-4 text-xs sm:text-sm font-semibold rounded-full flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  mobileTab === 'host'
+                    ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+              >
+                <Mic className="w-4 h-4" />
+                <span>Ponente</span>
+              </button>
+            </div>
+          )}
 
           {/* Action Cards: 1. Attendee (Oyente) / 2. Speaker (Ponente) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 max-w-4xl mx-auto w-full">
+          <div className={`grid grid-cols-1 ${isAttendeeOnly ? 'max-w-md mx-auto' : 'lg:grid-cols-2 max-w-4xl mx-auto'} gap-5 sm:gap-6 w-full`}>
             
             {/* Card 1: Attendee / Sintonizar Sala */}
-            <div className={`${mobileTab === 'join' ? 'flex' : 'hidden lg:flex'} bg-white dark:bg-zinc-900/70 border border-zinc-200/90 dark:border-zinc-800 rounded-[28px] p-6 sm:p-7 flex-col justify-between shadow-2xs text-left space-y-6`}>
+            <div className={`${isAttendeeOnly || mobileTab === 'join' ? 'flex' : 'hidden lg:flex'} bg-white dark:bg-zinc-900/70 border border-zinc-200/90 dark:border-zinc-800 rounded-[28px] p-6 sm:p-7 flex-col justify-between shadow-2xs text-left space-y-6 w-full`}>
               <div className="space-y-4">
-                <div className="hidden lg:flex w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs">
+                <div className={`${isAttendeeOnly ? 'flex' : 'hidden lg:flex'} w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs`}>
                   <Headphones className="w-5 h-5" />
                 </div>
 
@@ -194,39 +199,41 @@ export default function HomeView({
               </form>
             </div>
 
-            {/* Card 2: Host / Crear Sala */}
-            <div className={`${mobileTab === 'host' ? 'flex' : 'hidden lg:flex'} bg-white dark:bg-zinc-900/70 border border-zinc-200/90 dark:border-zinc-800 rounded-[28px] p-6 sm:p-7 flex-col justify-between shadow-2xs text-left space-y-6`}>
-              <div className="space-y-4">
-                <div className="hidden lg:flex w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs">
-                  <Mic className="w-5 h-5" />
+            {/* Card 2: Host / Crear Sala — Completamente oculta en modo oyente exclusivo */}
+            {!isAttendeeOnly && (
+              <div className={`${mobileTab === 'host' ? 'flex' : 'hidden lg:flex'} bg-white dark:bg-zinc-900/70 border border-zinc-200/90 dark:border-zinc-800 rounded-[28px] p-6 sm:p-7 flex-col justify-between shadow-2xs text-left space-y-6`}>
+                <div className="space-y-4">
+                  <div className="hidden lg:flex w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs">
+                    <Mic className="w-5 h-5" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                      Crear sala
+                    </h2>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Inicia una sala para retransmitir tu conferencia desde tu micrófono en directo a los asistentes.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    Crear sala
-                  </h2>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Inicia una sala para retransmitir tu conferencia desde tu micrófono en directo a los asistentes.
-                  </p>
-                </div>
+                <form onSubmit={handleCreateSubmit} className="space-y-3">
+                  <input
+                    type="text"
+                    value={customRoomName}
+                    onChange={(e) => setCustomRoomName(e.target.value)}
+                    placeholder="Código personalizado (opcional)"
+                    className="w-full h-12 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-full px-5 text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full h-12 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm cursor-pointer transition-all active:scale-[0.99]"
+                  >
+                    <span>{customRoomName.trim() ? 'Crear sala con código' : 'Crear sala instantánea'}</span>
+                  </button>
+                </form>
               </div>
-
-              <form onSubmit={handleCreateSubmit} className="space-y-3">
-                <input
-                  type="text"
-                  value={customRoomName}
-                  onChange={(e) => setCustomRoomName(e.target.value)}
-                  placeholder="Código personalizado (opcional)"
-                  className="w-full h-12 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-full px-5 text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all"
-                />
-                <button
-                  type="submit"
-                  className="w-full h-12 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm cursor-pointer transition-all active:scale-[0.99]"
-                >
-                  <span>{customRoomName.trim() ? 'Crear sala con código' : 'Crear sala instantánea'}</span>
-                </button>
-              </form>
-            </div>
+            )}
 
           </div>
         </div>
