@@ -1,24 +1,21 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Shield, LogOut } from 'lucide-react';
+import { X } from 'lucide-react';
 
 /**
- * USER MENU — Calcado fielmente de standalone-assistant/components/chatbot/UserMenu.tsx.
+ * USER MENU — Perfil minimalista de usuario en sala.
  *
- * Estructura calcada:
+ * Estructura:
  *   - ANCHO_MENU: 320px
  *   - Header: email / rol centrado (text-sm font-medium) con botón cerrar (X) en absolute right-4, sin borde inferior divisorio
  *   - Avatar: 64x64 (h-16 w-16) redondeado completo con borde sutil y fondo neutral, iniciales limpias sin caracteres especiales
  *   - Saludo: ¡Hola, {userName}! (text-lg font-medium) centrado
  *   - Botón principal de acción: pastilla llena rounded-full (py-2.5 bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20)
- *   - Separador y Fila de Administración: rounded-lg p-2 en azul (text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10) con icono Shield
- *   - Separador y Fila de Cerrar sesión: rounded-lg p-2 en rojo (text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10) con icono LogOut
- *   - Pie con enlaces legales: Política de privacidad • Condiciones del servicio
  */
 
 const ANCHO_MENU = 320;
 const SEPARACION = 8;
-const ALTO_ESTIMADO_MENU = 360;
+const ALTO_ESTIMADO_MENU = 210;
 
 export default function UserMenu({
   isOpen = false,
@@ -116,9 +113,9 @@ export default function UserMenu({
         </h3>
       </div>
 
-      {/* Botones de acción */}
-      <div className="px-4 pb-4 space-y-2">
-        {onOpenSettings && (
+      {/* Botón de acción */}
+      {onOpenSettings && (
+        <div className="px-4 pb-4">
           <button
             type="button"
             onClick={() => {
@@ -130,73 +127,8 @@ export default function UserMenu({
           >
             Configuración de Sala
           </button>
-        )}
-
-        {/* Panel de administración (calcado con Shield, azul y separador) */}
-        {canAccessAdmin && onOpenAdminPanel && (
-          <>
-            <div className="py-1">
-              <div className="border-t border-zinc-200 dark:border-white/10" />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                onOpenAdminPanel();
-                onClose();
-              }}
-              data-testid="usermenu-admin-panel"
-              className="flex w-full items-center gap-3 p-2 rounded-lg text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors focus:outline-none cursor-pointer"
-            >
-              <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-              <span className="font-medium">Panel de Administración</span>
-            </button>
-          </>
-        )}
-
-        {/* Cerrar sesión si aplica */}
-        {onLogout && (
-          <>
-            <div className="py-1">
-              <div className="border-t border-zinc-200 dark:border-white/10" />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onLogout();
-              }}
-              data-testid="usermenu-logout"
-              className="flex w-full items-center gap-3 p-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors focus:outline-none cursor-pointer"
-            >
-              <LogOut className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
-              <span className="font-medium">Cerrar sesión</span>
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Enlaces legales (calcado del pie de standalone-assistant) */}
-      <div className="px-4 py-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400 border-t border-zinc-100 dark:border-white/5">
-        <a
-          href="/privacy"
-          target="_blank"
-          rel="noreferrer"
-          className="whitespace-nowrap hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:focus-visible:ring-white/40"
-        >
-          Política de privacidad
-        </a>
-        <span aria-hidden="true">•</span>
-        <a
-          href="/terms"
-          target="_blank"
-          rel="noreferrer"
-          className="whitespace-nowrap hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:focus-visible:ring-white/40"
-        >
-          Condiciones del servicio
-        </a>
-      </div>
+        </div>
+      )}
     </div>,
     document.body
   );

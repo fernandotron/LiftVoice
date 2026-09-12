@@ -1367,10 +1367,7 @@ export default function HostView({
             anchorElement={hostUserMenuTriggerRef.current}
             userName="Ponente"
             userRole="host"
-            canAccessAdmin={true}
             onOpenSettings={onOpenSettings}
-            onOpenAdminPanel={onOpenSettings}
-            onLogout={() => onLeave({ reason: 'voluntary' })}
           />
         </div>
       </header>
