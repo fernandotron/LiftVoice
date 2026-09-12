@@ -817,29 +817,35 @@ export default function AdminSettingsShell({
           <span className="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 truncate">
             Configuración del Sistema
           </span>
+
+          {effectiveRoomId && (
+            <>
+              <span className="text-zinc-300 dark:text-zinc-700 select-none hidden md:inline-block">•</span>
+              <div className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 font-mono text-[11px] text-zinc-600 dark:text-zinc-400 select-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Sala {effectiveRoomId}</span>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Right: Return Button with contextual room tag */}
+        {/* Right: Clean Return Action Button */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           <button
             type="button"
             onClick={handleReturn}
-            className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 font-medium text-xs flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
+            className="h-9 px-3.5 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 hover:bg-zinc-200/80 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 font-medium text-xs sm:text-sm flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
             title={effectiveRoomId ? `Volver a la sala activa (${effectiveRoomId})` : 'Volver al inicio'}
           >
             {effectiveRoomId ? (
               <>
-                <ArrowLeft className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                <ArrowLeft className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                 <span className="hidden sm:inline">Volver a la sala</span>
-                <span className="sm:hidden">Sala</span>
-                <span className="hidden md:inline-flex items-center gap-1.5 font-mono text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  {effectiveRoomId}
-                </span>
+                <span className="sm:hidden">Volver</span>
               </>
             ) : (
               <>
-                <Home className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                <Home className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                 <span className="hidden sm:inline">Volver al inicio</span>
                 <span className="sm:hidden">Inicio</span>
               </>
