@@ -6,6 +6,7 @@ import {
   Sparkles, AlertCircle, ShieldAlert
 } from 'lucide-react';
 import CountryFlag from './shared/CountryFlag.jsx';
+import Banner from './shared/Banner.jsx';
 
 export default function QRCodeModal({
   roomId = 'MAIN',
@@ -268,25 +269,47 @@ export default function QRCodeModal({
                   </button>
                 </div>
 
-                {/* Banner de error transparente si el túnel falló */}
+                {/* Banner de aviso / error estilo Reness unificado */}
                 {tunnelError && (
-                  <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2 text-left animate-fadeIn">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                    <span>{tunnelError}</span>
-                  </div>
+                  <Banner
+                    icon={<ShieldAlert className="w-4 h-4 text-white" strokeWidth={2.2} />}
+                    color="#f59e0b"
+                    title={
+                      tunnelError.toLowerCase().includes('unauthorized') || tunnelError.toLowerCase().includes('admin')
+                        ? 'Acceso administrativo'
+                        : 'Aviso de conexión'
+                    }
+                    desc={
+                      tunnelError.toLowerCase().includes('unauthorized') || tunnelError.toLowerCase().includes('admin')
+                        ? 'Se requiere acceso de administrador para activar el túnel 4G/5G. Utiliza la Red Wi-Fi local.'
+                        : tunnelError
+                    }
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => setTunnelError(null)}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                        title="Cerrar aviso"
+                        aria-label="Cerrar aviso"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    }
+                    className="animate-fadeIn shadow-xs"
+                    style={{ padding: '12px 14px', borderRadius: 20 }}
+                  />
                 )}
               </div>
             ) : (
-              <div className="w-full max-w-[280px] p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center gap-2.5 text-left">
-                <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
-                    QR Universal Seguro
-                  </div>
-                  <div className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-0.5">
-                    Válido para Wi-Fi y datos móviles 4G/5G
-                  </div>
-                </div>
+              <div className="w-full max-w-[280px]">
+                <Banner
+                  icon={<Globe className="w-4 h-4 text-white" strokeWidth={2.2} />}
+                  color="#10b981"
+                  title="QR universal seguro"
+                  desc="Válido para conexión Wi-Fi y datos móviles 4G/5G."
+                  className="shadow-xs"
+                  style={{ padding: '12px 14px', borderRadius: 20 }}
+                />
               </div>
             )}
           </div>
