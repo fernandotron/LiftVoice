@@ -736,24 +736,24 @@ export default function AdminSettingsShell({
   );
 
   const mainContent = (
-    <div className={`flex-1 ${variant === 'modal' ? 'p-6 space-y-6' : 'min-w-0 space-y-6'}`}>
+    <div className={`flex-1 ${variant === 'modal' ? 'px-6 sm:px-8 pt-6 pb-8 space-y-8' : 'min-w-0 space-y-8'}`}>
       {/* ═══════════════════════════════════════════════════════════ */}
       {/* PESTAÑA: TRANSCRIPTOR (STT)                                 */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'stt' && (
-        <div className="space-y-6 animate-fadeIn">
+        <div className="space-y-8 animate-fadeIn">
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
               Motor de Reconocimiento de Voz (STT)
             </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Selecciona el motor de transcripción en vivo del ponente y la estrategia de consumo de cuota.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
               {/* Motor Principal */}
               <div>
-                <label htmlFor="admin-stt-engine" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label htmlFor="admin-stt-engine" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                   Motor Principal de Transcripción
                 </label>
                 <SelectDropdown
@@ -764,7 +764,7 @@ export default function AdminSettingsShell({
                   onChange={(e) => { setSttEngine(e.target.value); setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   {sttEngine === 'deepgram' && 'Modelo acústico insignia con latencia ultra-baja (~150ms) y puntuación inteligente. Consume tu saldo de $200.'}
                   {sttEngine === 'gemini_live' && 'Transcripción multimodal de Google optimizada para entornos con reverberación y salas amplias.'}
                   {sttEngine === 'whisper' && 'Reconocimiento robusto con alta fidelidad léxica, ideal para simposios médicos y conferencias técnicas.'}
@@ -774,7 +774,7 @@ export default function AdminSettingsShell({
 
               {/* Estrategia de Ejecución / Preset */}
               <div>
-                <label htmlFor="admin-stt-strategy" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label htmlFor="admin-stt-strategy" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                   Estrategia de Ejecución & Presupuesto
                 </label>
                 <SelectDropdown
@@ -790,26 +790,26 @@ export default function AdminSettingsShell({
                   }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Sincroniza en un clic el transcriptor (STT), motor de traducción (LLM) y voces (TTS) para optimizar costes o calidad.
                 </p>
               </div>
             </div>
           </div>
 
-          <hr className="border-t border-zinc-200/80 dark:border-white/10 my-6" />
+          <hr className="border-t border-zinc-200/80 dark:border-white/10 my-8" />
 
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
               Parámetros de Captura & Audio
             </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Ajustes para el filtrado acústico y la detección del orador principal.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
               <div>
-                <label htmlFor="admin-stt-lang" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label htmlFor="admin-stt-lang" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                   Detección de Idioma del Ponente
                 </label>
                 <SelectDropdown
@@ -820,13 +820,13 @@ export default function AdminSettingsShell({
                   onChange={() => { setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Permite alternar de idioma sobre la marcha o forzar el dialecto nativo para evitar falsas detecciones.
                 </p>
               </div>
 
               <div>
-                <label htmlFor="admin-stt-vad" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label htmlFor="admin-stt-vad" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                   Filtro de Silencio & VAD (Voice Activity Detection)
                 </label>
                 <SelectDropdown
@@ -837,7 +837,7 @@ export default function AdminSettingsShell({
                   onChange={() => { setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Evita transcripciones involuntarias por toses, murmullos del público o pausas largas del orador.
                 </p>
               </div>
@@ -850,18 +850,18 @@ export default function AdminSettingsShell({
       {/* PESTAÑA: VOCES POR IDIOMA (TTS)                             */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'tts' && (
-        <div className="space-y-6 animate-fadeIn">
+        <div className="space-y-8 animate-fadeIn">
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
               Motor de Síntesis Global (TTS)
             </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Define el proveedor predeterminado y la sincronización temporal del audio de interpretación.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
               <div>
-                <label htmlFor="admin-tts-global" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label htmlFor="admin-tts-global" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                   Motor de Síntesis Predeterminado
                 </label>
                 <SelectDropdown
@@ -872,13 +872,13 @@ export default function AdminSettingsShell({
                   onChange={(e) => handlePreferredTtsEngineChange(e.target.value)}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Asigna el proveedor de voz a las cabinas de traducción de forma automática.
                 </p>
               </div>
 
               <div>
-                <label htmlFor="admin-tts-decalage" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label htmlFor="admin-tts-decalage" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                   Modo de Décalage & Latencia
                 </label>
                 <SelectDropdown
@@ -889,24 +889,24 @@ export default function AdminSettingsShell({
                   onChange={(e) => { setDecalageMode(e.target.value); setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   El décalage equilibra la velocidad de entrega del audio traducido frente a la naturalidad tonal.
                 </p>
               </div>
             </div>
           </div>
 
-          <hr className="border-t border-zinc-200/80 dark:border-white/10 my-6" />
+          <hr className="border-t border-zinc-200/80 dark:border-white/10 my-8" />
 
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
               Cabinas de Traducción Simultánea
             </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Configura el timbre de voz y prueba la pronunciación en directo para cada canal de oyente.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
               {BOOTHS.map((b) => {
                 const currentVoice = voiceConfig[b.lang] || DEFAULT_VOICES[b.lang];
                 const currentGender = voiceGender[b.lang] || 'female';
@@ -916,7 +916,7 @@ export default function AdminSettingsShell({
                 return (
                   <div
                     key={b.lang}
-                    className="p-4.5 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-white/5 space-y-3.5"
+                    className="p-5 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-white/5 space-y-4"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
@@ -959,7 +959,7 @@ export default function AdminSettingsShell({
                     </div>
 
                     <div>
-                      <label htmlFor={`admin-voice-${b.lang}`} className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                      <label htmlFor={`admin-voice-${b.lang}`} className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                         Voz Asignada para {b.label}:
                       </label>
                       <SelectDropdown
@@ -972,7 +972,7 @@ export default function AdminSettingsShell({
                           description: v.desc
                         }))}
                         onChange={(e) => handleVoiceChange(b.lang, e.target.value)}
-                        className="w-full h-11 px-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/10 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                        className="w-full h-11 px-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                       />
                     </div>
 
@@ -980,7 +980,7 @@ export default function AdminSettingsShell({
                       type="button"
                       onClick={() => handlePreviewVoice(b.lang)}
                       disabled={isPreviewing}
-                      className={`w-full h-10 px-4 rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      className={`w-full h-11 px-4 rounded-2xl text-xs sm:text-sm font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
                         isPreviewing
                           ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
                           : 'bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-white/10 shadow-2xs'
@@ -1010,18 +1010,18 @@ export default function AdminSettingsShell({
       {/* PESTAÑA: MODELOS DE TRADUCCIÓN                              */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'ai' && (
-        <div className="space-y-6 animate-fadeIn">
+        <div className="space-y-8 animate-fadeIn">
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
               Motor de Inferencia y Traducción
             </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Gestiona los modelos de lenguaje y la estrategia de generación simultánea en 4 idiomas.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
               <div>
-                <label htmlFor="admin-ai-provider" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label htmlFor="admin-ai-provider" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                   Proveedor Principal de Inferencia
                 </label>
                 <SelectDropdown
@@ -1032,7 +1032,7 @@ export default function AdminSettingsShell({
                   onChange={(e) => { setPreferredEngine(e.target.value); setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   {preferredEngine === 'gemini' && 'Inferencia ultra-rápida en sub-150ms con salida estructurada JSON sin razonamiento forzado.'}
                   {preferredEngine === 'qwen' && 'Modelo de pesos abiertos con excelente soporte para lenguas romances e inferencia local.'}
                   {preferredEngine === 'openai' && 'Modelo optimizado con alta consistencia gramatical y preservación de terminología especializada.'}
@@ -1041,7 +1041,7 @@ export default function AdminSettingsShell({
               </div>
 
               <div>
-                <label htmlFor="admin-ai-strategy" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label htmlFor="admin-ai-strategy" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                   Estrategia de Generación Multilingüe
                 </label>
                 <SelectDropdown
@@ -1052,27 +1052,27 @@ export default function AdminSettingsShell({
                   onChange={() => { setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   La llamada única estructurada reduce el consumo de cuota un 75% y sincroniza los tiempos de audio.
                 </p>
               </div>
             </div>
           </div>
 
-          <hr className="border-t border-zinc-200/80 dark:border-white/10 my-6" />
+          <hr className="border-t border-zinc-200/80 dark:border-white/10 my-8" />
 
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
               Parámetros del Modelo Seleccionado
             </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Ajuste de hiperparámetros, versión específica y conexiones locales.
             </p>
 
             {preferredEngine === 'gemini' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
                 <div>
-                  <label htmlFor="admin-gemini-model" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                  <label htmlFor="admin-gemini-model" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                     Modelo de Gemini Activo
                   </label>
                   <SelectDropdown
@@ -1082,13 +1082,13 @@ export default function AdminSettingsShell({
                     onChange={(e) => { setGeminiModel(e.target.value); setIsDirty(true); }}
                     className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                   />
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                     Optimizado para devolver las 4 traducciones en una sola respuesta JSON compacta.
                   </p>
                 </div>
 
                 <div>
-                  <label htmlFor="admin-gemini-temp" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                  <label htmlFor="admin-gemini-temp" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                     Temperatura / Fidelidad
                   </label>
                   <SelectDropdown
@@ -1098,7 +1098,7 @@ export default function AdminSettingsShell({
                     onChange={() => { setIsDirty(true); }}
                     className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                   />
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                     Una temperatura baja previene alucinaciones y respeta fielmente el mensaje del ponente.
                   </p>
                 </div>
@@ -1106,10 +1106,10 @@ export default function AdminSettingsShell({
             )}
 
             {preferredEngine === 'qwen' && (
-              <div className="space-y-5 mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+              <div className="space-y-6 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   <div>
-                    <label htmlFor="admin-qwen-model" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    <label htmlFor="admin-qwen-model" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                       Modelo de Qwen Activo
                     </label>
                     <SelectDropdown
@@ -1122,7 +1122,7 @@ export default function AdminSettingsShell({
                   </div>
 
                   <div>
-                    <label htmlFor="admin-qwen-temp" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    <label htmlFor="admin-qwen-temp" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                       Temperatura
                     </label>
                     <SelectDropdown
@@ -1135,9 +1135,9 @@ export default function AdminSettingsShell({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    <label className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                       Endpoint LLM (Ollama / vLLM local)
                     </label>
                     <input
@@ -1145,12 +1145,12 @@ export default function AdminSettingsShell({
                       value={qwenEndpoint}
                       onChange={(e) => { setQwenEndpoint(e.target.value); markKeyTouched('qwenEndpoint'); setIsDirty(true); }}
                       placeholder="http://localhost:11434/v1"
-                      className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                      className="w-full h-11 px-4 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    <label className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                       Endpoint Qwen-TTS (/v1/audio/speech)
                     </label>
                     <input
@@ -1158,7 +1158,7 @@ export default function AdminSettingsShell({
                       value={qwenTtsEndpoint}
                       onChange={(e) => { setQwenTtsEndpoint(e.target.value); markKeyTouched('qwenTtsEndpoint'); setIsDirty(true); }}
                       placeholder="http://localhost:8000/v1/audio/speech"
-                      className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                      className="w-full h-11 px-4 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
@@ -1166,9 +1166,9 @@ export default function AdminSettingsShell({
             )}
 
             {preferredEngine === 'openai' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
                 <div>
-                  <label htmlFor="admin-openai-model" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                  <label htmlFor="admin-openai-model" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                     Modelo de OpenAI Activo
                   </label>
                   <SelectDropdown
@@ -1181,7 +1181,7 @@ export default function AdminSettingsShell({
                 </div>
 
                 <div>
-                  <label htmlFor="admin-openai-temp" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                  <label htmlFor="admin-openai-temp" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                     Temperatura
                   </label>
                   <SelectDropdown
@@ -1196,9 +1196,9 @@ export default function AdminSettingsShell({
             )}
 
             {preferredEngine === 'google' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                  <label className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                     Modo Google Neural
                   </label>
                   <SelectDropdown
@@ -1218,18 +1218,18 @@ export default function AdminSettingsShell({
       {/* PESTAÑA: MODO MÉDICO & GLOSARIO                             */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'medical' && (
-        <div className="space-y-6 animate-fadeIn">
+        <div className="space-y-8 animate-fadeIn">
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
               Especialización Médica & Terminología
             </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Activa la nomenclatura clínica CIE-11, fármacos DCI y acrónimos hospitalarios en la traducción simultánea.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
               <div>
-                <label htmlFor="admin-med-mode" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label htmlFor="admin-med-mode" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                   Estado del Modo Clínico
                 </label>
                 <SelectDropdown
@@ -1239,13 +1239,13 @@ export default function AdminSettingsShell({
                   onChange={(e) => { setMedicalMode(e.target.value === 'true'); setIsDirty(true); }}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Protege siglas críticas (ECG, SpO2, IAM, TVP) para evitar alteraciones coloquiales.
                 </p>
               </div>
 
               <div>
-                <label htmlFor="admin-med-specialty" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label htmlFor="admin-med-specialty" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                   Especialidad Principal de la Conferencia
                 </label>
                 <SelectDropdown
@@ -1256,20 +1256,20 @@ export default function AdminSettingsShell({
                   disabled={!medicalMode}
                   className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer disabled:opacity-50"
                 />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Ajusta el priming terminológico del modelo para la jerga del simposio.
                 </p>
               </div>
             </div>
           </div>
 
-          <hr className="border-t border-zinc-200/80 dark:border-white/10 my-6" />
+          <hr className="border-t border-zinc-200/80 dark:border-white/10 my-8" />
 
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
               Glosario Personalizado de la Conferencia
             </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Introduce siglas, medicamentos o nombres técnicos separados por coma para su preservación literal.
             </p>
 
@@ -1279,9 +1279,9 @@ export default function AdminSettingsShell({
                 value={customGlossary}
                 onChange={(e) => { setCustomGlossary(e.target.value); setIsDirty(true); }}
                 placeholder="SpO2, ECG, enoxaparina, amiodarona, troponina, IAM, shock cardiogénico, CIE-11..."
-                className="w-full p-4 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all resize-none"
+                className="w-full p-4 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all resize-none"
               />
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                 Los términos introducidos se inyectarán como reglas léxicas estrictas en el prompt de traducción simultánea.
               </p>
             </div>
@@ -1293,19 +1293,19 @@ export default function AdminSettingsShell({
       {/* PESTAÑA: CLAVES DE API                                      */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'keys' && (
-        <div className="space-y-6 animate-fadeIn">
+        <div className="space-y-8 animate-fadeIn">
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
               Credenciales de Proveedores
             </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Las credenciales se guardan de forma segura en tu navegador y se sincronizan con la sesión activa.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
               {/* Deepgram Key */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-2">
                   <label htmlFor="admin-key-deepgram" className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
                     Deepgram API Key (STT Nova-3 + TTS Aura)
                   </label>
@@ -1322,25 +1322,25 @@ export default function AdminSettingsShell({
                     value={deepgramKey}
                     onChange={(e) => { setDeepgramKey(e.target.value); markKeyTouched('deepgram'); setIsDirty(true); }}
                     placeholder={serverFlags.hasDeepgramKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'Clave de Deepgram (Nova-3 y Aura)...'}
-                    className="w-full h-11 pl-3.5 pr-10 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                    className="w-full h-11 pl-4 pr-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => toggleShowKey('deepgram')}
-                    className="absolute right-3 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
+                    className="absolute right-3.5 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
                     aria-label={showKeys.deepgram ? 'Ocultar clave' : 'Mostrar clave'}
                   >
                     {showKeys.deepgram ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Saldo disponible de $200. Cubre más de 15 eventos de 5 horas con audio en vivo.
                 </p>
               </div>
 
               {/* Google Gemini Key */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-2">
                   <label htmlFor="admin-key-gemini" className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
                     Google Gemini / OpenRouter Key (Flash-Lite)
                   </label>
@@ -1357,25 +1357,25 @@ export default function AdminSettingsShell({
                     value={geminiKey}
                     onChange={(e) => { setGeminiKey(e.target.value); markKeyTouched('gemini'); setIsDirty(true); }}
                     placeholder={serverFlags.hasGeminiKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'AIzaSy... o sk-or-v1-...'}
-                    className="w-full h-11 pl-3.5 pr-10 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                    className="w-full h-11 pl-4 pr-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => toggleShowKey('gemini')}
-                    className="absolute right-3 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
+                    className="absolute right-3.5 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
                     aria-label={showKeys.gemini ? 'Ocultar clave' : 'Mostrar clave'}
                   >
                     {showKeys.gemini ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Requerida para la inferencia multilingüe en tiempo real (&lt;140ms).
                 </p>
               </div>
 
               {/* Alibaba Qwen Key */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-2">
                   <label htmlFor="admin-key-qwen" className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
                     Alibaba Qwen Key (DashScope / OpenRouter)
                   </label>
@@ -1392,25 +1392,25 @@ export default function AdminSettingsShell({
                     value={qwenKey}
                     onChange={(e) => { setQwenKey(e.target.value); markKeyTouched('qwen'); setIsDirty(true); }}
                     placeholder={serverFlags.hasQwenKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'sk-or-v1-... o sk-...'}
-                    className="w-full h-11 pl-3.5 pr-10 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                    className="w-full h-11 pl-4 pr-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => toggleShowKey('qwen')}
-                    className="absolute right-3 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
+                    className="absolute right-3.5 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
                     aria-label={showKeys.qwen ? 'Ocultar clave' : 'Mostrar clave'}
                   >
                     {showKeys.qwen ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Opcional. Habilita modelos Qwen 3.8 en la nube y síntesis de voz Qwen3-TTS.
                 </p>
               </div>
 
               {/* ElevenLabs Key */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-2">
                   <label htmlFor="admin-key-elevenlabs" className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
                     ElevenLabs API Key (Turbo v2.5)
                   </label>
@@ -1427,25 +1427,25 @@ export default function AdminSettingsShell({
                     value={elevenLabsKey}
                     onChange={(e) => { setElevenLabsKey(e.target.value); markKeyTouched('eleven'); setIsDirty(true); }}
                     placeholder={serverFlags.hasElevenLabsKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'xi_api_key...'}
-                    className="w-full h-11 pl-3.5 pr-10 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                    className="w-full h-11 pl-4 pr-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => toggleShowKey('eleven')}
-                    className="absolute right-3 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
+                    className="absolute right-3.5 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
                     aria-label={showKeys.eleven ? 'Ocultar clave' : 'Mostrar clave'}
                   >
                     {showKeys.eleven ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Opcional. Habilita timbres fotorrealistas VIP (Rachel, Adam, Antoni).
                 </p>
               </div>
 
               {/* OpenAI Key */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-2">
                   <label htmlFor="admin-key-openai" className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
                     OpenAI API Key (Whisper + GPT-4o + TTS-1)
                   </label>
@@ -1462,18 +1462,18 @@ export default function AdminSettingsShell({
                     value={openaiKey}
                     onChange={(e) => { setOpenaiKey(e.target.value); markKeyTouched('openai'); setIsDirty(true); }}
                     placeholder={serverFlags.hasOpenAiKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'sk-proj-...'}
-                    className="w-full h-11 pl-3.5 pr-10 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                    className="w-full h-11 pl-4 pr-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => toggleShowKey('openai')}
-                    className="absolute right-3 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
+                    className="absolute right-3.5 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
                     aria-label={showKeys.openai ? 'Ocultar clave' : 'Mostrar clave'}
                   >
                     {showKeys.openai ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Opcional. Habilita síntesis OpenAI (Alloy, Nova, Echo) y transcriptor Whisper.
                 </p>
               </div>
@@ -1493,16 +1493,16 @@ export default function AdminSettingsShell({
       {/* PESTAÑA: APARIENCIA Y TEMA                                  */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'appearance' && (
-        <div className="space-y-6 animate-fadeIn">
+        <div className="space-y-8 animate-fadeIn">
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
               Preferencia de Interfaz & Tema
             </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Ajusta la paleta visual según las condiciones lumínicas de la sala, auditorio o cabina de traducción.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-4">
               {[
                 { id: 'light', label: 'Modo Claro', desc: 'Fondo blanco con contraste nítido para conferencias de día.', icon: Sun },
                 { id: 'dark', label: 'Modo Oscuro', desc: 'Tonos carbón profundo para cabinas y escenarios en penumbra.', icon: Moon },
@@ -1515,24 +1515,24 @@ export default function AdminSettingsShell({
                     key={item.id}
                     type="button"
                     onClick={() => setTheme(item.id)}
-                    className={`p-4.5 rounded-2xl border text-left cursor-pointer transition-all ${
+                    className={`p-5 rounded-2xl border text-left cursor-pointer transition-all ${
                       isSelected
                         ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border-zinc-950 dark:border-white shadow-xs ring-1 ring-zinc-950/10'
                         : 'bg-zinc-50/50 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/10'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                    <div className="flex items-center justify-between mb-3.5">
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
                         isSelected ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-300'
                       }`}>
-                        <ItemIcon className="w-4 h-4" />
+                        <ItemIcon className="w-4.5 h-4.5" />
                       </div>
                       {isSelected && (
                         <span className="w-2 h-2 rounded-full bg-emerald-500" />
                       )}
                     </div>
                     <div className="font-semibold text-xs sm:text-sm">{item.label}</div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-normal">
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed">
                       {item.desc}
                     </div>
                   </button>
@@ -1541,7 +1541,7 @@ export default function AdminSettingsShell({
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-zinc-50/50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
+          <div className="p-5 rounded-2xl bg-zinc-50/50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-400 space-y-1.5">
             <div className="font-semibold text-zinc-900 dark:text-zinc-200">Estado del Tema Activo</div>
             <p>Modo seleccionado: <strong className="text-zinc-900 dark:text-zinc-100">{theme}</strong> (Resuelto actualmente en pantalla como: <strong className="text-zinc-900 dark:text-zinc-100">{resolvedTheme}</strong>)</p>
           </div>
@@ -1674,7 +1674,7 @@ export default function AdminSettingsShell({
         {/* Right Content Panel */}
         <div className="flex-1 flex flex-col justify-between h-full overflow-hidden bg-white dark:bg-zinc-950 min-w-0">
           {/* Modal Header con MenuDeArea táctil para móvil */}
-          <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-4 sm:px-6 pt-4 sm:pt-5 pb-3.5 sm:pb-4 border-b border-zinc-200/80 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md">
+          <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-6 sm:px-8 pt-5 sm:pt-7 pb-4 border-b border-zinc-200/80 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md">
             <DegradadoCabecera />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2.5">
@@ -1698,7 +1698,7 @@ export default function AdminSettingsShell({
                   </span>
                 )}
               </div>
-              <p className="mt-0.5 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 truncate">
+              <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-[65ch] truncate sm:whitespace-normal leading-relaxed">
                 {currentTabMeta.desc}
               </p>
             </div>
@@ -1726,7 +1726,7 @@ export default function AdminSettingsShell({
           </header>
 
           {/* Scrollable Content Body */}
-          <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="flex-1 overflow-y-auto min-h-0 scrollbar-custom scrollbar-fina">
             {mainContent}
           </div>
 

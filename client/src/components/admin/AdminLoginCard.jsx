@@ -49,7 +49,7 @@ export function AdminLoginCard({
   };
 
   const card = (
-    <div className="bg-white dark:bg-zinc-900/90 border border-zinc-200/90 dark:border-zinc-800 rounded-[28px] p-6 sm:p-7 flex flex-col justify-between shadow-2xs text-left space-y-6 w-full animate-fadeIn">
+    <div className="bg-white dark:bg-zinc-900/90 border border-zinc-200/90 dark:border-zinc-800 rounded-[32px] p-6 sm:p-8 flex flex-col justify-between shadow-2xs text-left space-y-6 w-full animate-fadeIn">
       <div className="space-y-4">
         <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs">
           <Lock className="w-5 h-5" />
@@ -59,16 +59,16 @@ export function AdminLoginCard({
           <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
             Acceso de Administrador
           </h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-[65ch]">
             Ingresa tu correo y contraseña maestra para administrar el pipeline de IA, cabinas y salas.
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3.5">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* Email Field */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+        <div>
+          <label className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 block mb-2">
             Correo electrónico
           </label>
           <div className="relative">
@@ -80,15 +80,15 @@ export function AdminLoginCard({
               placeholder="admin@liftvoice.ai"
               required
               disabled={loading || lockoutSeconds > 0}
-              className="w-full h-11 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-full pl-10 pr-4 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all"
+              className="w-full h-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl pl-10 pr-4 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
             />
             <Mail className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
         {/* Password Field */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+        <div>
+          <label className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 block mb-2">
             Contraseña
           </label>
           <div className="relative">
@@ -101,7 +101,7 @@ export function AdminLoginCard({
               autoFocus
               required
               disabled={loading || lockoutSeconds > 0}
-              className="w-full h-11 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-full pl-10 pr-11 text-xs sm:text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all"
+              className="w-full h-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl pl-10 pr-11 text-xs sm:text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
             />
             <Lock className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <button
@@ -117,12 +117,12 @@ export function AdminLoginCard({
         </div>
 
         {lockoutSeconds > 0 ? (
-          <div className="px-4 py-2.5 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-xs font-medium text-amber-700 dark:text-amber-300 text-center flex items-center justify-center gap-1.5">
+          <div className="px-4 py-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-xs font-medium text-amber-700 dark:text-amber-300 text-center flex items-center justify-center gap-1.5">
             <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0" />
             <span>Bloqueo temporal: {Math.floor(lockoutSeconds / 60)}:{(lockoutSeconds % 60).toString().padStart(2, '0')} min</span>
           </div>
         ) : error ? (
-          <div className="px-4 py-2.5 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs font-medium text-rose-600 dark:text-rose-400 text-center">
+          <div className="px-4 py-2.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs font-medium text-rose-600 dark:text-rose-400 text-center">
             {error}
           </div>
         ) : null}
@@ -130,7 +130,7 @@ export function AdminLoginCard({
         <button
           type="submit"
           disabled={loading || !password.trim() || lockoutSeconds > 0}
-          className="w-full h-11 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs sm:text-sm flex items-center justify-center shadow-xs disabled:opacity-40 cursor-pointer transition-all active:scale-[0.99] mt-2"
+          className="w-full h-11 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs sm:text-sm flex items-center justify-center shadow-xs disabled:opacity-40 cursor-pointer transition-all active:scale-[0.99] mt-3"
         >
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin text-zinc-400 mr-2" />

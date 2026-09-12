@@ -12,7 +12,7 @@ export function DegradadoPie() {
 
 export default function AdminStickyFooter({ onSave, onCancel, isDirty, isSaving, isSaved }) {
   return (
-    <footer className="relative z-20 flex items-center justify-between gap-4 px-6 py-3.5 border-t border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md flex-shrink-0">
+    <footer className="relative z-20 flex items-center justify-between gap-4 px-6 sm:px-8 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md flex-shrink-0">
       <DegradadoPie />
 
       {/* Left status indicator */}
@@ -35,12 +35,12 @@ export default function AdminStickyFooter({ onSave, onCancel, isDirty, isSaving,
         )}
       </div>
 
-      {/* Right action buttons: pill buttons h-11 */}
+      {/* Right action buttons: pill buttons h-12 rounded-2xl matching standalone-assistant */}
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onCancel}
-          className="h-11 px-5 rounded-full text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+          className="h-12 px-6 rounded-2xl text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
         >
           Descartar
         </button>
@@ -49,7 +49,7 @@ export default function AdminStickyFooter({ onSave, onCancel, isDirty, isSaving,
           type="button"
           onClick={onSave}
           disabled={!isDirty || isSaving}
-          className={`h-11 px-6 rounded-full text-xs sm:text-sm font-medium flex items-center gap-2 transition-all cursor-pointer shadow-xs ${
+          className={`h-12 px-7 rounded-2xl text-xs sm:text-sm font-medium flex items-center gap-2 transition-all cursor-pointer shadow-xs ${
             isSaved
               ? 'bg-emerald-600 text-white shadow-emerald-500/20'
               : isDirty
