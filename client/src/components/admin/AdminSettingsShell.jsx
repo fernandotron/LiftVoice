@@ -1846,6 +1846,7 @@ export default function AdminSettingsShell({
 
           {/* Sticky Actions Footer */}
           <AdminStickyFooter 
+            variant="modal"
             onSave={handleSave} 
             onCancel={handleCloseAttempt} 
             isDirty={isDirty} 
@@ -1872,7 +1873,7 @@ export default function AdminSettingsShell({
     <div className="min-h-dvh w-full max-w-full bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-150 font-sans">
       {/* Header unificado de /admin con diseño Studio 2026 */}
       {renderPageHeader()}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col md:flex-row gap-6 lg:gap-8">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-12 sm:pb-16 flex flex-col md:flex-row gap-6 lg:gap-8">
         <aside className="hidden md:block w-full md:w-64 lg:w-72 flex-shrink-0 select-none">
           <div className="sticky top-24 space-y-4">
             {renderSidebarContent()}
@@ -1901,7 +1902,7 @@ export default function AdminSettingsShell({
           {mainContent}
         </section>
       </main>
-      <AdminStickyFooter onSave={handleSave} onCancel={handleReturn} isDirty={isDirty} isSaving={isSaving} isSaved={isSaved} />
+      <AdminStickyFooter variant="page" onSave={handleSave} onCancel={handleReturn} isDirty={isDirty} isSaving={isSaving} isSaved={isSaved} />
       <UnsavedChangesPrompt isOpen={showUnsavedPrompt} onCancel={() => setShowUnsavedPrompt(false)} onConfirm={() => { setShowUnsavedPrompt(false); executeReturn(); }} />
     </div>
   );
