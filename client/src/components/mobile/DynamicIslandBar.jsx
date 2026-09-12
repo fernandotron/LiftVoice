@@ -140,7 +140,7 @@ export default function DynamicIslandBar({
           </div>
 
           <div className="flex items-center justify-between pt-1">
-            <span className="text-[10px] text-zinc-400 font-mono">Enlace oyentes: ?room={roomId}</span>
+            <span className="text-[10px] text-zinc-400 font-mono">Enlace oyentes: /join?room={roomId}</span>
             <button
               type="button"
               onClick={handleCopy}

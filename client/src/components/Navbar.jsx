@@ -16,7 +16,7 @@ export default function Navbar({
   const handleCopyLink = () => {
     if (!roomId) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const url = `${origin}/?room=${roomId}`;
+    const url = `${origin}/join?room=${roomId}`;
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(url).then(() => {
         setHasCopied(true);

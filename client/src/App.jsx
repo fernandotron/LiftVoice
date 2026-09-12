@@ -64,6 +64,7 @@ export function getInitialRouteState() {
   const modeParam = params.get('mode');
 
   const isAdminRoute = pathname.startsWith('/admin') || viewParam === 'admin';
+  const isCreateRoute = pathname.startsWith('/create') || (pathname.startsWith('/host') && !roomParam && !params.get('room'));
   const isJoinRoute = pathname.startsWith('/join') || modeParam === 'listener';
 
   if (isAdminRoute) {
@@ -81,6 +82,16 @@ export function getInitialRouteState() {
       currentView: 'voices',
       roomId: roomParam ? normalizeRoomCode(roomParam) : null,
       roomTitle: roomParam ? `Sala ${normalizeRoomCode(roomParam)}` : 'Conferencia Principal 2026',
+      pendingJoinRoom: null
+    };
+  }
+
+  // Dedicated route for room creation: /create or /host without room
+  if (isCreateRoute && !roomParam) {
+    return {
+      currentView: 'create',
+      roomId: null,
+      roomTitle: 'Crear Sala',
       pendingJoinRoom: null
     };
   }
@@ -395,10 +406,10 @@ export default function App() {
 
   return (
     <div className="min-h-dvh w-full max-w-full overflow-x-hidden bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-150">
-      {/* Top Navigation for Home/Join only (Host, Voices and Listener render their own native studio layout) */}
-      {(currentView === 'home' || currentView === 'join' || currentView === 'post-leave') && (
+      {/* Top Navigation for Home/Join/Create only (Host, Voices and Listener render their own native studio layout) */}
+      {(currentView === 'home' || currentView === 'join' || currentView === 'create' || currentView === 'post-leave') && (
         <Navbar
-          currentRole={currentView === 'join' ? 'listener' : null}
+          currentRole={currentView === 'join' ? 'listener' : (currentView === 'create' ? 'creator' : null)}
           roomId={roomId}
           latency={latency}
           isConnected={isConnected}
@@ -410,11 +421,13 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-h-0">
-        {(currentView === 'home' || currentView === 'join' || currentView === 'post-leave') && (
+        {(currentView === 'home' || currentView === 'join' || currentView === 'create' || currentView === 'post-leave') && (
           <HomeView
             onCreateRoom={handleCreateRoom}
             onJoinRoom={handleJoinRoom}
-            isAttendeeOnly={currentView === 'join' || window.location.pathname.startsWith('/join')}
+            mode={currentView === 'create' ? 'creator' : 'attendee'}
+            isAttendeeOnly={currentView !== 'create'}
+            isCreatorOnly={currentView === 'create'}
           />
         )}
 

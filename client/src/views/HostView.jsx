@@ -1193,6 +1193,13 @@ export default function HostView({
             onCopyLink={handleCopyMeetingLink}
             extraItems={[
               {
+                label: 'Crear otra sala',
+                onClick: () => {
+                  window.history.pushState({}, '', '/create');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }
+              },
+              {
                 label: 'Proyectar código QR',
                 onClick: () => setIsQrModalOpen(true)
               },
