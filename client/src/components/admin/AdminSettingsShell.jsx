@@ -1583,16 +1583,15 @@ export default function AdminSettingsShell({
                         : 'bg-zinc-50/50 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/10'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-3.5">
+                    <div className="flex items-start justify-between mb-3.5">
                       <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
                         isSelected ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-300'
                       }`}>
                         <ItemIcon className="w-4.5 h-4.5" />
                       </div>
                       {isSelected && (
-                        <Check
-                          className="w-5 h-5 text-zinc-950 dark:text-white shrink-0"
-                          strokeWidth={2.5}
+                        <div
+                          className="w-2.5 h-2.5 rounded-full bg-zinc-950 dark:bg-white mt-1 shrink-0"
                           aria-hidden="true"
                         />
                       )}
