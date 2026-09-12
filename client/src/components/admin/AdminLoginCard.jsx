@@ -1,74 +1,123 @@
 import React, { useState } from 'react';
+import { Lock, Loader2, ArrowLeft, Shield } from 'lucide-react';
 import { adminAuthService } from '../../services/adminAuthService.js';
 
-export function AdminLoginCard({ onLoginSuccess }) {
+export function AdminLoginCard({
+  onLoginSuccess = () => {},
+  onCancel = null,
+  variant = 'page',
+  roomId = null
+}) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!password.trim()) return;
     setError(null);
     setLoading(true);
     try {
-      await adminAuthService.login(password);
+      await adminAuthService.login(password.trim());
       onLoginSuccess();
     } catch (err) {
-      setError(err.message || 'Error de autenticación');
+      setError(err.message || 'Contraseña incorrecta');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="h-full w-full min-h-[400px] flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-300 px-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
-        <div className="p-8">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 mb-4">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Admin Portal</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Introduce la clave maestra para acceder a la configuración del servidor</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="sr-only" htmlFor="password">Contraseña Maestra</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Contraseña"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white outline-none transition-all duration-200 shadow-sm"
-                required
-                autoFocus
-              />
-            </div>
-            
-            {error && (
-              <div className="text-sm text-red-600 dark:text-red-400 text-center animate-pulse">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 px-4 flex justify-center items-center rounded-xl text-white font-medium bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-md"
-            >
-              {loading ? (
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : 'Desbloquear'}
-            </button>
-          </form>
+  const card = (
+    <div className="bg-white dark:bg-zinc-900/70 border border-zinc-200/90 dark:border-zinc-800 rounded-[28px] p-6 sm:p-7 flex flex-col justify-between shadow-2xs text-left space-y-6 w-full animate-fadeIn">
+      <div className="space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs">
+          <Lock className="w-5 h-5" />
         </div>
+
+        <div className="space-y-1.5">
+          <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+            Desbloquear panel
+          </h2>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            Ingresa la contraseña maestra para administrar modelos de IA, claves y salas.
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input
+          id="admin-password-input"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Contraseña de administrador"
+          autoFocus
+          required
+          className="w-full h-12 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-full px-5 text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all"
+        />
+
+        {error && (
+          <div className="px-4 py-2.5 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs font-medium text-rose-600 dark:text-rose-400 text-center">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading || !password.trim()}
+          className="w-full h-12 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm disabled:opacity-40 cursor-pointer transition-all active:scale-[0.99]"
+        >
+          {loading ? (
+            <Loader2 className="w-4 h-4 animate-spin text-zinc-400 mr-2" />
+          ) : null}
+          <span>{loading ? 'Verificando...' : 'Desbloquear'}</span>
+        </button>
+      </form>
+
+      {onCancel && (
+        <div className="pt-2 text-center border-t border-zinc-100 dark:border-zinc-800/60">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors cursor-pointer inline-flex items-center gap-1.5"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>{roomId ? 'Volver a la sala' : 'Volver al inicio'}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  if (variant === 'modal') {
+    return (
+      <div className="w-full max-w-md mx-auto my-auto p-4 sm:p-6">
+        {card}
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-auto w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-7 sm:space-y-9">
+      {/* Clean Hero idéntico a la entrada a la sala */}
+      <div className="text-center max-w-xl mx-auto space-y-3.5 sm:space-y-4">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium shadow-2xs">
+          <Shield className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
+          <span>Configuración de Administración</span>
+        </div>
+
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 leading-[1.15]">
+          Acceso al panel maestro
+        </h1>
+
+        <p className="text-sm sm:text-base text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto leading-relaxed">
+          Introduce la clave maestra de LiftVoice para acceder al panel de configuración del servidor y salas en directo.
+        </p>
+      </div>
+
+      {/* Action Card: Diseño exacto de la entrada a la sala */}
+      <div className="space-y-4 sm:space-y-6 w-full max-w-md mx-auto">
+        {card}
       </div>
     </div>
   );
