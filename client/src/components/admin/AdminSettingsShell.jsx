@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Settings, Key, X, Check, Shield, Cpu, Zap, Volume2, Mic,
   Sparkles, Stethoscope, Activity, BookOpen, Play, Loader2, Headphones,
-  Radio, User, ChevronRight, CheckCircle2, Lock, Server, Globe, VolumeX,
+  Radio, User, Users, ChevronRight, CheckCircle2, Lock, Server, Globe, VolumeX,
   Palette, Sun, Moon, Monitor, Eye, EyeOff, AlertCircle, ArrowLeft, Home
 } from 'lucide-react';
 import { audioPlayerService } from '../../services/audioPlayer.js';
@@ -13,6 +13,7 @@ import AdminSidebarRail from './AdminSidebarRail.jsx';
 import AdminStickyFooter from './AdminStickyFooter.jsx';
 import UnsavedChangesPrompt from './UnsavedChangesPrompt.jsx';
 import { AdminLoginCard } from './AdminLoginCard.jsx';
+import UsersAndRoomsSection from './UsersAndRoomsSection.jsx';
 import { adminAuthService } from '../../services/adminAuthService.js';
 import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions.js';
 
@@ -565,6 +566,7 @@ export default function AdminSettingsShell({
     { id: 'ai', label: 'Modelos de Traducción', icon: Cpu, badge: preferredEngine ? preferredEngine.charAt(0).toUpperCase() + preferredEngine.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_AI_MODELS },
     { id: 'appearance', label: 'Apariencia & Tema', icon: Palette, badge: theme ? theme.charAt(0).toUpperCase() + theme.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_ACCESS_ADMIN },
     { id: 'medical', label: 'Modo Clínico', icon: Stethoscope, badge: medicalMode ? 'Activo' : null, reqPerm: PERMISSIONS.PERM_AI_MODELS },
+    { id: 'users-rooms', label: 'Usuarios & Salas', icon: Users, badge: 'Directo', reqPerm: PERMISSIONS.PERM_ROOM_MANAGEMENT },
     { id: 'keys', label: 'Claves de API', icon: Key, badge: activeKeysCount > 0 ? `${activeKeysCount} activas` : 'Pendientes', reqPerm: PERMISSIONS.PERM_API_KEYS }
   ];
 
@@ -1355,6 +1357,13 @@ export default function AdminSettingsShell({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════ */}
+          {/* PESTAÑA: USUARIOS Y SALAS                                   */}
+          {/* ═══════════════════════════════════════════════════════════ */}
+          {activeTab === 'users-rooms' && (
+            <UsersAndRoomsSection />
           )}
 
           {/* ═══════════════════════════════════════════════════════════ */}
