@@ -80,14 +80,14 @@ export default function PostLeaveView({
               <button
                 type="button"
                 onClick={onNavigateHome}
-                className="h-12 rounded-full bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors cursor-pointer"
+                className="h-12 rounded-2xl bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors cursor-pointer"
               >
                 Entendido
               </button>
               <button
                 type="button"
                 onClick={() => onRejoin(roomId, selectedLanguage)}
-                className="h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 active:scale-[0.99]"
+                className="h-12 rounded-2xl text-xs sm:text-sm font-semibold flex items-center justify-center shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 active:scale-[0.99]"
               >
                 Volver a unirse
               </button>
@@ -96,7 +96,7 @@ export default function PostLeaveView({
             <button
               type="button"
               onClick={onNavigateHome}
-              className="w-full h-12 rounded-full bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors cursor-pointer"
+              className="w-full h-12 rounded-2xl bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors cursor-pointer"
             >
               Entendido
             </button>
@@ -132,7 +132,7 @@ export default function PostLeaveView({
               onClick={handleCopyCode}
               title={hasCopied ? "Enlace copiado" : "Copiar enlace de la sala"}
               aria-label={hasCopied ? "Enlace copiado" : "Copiar enlace de la sala"}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/50 transition-colors cursor-pointer active:scale-95 flex-shrink-0"
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/50 transition-colors cursor-pointer active:scale-95 flex-shrink-0"
             >
               {hasCopied ? (
                 <Check className="w-4 h-4 text-emerald-500 stroke-[2.5]" />

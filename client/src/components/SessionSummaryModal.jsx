@@ -122,7 +122,7 @@ ${actionItems.map(a => `- ${a}`).join('\n')}
           )}
 
           {error && !isLoading && (
-            <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs flex items-center gap-3">
+            <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs flex items-center gap-3">
               <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500" />
               <div>
                 <b className="block text-red-900 dark:text-red-200 font-semibold mb-0.5">No se pudo generar el resumen</b>
@@ -215,7 +215,7 @@ ${actionItems.map(a => `- ${a}`).join('\n')}
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <button
                 onClick={handleCopyMarkdown}
-                className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 text-xs font-medium cursor-pointer shadow-2xs transition-colors flex items-center gap-1.5"
+                className="h-9 sm:h-10 px-4 sm:px-5 rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 text-xs font-medium cursor-pointer shadow-2xs transition-colors flex items-center gap-1.5"
               >
                 {copied ? (
                   <>
@@ -232,7 +232,7 @@ ${actionItems.map(a => `- ${a}`).join('\n')}
 
               <button
                 onClick={handleDownloadMarkdown}
-                className="h-8 px-4 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
+                className="h-9 sm:h-10 px-4 sm:px-5 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-medium cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Descargar (.md)</span>

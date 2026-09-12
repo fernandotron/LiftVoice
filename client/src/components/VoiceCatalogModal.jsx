@@ -137,18 +137,18 @@ export default function VoiceCatalogModal({
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
             {/* Search Input */}
             <div className="relative flex-1 w-full">
-              <Search className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar voz o tono..."
-                className="w-full h-9 pl-9 pr-3 text-xs bg-white dark:bg-[#1a1a1a] border border-zinc-200 dark:border-white/10 rounded-xl placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-800 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-white/30 transition-all"
+                className="w-full h-11 pl-10 pr-3 text-xs sm:text-sm bg-white dark:bg-[#1a1a1a] border border-zinc-200 dark:border-white/10 rounded-2xl placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-800 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-white/30 transition-all"
               />
             </div>
 
             {/* Language Tabs */}
-            <div className="flex items-center gap-1 bg-white dark:bg-[#1a1a1a] p-1 border border-zinc-200/80 dark:border-white/10 rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1 bg-white dark:bg-[#1a1a1a] p-1 border border-zinc-200/80 dark:border-white/10 rounded-2xl w-full sm:w-auto overflow-x-auto no-scrollbar">
               {[
                 { code: 'es', label: 'Español' },
                 { code: 'en', label: 'English' },
@@ -158,7 +158,7 @@ export default function VoiceCatalogModal({
                 <button
                   key={lang.code}
                   onClick={() => setTargetLang(lang.code)}
-                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                     targetLang === lang.code
                       ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-white/5'
@@ -293,7 +293,7 @@ export default function VoiceCatalogModal({
                       type="button"
                       onClick={() => handleAudition(voice)}
                       disabled={isPlaying}
-                      className="px-3 py-1.5 rounded-full border border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/5 text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="h-9 px-3.5 rounded-2xl border border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/5 text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       {isPlaying ? (
                         <>
@@ -314,7 +314,7 @@ export default function VoiceCatalogModal({
                         onSelectVoice(targetLang, voice.id, voice.engine, voice.gender);
                         onClose();
                       }}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                      className={`h-9 px-4 rounded-2xl text-xs font-semibold transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-xs'
                           : 'bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-white/20'
@@ -334,7 +334,7 @@ export default function VoiceCatalogModal({
           <span className="truncate max-w-[200px] sm:max-w-none">Sincronizado con las 4 cabinas de audio.</span>
           <button
             onClick={onClose}
-            className="px-5 py-1.5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium hover:bg-zinc-800 dark:hover:bg-zinc-200 cursor-pointer text-xs transition-colors"
+            className="h-9 px-5 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-900 font-medium hover:bg-zinc-800 dark:hover:bg-zinc-200 cursor-pointer text-xs transition-colors flex items-center justify-center"
           >
             Listo
           </button>

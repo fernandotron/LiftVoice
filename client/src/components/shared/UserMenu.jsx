@@ -123,7 +123,7 @@ export default function UserMenu({
               onOpenSettings();
             }}
             data-testid="usermenu-ajustes"
-            className="w-full px-4 py-2.5 bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-900 dark:text-white rounded-full transition-colors text-sm font-medium focus:outline-none cursor-pointer text-center"
+            className="w-full px-4 py-2.5 bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-900 dark:text-white rounded-2xl transition-colors text-sm font-medium focus:outline-none cursor-pointer text-center"
           >
             Configuración de Sala
           </button>
@@ -143,7 +143,7 @@ export default function UserMenu({
                 onOpenAdminPanel();
               }}
               data-testid="usermenu-admin-panel"
-              className="flex w-full items-center gap-3 p-2 rounded-lg text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors focus:outline-none cursor-pointer"
+              className="flex w-full items-center gap-3 p-2 rounded-xl text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors focus:outline-none cursor-pointer"
             >
               <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
               <span>Panel de Administración</span>
@@ -165,7 +165,7 @@ export default function UserMenu({
                 onLogout();
               }}
               data-testid="usermenu-logout"
-              className="flex w-full items-center gap-3 p-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors focus:outline-none cursor-pointer"
+              className="flex w-full items-center gap-3 p-2 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors focus:outline-none cursor-pointer"
             >
               <LogOut className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
               <span>Cerrar sesión</span>

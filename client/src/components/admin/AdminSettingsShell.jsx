@@ -1565,7 +1565,7 @@ export default function AdminSettingsShell({
           <button
             type="button"
             onClick={() => setSaveError(null)}
-            className="p-1 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-md text-rose-500 hover:text-rose-700 dark:hover:text-rose-200 transition-colors cursor-pointer flex-shrink-0"
+            className="p-1 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-full text-rose-500 hover:text-rose-700 dark:hover:text-rose-200 transition-colors cursor-pointer flex-shrink-0"
             aria-label="Cerrar mensaje de error"
           >
             <X className="w-4 h-4" />

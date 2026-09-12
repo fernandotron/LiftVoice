@@ -106,7 +106,7 @@ export default function CabinsBottomSheet({
               <button
                 type="button"
                 onClick={onTestAudio}
-                className="px-2.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 text-[11px] font-mono font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                className="px-2.5 py-1.5 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 text-[11px] font-mono font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
                 title="Emitir tono de prueba 440Hz"
               >
                 <Bell className="w-3 h-3 text-zinc-600 dark:text-zinc-300" />
@@ -117,7 +117,7 @@ export default function CabinsBottomSheet({
                 <button
                   type="button"
                   onClick={onStopMonitoring}
-                  className="px-2.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-[11px] font-bold transition-colors cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-[11px] font-bold transition-colors cursor-pointer"
                 >
                   Silenciar
                 </button>
@@ -159,7 +159,7 @@ export default function CabinsBottomSheet({
                       onClick={() => onToggleMonitoring(cab.code)}
                       aria-pressed={isMonitored}
                       aria-label={isMonitored ? `Detener escucha de cabina ${cab.name}` : `Escuchar cabina de ${cab.name} en auriculares`}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 ${
+                      className={`px-3 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 ${
                         isMonitored
                           ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-xs'
                           : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-200'

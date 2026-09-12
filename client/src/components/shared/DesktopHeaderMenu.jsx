@@ -182,7 +182,7 @@ export default function DesktopHeaderMenu({
           ref={menuRef}
           role="menu"
           aria-label="Menú de opciones"
-          className="fixed z-[99999] min-w-[230px] max-w-[280px] w-max p-1.5 rounded-xl bg-white dark:bg-zinc-900 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)] border border-black/5 dark:border-white/10 overflow-hidden animate-fadeIn select-none text-left"
+          className="fixed z-[99999] min-w-[230px] max-w-[280px] w-max p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)] border border-black/5 dark:border-white/10 overflow-hidden animate-fadeIn select-none text-left"
           style={{
             top: `${menuPos.top}px`,
             left: `${menuPos.left}px`
@@ -199,7 +199,7 @@ export default function DesktopHeaderMenu({
                 onExit();
               }}
               onMouseEnter={handleCloseThemeWithGrace}
-              className="flex w-full items-center gap-3 p-2 rounded-lg text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5 transition-colors focus:outline-none cursor-pointer"
+              className="flex w-full items-center gap-3 p-2 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5 transition-colors focus:outline-none cursor-pointer"
             >
               <Home className="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
               <span>Volver al inicio</span>
@@ -214,7 +214,7 @@ export default function DesktopHeaderMenu({
               aria-expanded={isThemeSubmenuOpen}
               onClick={handleOpenThemeSubmenu}
               onMouseEnter={handleOpenThemeSubmenu}
-              className={`flex w-full items-center justify-between gap-3 p-2 rounded-lg text-sm font-medium transition-colors focus:outline-none cursor-pointer ${
+              className={`flex w-full items-center justify-between gap-3 p-2 rounded-xl text-sm font-medium transition-colors focus:outline-none cursor-pointer ${
                 isThemeSubmenuOpen
                   ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white'
                   : 'text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5'
@@ -240,7 +240,7 @@ export default function DesktopHeaderMenu({
                 closeAll();
               }}
               onMouseEnter={handleCloseThemeWithGrace}
-              className="flex w-full items-center gap-3 p-2 rounded-lg text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5 transition-colors focus:outline-none cursor-pointer"
+              className="flex w-full items-center gap-3 p-2 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5 transition-colors focus:outline-none cursor-pointer"
             >
               {hasCopiedLink ? (
                 <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
@@ -269,7 +269,7 @@ export default function DesktopHeaderMenu({
                         item.onClick();
                       }}
                       onMouseEnter={handleCloseThemeWithGrace}
-                      className={`flex w-full items-center gap-3 p-2 rounded-lg text-sm font-medium transition-colors focus:outline-none cursor-pointer ${
+                      className={`flex w-full items-center gap-3 p-2 rounded-xl text-sm font-medium transition-colors focus:outline-none cursor-pointer ${
                         isDestructive
                           ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10'
                           : 'text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5'
@@ -289,7 +289,7 @@ export default function DesktopHeaderMenu({
             <div
               role="menu"
               aria-label="Seleccionar tema"
-              className="fixed z-[100000] min-w-[150px] p-1.5 rounded-xl bg-white dark:bg-zinc-900 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)] border border-black/5 dark:border-white/10 overflow-hidden animate-fadeIn select-none"
+              className="fixed z-[100000] min-w-[150px] p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)] border border-black/5 dark:border-white/10 overflow-hidden animate-fadeIn select-none"
               style={{
                 top: `${themeSubmenuPos.top}px`,
                 left: `${themeSubmenuPos.left}px`
@@ -314,7 +314,7 @@ export default function DesktopHeaderMenu({
                       setTheme(opt.value);
                       closeAll();
                     }}
-                    className={`w-full flex items-center justify-between gap-3 p-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    className={`w-full flex items-center justify-between gap-3 p-2 text-sm font-medium rounded-xl transition-colors cursor-pointer ${
                       isSelected
                         ? 'text-zinc-900 dark:text-white font-semibold hover:bg-zinc-100/70 dark:hover:bg-white/5'
                         : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5'

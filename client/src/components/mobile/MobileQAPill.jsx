@@ -155,7 +155,7 @@ export default function MobileQAPill({
                 <button
                   type="button"
                   onClick={isRecording ? onStopRecord : onStartRecord}
-                  className={`h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 border shadow-xs ${
+                  className={`h-12 rounded-2xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 border shadow-xs ${
                     isRecording
                       ? 'bg-rose-600 text-white border-transparent animate-pulse'
                       : 'bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border-zinc-200/60 dark:border-zinc-700/60'
@@ -179,7 +179,7 @@ export default function MobileQAPill({
                   type="button"
                   onClick={handleFormSubmit}
                   disabled={!questionText.trim()}
-                  className="h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
+                  className="h-12 rounded-2xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
                 >
                   <Hand className="w-4 h-4" />
                   <span>Pedir la Palabra</span>
@@ -192,7 +192,7 @@ export default function MobileQAPill({
                   onCancelRaiseHand();
                   handleClose();
                 }}
-                className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer active:scale-[0.99]"
+                className="w-full h-12 rounded-2xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer active:scale-[0.99]"
               >
                 <X className="w-4 h-4" />
                 <span>Bajar la mano y cancelar turno</span>
@@ -204,7 +204,7 @@ export default function MobileQAPill({
                   onCancelRaiseHand();
                   handleClose();
                 }}
-                className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 transition-colors cursor-pointer"
+                className="w-full h-12 rounded-2xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 transition-colors cursor-pointer"
               >
                 <span>Finalizar intervención</span>
               </button>
@@ -212,7 +212,7 @@ export default function MobileQAPill({
               <button
                 type="button"
                 onClick={handleClose}
-                className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer"
+                className="w-full h-12 rounded-2xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer"
               >
                 <span>Cerrar</span>
               </button>

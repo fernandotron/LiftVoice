@@ -59,7 +59,7 @@ export default function LanguageBottomSheet({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-3.5 rounded-full bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 font-semibold text-sm transition-all shadow-sm active:scale-[0.99] cursor-pointer"
+            className="w-full py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 font-semibold text-sm transition-all shadow-sm active:scale-[0.99] cursor-pointer"
           >
             Entendido
           </button>

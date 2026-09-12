@@ -142,7 +142,7 @@ export default function QRCodeModal({
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setIsFullScreen(!isFullScreen)}
-              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+              className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
                 isFullScreen
                   ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-400 hover:text-white'
                   : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
@@ -153,7 +153,7 @@ export default function QRCodeModal({
             </button>
             <button
               onClick={onClose}
-              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+              className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
                 isFullScreen
                   ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-400 hover:text-white'
                   : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
@@ -167,10 +167,10 @@ export default function QRCodeModal({
         {/* Network Mode Switcher or Universal Cloud QR Badge */}
         {!isFullScreen && (
           isLoopback ? (
-            <div className="my-3.5 p-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center gap-1">
+            <div className="my-3.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center gap-1">
               <button
                 onClick={() => setNetworkMode('local')}
-                className={`flex-1 py-1 px-2.5 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   networkMode === 'local'
                     ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-2xs font-semibold'
                     : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
@@ -185,7 +185,7 @@ export default function QRCodeModal({
                   if (!publicUrl) handleStartTunnel();
                   else setNetworkMode('public');
                 }}
-                className={`flex-1 py-1 px-2.5 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   networkMode === 'public'
                     ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-2xs font-semibold'
                     : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
@@ -200,7 +200,7 @@ export default function QRCodeModal({
               </button>
             </div>
           ) : (
-            <div className="my-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
+            <div className="my-3 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
                 <Globe className="w-4 h-4" />
               </div>
@@ -384,7 +384,7 @@ export default function QRCodeModal({
                     value={customIp || effectiveIp}
                     onChange={(e) => setCustomIp(e.target.value)}
                     placeholder="Ej: 192.168.1.12"
-                    className="w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs text-zinc-900 dark:text-zinc-100 font-mono"
+                    className="w-full h-10 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-2xl px-3.5 text-xs text-zinc-900 dark:text-zinc-100 font-mono"
                   />
                   {availableIps.length > 0 && (
                     <div className="flex flex-wrap gap-1">
@@ -395,7 +395,7 @@ export default function QRCodeModal({
                             setCustomIp(iface.address);
                             setIsEditingIp(false);
                           }}
-                          className={`text-[10px] px-2 py-0.5 rounded border cursor-pointer font-mono ${
+                          className={`text-[10px] px-2.5 py-1 rounded-xl border cursor-pointer font-mono ${
                             (customIp || effectiveIp) === iface.address
                               ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 border-zinc-950 dark:border-white'
                               : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
@@ -448,7 +448,7 @@ export default function QRCodeModal({
             <button
               type="button"
               onClick={handleCopyLink}
-              className="flex-1 sm:flex-none h-10 sm:h-9 px-4 rounded-full border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs font-semibold cursor-pointer shadow-2xs transition-colors flex items-center justify-center gap-1.5 active:scale-95"
+              className="flex-1 sm:flex-none h-10 sm:h-9 px-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs font-semibold cursor-pointer shadow-2xs transition-colors flex items-center justify-center gap-1.5 active:scale-95"
             >
               {copied ? (
                 <>
@@ -466,7 +466,7 @@ export default function QRCodeModal({
             <button
               type="button"
               onClick={handleDownloadQR}
-              className="flex-1 sm:flex-none h-10 sm:h-9 px-4 rounded-full border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs font-semibold cursor-pointer shadow-2xs transition-colors flex items-center justify-center gap-1.5 active:scale-95"
+              className="flex-1 sm:flex-none h-10 sm:h-9 px-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs font-semibold cursor-pointer shadow-2xs transition-colors flex items-center justify-center gap-1.5 active:scale-95"
               title="Descargar imagen PNG"
             >
               <Download className="w-3.5 h-3.5" />

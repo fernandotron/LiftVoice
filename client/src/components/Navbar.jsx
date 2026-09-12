@@ -95,7 +95,7 @@ export default function Navbar({
           {currentRole === 'host' && (
             <button
               onClick={onOpenQR}
-              className="h-9 sm:h-10 px-4 rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-2xs transition-all"
+              className="h-9 sm:h-10 px-4 rounded-2xl bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-2xs transition-all"
               title="Proyectar Código QR en Sala"
             >
               <QrCode className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />

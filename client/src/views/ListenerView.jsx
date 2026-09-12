@@ -552,7 +552,7 @@ export default function ListenerView({
                 <button
                   type="button"
                   onClick={handleUnlockAudio}
-                  className="min-h-[44px] px-4 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+                  className="min-h-[44px] px-4 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
                 >
                   Sintonizar
                 </button>
@@ -593,7 +593,7 @@ export default function ListenerView({
             <button
               type="button"
               onClick={handleCopyMeetingLink}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 font-mono text-xs font-semibold text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer shadow-2xs"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 font-mono text-xs font-semibold text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer shadow-2xs"
               title="Copiar vínculo de la sala"
             >
               <span>{roomId}</span>
@@ -648,7 +648,7 @@ export default function ListenerView({
                     <button
                       type="button"
                       onClick={() => setIsProfilePopoverOpen(false)}
-                      className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 cursor-pointer"
+                      className="p-1 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -688,7 +688,7 @@ export default function ListenerView({
             <button
               type="button"
               onClick={() => setIsRightDrawerOpen(prev => !prev)}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer border ${
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors cursor-pointer border ${
                 isRightDrawerOpen
                   ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-200 dark:border-zinc-700 shadow-2xs'
                   : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800'
@@ -825,7 +825,7 @@ export default function ListenerView({
               <button
                 type="button"
                 onClick={!isAudioUnlocked ? handleUnlockAudio : handleToggleMute}
-                className={`w-full h-11 min-h-[44px] min-w-[44px] rounded-full font-semibold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] border ${
+                className={`w-full h-11 min-h-[44px] min-w-[44px] rounded-2xl font-semibold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] border ${
                   !isAudioUnlocked
                     ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-transparent'
                     : isMuted
@@ -873,7 +873,7 @@ export default function ListenerView({
               <button
                 type="button"
                 onClick={handleCycleCaptionSize}
-                className="h-8 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="h-8 px-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                 title="Cambiar tamaño de fuente"
               >
                 <Type className="w-3.5 h-3.5 text-zinc-400" />
@@ -914,7 +914,7 @@ export default function ListenerView({
                 <button
                   type="button"
                   onClick={() => setActiveInspectorTab('actions')}
-                  className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
+                  className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
                     activeInspectorTab === 'actions'
                       ? 'text-zinc-950 dark:text-zinc-100 bg-zinc-100 dark:bg-white/10 shadow-2xs'
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
@@ -925,7 +925,7 @@ export default function ListenerView({
                 <button
                   type="button"
                   onClick={() => setActiveInspectorTab('suggestions')}
-                  className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
+                  className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
                     activeInspectorTab === 'suggestions'
                       ? 'text-zinc-950 dark:text-zinc-100 bg-zinc-100 dark:bg-white/10 shadow-2xs'
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
@@ -936,7 +936,7 @@ export default function ListenerView({
                 <button
                   type="button"
                   onClick={() => setActiveInspectorTab('room')}
-                  className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
+                  className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
                     activeInspectorTab === 'room'
                       ? 'text-zinc-950 dark:text-zinc-100 bg-zinc-100 dark:bg-white/10 shadow-2xs'
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
@@ -978,7 +978,7 @@ export default function ListenerView({
                             value={questionText}
                             onChange={(e) => setQuestionText(e.target.value)}
                             placeholder="Escribe aquí tu duda o consulta..."
-                            className="w-full bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 resize-none transition-all leading-relaxed"
+                            className="w-full bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 resize-none transition-all leading-relaxed"
                           />
                         </div>
 
@@ -986,7 +986,7 @@ export default function ListenerView({
                           <button
                             type="button"
                             onClick={isRecordingQuestion ? handleStopRecordingQuestion : handleStartRecordingQuestion}
-                            className={`h-9 px-3.5 rounded-full border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                            className={`h-9 px-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                               isRecordingQuestion
                                 ? 'bg-rose-600 text-white border-transparent animate-pulse'
                                 : 'bg-white dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-50 dark:hover:bg-zinc-800'
@@ -1000,7 +1000,7 @@ export default function ListenerView({
                           <button
                             type="submit"
                             disabled={!questionText.trim()}
-                            className="flex-1 h-9 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                            className="flex-1 h-9 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
                           >
                             <Hand className="w-3.5 h-3.5" />
                             <span>Pedir la Palabra</span>
@@ -1040,7 +1040,7 @@ export default function ListenerView({
                         <button
                           type="button"
                           onClick={handleCancelRaiseHand}
-                          className="w-full h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
+                          className="w-full h-9 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
                         >
                           Cancelar turno y bajar la mano
                         </button>
@@ -1068,7 +1068,7 @@ export default function ListenerView({
                             setQuestionText('');
                             socketService.lowerHand(roomId, profile.attendeeId);
                           }}
-                          className="w-full h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer"
+                          className="w-full h-9 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer"
                         >
                           Finalizar intervención
                         </button>

@@ -230,7 +230,7 @@ export default function VoicesView({
           {isMobile && (
             <button
               onClick={() => setIsMobileNavOpen(false)}
-              className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 cursor-pointer"
+              className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 cursor-pointer"
               title="Cerrar menú"
             >
               <X className="w-5 h-5" />
@@ -245,13 +245,13 @@ export default function VoicesView({
               if (isMobile) setIsMobileNavOpen(false);
               onNavigateHome();
             }}
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
           >
             <Home className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
             <span>Inicio</span>
           </button>
 
-          <div className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-950 dark:text-zinc-100 bg-zinc-200/80 dark:bg-zinc-800/80 shadow-xs">
+          <div className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-zinc-950 dark:text-zinc-100 bg-zinc-200/80 dark:bg-zinc-800/80 shadow-xs">
             <div className="flex items-center gap-3">
               <Layers className="w-4 h-4 text-zinc-950 dark:text-zinc-100" />
               <span>Voces</span>
@@ -264,7 +264,7 @@ export default function VoicesView({
               if (isMobile) setIsMobileNavOpen(false);
               onNavigateStudio();
             }}
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
           >
             <Radio className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
             <span>Studio</span>
@@ -275,7 +275,7 @@ export default function VoicesView({
               if (isMobile) setIsMobileNavOpen(false);
               onOpenSettings();
             }}
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
           >
             <Settings className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
             <span>Configuración</span>
@@ -293,7 +293,7 @@ export default function VoicesView({
               if (isMobile) setIsMobileNavOpen(false);
               onNavigateStudio();
             }}
-            className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-zinc-100/80 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-3.5 py-2 rounded-2xl text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-zinc-100/80 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <Mic className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100" />
@@ -307,7 +307,7 @@ export default function VoicesView({
               if (isMobile) setIsMobileNavOpen(false);
               onOpenQR();
             }}
-            className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-3.5 py-2 rounded-2xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <QrCode className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
@@ -381,7 +381,7 @@ export default function VoicesView({
           </div>
 
           {/* Search pill ⌘K (Desktop) */}
-          <div className="hidden lg:flex items-center w-72 h-8.5 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 rounded-full px-3.5 text-xs text-zinc-400 dark:text-zinc-500 justify-between transition-colors cursor-pointer">
+          <div className="hidden lg:flex items-center w-72 h-8.5 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-3.5 text-xs text-zinc-400 dark:text-zinc-500 justify-between transition-colors cursor-pointer">
             <div className="flex items-center gap-2">
               <Search className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
               <span>Buscar en todo...</span>
@@ -392,7 +392,7 @@ export default function VoicesView({
           <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={onNavigateStudio}
-              className="h-8.5 px-3 sm:px-4 rounded-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+              className="h-8.5 px-3 sm:px-4 rounded-2xl bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
             >
               <Radio className="w-3.5 h-3.5" />
               <span>Volver al Studio</span>
@@ -409,7 +409,7 @@ export default function VoicesView({
             
             {/* Feedback alert when voice is assigned or unassigned */}
             {assignedFeedback && (
-              <div className={`p-3 sm:p-3.5 rounded-xl border text-xs font-medium flex items-center justify-between gap-2 shadow-xs transition-all ${
+              <div className={`p-3 sm:p-3.5 rounded-2xl border text-xs font-medium flex items-center justify-between gap-2 shadow-xs transition-all ${
                 assignedFeedback.unassigned
                   ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-950 dark:text-amber-200'
                   : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-950 dark:text-emerald-200'
@@ -426,7 +426,7 @@ export default function VoicesView({
                 </div>
                 <button
                   onClick={onNavigateStudio}
-                  className={`px-3 py-1 text-white rounded-full text-xs font-semibold transition-colors cursor-pointer flex-shrink-0 ${
+                  className={`px-3.5 py-1.5 text-white rounded-2xl text-xs font-semibold transition-colors cursor-pointer flex-shrink-0 ${
                     assignedFeedback.unassigned ? 'bg-amber-700 hover:bg-amber-800' : 'bg-emerald-600 hover:bg-emerald-700'
                   }`}
                 >
@@ -459,13 +459,13 @@ export default function VoicesView({
               <div className="flex items-center gap-2">
                 <button
                   onClick={onOpenSettings}
-                  className="h-8.5 px-3 sm:px-3.5 rounded-full border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-xs"
+                  className="h-8.5 px-3 sm:px-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-xs"
                 >
                   Ganancias
                 </button>
                 <button
                   onClick={onOpenSettings}
-                  className="h-8.5 px-3.5 sm:px-4 rounded-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  className="h-8.5 px-3.5 sm:px-4 rounded-2xl bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
                   <span>+ Crear voz</span>
                 </button>
@@ -481,10 +481,10 @@ export default function VoicesView({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar en las voces de la biblioteca..."
-                  className="w-full h-10 sm:h-11 pl-10 sm:pl-11 pr-22 sm:pr-24 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 focus:ring-1 focus:ring-zinc-950 dark:focus:ring-zinc-400 shadow-xs transition-all"
+                  className="w-full h-10 sm:h-11 pl-10 sm:pl-11 pr-22 sm:pr-24 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 focus:ring-1 focus:ring-zinc-950 dark:focus:ring-zinc-400 shadow-xs transition-all"
                 />
                 <div className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                  <button className="h-7 px-2.5 sm:px-3 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium flex items-center gap-1 transition-colors">
+                  <button className="h-7 px-2.5 sm:px-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium flex items-center gap-1 transition-colors">
                     <Filter className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
                     <span>Filtros</span>
                   </button>
@@ -625,7 +625,7 @@ export default function VoicesView({
                                 <button
                                   key={lang}
                                   onClick={() => handleAssignToBooth(lang, voice.id, voice.name)}
-                                  className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-medium transition-all cursor-pointer ${
+                                  className={`px-2 py-0.5 rounded-xl text-[10px] font-mono font-medium transition-all cursor-pointer ${
                                     isCurrent
                                       ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-xs font-bold ring-1 ring-zinc-950 dark:ring-zinc-100'
                                       : 'bg-zinc-100 dark:bg-zinc-850 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'

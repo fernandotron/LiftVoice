@@ -217,7 +217,7 @@ export default function HostControls({
             <select
               value={selectedDevice}
               onChange={handleDeviceChange}
-              className="w-full h-11 bg-zinc-900 border border-white/10 rounded-xl px-3 text-xs text-zinc-200 focus:outline-none focus:border-white transition-all cursor-pointer"
+              className="w-full h-11 bg-zinc-900 border border-white/10 rounded-2xl px-3 text-xs text-zinc-200 focus:outline-none focus:border-white transition-all cursor-pointer"
             >
               <option value="default">🎙️ Micrófono Predeterminado</option>
               {devices.map((d) => (
@@ -239,7 +239,7 @@ export default function HostControls({
                 onSourceLanguageChange(newLang);
                 audioRecorderService.setLanguage(newLang);
               }}
-              className="w-full h-11 bg-zinc-900 border border-white/10 rounded-xl px-3 text-xs text-zinc-200 focus:outline-none focus:border-white transition-all cursor-pointer"
+              className="w-full h-11 bg-zinc-900 border border-white/10 rounded-2xl px-3 text-xs text-zinc-200 focus:outline-none focus:border-white transition-all cursor-pointer"
             >
               <option value="es-ES">🇪🇸 Español (Ponente)</option>
               <option value="en-US">🇺🇸 English (Speaker)</option>
@@ -256,7 +256,7 @@ export default function HostControls({
             <select
               value={decalageMode}
               onChange={(e) => onDecalageModeChange(e.target.value)}
-              className="w-full h-11 bg-zinc-900 border border-white/10 rounded-xl px-3 text-xs text-zinc-200 focus:outline-none focus:border-white transition-all cursor-pointer"
+              className="w-full h-11 bg-zinc-900 border border-white/10 rounded-2xl px-3 text-xs text-zinc-200 focus:outline-none focus:border-white transition-all cursor-pointer"
             >
               <option value="quick">⚡ Rápido (2.5s - 3.5s)</option>
               <option value="natural">🎙️ Ponencia (4.0s - 5.0s)</option>
@@ -281,7 +281,7 @@ export default function HostControls({
             <button
               type="button"
               onClick={() => handleEngineChange('qwen')}
-              className={`p-2.5 rounded-xl border text-left flex flex-col justify-between gap-1 transition-all cursor-pointer ${
+              className={`p-2.5 rounded-2xl border text-left flex flex-col justify-between gap-1 transition-all cursor-pointer ${
                 preferredEngine === 'qwen'
                   ? 'bg-emerald-500/10 border-emerald-500/50 text-white shadow-lg ring-1 ring-emerald-500/30'
                   : 'bg-zinc-950 hover:bg-zinc-900 border-white/5 text-zinc-400 hover:text-zinc-200'
@@ -304,7 +304,7 @@ export default function HostControls({
             <button
               type="button"
               onClick={() => handleEngineChange('google')}
-              className={`p-2.5 rounded-xl border text-left flex flex-col justify-between gap-1 transition-all cursor-pointer ${
+              className={`p-2.5 rounded-2xl border text-left flex flex-col justify-between gap-1 transition-all cursor-pointer ${
                 preferredEngine === 'google'
                   ? 'bg-blue-500/10 border-blue-500/50 text-white shadow-lg ring-1 ring-blue-500/30'
                   : 'bg-zinc-950 hover:bg-zinc-900 border-white/5 text-zinc-400 hover:text-zinc-200'
@@ -327,7 +327,7 @@ export default function HostControls({
             <button
               type="button"
               onClick={() => handleEngineChange('openai')}
-              className={`p-2.5 rounded-xl border text-left flex flex-col justify-between gap-1 transition-all cursor-pointer ${
+              className={`p-2.5 rounded-2xl border text-left flex flex-col justify-between gap-1 transition-all cursor-pointer ${
                 preferredEngine === 'openai'
                   ? 'bg-purple-500/10 border-purple-500/50 text-white shadow-lg ring-1 ring-purple-500/30'
                   : 'bg-zinc-950 hover:bg-zinc-900 border-white/5 text-zinc-400 hover:text-zinc-200'
@@ -347,7 +347,7 @@ export default function HostControls({
             </button>
           </div>
 
-          <div className="text-[11px] text-zinc-400 bg-zinc-950/60 p-2.5 rounded-lg border border-white/5">
+          <div className="text-[11px] text-zinc-400 bg-zinc-950/60 p-2.5 rounded-xl border border-white/5">
             {preferredEngine === 'qwen' && (
               <span>✨ <b>Alibaba Qwen 3.8:</b> Versión de pesos abiertos (Apache 2.0 - 27B y Flash-Next). Admite API en la nube (OpenRouter/DashScope) o ejecución local con Ollama/vLLM sin coste de API.</span>
             )}
@@ -380,7 +380,7 @@ export default function HostControls({
               key={idx}
               disabled={isSendingDemo}
               onClick={() => handleSendPreset(preset)}
-              className="flex items-center justify-between p-3 rounded-xl bg-zinc-950 hover:bg-zinc-900 border border-white/5 hover:border-white/15 text-left transition-all text-xs text-zinc-300 group cursor-pointer"
+              className="flex items-center justify-between p-3 rounded-2xl bg-zinc-950 hover:bg-zinc-900 border border-white/5 hover:border-white/15 text-left transition-all text-xs text-zinc-300 group cursor-pointer"
             >
               <span className="truncate group-hover:text-white font-medium">{preset.label}</span>
               <Play className="w-3.5 h-3.5 text-zinc-500 group-hover:text-white flex-shrink-0" />
@@ -395,12 +395,12 @@ export default function HostControls({
             value={manualText}
             onChange={(e) => setManualText(e.target.value)}
             placeholder="O escribe cualquier texto para traducir y sintetizar en directo..."
-            className="flex-1 h-11 bg-zinc-950 border border-white/10 rounded-xl px-4 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-white transition-all"
+            className="flex-1 h-11 bg-zinc-950 border border-white/10 rounded-2xl px-4 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-white transition-all"
           />
           <button
             type="submit"
             disabled={!manualText.trim()}
-            className="h-11 px-5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-1.5"
+            className="h-11 px-5 rounded-2xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-1.5"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Emitir</span>

@@ -22,9 +22,9 @@ function FloatingCapsuleInput({
         htmlFor={id}
         className={`absolute px-1.5 transition-all duration-200 ease-out select-none pointer-events-none z-10 ${
           isFloated
-            ? '-top-2.5 left-5 text-xs font-medium bg-white dark:bg-black ' +
+            ? '-top-2.5 left-4 text-xs font-medium bg-white dark:bg-black ' +
               (isFocused ? 'text-zinc-950 dark:text-white' : 'text-zinc-500 dark:text-zinc-400')
-            : 'top-3.5 left-6 text-sm bg-transparent text-zinc-400 dark:text-zinc-500'
+            : 'top-3.5 left-4 text-sm bg-transparent text-zinc-400 dark:text-zinc-500'
         }`}
       >
         {label}
@@ -41,7 +41,7 @@ function FloatingCapsuleInput({
         onChange={onChange}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        className={`w-full h-12 rounded-full px-6 text-sm text-zinc-900 dark:text-white transition-all duration-200 outline-none ${
+        className={`w-full h-12 rounded-2xl px-5 text-sm text-zinc-900 dark:text-white transition-all duration-200 outline-none ${
           isFocused
             ? 'border-2 border-zinc-950 dark:border-white bg-transparent dark:bg-black'
             : hasValue
@@ -174,7 +174,7 @@ export default function AttendeeLobbyView({
           <button
             type="submit"
             disabled={!isFormValid || isSubmitting}
-            className={`w-full h-12 rounded-full font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 mt-5 cursor-pointer ${
+            className={`w-full h-12 rounded-2xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 mt-5 cursor-pointer ${
               isFormValid
                 ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-md hover:bg-zinc-800 dark:hover:bg-zinc-100 active:scale-[0.99]'
                 : 'bg-zinc-100 dark:bg-[#141416] text-zinc-400 dark:text-zinc-600 cursor-not-allowed border border-zinc-200 dark:border-zinc-800/60'

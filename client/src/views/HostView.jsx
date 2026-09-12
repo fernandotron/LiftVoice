@@ -718,7 +718,7 @@ export default function HostView({
             <button
               key={t.id}
               onClick={() => setInspectorTab(t.id)}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
                 inspectorTab === t.id
                   ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-2xs'
                   : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
@@ -762,7 +762,7 @@ export default function HostView({
               {monitoredLang !== 'none' ? (
                 <button
                   onClick={handleStopMonitoring}
-                  className="flex-1 py-1.5 px-4 rounded-full bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                  className="flex-1 py-1.5 px-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
                 >
                   <Volume2 className="w-3.5 h-3.5" />
                   <span>Silenciar Retorno</span>
@@ -775,7 +775,7 @@ export default function HostView({
               <button
                 type="button"
                 onClick={() => audioPlayerService.playAudioTestTone()}
-                className="py-1.5 px-3 rounded-full bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 flex-shrink-0 shadow-2xs"
+                className="py-1.5 px-3 rounded-2xl bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 flex-shrink-0 shadow-2xs"
                 title="Probar sonido de altavoz o auriculares locales"
               >
                 <Bell className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" />
@@ -906,7 +906,7 @@ export default function HostView({
                 <button
                   type="button"
                   onClick={() => handleCloseQuestion(activeQuestion.questionId)}
-                  className="w-full h-9 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all active:scale-98"
+                  className="w-full h-9 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all active:scale-98"
                 >
                   <XCircle className="w-3.5 h-3.5" />
                   <span>Finalizar Turno de Pregunta</span>
@@ -952,7 +952,7 @@ export default function HostView({
                     <button
                       onClick={() => handleApproveQuestion(q.questionId)}
                       disabled={!!activeQuestion}
-                      className="flex-1 py-1.5 px-4 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-40 text-white dark:text-zinc-950 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                      className="flex-1 py-1.5 px-4 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-40 text-white dark:text-zinc-950 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
                       <span>Dar la palabra</span>
@@ -1232,7 +1232,7 @@ export default function HostView({
           <button
             type="button"
             onClick={handleCopyMeetingLink}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 font-mono text-xs font-semibold text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 font-mono text-xs font-semibold text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer shadow-2xs"
             title="Copiar vínculo de la sala"
           >
             <span>{roomId}</span>
@@ -1245,7 +1245,7 @@ export default function HostView({
           <button
             type="button"
             onClick={() => setIsQrModalOpen(true)}
-            className="w-8 h-8 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
+            className="w-8 h-8 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
             title="Proyectar código QR para oyentes"
             aria-label="Proyectar código QR"
           >
@@ -1262,7 +1262,7 @@ export default function HostView({
           <button
             type="button"
             onClick={() => setIsDesktopInspectorOpen(prev => !prev)}
-            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer border ${
+            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors cursor-pointer border ${
               isDesktopInspectorOpen
                 ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-200 dark:border-zinc-700 shadow-2xs'
                 : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800'
@@ -1486,7 +1486,7 @@ export default function HostView({
                 type="button"
                 onClick={handleToggleBroadcast}
                 disabled={isTogglingBroadcast}
-                className={`w-full h-11 min-h-[44px] rounded-full font-semibold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] border ${
+                className={`w-full h-11 min-h-[44px] rounded-2xl font-semibold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.99] border ${
                   isTogglingBroadcast ? 'opacity-70 cursor-wait' : ''
                 } ${
                   isBroadcasting
@@ -1531,7 +1531,7 @@ export default function HostView({
               <button
                 type="button"
                 onClick={() => setCaptionSize(prev => prev === 'sm' ? 'md' : prev === 'md' ? 'lg' : prev === 'lg' ? 'xl' : 'sm')}
-                className="h-8 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                className="h-8 px-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                 title={`Tamaño de subtítulos: ${captionSize.toUpperCase()}`}
               >
                 <Type className="w-3.5 h-3.5 text-zinc-400" />
@@ -1609,12 +1609,12 @@ export default function HostView({
                   value={manualText}
                   onChange={(e) => setManualText(e.target.value)}
                   placeholder="Escribe cualquier frase aquí para emitir por voz en las 4 cabinas..."
-                  className="flex-1 h-10 bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-full px-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 transition-colors shadow-2xs"
+                  className="flex-1 h-10 bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 transition-colors shadow-2xs"
                 />
                 <button
                   type="submit"
                   disabled={!manualText.trim()}
-                  className="h-10 px-5 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-1.5 shadow-xs active:scale-95"
+                  className="h-10 px-5 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-1.5 shadow-xs active:scale-95"
                 >
                   <span>Emitir</span>
                   <Send className="w-3.5 h-3.5" />
@@ -1651,7 +1651,7 @@ export default function HostView({
                     key={t.id}
                     type="button"
                     onClick={() => setInspectorTab(t.id)}
-                    className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
+                    className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${
                       inspectorTab === t.id
                         ? 'text-zinc-950 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 shadow-2xs'
                         : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'

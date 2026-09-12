@@ -40,7 +40,7 @@ export default function AttendeesModal({
         {/* Header sin línea divisoria rígida */}
         <div className="flex items-center justify-between mb-4 pb-1 flex-shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-800 dark:text-zinc-200 shadow-xs flex-shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-800 dark:text-zinc-200 shadow-xs flex-shrink-0">
               <Users className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -58,7 +58,7 @@ export default function AttendeesModal({
             <button
               onClick={handleDownloadCsv}
               disabled={attendees.length === 0}
-              className="h-8 sm:h-8.5 px-3 sm:px-4 rounded-full bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-[11px] sm:text-xs font-semibold cursor-pointer shadow-xs disabled:opacity-40 transition-colors flex items-center gap-1.5"
+              className="h-8 sm:h-8.5 px-3 sm:px-4 rounded-2xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-[11px] sm:text-xs font-semibold cursor-pointer shadow-xs disabled:opacity-40 transition-colors flex items-center gap-1.5"
             >
               <Download className="w-3.5 h-3.5" />
               <span className="hidden xs:inline">Exportar CSV</span>
@@ -83,12 +83,12 @@ export default function AttendeesModal({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por nombre, correo o idioma..."
-            className="w-full h-10 bg-zinc-50/80 dark:bg-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-10 pr-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 focus:ring-1 focus:ring-zinc-950 dark:focus:ring-zinc-400 transition-all shadow-xs"
+            className="w-full h-10 bg-zinc-50/80 dark:bg-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl pl-10 pr-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 focus:ring-1 focus:ring-zinc-950 dark:focus:ring-zinc-400 transition-all shadow-xs"
           />
         </div>
 
         {/* Attendees List / Table */}
-        <div className="flex-1 overflow-y-auto border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900/60 shadow-xs no-scrollbar sm:scroll-auto">
+        <div className="flex-1 overflow-y-auto border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900/60 shadow-xs no-scrollbar sm:scroll-auto">
           {filteredAttendees.length === 0 ? (
             <div className="py-12 sm:py-16 text-center text-zinc-400 dark:text-zinc-500 space-y-2 p-4">
               <Users className="w-8 h-8 opacity-30 mx-auto" />
@@ -125,7 +125,7 @@ export default function AttendeesModal({
                             type="button"
                             onClick={() => onUnbanAttendee(att.id || att.attendeeId)}
                             title="Readmitir asistente"
-                            className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                            className="p-1 rounded-xl text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
@@ -134,7 +134,7 @@ export default function AttendeesModal({
                             type="button"
                             onClick={() => onKickAttendee(att.id || att.attendeeId, att.name)}
                             title="Expulsar asistente"
-                            className="p-1 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            className="p-1 rounded-xl text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                           >
                             <UserX className="w-3.5 h-3.5" />
                           </button>
@@ -199,7 +199,7 @@ export default function AttendeesModal({
                           <button
                             type="button"
                             onClick={() => onUnbanAttendee(att.id || att.attendeeId)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-[11px] font-medium transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-[11px] font-medium transition-colors cursor-pointer"
                             title="Readmitir en la sala"
                           >
                             <RotateCcw className="w-3 h-3" />
@@ -209,7 +209,7 @@ export default function AttendeesModal({
                           <button
                             type="button"
                             onClick={() => onKickAttendee(att.id || att.attendeeId, att.name)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[11px] font-medium transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[11px] font-medium transition-colors cursor-pointer"
                             title="Expulsar de la sala"
                           >
                             <UserX className="w-3 h-3" />
