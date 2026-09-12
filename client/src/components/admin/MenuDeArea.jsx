@@ -198,8 +198,8 @@ export default function MenuDeArea({
                       }}
                       className={`group w-full flex items-center gap-3.5 px-3.5 py-3 rounded-2xl text-left transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-500 dark:focus-visible:ring-white/40 ${
                         esActiva
-                          ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white'
-                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5 active:bg-zinc-200/60 dark:active:bg-white/10'
+                          ? 'text-zinc-900 dark:text-white font-semibold hover:bg-zinc-100/70 dark:hover:bg-white/5 active:bg-zinc-200/60 dark:active:bg-white/10'
+                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5 active:bg-zinc-200/60 dark:active:bg-white/10 font-normal'
                       }`}
                     >
                       {/* Icono de la opción */}

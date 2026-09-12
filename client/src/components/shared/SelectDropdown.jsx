@@ -219,7 +219,7 @@ export default function SelectDropdown({
                         onClick={() => handleSelect(option.value)}
                         className={`group w-full flex items-center justify-between gap-3.5 px-3.5 py-3 rounded-2xl text-left transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:focus-visible:ring-white/40 cursor-pointer ${
                           isSelected
-                            ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white font-semibold'
+                            ? 'text-zinc-900 dark:text-white font-semibold hover:bg-zinc-100/70 dark:hover:bg-white/5 active:bg-zinc-200/60 dark:active:bg-white/10'
                             : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5 active:bg-zinc-200/60 dark:active:bg-white/10 font-normal'
                         }`}
                       >
@@ -277,7 +277,7 @@ export default function SelectDropdown({
                     onClick={() => handleSelect(option.value)}
                     className={`flex w-full items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm transition-colors text-left focus:outline-none cursor-pointer ${
                       isSelected
-                        ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white font-semibold'
+                        ? 'text-zinc-900 dark:text-white font-semibold hover:bg-zinc-100/70 dark:hover:bg-white/5'
                         : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5 font-normal'
                     }`}
                   >

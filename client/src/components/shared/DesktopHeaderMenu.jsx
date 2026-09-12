@@ -316,7 +316,7 @@ export default function DesktopHeaderMenu({
                     }}
                     className={`w-full flex items-center justify-between gap-3 p-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
                       isSelected
-                        ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white font-semibold'
+                        ? 'text-zinc-900 dark:text-white font-semibold hover:bg-zinc-100/70 dark:hover:bg-white/5'
                         : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/5'
                     }`}
                   >
