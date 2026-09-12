@@ -58,7 +58,11 @@ export default function QRCodeModal({
   const handleStartTunnel = async () => {
     setIsGeneratingTunnel(true);
     try {
-      const res = await fetch('/api/tunnel/start', { method: 'POST' });
+      const token = localStorage.getItem('liftvoice_admin_token') || '';
+      const res = await fetch('/api/tunnel/start', { 
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       const data = await res.json();
       if (data.publicUrl) {
         setPublicUrl(data.publicUrl);

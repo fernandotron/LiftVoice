@@ -8,6 +8,8 @@ import {
 import { audioPlayerService } from '../../services/audioPlayer.js';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
+import { AdminLoginCard } from './AdminLoginCard.jsx';
+import { adminAuthService } from '../../services/adminAuthService.js';
 
 const safeGetItem = (key, fallback = '') => {
   try {
@@ -109,6 +111,18 @@ export default function AdminSettingsShell({
     }
     return null;
   });
+
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    if (isOpen || variant === 'page') {
+      adminAuthService.verify().then(valid => {
+        setIsAuthenticated(valid);
+        setIsCheckingAuth(false);
+      });
+    }
+  }, [isOpen, variant]);
 
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -413,9 +427,13 @@ export default function AdminSettingsShell({
     const parsedGlossary = (customGlossary || '').split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
 
     try {
+      const token = adminAuthService.getToken();
       const resp = await fetch('/api/config', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
         body: JSON.stringify({
           preferredSttEngine: sttEngine, sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
           openaiKey: touchedKeys.has('openai') ? openaiKey : undefined,
@@ -583,11 +601,22 @@ export default function AdminSettingsShell({
       </div>
 
       {variant === 'page' && (
-        <div className="hidden md:block pt-4">
+        <div className="hidden md:block pt-4 space-y-2">
+          <button type="button" onClick={() => { adminAuthService.logout().then(() => setIsAuthenticated(false)); }} className="w-full h-9 rounded-xl bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all active:scale-[0.99]">
+            <X className="w-4 h-4" /><span>Cerrar Sesión</span>
+          </button>
           <button type="button" onClick={handleSave} disabled={isSaving} className="w-full h-11 rounded-xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all active:scale-[0.99] disabled:opacity-50">
             {isSaved ? <><Check className="w-4 h-4 stroke-[3] text-emerald-500" /><span>Preferencias Guardadas</span></> : isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Guardando...</span></> : <><CheckCircle2 className="w-4 h-4" /><span>Guardar Preferencias</span></>}
           </button>
         </div>
+      )}
+      
+      {variant === 'modal' && (
+         <div className="pt-2">
+          <button type="button" onClick={() => { adminAuthService.logout().then(() => setIsAuthenticated(false)); }} className="w-full h-9 rounded-xl border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-500/10 text-red-600 dark:text-red-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-[0.99]">
+            <Lock className="w-3.5 h-3.5" /><span>Cerrar Sesión Admin</span>
+          </button>
+         </div>
       )}
     </>
   );
@@ -1454,6 +1483,34 @@ export default function AdminSettingsShell({
         
     </div>
   );
+
+  if (isCheckingAuth) {
+    if (variant === 'modal') {
+      return (
+        <div className="w-full max-w-4xl h-[90dvh] sm:h-[640px] max-h-[90dvh] sm:max-h-[92vh] rounded-[28px] bg-white dark:bg-[#1f1f1f] shadow-2xl flex items-center justify-center relative">
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 z-10"><X className="w-6 h-6"/></button>
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        </div>
+      );
+    }
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-950"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>;
+  }
+
+  if (!isAuthenticated) {
+    if (variant === 'modal') {
+      return (
+        <div className="w-full max-w-4xl h-[90dvh] sm:h-[640px] max-h-[90dvh] sm:max-h-[92vh] rounded-[28px] bg-white dark:bg-[#1f1f1f] shadow-2xl overflow-hidden relative">
+           <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 z-10"><X className="w-6 h-6"/></button>
+           <AdminLoginCard onLoginSuccess={() => setIsAuthenticated(true)} />
+        </div>
+      );
+    }
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-zinc-950">
+        <AdminLoginCard onLoginSuccess={() => setIsAuthenticated(true)} />
+      </div>
+    );
+  }
 
   if (variant === 'modal') {
     return (

@@ -9,6 +9,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { roomManager } from './roomManager.js';
 import { aiPipeline } from './services/aiPipeline.js';
+import { createAdminSession, invalidateAdminSession, verifyAdminSession, validateAdminPassword, requireAdminAuth } from './services/adminAuth.js';
 
 dotenv.config();
 
@@ -117,7 +118,35 @@ app.get('/api/health', (req, res) => {
     timestamp: Date.now(),
     version: '1.0.0 (August 2026)',
     activeRooms: new Set(roomManager.rooms.values()).size
-  });
+});
+
+// --- Admin Auth Endpoints ---
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: 'Password required' });
+  }
+  if (validateAdminPassword(password)) {
+    const token = createAdminSession();
+    return res.json({ success: true, token });
+  }
+  return res.status(401).json({ error: 'Invalid password' });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+  invalidateAdminSession(token);
+  res.json({ success: true });
+});
+
+app.get('/api/admin/verify', (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+  if (verifyAdminSession(token)) {
+    return res.json({ authenticated: true, role: 'admin_master', permissions: ['ADMIN_PANEL', 'API_KEYS', 'MANAGE_ROOMS'] });
+  }
+  return res.status(401).json({ authenticated: false });
 });
 
 app.get('/api/network-info', (req, res) => {
@@ -137,7 +166,7 @@ app.get('/api/network-info', (req, res) => {
   });
 });
 
-app.post('/api/tunnel/start', async (req, res) => {
+app.post('/api/tunnel/start', requireAdminAuth, async (req, res) => {
   try {
     const defaultClientPort = Number(process.env.CLIENT_PORT) || 5174;
     const publicUrl = await tunnelService.startTunnel(defaultClientPort);
@@ -253,20 +282,7 @@ app.get('/api/config', async (req, res) => {
   }
 });
 
-app.post('/api/config', (req, res) => {
-  // HIGH-02: Check admin token if configured in env
-  const adminTokenEnv = process.env.ADMIN_TOKEN;
-  const hostSecretEnv = process.env.HOST_SECRET;
-  if (adminTokenEnv || hostSecretEnv) {
-    const authHeader = req.headers.authorization;
-    const bearerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
-    const suppliedToken = bearerToken || req.body.adminToken || req.headers['x-admin-token'] || null;
-
-    const validTokens = [adminTokenEnv, hostSecretEnv].filter(Boolean);
-    if (!suppliedToken || !validTokens.includes(suppliedToken)) {
-      return res.status(401).json({ error: 'Unauthorized: Invalid or missing admin token' });
-    }
-  }
+app.post('/api/config', requireAdminAuth, (req, res) => {
   const resolveKey = (val, alt, keyName) => {
     const raw = val !== undefined ? val : alt;
     if (raw === undefined || raw === null) return undefined;
