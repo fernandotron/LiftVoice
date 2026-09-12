@@ -9,6 +9,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { roomManager } from './roomManager.js';
 import { aiPipeline } from './services/aiPipeline.js';
+import { userManager } from './services/userManager.js';
 import { createAdminSession, invalidateAdminSession, verifyAdminSession, validateAdminPassword, requireAdminAuth } from './services/adminAuth.js';
 
 dotenv.config();
@@ -147,6 +148,62 @@ app.get('/api/admin/verify', (req, res) => {
     return res.json({ authenticated: true, role: 'admin_master', permissions: ['ADMIN_PANEL', 'API_KEYS', 'MANAGE_ROOMS'] });
   }
   return res.status(401).json({ authenticated: false });
+});
+
+// Admin Users Management
+app.get('/api/admin/users', requireAdminAuth, (req, res) => {
+  res.json(userManager.getAllUsers());
+});
+
+app.patch('/api/admin/users/:id', requireAdminAuth, (req, res) => {
+  const { id } = req.params;
+  const { role, status } = req.body;
+  const user = userManager.updateUser(id, { role, status });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json({ success: true, user });
+});
+
+app.get('/api/admin/export-csv', requireAdminAuth, (req, res) => {
+  const users = userManager.getAllUsers();
+  const headers = ['ID', 'Nombre', 'Email', 'Telefono', 'Rol', 'Estado', 'Registro', 'Ultima Sala'];
+  
+  const sanitizeCsvCell = (val) => {
+    let str = val !== null && val !== undefined ? String(val) : '';
+    if (/^[=+\-@\t\r]/.test(str)) {
+      str = `'${str}`;
+    }
+    return `"${str.replace(/"/g, '""')}"`;
+  };
+
+  const rows = users.map(u => [
+    sanitizeCsvCell(u.id),
+    sanitizeCsvCell(u.name),
+    sanitizeCsvCell(u.email),
+    sanitizeCsvCell(u.phone),
+    sanitizeCsvCell(u.role),
+    sanitizeCsvCell(u.status),
+    sanitizeCsvCell(u.registeredAt),
+    sanitizeCsvCell(u.lastRoom)
+  ]);
+
+  const csvData = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="LiftVoice_Users_Report.csv"');
+  res.status(200).send(csvData);
+});
+
+// Admin Rooms Management
+app.get('/api/admin/rooms', requireAdminAuth, (req, res) => {
+  const activeRooms = Array.from(roomManager.rooms.values()).map(room => roomManager.getPublicStats(room.id));
+  res.json(activeRooms);
+});
+
+app.delete('/api/admin/rooms/:roomId', requireAdminAuth, (req, res) => {
+  const { roomId } = req.params;
+  const deleted = roomManager.deleteRoom(roomId);
+  if (!deleted) return res.status(404).json({ error: 'Room not found or already deleted' });
+  res.json({ success: true });
 });
 
 app.get('/api/network-info', (req, res) => {
@@ -662,6 +719,19 @@ wss.on('connection', (ws, req) => {
           const lang = (msg.lang || 'en').toLowerCase();
           const attendeeId = msg.attendeeId || socketId;
 
+          const user = userManager.getOrCreateUser(attendeeId, { name: msg.name, email: msg.email, phone: msg.phone });
+          if (user && user.status === 'Suspendido') {
+            ws.send(JSON.stringify({
+              type: 'ERROR',
+              message: 'Tu cuenta ha sido suspendida por un administrador.'
+            }));
+            try { ws.close(4003, 'Account Suspended'); } catch (e) {}
+            break;
+          }
+          if (user) {
+            userManager.updateUserLastRoom(user.id, currentRoomId);
+          }
+
           // Guard: If attendee is banned/kicked from this room, reject immediately
           if (roomManager.isAttendeeKicked(currentRoomId, attendeeId, msg.email, clientIp)) {
             ws.send(JSON.stringify({
@@ -744,6 +814,16 @@ wss.on('connection', (ws, req) => {
         case 'REGISTER_ATTENDEE_LEAD': {
           const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
           if (targetRoom && msg.profile) {
+            const user = userManager.getOrCreateUser(msg.profile.attendeeId, { name: msg.profile.name, email: msg.profile.email, phone: msg.profile.phone });
+            if (user && user.status === 'Suspendido') {
+              ws.send(JSON.stringify({ type: 'ERROR', message: 'Cuenta suspendida' }));
+              try { ws.close(4003, 'Account Suspended'); } catch(e) {}
+              break;
+            }
+            if (user) {
+              userManager.updateUserLastRoom(user.id, targetRoom);
+            }
+
             clientRole = 'LISTENER';
             currentRoomId = targetRoom;
             roomManager.addListener(targetRoom, ws, socketId, msg.profile.lang || msg.profile.currentLang || 'es', {
