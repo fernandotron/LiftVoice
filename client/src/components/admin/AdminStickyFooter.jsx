@@ -12,28 +12,8 @@ export function DegradadoPie() {
 
 export default function AdminStickyFooter({ onSave, onCancel, isDirty, isSaving, isSaved }) {
   return (
-    <footer className="relative z-20 flex items-center justify-between gap-4 px-6 sm:px-8 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md flex-shrink-0">
+    <footer className="relative z-20 flex items-center justify-end gap-3 px-6 sm:px-8 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md flex-shrink-0">
       <DegradadoPie />
-
-      {/* Left status indicator */}
-      <div className="flex items-center gap-2 text-xs sm:text-sm">
-        {isDirty ? (
-          <span className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            <span>Cambios pendientes</span>
-          </span>
-        ) : isSaved ? (
-          <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
-            <Check size={16} className="stroke-[2.5]" />
-            <span>Preferencias guardadas</span>
-          </span>
-        ) : (
-          <span className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500">
-            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-700" />
-            <span>Sin cambios</span>
-          </span>
-        )}
-      </div>
 
       {/* Right action buttons: pill buttons h-12 rounded-2xl matching standalone-assistant */}
       <div className="flex items-center gap-3">
