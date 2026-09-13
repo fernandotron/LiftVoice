@@ -10,7 +10,7 @@ import Banner from './shared/Banner.jsx';
 
 export default function QRCodeModal({
   roomId = 'MAIN',
-  roomTitle = 'Keynote 2026',
+  roomTitle = 'Conferencia Principal',
   isOpen = false,
   onClose = () => {},
   localIp = '192.168.1.12'
@@ -126,6 +126,7 @@ export default function QRCodeModal({
   const isGenericTitle = !roomTitle || 
     roomTitle.toLowerCase() === `sala ${roomId.toLowerCase()}` || 
     roomTitle.toLowerCase() === roomId.toLowerCase() ||
+    roomTitle === 'Conferencia Principal' ||
     roomTitle === 'Conferencia Principal 2026' ||
     roomTitle === 'Keynote 2026';
   const modalDisplayTitle = isGenericTitle ? 'Traducción Simultánea de Voz' : roomTitle;
@@ -251,7 +252,7 @@ export default function QRCodeModal({
 
             {/* Código de Sala Destacado */}
             <div className="flex items-center justify-center gap-3 px-6 py-2.5 rounded-2xl bg-white/5 border border-white/10 w-full max-w-xs shadow-inner">
-              <span className="text-xs font-mono uppercase tracking-wider text-zinc-400">
+              <span className="text-xs font-mono text-zinc-400">
                 Sala:
               </span>
               <span className="font-mono text-xl sm:text-2xl font-bold text-white tracking-widest">

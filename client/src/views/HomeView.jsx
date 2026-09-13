@@ -236,7 +236,7 @@ export default function HomeView({
           <div className="flex items-center gap-2.5 text-xs text-zinc-400 dark:text-zinc-500 font-mono">
             <span>Audio sincronizado</span>
             <span className="text-zinc-300 dark:text-zinc-700 select-none">&bull;</span>
-            <span>&copy; 2026</span>
+            <span>&copy; {new Date().getFullYear()}</span>
           </div>
         </div>
       </footer>

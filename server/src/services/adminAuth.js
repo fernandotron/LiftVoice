@@ -89,15 +89,27 @@ export function recordSuccessfulAttempt(ip) {
   console.log(`[Security Audit] Autenticación administrativa exitosa desde IP ${ip} a las ${new Date().toISOString()}.`);
 }
 
+const HMAC_SECRET = process.env.ADMIN_SECRET_KEY || process.env.ADMIN_PASSWORD || 'liftvoice_admin_master_secret_jwt_2026';
+
 export function createAdminSession(userData = {}) {
-  const token = crypto.randomBytes(32).toString('hex');
   const email = (userData && userData.email) ? userData.email : 'admin@liftvoice.ai';
+  const payload = {
+    email,
+    name: email.split('@')[0],
+    role: 'admin_master',
+    iat: Date.now(),
+    exp: Date.now() + SESSION_TTL
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', HMAC_SECRET).update(payloadB64).digest('base64url');
+  const token = `${payloadB64}.${sig}`;
+  
   sessions.set(token, { 
-    expiresAt: Date.now() + SESSION_TTL,
+    expiresAt: payload.exp,
     user: {
-      email,
-      name: email.split('@')[0],
-      role: 'admin_master'
+      email: payload.email,
+      name: payload.name,
+      role: payload.role
     }
   });
   return token;
@@ -110,14 +122,49 @@ export function invalidateAdminSession(token) {
 }
 
 export function getAdminSession(token) {
-  if (!token) return null;
-  const session = sessions.get(token);
-  if (!session) return null;
-  if (Date.now() > session.expiresAt) {
-    sessions.delete(token);
-    return null;
+  if (!token || typeof token !== 'string') return null;
+  
+  // 1. Check in-memory cache
+  const cached = sessions.get(token);
+  if (cached) {
+    if (Date.now() > cached.expiresAt) {
+      sessions.delete(token);
+      return null;
+    }
+    return cached;
   }
-  return session;
+
+  // 2. Validate stateless HMAC signature (resilient across server restarts)
+  const dotIndex = token.indexOf('.');
+  if (dotIndex > 0) {
+    const payloadB64 = token.slice(0, dotIndex);
+    const sig = token.slice(dotIndex + 1);
+    const expectedSig = crypto.createHmac('sha256', HMAC_SECRET).update(payloadB64).digest('base64url');
+    
+    try {
+      const sigBuf = Buffer.from(sig);
+      const expectedBuf = Buffer.from(expectedSig);
+      if (sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+        const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+        if (payload && payload.exp && Date.now() <= payload.exp) {
+          const sessionObj = {
+            expiresAt: payload.exp,
+            user: {
+              email: payload.email || 'admin@liftvoice.ai',
+              name: payload.name || 'admin',
+              role: payload.role || 'admin_master'
+            }
+          };
+          sessions.set(token, sessionObj);
+          return sessionObj;
+        }
+      }
+    } catch (err) {
+      // invalid payload or formatting
+    }
+  }
+
+  return null;
 }
 
 export function verifyAdminSession(token) {
@@ -149,7 +196,10 @@ export function validateAdminPassword(providedPassword) {
 
 export function requireAdminAuth(req, res, next) {
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+  const queryToken = req.query && typeof req.query.token === 'string' ? req.query.token.trim() : null;
+  const token = (authHeader && authHeader.startsWith('Bearer '))
+    ? authHeader.slice(7).trim()
+    : queryToken;
   
   if (!token || !verifyAdminSession(token)) {
     return res.status(401).json({ error: 'Unauthorized: Admin access required' });

@@ -122,9 +122,9 @@ export default function DynamicIslandBar({
           className="pointer-events-auto mt-2 p-3.5 rounded-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 shadow-xl space-y-2.5 text-left text-xs text-zinc-700 dark:text-zinc-300 animate-slideDown"
         >
           <div className="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-zinc-800">
-            <span className="font-semibold text-zinc-900 dark:text-white">Estudio de Emisión Móvil</span>
+            <span className="font-semibold text-zinc-900 dark:text-white">Estudio de emisión móvil</span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
-              Septiembre 2026
+              Studio Live
             </span>
           </div>
 

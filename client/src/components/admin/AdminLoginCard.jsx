@@ -1,6 +1,66 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Mail, Eye, EyeOff, Loader2, ArrowLeft, Shield, ShieldAlert } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ArrowLeft, ShieldAlert, X } from 'lucide-react';
 import { adminAuthService } from '../../services/adminAuthService.js';
+
+function FloatingCapsuleInput({
+  id,
+  type = 'text',
+  label,
+  value,
+  onChange,
+  required = false,
+  autoFocus = false,
+  autoComplete,
+  disabled = false,
+  rightElement = null
+}) {
+  const [isFocused, setIsFocused] = useState(false);
+  const hasValue = Boolean(value && String(value).length > 0);
+  const isFloated = isFocused || hasValue;
+
+  return (
+    <div className="relative w-full">
+      {/* Smoothly Gliding Floating Label with Notched Cut-out matching AttendeeLobbyView */}
+      <label
+        htmlFor={id}
+        className={`absolute px-1.5 transition-all duration-200 ease-out select-none pointer-events-none z-10 ${
+          isFloated
+            ? '-top-2.5 left-4 text-xs font-medium bg-white dark:bg-[#121214] ' +
+              (isFocused ? 'text-zinc-950 dark:text-white' : 'text-zinc-500 dark:text-zinc-400')
+            : 'top-3.5 left-4 text-sm bg-transparent text-zinc-400 dark:text-zinc-500'
+        }`}
+      >
+        {label}
+      </label>
+
+      <input
+        id={id}
+        name={id}
+        type={type}
+        required={required}
+        autoFocus={autoFocus}
+        autoComplete={autoComplete}
+        disabled={disabled}
+        value={value}
+        onChange={onChange}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        className={`w-full h-12 rounded-2xl pl-5 ${rightElement ? 'pr-12' : 'pr-5'} text-sm text-zinc-900 dark:text-white transition-all duration-200 outline-none ${
+          isFocused
+            ? 'border-2 border-zinc-950 dark:border-white bg-transparent dark:bg-[#121214]'
+            : hasValue
+            ? 'border border-zinc-300 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121214]'
+            : 'border border-zinc-200 dark:border-zinc-800/90 bg-zinc-50/70 dark:bg-[#121214] hover:border-zinc-300 dark:hover:border-zinc-700'
+        }`}
+      />
+      {rightElement && (
+        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 z-10">
+          {rightElement}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AdminLoginCard({
   onLoginSuccess = () => {},
@@ -31,8 +91,8 @@ export function AdminLoginCard({
   }, [lockoutSeconds]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!password.trim() || lockoutSeconds > 0) return;
+    if (e && e.preventDefault) e.preventDefault();
+    if (!password.trim() || lockoutSeconds > 0 || loading) return;
     setError(null);
     setLoading(true);
     try {
@@ -42,79 +102,64 @@ export function AdminLoginCard({
       if (err.status === 429 && err.retryAfter) {
         setLockoutSeconds(err.retryAfter);
       }
-      setError(err.message || 'Credenciales incorrectas');
+      setError(err.message || 'Contraseña incorrecta');
     } finally {
       setLoading(false);
     }
   };
 
-  const card = (
-    <div className="bg-white dark:bg-zinc-900/90 border border-zinc-200/90 dark:border-zinc-800 rounded-[32px] p-6 sm:p-8 flex flex-col justify-between shadow-2xs text-left space-y-6 w-full animate-fadeIn">
-      <div className="space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs">
-          <Lock className="w-5 h-5" />
-        </div>
-
-        <div className="space-y-1.5">
-          <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            Acceso de Administrador
-          </h2>
-          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-[65ch]">
-            Ingresa tu correo y contraseña maestra para administrar el pipeline de IA, cabinas y salas.
+  const formContent = (
+    <>
+      {/* Header matching AttendeeLobbyView */}
+      <div className="text-center mb-8 space-y-1">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
+          Entrar
+        </h1>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          Acceso al panel de administración
+        </p>
+        {roomId && (
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-mono pt-0.5">
+            Sala <span className="font-semibold text-zinc-700 dark:text-zinc-300">{roomId}</span>
           </p>
-        </div>
+        )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Email Field */}
-        <div>
-          <label className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 block mb-2">
-            Correo electrónico
-          </label>
-          <div className="relative">
-            <input
-              id="admin-email-input"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@liftvoice.ai"
-              required
-              disabled={loading || lockoutSeconds > 0}
-              className="w-full h-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl pl-10 pr-4 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
-            />
-            <Mail className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-        </div>
+      {/* Form with Capsule Inputs matching AttendeeLobbyView */}
+      <form onSubmit={handleSubmit} className="w-full space-y-4">
+        <FloatingCapsuleInput
+          id="admin-email"
+          type="email"
+          label="Correo electrónico"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+          disabled={loading || lockoutSeconds > 0}
+        />
 
-        {/* Password Field */}
-        <div>
-          <label className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 block mb-2">
-            Contraseña
-          </label>
-          <div className="relative">
-            <input
-              id="admin-password-input"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Contraseña maestra"
-              autoFocus
-              required
-              disabled={loading || lockoutSeconds > 0}
-              className="w-full h-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl pl-10 pr-11 text-xs sm:text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
-            />
-            <Lock className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <FloatingCapsuleInput
+          id="admin-password"
+          type={showPassword ? 'text' : 'password'}
+          label="Contraseña"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoFocus
+          autoComplete="current-password"
+          disabled={loading || lockoutSeconds > 0}
+          rightElement={
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               tabIndex={-1}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 cursor-pointer transition-colors"
+              className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer transition-colors"
               title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
-          </div>
-        </div>
+          }
+        />
 
         {lockoutSeconds > 0 ? (
           <div className="px-4 py-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-xs font-medium text-amber-700 dark:text-amber-300 text-center flex items-center justify-center gap-1.5">
@@ -127,22 +172,25 @@ export function AdminLoginCard({
           </div>
         ) : null}
 
+        {/* Primary CTA Button: 'Continuar' / 'Acceder' matching AttendeeLobbyView */}
         <button
           type="submit"
-          disabled={loading || !password.trim() || lockoutSeconds > 0}
-          className="w-full h-11 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs sm:text-sm flex items-center justify-center shadow-xs disabled:opacity-40 cursor-pointer transition-all active:scale-[0.99] mt-3"
+          disabled={!password.trim() || loading || lockoutSeconds > 0}
+          className={`w-full h-12 rounded-2xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 mt-5 cursor-pointer ${
+            password.trim() && !loading && lockoutSeconds === 0
+              ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-md hover:bg-zinc-800 dark:hover:bg-zinc-100 active:scale-[0.99]'
+              : 'bg-zinc-100 dark:bg-[#141416] text-zinc-400 dark:text-zinc-600 cursor-not-allowed border border-zinc-200 dark:border-zinc-800/60'
+          }`}
         >
-          {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin text-zinc-400 mr-2" />
-          ) : null}
           <span>
-            {lockoutSeconds > 0 ? `Reintento en ${lockoutSeconds}s` : (loading ? 'Verificando credenciales...' : 'Acceder al Panel')}
+            {lockoutSeconds > 0 ? `Reintento en ${lockoutSeconds}s` : (loading ? 'Verificando...' : 'Continuar')}
           </span>
+          {loading && <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />}
         </button>
       </form>
 
       {onCancel && (
-        <div className="pt-2 text-center border-t border-zinc-100 dark:border-zinc-800/60">
+        <div className="mt-5 text-center">
           <button
             type="button"
             onClick={onCancel}
@@ -153,38 +201,45 @@ export function AdminLoginCard({
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 
+  // MODAL VARIANT: Clean single card without double borders or nested frames
   if (variant === 'modal') {
     return (
-      <div className="w-full max-w-md mx-auto my-auto p-4 sm:p-6">
-        {card}
+      <div className="relative w-full max-w-[360px] sm:max-w-[390px] rounded-[32px] bg-white dark:bg-[#121214] border border-zinc-200/90 dark:border-zinc-800/90 shadow-2xl p-7 sm:p-9 text-center animate-fadeIn mx-auto my-auto">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            aria-label="Cerrar modal"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        {formContent}
       </div>
     );
   }
 
+  // PAGE VARIANT: Exact 1:1 match with AttendeeLobbyView layout
   return (
-    <div className="my-auto w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-7 sm:space-y-9">
-      {/* Clean Hero idéntico a la entrada a la sala */}
-      <div className="text-center max-w-xl mx-auto space-y-3.5 sm:space-y-4">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium shadow-2xs">
-          <Shield className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
-          <span>Seguridad del Sistema</span>
-        </div>
+    <div className="relative min-h-dvh w-screen flex flex-col items-center justify-center bg-white dark:bg-black text-zinc-900 dark:text-white px-4 py-8 transition-colors">
+      {onCancel && (
+        <button
+          type="button"
+          onClick={onCancel}
+          className="absolute top-5 left-5 sm:top-7 sm:left-7 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-100 dark:bg-zinc-800/90 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer shadow-xs"
+          aria-label={roomId ? 'Volver a la sala' : 'Volver al inicio'}
+          title="Volver"
+        >
+          <ArrowLeft className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+        </button>
+      )}
 
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 leading-[1.15]">
-          Acceso al panel maestro
-        </h1>
-
-        <p className="text-sm sm:text-base text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto leading-relaxed">
-          Introduce tus credenciales de administrador para configurar motores de voz, modelos de IA y supervisar salas.
-        </p>
-      </div>
-
-      {/* Action Card */}
-      <div className="space-y-4 sm:space-y-6 w-full max-w-md mx-auto">
-        {card}
+      <div className="w-full max-w-[360px] sm:max-w-[380px] flex flex-col items-center animate-fadeIn">
+        {formContent}
       </div>
     </div>
   );

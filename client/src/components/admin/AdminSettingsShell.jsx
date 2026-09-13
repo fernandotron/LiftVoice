@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Settings, Key, X, Check, Shield, Cpu, Zap, Volume2, Mic,
   Sparkles, Stethoscope, Activity, BookOpen, Play, Square, Loader2, Headphones,
   Radio, User, Users, ChevronRight, CheckCircle2, Lock, Server, Globe, VolumeX,
-  Palette, Sun, Moon, Monitor, Eye, EyeOff, AlertCircle, ArrowLeft, Home
+  Palette, Sun, Moon, Monitor, Eye, EyeOff, AlertCircle, ArrowLeft, Home, Sliders
 } from 'lucide-react';
 import { audioPlayerService } from '../../services/audioPlayer.js';
 import { audioRecorderService } from '../../services/audioRecorder.js';
@@ -14,7 +14,8 @@ import AdminSidebarRail from './AdminSidebarRail.jsx';
 import AdminStickyFooter from './AdminStickyFooter.jsx';
 import UnsavedChangesPrompt from './UnsavedChangesPrompt.jsx';
 import { AdminLoginCard } from './AdminLoginCard.jsx';
-import UsersAndRoomsSection from './UsersAndRoomsSection.jsx';
+import UsersSection from './UsersSection.jsx';
+import RoomsSection from './RoomsSection.jsx';
 import MenuDeArea from './MenuDeArea.jsx';
 import { adminAuthService } from '../../services/adminAuthService.js';
 import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions.js';
@@ -103,7 +104,8 @@ const TAB_METADATA = {
   'ai': { title: 'Modelos de traducción', desc: 'Gestiona los modelos y la estrategia de inferencia para la interpretación simultánea' },
   'appearance': { title: 'Apariencia y tema visual', desc: 'Personaliza la interfaz, esquemas de color y modo claro u oscuro' },
   'medical': { title: 'Modo clínico y glosario', desc: 'Activa vocabulario médico especializado y reglas léxicas estrictas' },
-  'users-rooms': { title: 'Gestión de usuarios y salas', desc: 'Monitorea conferencias en directo, participantes y roles de acceso' },
+  'users': { title: 'Usuarios', desc: 'Cuentas registradas, roles de acceso y actividad en conferencias' },
+  'rooms': { title: 'Salas en directo', desc: 'Monitoreo de conferencias activas, oyentes por idioma y control de emisión' },
   'keys': { title: 'Claves de proveedores', desc: 'Administra tus credenciales de Deepgram, Google, ElevenLabs y OpenAI' }
 };
 
@@ -251,7 +253,8 @@ export default function AdminSettingsShell({
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const panel = params.get('panel');
-      if (['stt', 'tts', 'ai', 'appearance', 'medical', 'keys'].includes(panel)) {
+      if (panel === 'users-rooms') return 'users';
+      if (['stt', 'tts', 'ai', 'appearance', 'medical', 'users', 'rooms', 'keys'].includes(panel)) {
         return panel;
       }
     }
@@ -819,6 +822,60 @@ export default function AdminSettingsShell({
     openaiKey || serverFlags.hasOpenAiKey
   ].filter(Boolean).length;
 
+  const [activeRoomsCount, setActiveRoomsCount] = useState(0);
+  const [selectedAdminRoom, setSelectedAdminRoom] = useState(null);
+  const [roomSubSection, setRoomSubSection] = useState('session');
+  const [footerSlot, setFooterSlot] = useState(null);
+
+  // Limpieza reactiva para evitar estados huérfanos si la pestaña activa no es 'rooms'
+  useEffect(() => {
+    if (activeTab !== 'rooms' && selectedAdminRoom) {
+      setSelectedAdminRoom(null);
+    }
+  }, [activeTab, selectedAdminRoom]);
+
+  // Selección de sala: solo reinicia a 'session' si se abre una sala distinta; preserva la sub-sección en actualizaciones de telemetría
+  const handleSelectAdminRoom = useCallback((room) => {
+    setSelectedAdminRoom((prev) => {
+      const isDifferentRoom = !prev || !room || (prev.roomId !== room.roomId);
+      if (room && isDifferentRoom) {
+        setRoomSubSection('session');
+      }
+      return room;
+    });
+  }, []);
+
+  const fetchRoomsCount = useCallback(async () => {
+    try {
+      const token = adminAuthService.getToken();
+      const res = await fetch('/api/admin/rooms', {
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setActiveRoomsCount(data.length);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    if (isOpen || variant === 'page') {
+      fetchRoomsCount();
+    }
+  }, [isOpen, variant, activeTab, fetchRoomsCount]);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setIsAuthenticated(false);
+    };
+    window.addEventListener('liftvoice_admin_unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('liftvoice_admin_unauthorized', handleUnauthorized);
+    };
+  }, []);
+
   const engineSummary = `Cadena: ${sttEngine} + ${preferredEngine} + ${preferredTtsEngine}`;
   const ALL_TABS = [
     { id: 'stt', label: 'Reconocimiento de voz', icon: Mic, badge: sttEngine === 'deepgram' ? 'Deepgram' : (sttEngine ? sttEngine.charAt(0).toUpperCase() + sttEngine.slice(1).toLowerCase() : ''), reqPerm: PERMISSIONS.PERM_ROOM_AUDIO },
@@ -826,7 +883,8 @@ export default function AdminSettingsShell({
     { id: 'ai', label: 'Modelos de traducción', icon: Cpu, badge: preferredEngine ? preferredEngine.charAt(0).toUpperCase() + preferredEngine.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_AI_MODELS },
     { id: 'appearance', label: 'Apariencia y tema', icon: Palette, badge: theme ? theme.charAt(0).toUpperCase() + theme.slice(1).toLowerCase() : '', reqPerm: PERMISSIONS.PERM_ACCESS_ADMIN },
     { id: 'medical', label: 'Modo clínico', icon: Stethoscope, badge: medicalMode ? 'Activo' : null, reqPerm: PERMISSIONS.PERM_AI_MODELS },
-    { id: 'users-rooms', label: 'Usuarios y salas', icon: Users, badge: 'Directo', reqPerm: PERMISSIONS.PERM_ROOM_MANAGEMENT },
+    { id: 'users', label: 'Usuarios', icon: Users, reqPerm: PERMISSIONS.PERM_ROOM_MANAGEMENT },
+    { id: 'rooms', label: 'Salas en directo', icon: Radio, badge: activeRoomsCount > 0 ? `${activeRoomsCount}` : null, reqPerm: PERMISSIONS.PERM_ROOM_MANAGEMENT },
     { id: 'keys', label: 'Claves de proveedores', icon: Key, badge: activeKeysCount > 0 ? `${activeKeysCount} activas` : 'Pendientes', reqPerm: PERMISSIONS.PERM_API_KEYS }
   ];
 
@@ -894,7 +952,7 @@ export default function AdminSettingsShell({
           <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline-block">•</span>
 
           <span className="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 truncate">
-            Configuración del Sistema
+            Configuración del sistema
           </span>
 
           {effectiveRoomId && (
@@ -935,21 +993,48 @@ export default function AdminSettingsShell({
     </header>
   );
 
-  const currentTabMeta = TAB_METADATA[activeTab] || {
-    title: 'Configuración',
-    desc: 'Panel de administración del sistema'
-  };
+  const currentTabMeta = useMemo(() => {
+    if (activeTab === 'rooms' && selectedAdminRoom) {
+      const subLabels = {
+        session: {
+          title: 'Sesión y emisión',
+          desc: `Gestión de orador, accesos, telemetría y control para la sala ${selectedAdminRoom.roomId}`
+        },
+        cabins: {
+          title: 'Cabinas de traducción',
+          desc: `Monitoreo de audiencia en tiempo real en las 4 cabinas de interpretación`
+        }
+      };
+      return subLabels[roomSubSection] || {
+        title: selectedAdminRoom.title || 'Detalle de Sala',
+        desc: `Sala activa ${selectedAdminRoom.roomId}`
+      };
+    }
+    return TAB_METADATA[activeTab] || {
+      title: 'Configuración',
+      desc: 'Panel de administración del sistema'
+    };
+  }, [activeTab, selectedAdminRoom, roomSubSection]);
 
   const TABS_WITH_FORM = ['stt', 'tts', 'ai', 'medical', 'keys'];
-  const shouldShowFooter = TABS_WITH_FORM.includes(activeTab) || isDirty;
+  const shouldShowFooter = (TABS_WITH_FORM.includes(activeTab) || isDirty) && !['rooms', 'users', 'users-rooms', 'appearance'].includes(activeTab);
 
   const renderSidebarContent = () => (
     <AdminSidebarRail
       tabs={TABS}
       activeTab={activeTab}
-      onTabChange={setActiveTab}
+      onTabChange={(tabId) => {
+        if (tabId !== 'rooms') {
+          setSelectedAdminRoom(null);
+        }
+        setActiveTab(tabId);
+      }}
       engineSummary={engineSummary}
       onLogout={() => setIsAuthenticated(false)}
+      selectedRoom={activeTab === 'rooms' ? selectedAdminRoom : null}
+      roomSubSection={roomSubSection}
+      onRoomSubSectionChange={setRoomSubSection}
+      onBackToRooms={() => setSelectedAdminRoom(null)}
     />
   );
 
@@ -960,58 +1045,49 @@ export default function AdminSettingsShell({
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'stt' && (
         <div className="space-y-8 animate-fadeIn">
-          <div>
-            <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Motor de reconocimiento de voz
-            </h4>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
-              Selecciona el motor de transcripción en directo del ponente y la estrategia de consumo de cuota.
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+            {/* Motor Principal */}
+            <div>
+              <label htmlFor="admin-stt-engine" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Motor principal de transcripción
+              </label>
+              <SelectDropdown
+                id="admin-stt-engine"
+                aria-label="Motor principal de transcripción"
+                value={sttEngine}
+                options={STT_ENGINE_OPTIONS}
+                onChange={(e) => { setSttEngine(e.target.value); setIsDirty(true); }}
+                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
+                {sttEngine === 'deepgram' && 'Modelo acústico insignia con latencia ultra-baja (~150ms) y puntuación inteligente. Consume tu saldo de $200.'}
+                {sttEngine === 'gemini_live' && 'Transcripción multimodal de Google optimizada para entornos con reverberación y salas amplias.'}
+                {sttEngine === 'whisper' && 'Reconocimiento robusto con alta fidelidad léxica, ideal para simposios médicos y conferencias técnicas.'}
+                {sttEngine === 'webspeech' && '100% nativo y gratuito en tu navegador (Chrome, Edge, Safari). Sin consumo de API ni servidores.'}
+              </p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
-              {/* Motor Principal */}
-              <div>
-                <label htmlFor="admin-stt-engine" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                  Motor Principal de Transcripción
-                </label>
-                <SelectDropdown
-                  id="admin-stt-engine"
-                  aria-label="Motor principal de transcripción"
-                  value={sttEngine}
-                  options={STT_ENGINE_OPTIONS}
-                  onChange={(e) => { setSttEngine(e.target.value); setIsDirty(true); }}
-                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
-                  {sttEngine === 'deepgram' && 'Modelo acústico insignia con latencia ultra-baja (~150ms) y puntuación inteligente. Consume tu saldo de $200.'}
-                  {sttEngine === 'gemini_live' && 'Transcripción multimodal de Google optimizada para entornos con reverberación y salas amplias.'}
-                  {sttEngine === 'whisper' && 'Reconocimiento robusto con alta fidelidad léxica, ideal para simposios médicos y conferencias técnicas.'}
-                  {sttEngine === 'webspeech' && '100% nativo y gratuito en tu navegador (Chrome, Edge, Safari). Sin consumo de API ni servidores.'}
-                </p>
-              </div>
-
-              {/* Estrategia de Ejecución / Preset */}
-              <div>
-                <label htmlFor="admin-stt-strategy" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                  Estrategia de Ejecución & Presupuesto
-                </label>
-                <SelectDropdown
-                  id="admin-stt-strategy"
-                  aria-label="Estrategia de ejecución y presupuesto"
-                  value={isPresetActive('deepgram_balance') ? 'deepgram_balance' : isPresetActive('google_free') ? 'google_free' : isPresetActive('max_quality') ? 'max_quality' : 'custom'}
-                  options={STT_STRATEGY_OPTIONS}
-                  onChange={(e) => {
-                    if (e.target.value !== 'custom') {
-                      applyPreset(e.target.value);
-                    }
-                    setIsDirty(true);
-                  }}
-                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
-                  Sincroniza en un clic el reconocimiento de voz, la traducción y la síntesis vocal para optimizar costes o calidad.
-                </p>
-              </div>
+            {/* Estrategia de Ejecución / Preset */}
+            <div>
+              <label htmlFor="admin-stt-strategy" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Estrategia de ejecución y presupuesto
+              </label>
+              <SelectDropdown
+                id="admin-stt-strategy"
+                aria-label="Estrategia de ejecución y presupuesto"
+                value={isPresetActive('deepgram_balance') ? 'deepgram_balance' : isPresetActive('google_free') ? 'google_free' : isPresetActive('max_quality') ? 'max_quality' : 'custom'}
+                options={STT_STRATEGY_OPTIONS}
+                onChange={(e) => {
+                  if (e.target.value !== 'custom') {
+                    applyPreset(e.target.value);
+                  }
+                  setIsDirty(true);
+                }}
+                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
+                Sincroniza en un clic el reconocimiento de voz, la traducción y la síntesis vocal para optimizar costes o calidad.
+              </p>
             </div>
           </div>
 
@@ -1019,7 +1095,7 @@ export default function AdminSettingsShell({
 
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Parámetros de Captura & Audio
+              Parámetros de captura y audio
             </h4>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Ajustes para el filtrado acústico y la detección del orador principal.
@@ -1028,7 +1104,7 @@ export default function AdminSettingsShell({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
               <div>
                 <label htmlFor="admin-stt-lang" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                  Detección de Idioma del Ponente
+                  Detección de idioma del ponente
                 </label>
                 <SelectDropdown
                   id="admin-stt-lang"
@@ -1045,7 +1121,7 @@ export default function AdminSettingsShell({
 
               <div>
                 <label htmlFor="admin-stt-vad" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                  Filtro de Silencio & VAD (Voice Activity Detection)
+                  Filtro de silencio y VAD (Voice Activity Detection)
                 </label>
                 <SelectDropdown
                   id="admin-stt-vad"
@@ -1069,48 +1145,39 @@ export default function AdminSettingsShell({
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'tts' && (
         <div className="space-y-8 animate-fadeIn">
-          <div>
-            <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Motor de síntesis vocal
-            </h4>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
-              Define el proveedor predeterminado y la sincronización temporal del audio de interpretación.
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+            <div>
+              <label htmlFor="admin-tts-global" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Motor de síntesis predeterminado
+              </label>
+              <SelectDropdown
+                id="admin-tts-global"
+                aria-label="Motor de síntesis predeterminado"
+                value={preferredTtsEngine}
+                options={TTS_GLOBAL_ENGINE_OPTIONS}
+                onChange={(e) => handlePreferredTtsEngineChange(e.target.value)}
+                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
+                Asigna el proveedor de voz a las cabinas de traducción de forma automática.
+              </p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
-              <div>
-                <label htmlFor="admin-tts-global" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                  Motor de Síntesis Predeterminado
-                </label>
-                <SelectDropdown
-                  id="admin-tts-global"
-                  aria-label="Motor de síntesis predeterminado"
-                  value={preferredTtsEngine}
-                  options={TTS_GLOBAL_ENGINE_OPTIONS}
-                  onChange={(e) => handlePreferredTtsEngineChange(e.target.value)}
-                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
-                  Asigna el proveedor de voz a las cabinas de traducción de forma automática.
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="admin-tts-decalage" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                  Modo de Décalage & Latencia
-                </label>
-                <SelectDropdown
-                  id="admin-tts-decalage"
-                  aria-label="Modo de décalage y latencia"
-                  value={decalageMode}
-                  options={TTS_DECALAGE_OPTIONS}
-                  onChange={(e) => { setDecalageMode(e.target.value); setIsDirty(true); }}
-                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
-                  El décalage equilibra la velocidad de entrega del audio traducido frente a la naturalidad tonal.
-                </p>
-              </div>
+            <div>
+              <label htmlFor="admin-tts-decalage" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Modo de décalage y latencia
+              </label>
+              <SelectDropdown
+                id="admin-tts-decalage"
+                aria-label="Modo de décalage y latencia"
+                value={decalageMode}
+                options={TTS_DECALAGE_OPTIONS}
+                onChange={(e) => { setDecalageMode(e.target.value); setIsDirty(true); }}
+                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
+                El décalage equilibra la velocidad de entrega del audio traducido frente a la naturalidad tonal.
+              </p>
             </div>
           </div>
 
@@ -1118,7 +1185,7 @@ export default function AdminSettingsShell({
 
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Cabinas de Traducción Simultánea
+              Cabinas de traducción simultánea
             </h4>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Configura el timbre de voz y prueba la pronunciación en directo para cada canal de oyente.
@@ -1225,51 +1292,42 @@ export default function AdminSettingsShell({
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'ai' && (
         <div className="space-y-8 animate-fadeIn">
-          <div>
-            <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Motor de Inferencia y Traducción
-            </h4>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
-              Gestiona los modelos de lenguaje y la estrategia de generación simultánea en 4 idiomas.
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+            <div>
+              <label htmlFor="admin-ai-provider" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Proveedor principal de inferencia
+              </label>
+              <SelectDropdown
+                id="admin-ai-provider"
+                aria-label="Proveedor principal de inferencia"
+                value={preferredEngine}
+                options={AI_PROVIDER_OPTIONS}
+                onChange={(e) => { setPreferredEngine(e.target.value); setIsDirty(true); }}
+                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
+                {preferredEngine === 'gemini' && 'Inferencia ultra-rápida en sub-150ms con salida estructurada JSON sin razonamiento forzado.'}
+                {preferredEngine === 'qwen' && 'Modelo de pesos abiertos con excelente soporte para lenguas romances e inferencia local.'}
+                {preferredEngine === 'openai' && 'Modelo optimizado con alta consistencia gramatical y preservación de terminología especializada.'}
+                {preferredEngine === 'google' && 'Traducción directa universal con latencia inferior a 90ms sin costo de API adicional.'}
+              </p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
-              <div>
-                <label htmlFor="admin-ai-provider" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                  Proveedor Principal de Inferencia
-                </label>
-                <SelectDropdown
-                  id="admin-ai-provider"
-                  aria-label="Proveedor principal de inferencia"
-                  value={preferredEngine}
-                  options={AI_PROVIDER_OPTIONS}
-                  onChange={(e) => { setPreferredEngine(e.target.value); setIsDirty(true); }}
-                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
-                  {preferredEngine === 'gemini' && 'Inferencia ultra-rápida en sub-150ms con salida estructurada JSON sin razonamiento forzado.'}
-                  {preferredEngine === 'qwen' && 'Modelo de pesos abiertos con excelente soporte para lenguas romances e inferencia local.'}
-                  {preferredEngine === 'openai' && 'Modelo optimizado con alta consistencia gramatical y preservación de terminología especializada.'}
-                  {preferredEngine === 'google' && 'Traducción directa universal con latencia inferior a 90ms sin costo de API adicional.'}
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="admin-ai-strategy" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                  Estrategia de Generación Multilingüe
-                </label>
-                <SelectDropdown
-                  id="admin-ai-strategy"
-                  aria-label="Estrategia de generación multilingüe"
-                  value={aiStrategy}
-                  options={AI_STRATEGY_OPTIONS}
-                  onChange={(e) => { setAiStrategy(e.target.value); setIsDirty(true); }}
-                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
-                  La llamada única estructurada reduce el consumo de cuota un 75% y sincroniza los tiempos de audio.
-                </p>
-              </div>
+            <div>
+              <label htmlFor="admin-ai-strategy" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Estrategia de generación multilingüe
+              </label>
+              <SelectDropdown
+                id="admin-ai-strategy"
+                aria-label="Estrategia de generación multilingüe"
+                value={aiStrategy}
+                options={AI_STRATEGY_OPTIONS}
+                onChange={(e) => { setAiStrategy(e.target.value); setIsDirty(true); }}
+                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
+                La llamada única estructurada reduce el consumo de cuota un 75% y sincroniza los tiempos de audio.
+              </p>
             </div>
           </div>
 
@@ -1277,7 +1335,7 @@ export default function AdminSettingsShell({
 
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Parámetros del Modelo Seleccionado
+              Parámetros del modelo seleccionado
             </h4>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Ajuste de hiperparámetros, versión específica y conexiones locales.
@@ -1287,7 +1345,7 @@ export default function AdminSettingsShell({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
                 <div>
                   <label htmlFor="admin-gemini-model" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                    Modelo de Gemini Activo
+                    Modelo de Gemini activo
                   </label>
                   <SelectDropdown
                     id="admin-gemini-model"
@@ -1435,47 +1493,38 @@ export default function AdminSettingsShell({
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'medical' && (
         <div className="space-y-8 animate-fadeIn">
-          <div>
-            <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Especialización Médica & Terminología
-            </h4>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
-              Activa la nomenclatura clínica CIE-11, fármacos DCI y acrónimos hospitalarios en la traducción simultánea.
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+            <div>
+              <label htmlFor="admin-med-mode" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Estado del modo clínico
+              </label>
+              <SelectDropdown
+                id="admin-med-mode"
+                value={medicalMode ? 'true' : 'false'}
+                options={MEDICAL_MODE_OPTIONS}
+                onChange={(e) => { setMedicalMode(e.target.value === 'true'); setIsDirty(true); }}
+                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
+                Protege siglas críticas (ECG, SpO2, IAM, TVP) para evitar alteraciones coloquiales.
+              </p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
-              <div>
-                <label htmlFor="admin-med-mode" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                  Estado del Modo Clínico
-                </label>
-                <SelectDropdown
-                  id="admin-med-mode"
-                  value={medicalMode ? 'true' : 'false'}
-                  options={MEDICAL_MODE_OPTIONS}
-                  onChange={(e) => { setMedicalMode(e.target.value === 'true'); setIsDirty(true); }}
-                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
-                  Protege siglas críticas (ECG, SpO2, IAM, TVP) para evitar alteraciones coloquiales.
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="admin-med-specialty" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                  Especialidad Principal de la Conferencia
-                </label>
-                <SelectDropdown
-                  id="admin-med-specialty"
-                  value={medicalSpecialty}
-                  options={MEDICAL_SPECIALTY_OPTIONS}
-                  onChange={(e) => { setMedicalSpecialty(e.target.value); setIsDirty(true); }}
-                  disabled={!medicalMode}
-                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer disabled:opacity-50"
-                />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
-                  Ajusta el priming terminológico del modelo para la jerga del simposio.
-                </p>
-              </div>
+            <div>
+              <label htmlFor="admin-med-specialty" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Especialidad principal de la conferencia
+              </label>
+              <SelectDropdown
+                id="admin-med-specialty"
+                value={medicalSpecialty}
+                options={MEDICAL_SPECIALTY_OPTIONS}
+                onChange={(e) => { setMedicalSpecialty(e.target.value); setIsDirty(true); }}
+                disabled={!medicalMode}
+                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer disabled:opacity-50"
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
+                Ajusta el priming terminológico del modelo para la jerga del simposio.
+              </p>
             </div>
           </div>
 
@@ -1483,7 +1532,7 @@ export default function AdminSettingsShell({
 
           <div>
             <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Glosario Personalizado de la Conferencia
+              Glosario personalizado de la conferencia
             </h4>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
               Introduce siglas, medicamentos o nombres técnicos separados por coma para su preservación literal.
@@ -1532,15 +1581,7 @@ export default function AdminSettingsShell({
             autoComplete="off"
           />
 
-          <div>
-            <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Credenciales de Proveedores
-            </h4>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
-              Las credenciales se guardan de forma segura en tu navegador y se sincronizan con la sesión activa.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               {/* Deepgram Key */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -1751,15 +1792,28 @@ export default function AdminSettingsShell({
                 </p>
               </div>
             </div>
-          </div>
         </form>
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* PESTAÑA: USUARIOS Y SALAS                                   */}
+      {/* PESTAÑA: USUARIOS (MATCHING media_1789313626551.png)        */}
       {/* ═══════════════════════════════════════════════════════════ */}
-      {activeTab === 'users-rooms' && (
-        <UsersAndRoomsSection />
+      {(activeTab === 'users' || activeTab === 'users-rooms') && (
+        <UsersSection variant={variant} footerSlot={footerSlot} />
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* PESTAÑA: SALAS EN DIRECTO                                   */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {activeTab === 'rooms' && (
+        <RoomsSection
+          variant={variant}
+          footerSlot={footerSlot}
+          selectedRoom={selectedAdminRoom}
+          onSelectRoom={handleSelectAdminRoom}
+          roomSubSection={roomSubSection}
+          onRoomSubSectionChange={setRoomSubSection}
+        />
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
@@ -1767,59 +1821,50 @@ export default function AdminSettingsShell({
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'appearance' && (
         <div className="space-y-8 animate-fadeIn">
-          <div>
-            <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
-              Preferencia de Interfaz & Tema
-            </h4>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
-              Ajusta la paleta visual según las condiciones lumínicas de la sala, auditorio o cabina de traducción.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-4">
-              {[
-                { id: 'light', label: 'Modo Claro', desc: 'Fondo blanco con contraste nítido para conferencias de día.', icon: Sun },
-                { id: 'dark', label: 'Modo Oscuro', desc: 'Tonos carbón profundo para cabinas y escenarios en penumbra.', icon: Moon },
-                { id: 'system', label: 'Automático / Sistema', desc: 'Sigue la configuración de modo claro/oscuro de tu dispositivo.', icon: Monitor }
-              ].map((item) => {
-                const ItemIcon = item.icon;
-                const isSelected = theme === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setTheme(item.id)}
-                    className={`p-5 rounded-2xl border-2 text-left cursor-pointer transition-all ${
-                      isSelected
-                        ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border-zinc-950 dark:border-white shadow-xs'
-                        : 'bg-zinc-50/50 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-3.5">
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
-                        isSelected ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-300'
-                      }`}>
-                        <ItemIcon className="w-4.5 h-4.5" />
-                      </div>
-                      {isSelected && (
-                        <div
-                          className="w-2.5 h-2.5 rounded-full bg-zinc-950 dark:bg-white mt-1 shrink-0"
-                          aria-hidden="true"
-                        />
-                      )}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {[
+              { id: 'light', label: 'Modo claro', desc: 'Fondo blanco con contraste nítido para conferencias de día.', icon: Sun },
+              { id: 'dark', label: 'Modo oscuro', desc: 'Tonos carbón profundo para cabinas y escenarios en penumbra.', icon: Moon },
+              { id: 'system', label: 'Automático / sistema', desc: 'Sigue la configuración de modo claro/oscuro de tu dispositivo.', icon: Monitor }
+            ].map((item) => {
+              const ItemIcon = item.icon;
+              const isSelected = theme === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setTheme(item.id)}
+                  className={`p-5 rounded-2xl border-2 text-left cursor-pointer transition-all ${
+                    isSelected
+                      ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border-zinc-950 dark:border-white shadow-xs'
+                      : 'bg-zinc-50/50 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3.5">
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                      isSelected ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-300'
+                    }`}>
+                      <ItemIcon className="w-4.5 h-4.5" />
                     </div>
-                    <div className="font-semibold text-xs sm:text-sm">{item.label}</div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed">
-                      {item.desc}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    {isSelected && (
+                      <div
+                        className="w-2.5 h-2.5 rounded-full bg-zinc-950 dark:bg-white mt-1 shrink-0"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </div>
+                  <div className="font-semibold text-xs sm:text-sm">{item.label}</div>
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed">
+                    {item.desc}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-            <div className="flex items-center gap-2.5 mt-6 p-3.5 rounded-2xl bg-zinc-100/60 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-500 dark:text-zinc-400">
-              <Check className="w-4 h-4 text-emerald-500 shrink-0 stroke-[2.5]" />
-              <span>El tema seleccionado se aplica y guarda automáticamente en tu navegador sin necesidad de confirmación manual.</span>
-            </div>
+          <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-zinc-100/60 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-500 dark:text-zinc-400">
+            <Check className="w-4 h-4 text-emerald-500 shrink-0 stroke-[2.5]" />
+            <span>El tema seleccionado se aplica y guarda automáticamente en tu navegador sin necesidad de confirmación manual.</span>
           </div>
         </div>
       )}
@@ -1859,15 +1904,12 @@ export default function AdminSettingsShell({
   if (!isAuthenticated) {
     if (variant === 'modal') {
       return (
-        <div className="w-full max-w-md my-auto rounded-[28px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/10 shadow-2xl overflow-hidden relative flex items-center justify-center p-2 sm:p-4">
-           <button onClick={handleCloseAttempt} className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 z-10 cursor-pointer rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><X className="w-5 h-5"/></button>
-           <AdminLoginCard
-             onLoginSuccess={() => setIsAuthenticated(true)}
-             onCancel={handleCloseAttempt}
-             variant="modal"
-             roomId={effectiveRoomId}
-           />
-        </div>
+        <AdminLoginCard
+          onLoginSuccess={() => setIsAuthenticated(true)}
+          onCancel={handleCloseAttempt}
+          variant="modal"
+          roomId={effectiveRoomId}
+        />
       );
     }
     return (
@@ -1892,13 +1934,13 @@ export default function AdminSettingsShell({
                 </span>
                 <span className="text-zinc-300 dark:text-zinc-700 select-none">&bull;</span>
                 <span className="text-zinc-500 dark:text-zinc-400 text-xs sm:text-sm">
-                  Panel de Seguridad Administrativo
+                  Panel de seguridad administrativo
                 </span>
               </div>
               <div className="flex items-center gap-2.5 text-xs text-zinc-400 dark:text-zinc-500 font-mono">
                 <span>Acceso autenticado</span>
                 <span className="text-zinc-300 dark:text-zinc-700 select-none">&bull;</span>
-                <span>&copy; 2026</span>
+                <span>&copy; {new Date().getFullYear()}</span>
               </div>
             </div>
           </footer>
@@ -1928,15 +1970,33 @@ export default function AdminSettingsShell({
                 <MenuDeArea
                   idTitulo="admin-modal-area-title"
                   titulo={currentTabMeta.title}
-                  opciones={TABS.map(t => ({
-                    id: t.id,
-                    title: t.label,
-                    icon: t.icon,
-                    badge: t.badge
-                  }))}
-                  actual={activeTab}
-                  onElegir={(newId) => setActiveTab(newId)}
-                  etiquetaMenu="Secciones del panel de administración"
+                  opciones={
+                    activeTab === 'rooms' && selectedAdminRoom
+                      ? [
+                          { id: '__back_rooms', title: '← Volver a salas', icon: ArrowLeft },
+                          { id: 'session', title: 'Sesión y emisión', icon: Radio },
+                          { id: 'cabins', title: 'Cabinas de traducción', icon: Headphones }
+                        ]
+                      : TABS.map(t => ({
+                          id: t.id,
+                          title: t.label,
+                          icon: t.icon,
+                          badge: t.badge
+                        }))
+                  }
+                  actual={activeTab === 'rooms' && selectedAdminRoom ? roomSubSection : activeTab}
+                  onElegir={(newId) => {
+                    if (activeTab === 'rooms' && selectedAdminRoom) {
+                      if (newId === '__back_rooms') {
+                        setSelectedAdminRoom(null);
+                      } else {
+                        setRoomSubSection(newId);
+                      }
+                    } else {
+                      setActiveTab(newId);
+                    }
+                  }}
+                  etiquetaMenu={activeTab === 'rooms' && selectedAdminRoom ? "Sub-secciones de la sala" : "Secciones del panel de administración"}
                 />
               </div>
               <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-[65ch] truncate sm:whitespace-normal leading-relaxed">
@@ -1944,7 +2004,7 @@ export default function AdminSettingsShell({
               </p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleCloseAttempt}
@@ -1973,6 +2033,9 @@ export default function AdminSettingsShell({
               isSaved={isSaved} 
             />
           )}
+
+          {/* Slot contextual para footers de salas y edición de usuarios (idéntico en posición y tamaño a AdminStickyFooter) */}
+          <div ref={setFooterSlot} className="contents" />
         </div>
 
         {/* Unsaved Changes Prompt */}
@@ -2006,15 +2069,33 @@ export default function AdminSettingsShell({
             <MenuDeArea
               idTitulo="admin-page-area-title"
               titulo={currentTabMeta.title}
-              opciones={TABS.map(t => ({
-                id: t.id,
-                title: t.label,
-                icon: t.icon,
-                badge: t.badge
-              }))}
-              actual={activeTab}
-              onElegir={(newId) => setActiveTab(newId)}
-              etiquetaMenu="Secciones de configuración"
+              opciones={
+                activeTab === 'rooms' && selectedAdminRoom
+                  ? [
+                      { id: '__back_rooms', title: '← Volver a salas', icon: ArrowLeft },
+                      { id: 'session', title: 'Sesión y emisión', icon: Radio },
+                      { id: 'cabins', title: 'Cabinas de traducción', icon: Headphones }
+                    ]
+                  : TABS.map(t => ({
+                      id: t.id,
+                      title: t.label,
+                      icon: t.icon,
+                      badge: t.badge
+                    }))
+              }
+              actual={activeTab === 'rooms' && selectedAdminRoom ? roomSubSection : activeTab}
+              onElegir={(newId) => {
+                if (activeTab === 'rooms' && selectedAdminRoom) {
+                  if (newId === '__back_rooms') {
+                    setSelectedAdminRoom(null);
+                  } else {
+                    setRoomSubSection(newId);
+                  }
+                } else {
+                  setActiveTab(newId);
+                }
+              }}
+              etiquetaMenu={activeTab === 'rooms' && selectedAdminRoom ? "Sub-secciones de la sala" : "Secciones de configuración"}
             />
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               {currentTabMeta.desc}
@@ -2026,6 +2107,7 @@ export default function AdminSettingsShell({
       {shouldShowFooter && (
         <AdminStickyFooter variant="page" onSave={handleSave} onCancel={handleReturn} isDirty={isDirty} isSaving={isSaving} isSaved={isSaved} />
       )}
+      <div ref={setFooterSlot} className="contents" />
       <UnsavedChangesPrompt isOpen={showUnsavedPrompt} onCancel={() => setShowUnsavedPrompt(false)} onConfirm={() => { revertToInitialState(); setShowUnsavedPrompt(false); executeReturn(); }} />
     </div>
   );

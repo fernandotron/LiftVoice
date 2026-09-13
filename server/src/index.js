@@ -213,8 +213,8 @@ app.get('/api/admin/users', requireAdminAuth, (req, res) => {
 
 app.patch('/api/admin/users/:id', requireAdminAuth, (req, res) => {
   const { id } = req.params;
-  const { role, status } = req.body;
-  const user = userManager.updateUser(id, { role, status });
+  const { role, status, name } = req.body;
+  const user = userManager.updateUser(id, { role, status, name });
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json({ success: true, user });
 });
@@ -251,7 +251,16 @@ app.get('/api/admin/export-csv', requireAdminAuth, (req, res) => {
 
 // Admin Rooms Management
 app.get('/api/admin/rooms', requireAdminAuth, (req, res) => {
-  const activeRooms = Array.from(roomManager.rooms.values()).map(room => roomManager.getPublicStats(room.id));
+  // Deduplicar instancias de salas para evitar copias múltiples si están indexadas por diferentes claves
+  const uniqueRooms = Array.from(new Set(roomManager.rooms.values()));
+  const activeRooms = uniqueRooms
+    .map(room => {
+      if (room.title === 'Conferencia Principal 2026') room.title = 'Conferencia Principal';
+      const stats = (typeof roomManager.getAdminStats === 'function' ? roomManager.getAdminStats(room.id) : roomManager.getPublicStats(room.id));
+      if (stats && stats.title === 'Conferencia Principal 2026') stats.title = 'Conferencia Principal';
+      return stats;
+    })
+    .filter(Boolean);
   res.json(activeRooms);
 });
 

@@ -51,7 +51,7 @@ export function getInitialRouteState() {
     return {
       currentView: 'home',
       roomId: null,
-      roomTitle: 'Conferencia Principal 2026',
+      roomTitle: 'Conferencia Principal',
       pendingJoinRoom: null
     };
   }
@@ -72,7 +72,7 @@ export function getInitialRouteState() {
     return {
       currentView: 'admin',
       roomId: normalized,
-      roomTitle: normalized ? `Sala ${normalized}` : 'Conferencia Principal 2026',
+      roomTitle: normalized ? `Sala ${normalized}` : 'Conferencia Principal',
       pendingJoinRoom: null
     };
   }
@@ -81,7 +81,7 @@ export function getInitialRouteState() {
     return {
       currentView: 'voices',
       roomId: roomParam ? normalizeRoomCode(roomParam) : null,
-      roomTitle: roomParam ? `Sala ${normalizeRoomCode(roomParam)}` : 'Conferencia Principal 2026',
+      roomTitle: roomParam ? `Sala ${normalizeRoomCode(roomParam)}` : 'Conferencia Principal',
       pendingJoinRoom: null
     };
   }
@@ -101,7 +101,7 @@ export function getInitialRouteState() {
       return {
         currentView: 'join',
         roomId: null,
-        roomTitle: 'Conferencia Principal 2026',
+        roomTitle: 'Conferencia Principal',
         pendingJoinRoom: null
       };
     }
@@ -170,7 +170,7 @@ export function getInitialRouteState() {
   return {
     currentView: 'home',
     roomId: null,
-    roomTitle: 'Conferencia Principal 2026',
+    roomTitle: 'Conferencia Principal',
     pendingJoinRoom: null
   };
 }

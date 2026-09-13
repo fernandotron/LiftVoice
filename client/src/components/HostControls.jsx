@@ -5,7 +5,7 @@ import { audioRecorderService } from '../services/audioRecorder.js';
 const DEMO_PRESETS = [
   {
     label: '🇪🇸 "Bienvenidos a la conferencia..."',
-    text: 'Bienvenidos a la conferencia de innovación 2026. Hoy presentamos la traducción simultánea con inteligencia artificial en tiempo real.',
+    text: 'Bienvenidos a la conferencia de innovación. Hoy presentamos la traducción simultánea con inteligencia artificial en tiempo real.',
     lang: 'es'
   },
   {

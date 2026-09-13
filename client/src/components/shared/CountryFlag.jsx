@@ -7,13 +7,17 @@ import React from 'react';
  * borde circular sutil al estilo del botón de selección.
  */
 export default function CountryFlag({
-  code = 'es',
+  code,
+  languageCode,
   className = 'w-6 h-6',
   title = '',
   bordered = true
 }) {
+  const rawCode = (code || languageCode || 'es').toString().toLowerCase().trim();
+  const normalizedCode = rawCode.startsWith('pt') ? 'pt' : (rawCode.length > 2 ? rawCode.slice(0, 2) : rawCode);
+
   const content = (() => {
-    switch (code) {
+    switch (normalizedCode) {
       case 'es':
         return (
           <svg viewBox="0 0 36 36" className="w-full h-full block" role="img" aria-label={title || 'Bandera de España'}>
@@ -78,11 +82,13 @@ export default function CountryFlag({
     }
   })();
 
+  const hasCustomRadius = className && /rounded-(?:none|xs|sm|md|lg|xl|2xl|3xl|full)/.test(className);
+
   return (
     <span
       className={`inline-flex items-center justify-center overflow-hidden shrink-0 ${
         bordered ? 'border border-zinc-300 dark:border-zinc-700 shadow-2xs' : ''
-      } ${className} rounded-full`}
+      } ${className} ${hasCustomRadius ? '' : 'rounded-full'}`}
     >
       {content}
     </span>

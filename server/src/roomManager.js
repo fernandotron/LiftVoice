@@ -79,12 +79,13 @@ class RoomManager {
     }
   }
 
-  createRoom(customId = null, title = 'Conferencia Principal 2026', hostKey = null) {
+  createRoom(customId = null, title = 'Conferencia Principal', hostKey = null) {
     const rawId = customId ? String(customId).trim() : generateMeetCode();
     const normalizedKey = normalizeRoomId(rawId);
 
     const existing = this.getRoom(rawId);
     if (existing) {
+      if (existing.title === 'Conferencia Principal 2026') existing.title = 'Conferencia Principal';
       return existing;
     }
 
@@ -92,9 +93,11 @@ class RoomManager {
       ? normalizedKey
       : rawId.toUpperCase();
 
+    const cleanTitle = (title === 'Conferencia Principal 2026') ? 'Conferencia Principal' : (title || 'Conferencia Principal');
+
     const room = {
       id: roomId,
-      title,
+      title: cleanTitle,
       hostKey: hostKey || null,
       createdAt: Date.now(),
       lastActivity: Date.now(),
@@ -225,14 +228,20 @@ class RoomManager {
     return Array.from(langs);
   }
 
-  getOrCreateRoom(roomId, title = 'Conferencia Principal 2026', hostKey = null) {
+  getOrCreateRoom(roomId, title = 'Conferencia Principal', hostKey = null) {
     const existing = this.getRoom(roomId);
-    if (existing) return existing;
+    if (existing) {
+      if (existing.title === 'Conferencia Principal 2026') existing.title = 'Conferencia Principal';
+      return existing;
+    }
     return this.createRoom(roomId, title, hostKey);
   }
 
   setHost(roomId, socket, socketId, hostKey = null) {
-    const room = this.getOrCreateRoom(roomId, 'Conferencia Principal 2026', hostKey);
+    const room = this.getOrCreateRoom(roomId, 'Conferencia Principal', hostKey);
+    if (room.title === 'Conferencia Principal 2026') {
+      room.title = 'Conferencia Principal';
+    }
     if (room.hostKey && room.hostKey !== hostKey) {
       return { success: false, error: 'INVALID_HOST_KEY' };
     }
@@ -633,7 +642,7 @@ class RoomManager {
 
     return {
       roomId: room.id,
-      title: room.title,
+      title: (room.title === 'Conferencia Principal 2026') ? 'Conferencia Principal' : (room.title || 'Conferencia Principal'),
       isHostOnline: !!room.hostSocket,
       totalListeners: effectiveTotal,
       languageBreakdown: langCounts,
@@ -656,6 +665,64 @@ class RoomManager {
       kickedAttendees: Array.from((room.kickedAttendees || new Map()).values()),
       qaQueue: room.qaQueue || [],
       activeSpeaker: room.activeSpeaker || null
+    };
+  }
+
+  getAdminStats(roomId) {
+    const room = this.getRoom(roomId);
+    if (!room) return null;
+
+    const targetLangs = room.config?.targetLanguages || ['es', 'en', 'it', 'pt'];
+
+    // 1. Telemetría completa de cabinas (asegurando todas las cabinas objetivo aunque tengan 0)
+    const langCounts = {};
+    for (const lang of targetLangs) {
+      langCounts[lang] = 0;
+    }
+    if (room.listeners) {
+      for (const listener of room.listeners.values()) {
+        const l = (listener.lang || 'en').toLowerCase().trim();
+        langCounts[l] = (langCounts[l] || 0) + 1;
+      }
+    }
+
+    // 2. Detección de Habla en Directo (Voice Activity en los últimos 12s)
+    const lastTranscript = room.transcriptHistory?.length > 0
+      ? room.transcriptHistory[room.transcriptHistory.length - 1]
+      : null;
+    const lastSpeechAt = lastTranscript ? lastTranscript.timestamp : null;
+    const isSpeaking = lastSpeechAt ? (Date.now() - lastSpeechAt < 12000) : false;
+
+    // 3. Totales de Asistencia
+    const activeListenersCount = room.listeners ? room.listeners.size : 0;
+    const registeredOnlineCount = room.registeredAttendees
+      ? Array.from(room.registeredAttendees.values()).filter(a => !a.isKicked && a.isOnline !== false).length
+      : 0;
+    const effectiveTotal = Math.max(activeListenersCount, registeredOnlineCount);
+
+    return {
+      roomId: room.id,
+      title: room.title || 'Conferencia sin título',
+      createdAt: room.createdAt || Date.now(),
+      lastActivity: room.lastActivity || room.createdAt || Date.now(),
+      uptimeSeconds: Math.floor((Date.now() - (room.createdAt || Date.now())) / 1000),
+      isHostOnline: !!(room.hostSocket && room.hostSocket.readyState === 1),
+      hostName: room.hostName || 'Ponente Principal',
+      sourceLanguage: room.sourceLang || 'es',
+      totalListeners: effectiveTotal,
+      activeListenersCount,
+      languageBreakdown: langCounts,
+      targetLanguages: targetLangs,
+      isSpeaking,
+      lastSpeechAt,
+      monitoredBooth: room.monitoredBooth || null,
+      qaQueueCount: (room.qaQueue || []).length,
+      activeSpeaker: room.activeSpeaker || null,
+      pipelineHealth: {
+        averageLatencyMs: room.metrics?.averageLatencyMs || 240,
+        totalSpokenSeconds: room.metrics?.totalSpokenSeconds || 0,
+        sentencesProcessed: room.transcriptHistory?.length || 0,
+      }
     };
   }
 

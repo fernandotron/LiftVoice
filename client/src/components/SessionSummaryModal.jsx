@@ -25,7 +25,7 @@ export default function SessionSummaryModal({
 
   if (!isOpen) return null;
 
-  const title = summaryData?.title || 'Conferencia Principal 2026';
+  const title = (summaryData?.title === 'Conferencia Principal 2026') ? 'Conferencia Principal' : (summaryData?.title || 'Conferencia Principal');
   const execSummary = summaryData?.executiveSummary || summaryData?.summaryEs || summaryData?.summaryEn || '';
   const keyPoints = summaryData?.keyPoints || summaryData?.keyTakeawaysEs || summaryData?.keyTakeawaysEn || [];
   const actionItems = summaryData?.actionItems || (summaryData?.conclusions ? [summaryData.conclusions] : []);
@@ -147,7 +147,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-3 sm:gap-4">
                   <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10">
-                    <div className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                    <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                       Duración
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white font-mono mt-1">
@@ -156,7 +156,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                   </div>
 
                   <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10">
-                    <div className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                    <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                       Frases
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white font-mono mt-1">
@@ -165,7 +165,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                   </div>
 
                   <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10">
-                    <div className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                    <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                       Oyentes
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white font-mono mt-1">

@@ -97,8 +97,9 @@ class UserManager {
   updateUser(id, updates) {
     const user = this.users.get(id);
     if (!user) return null;
-    if (updates.role) user.role = updates.role;
-    if (updates.status) user.status = updates.status;
+    if (updates.role !== undefined) user.role = updates.role;
+    if (updates.status !== undefined) user.status = updates.status;
+    if (updates.name !== undefined) user.name = updates.name;
     this.save();
     return user;
   }

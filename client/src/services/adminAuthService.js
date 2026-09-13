@@ -1,10 +1,11 @@
 export const adminAuthService = {
   getToken() {
-    return localStorage.getItem('liftvoice_admin_token');
+    return localStorage.getItem('liftvoice_admin_token') || localStorage.getItem('lv_admin_token') || localStorage.getItem('adminToken') || '';
   },
   
   setToken(token) {
     localStorage.setItem('liftvoice_admin_token', token);
+    localStorage.setItem('lv_admin_token', token);
   },
 
   getAdminUser() {
@@ -24,6 +25,8 @@ export const adminAuthService = {
 
   clearToken() {
     localStorage.removeItem('liftvoice_admin_token');
+    localStorage.removeItem('lv_admin_token');
+    localStorage.removeItem('adminToken');
     localStorage.removeItem('liftvoice_admin_user');
   },
 

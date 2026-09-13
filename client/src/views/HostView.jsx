@@ -49,7 +49,7 @@ export const SPEAKER_LANGUAGES = [
 
 export default function HostView({
   roomId = 'MAIN',
-  roomTitle = 'Conferencia Principal 2026',
+  roomTitle = 'Conferencia Principal',
   onLeave = () => {},
   localIp = '192.168.1.12',
   onOpenSettings = () => {},
@@ -145,6 +145,7 @@ export default function HostView({
   const isGenericRoomTitle = !roomTitle ||
     roomTitle.toLowerCase() === `sala ${roomId.toLowerCase()}` ||
     roomTitle.toLowerCase() === roomId.toLowerCase() ||
+    roomTitle === 'Conferencia Principal' ||
     roomTitle === 'Conferencia Principal 2026';
   const stageTitle = isGenericRoomTitle ? 'Transcripción en Directo' : roomTitle;
 
