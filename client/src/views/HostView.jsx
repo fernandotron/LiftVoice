@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic, MicOff, Radio, Settings, Volume2, Sparkles, AudioLines, Sliders,
   RefreshCw, Check, Globe, ChevronRight, Activity, Users, QrCode, Play, Square,
-  Send, Layers, ArrowRight, ArrowLeft, Type, Shield, Download, FileText, Stethoscope, Home,
+  Send, Layers, ArrowRight, ArrowLeft, ArrowUp, Type, Shield, Download, FileText, Stethoscope, Home,
   Search, ExternalLink, Headphones, Hand, HelpCircle, CheckCircle2, XCircle, MessageSquare,
   Menu, X, SlidersHorizontal, Copy, ChevronDown, PanelRight, Zap, Bell
 } from 'lucide-react';
@@ -79,6 +79,16 @@ export default function HostView({
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState(null);
   const [manualText, setManualText] = useState('');
+  const promptTextareaRef = useRef(null);
+
+  const adjustPromptHeight = useCallback((element) => {
+    const textarea = element || promptTextareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    const nextHeight = Math.min(Math.max(textarea.scrollHeight, 40), 160);
+    textarea.style.height = `${nextHeight}px`;
+  }, []);
+
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState('default');
   const [monitoredLang, setMonitoredLang] = useState('none');
@@ -137,6 +147,12 @@ export default function HostView({
     roomTitle.toLowerCase() === roomId.toLowerCase() ||
     roomTitle === 'Conferencia Principal 2026';
   const stageTitle = isGenericRoomTitle ? 'Transcripción en Directo' : roomTitle;
+
+  const rawParticipants = roomStats.attendees || [];
+  const effectiveTotalListeners = Math.max(
+    Number(roomStats.totalListeners) || 0,
+    rawParticipants.filter(a => !a.isHost && a.isOnline !== false).length
+  );
 
   useEffect(() => {
     let timer = null;
@@ -239,6 +255,8 @@ export default function HostView({
 
   // Synchronize dynamic parameters when admin config is saved or on mount
   useEffect(() => {
+    let isSubscribed = true;
+
     try {
       const savedVad = localStorage.getItem('lv_stt_vad');
       if (savedVad) audioRecorderService.setVadSensitivity(savedVad);
@@ -251,12 +269,45 @@ export default function HostView({
       }
     } catch (e) {}
 
+    // Sincronizar proactivamente con la configuración global del servidor
+    fetch('/api/config')
+      .then(res => (res.ok ? res.json() : null))
+      .then(cfg => {
+        if (!isSubscribed || !cfg) return;
+        if (cfg.preferredSttEngine) {
+          setSttEngine(cfg.preferredSttEngine);
+          audioRecorderService.setSttEngine(cfg.preferredSttEngine);
+        }
+        if (cfg.sttLang && cfg.sttLang !== 'auto' && !localStorage.getItem('lv_stt_lang')) {
+          setSourceLanguage(cfg.sttLang);
+          audioRecorderService.setLanguage(cfg.sttLang);
+        }
+        if (cfg.voiceConfig) setSelectedVoices(cfg.voiceConfig);
+        if (cfg.preferredTranslationEngine) setPreferredEngine(cfg.preferredTranslationEngine);
+        if (cfg.medicalMode !== undefined) {
+          setMedicalConfig({
+            medicalMode: Boolean(cfg.medicalMode),
+            medicalSpecialty: cfg.medicalSpecialty || 'general',
+            customGlossary: Array.isArray(cfg.customGlossary)
+              ? cfg.customGlossary
+              : (typeof cfg.customGlossary === 'string'
+                  ? cfg.customGlossary.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean)
+                  : [])
+          });
+        }
+      })
+      .catch(err => console.warn('[HostView] Aviso al consultar /api/config en montaje:', err));
+
     const handleConfigSaved = (e) => {
       const cfg = e.detail;
       if (!cfg) return;
       if (cfg.sttLang) {
         setSourceLanguage(cfg.sttLang);
         audioRecorderService.setLanguage(cfg.sttLang);
+      }
+      if (cfg.sttEngine) {
+        setSttEngine(cfg.sttEngine);
+        audioRecorderService.setSttEngine(cfg.sttEngine);
       }
       if (cfg.sttVad) {
         audioRecorderService.setVadSensitivity(cfg.sttVad);
@@ -273,7 +324,10 @@ export default function HostView({
       }
     };
     window.addEventListener('liftvoice_config_saved', handleConfigSaved);
-    return () => window.removeEventListener('liftvoice_config_saved', handleConfigSaved);
+    return () => {
+      isSubscribed = false;
+      window.removeEventListener('liftvoice_config_saved', handleConfigSaved);
+    };
   }, []);
 
   const handleCopyMeetingLink = () => {
@@ -334,19 +388,24 @@ export default function HostView({
       if (isMounted) setIsInitializing(false);
     });
 
-    const unsubStats = socketService.on('room_stats', (stats) => {
-      if (!isMounted) return;
-      if (stats) {
-        setRoomStats(stats);
-        if (Array.isArray(stats.qaQueue)) {
-          setQaQueue(stats.qaQueue.map(q => ({
-            ...q,
-            questionId: q.questionId || q.attendeeId || q.socketId
-          })));
-        }
-        if (stats.activeSpeaker !== undefined) {
-          setActiveQuestion(stats.activeSpeaker);
-        }
+    const applyStatsUpdate = (stats) => {
+      if (!isMounted || !stats) return;
+      setRoomStats(stats);
+      if (Array.isArray(stats.qaQueue)) {
+        setQaQueue(stats.qaQueue.map(q => ({
+          ...q,
+          questionId: q.questionId || q.attendeeId || q.socketId
+        })));
+      }
+      if (stats.activeSpeaker !== undefined) {
+        setActiveQuestion(stats.activeSpeaker);
+      }
+    };
+
+    const unsubStats = socketService.on('room_stats', applyStatsUpdate);
+    const unsubJoined = socketService.on('joined_success', (msg) => {
+      if (msg?.stats) {
+        applyStatsUpdate(msg.stats);
       }
     });
 
@@ -461,6 +520,7 @@ export default function HostView({
       socketService.setMonitoredBooth(roomId, 'none');
       socketService.leaveRoom(roomId);
       unsubStats();
+      unsubJoined();
       unsubTranscript();
       unsubLatency();
       unsubAudio();
@@ -665,10 +725,13 @@ export default function HostView({
   };
 
   const handleSendCustomText = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!manualText.trim()) return;
     const textToSend = manualText.trim();
     setManualText('');
+    if (promptTextareaRef.current) {
+      promptTextareaRef.current.style.height = 'auto';
+    }
     sendSpeechToEngines(textToSend);
   };
 
@@ -869,7 +932,7 @@ export default function HostView({
               {monitoredLang !== 'none' ? (
                 <button
                   onClick={handleStopMonitoring}
-                  className="flex-1 py-1.5 px-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                  className="flex-1 py-1.5 px-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
                 >
                   <Volume2 className="w-3.5 h-3.5" />
                   <span>Silenciar Retorno</span>
@@ -882,7 +945,7 @@ export default function HostView({
               <button
                 type="button"
                 onClick={() => audioPlayerService.playAudioTestTone()}
-                className="py-1.5 px-3 rounded-2xl bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 flex-shrink-0 shadow-2xs"
+                className="py-1.5 px-3 rounded-xl bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 flex-shrink-0 shadow-2xs"
                 title="Probar sonido de altavoz o auriculares locales"
               >
                 <Bell className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" />
@@ -926,6 +989,10 @@ export default function HostView({
               const isMonitored = monitoredLang === cab.code;
               const voice = selectedVoices[cab.code] || DEFAULT_VOICES[cab.code] || 'Voz Neuronal';
               const isAuditioning = previewingLang === cab.code;
+              const latestItem = transcriptHistory.length > 0 ? transcriptHistory[transcriptHistory.length - 1] : null;
+              const cabinText = latestItem
+                ? (latestItem.translations?.[cab.code] || (latestItem.detectedLanguage === cab.code ? latestItem.originalText : null))
+                : null;
 
               return (
                 <div
@@ -977,6 +1044,14 @@ export default function HostView({
                         )}
                       </button>
                     </div>
+                  </div>
+
+                  {/* Vista previa de traducción en tiempo real */}
+                  <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 flex items-start gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${isMonitored ? 'bg-emerald-500 animate-pulse' : (cabinText ? 'bg-blue-500' : 'bg-zinc-400 dark:bg-zinc-600')}`} />
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-300 italic line-clamp-2 leading-tight">
+                      {cabinText ? `“${cabinText}”` : (effectiveTotalListeners === 0 && monitoredLang === 'none' ? 'En reposo (0 oyentes)' : 'Esperando locución...')}
+                    </p>
                   </div>
                 </div>
               );
@@ -1103,7 +1178,7 @@ export default function HostView({
               <div className="flex items-center justify-between">
                 <span className="text-zinc-500 dark:text-zinc-400">Total Oyentes:</span>
                 <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                  {roomStats.totalListeners || rawParticipants.length}
+                  {effectiveTotalListeners}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -1209,7 +1284,7 @@ export default function HostView({
                               {att.name || 'Oyente'}
                             </span>
                             <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium block">
-                              Oyente conectado
+                              {att.isOnline === false ? 'Desconectado' : 'Oyente conectado'}
                             </span>
                           </div>
                         </div>
@@ -1686,7 +1761,7 @@ export default function HostView({
                   <span className={`w-1.5 h-1.5 rounded-full ${isBroadcasting ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
                 </h1>
                 <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                  {roomStats.totalListeners} oyente{roomStats.totalListeners === 1 ? '' : 's'} conectados · Emisión neuronal en 4 cabinas
+                  {effectiveTotalListeners} oyente{effectiveTotalListeners === 1 ? '' : 's'} conectado{effectiveTotalListeners === 1 ? '' : 's'} · Emisión neuronal en 4 cabinas
                 </p>
               </div>
 
@@ -1758,7 +1833,7 @@ export default function HostView({
                 <LiveCaptions
                   transcriptHistory={transcriptHistory}
                   interimText={liveInterimSpeech}
-                  currentLanguage={sourceLanguage === 'auto' ? 'es' : sourceLanguage.slice(0, 2)}
+                  currentLanguage={monitoredLang !== 'none' ? monitoredLang : (sourceLanguage === 'auto' ? 'es' : sourceLanguage.slice(0, 2))}
                   showOriginal={true}
                   medicalMode={medicalConfig.medicalMode}
                   className="flex-1 flex flex-col h-full min-h-0 w-full"
@@ -1769,24 +1844,59 @@ export default function HostView({
             </div>
           </div>
 
-          {/* Desktop Bottom Prompt (Alineado en altura, espaciado interior y redondez con el botón de la izquierda) */}
-          <div className="hidden sm:flex px-6 pb-5 pt-2 flex-shrink-0 w-full">
-            <form onSubmit={handleSendCustomText} className="flex items-center gap-2.5 w-full max-w-4xl mx-auto">
-              <input
-                type="text"
-                value={manualText}
-                onChange={(e) => setManualText(e.target.value)}
-                placeholder="Escribe cualquier frase aquí para emitir por voz en las 4 cabinas..."
-                className="flex-1 h-11 min-h-[44px] bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl px-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all shadow-2xs"
-              />
-              <button
-                type="submit"
-                disabled={!manualText.trim()}
-                className="h-11 min-h-[44px] px-5 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-xs whitespace-nowrap cursor-pointer transition-all disabled:opacity-40 flex items-center gap-2 shadow-xs active:scale-[0.99] border border-transparent"
-              >
-                <span>Emitir</span>
-                <AudioLines className="w-4 h-4" />
-              </button>
+          {/* Desktop Bottom Prompt — Replicado calcado de standalone-assistant (PromptInput) */}
+          <div className="hidden sm:flex px-6 pb-4 pt-1 flex-shrink-0 w-full justify-center">
+            <form
+              onSubmit={handleSendCustomText}
+              className="w-full max-w-2xl rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-3 shadow-xs transition-all duration-200 focus-within:border-zinc-400 dark:focus-within:border-zinc-600 hover:border-zinc-300 dark:hover:border-zinc-700 flex flex-col gap-2"
+            >
+              {/* Textarea Multimodal-input style */}
+              <div className="flex flex-row items-start gap-1 sm:gap-2">
+                <textarea
+                  ref={promptTextareaRef}
+                  value={manualText}
+                  onChange={(e) => {
+                    setManualText(e.target.value);
+                    adjustPromptHeight(e.target);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (e.nativeEvent.isComposing) return;
+                      if (e.shiftKey) return;
+                      e.preventDefault();
+                      handleSendCustomText(e);
+                    }
+                  }}
+                  rows={1}
+                  placeholder="Escribe cualquier frase aquí para emitir por voz en las 4 cabinas..."
+                  className="grow resize-none border-0 border-none bg-transparent p-2 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 outline-none ring-0 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden leading-relaxed"
+                  style={{ minHeight: '40px', maxHeight: '160px' }}
+                />
+              </div>
+
+              {/* PromptInputToolbar */}
+              <div className="flex items-center justify-between border-t-0 p-0 shadow-none">
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 select-none">
+                    <AudioLines className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
+                    <span>Emisión en 4 cabinas</span>
+                  </div>
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 hidden md:inline select-none">
+                    Enter para emitir · Shift+Enter para salto de línea
+                  </span>
+                </div>
+
+                {/* PromptInputSubmit circular button */}
+                <button
+                  type="submit"
+                  disabled={!manualText.trim()}
+                  className="size-8 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 flex items-center justify-center transition-colors duration-200 hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-zinc-950 dark:disabled:hover:bg-white disabled:cursor-not-allowed cursor-pointer shadow-xs active:scale-95 shrink-0"
+                  title="Emitir mensaje por voz (Enter)"
+                  aria-label="Emitir mensaje por voz"
+                >
+                  <ArrowUp className="w-4 h-4" strokeWidth={2.4} />
+                </button>
+              </div>
             </form>
           </div>
         </section>

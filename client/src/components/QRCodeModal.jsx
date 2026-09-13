@@ -209,23 +209,17 @@ export default function QRCodeModal({
             <span className="font-semibold text-lg sm:text-xl tracking-tight text-white">
               LiftVoice
             </span>
-            <span className="text-zinc-700 hidden sm:inline">•</span>
-            <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-xs font-mono font-medium text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Sintonización en vivo abierta</span>
-            </div>
           </div>
 
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={toggleFullScreen}
-              className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-zinc-200 hover:text-white text-xs font-medium flex items-center gap-2 cursor-pointer transition-colors shadow-2xs active:scale-95"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-zinc-200 hover:text-white flex items-center justify-center cursor-pointer transition-colors shadow-2xs active:scale-95"
               title="Salir de pantalla completa (Esc)"
+              aria-label="Salir de pantalla completa"
             >
-              <Minimize2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Salir de pantalla completa</span>
-              <span className="sm:hidden">Salir</span>
+              <Minimize2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
               type="button"
@@ -273,9 +267,8 @@ export default function QRCodeModal({
           {/* Columna Derecha: Título de Conferencia y Pasos para la Audiencia */}
           <div className="flex flex-col justify-center space-y-5 sm:space-y-8 text-left max-w-xl">
             <div>
-              <div className="sm:hidden inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-xs font-mono font-medium text-emerald-400 mb-2.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Audio en vivo abierto</span>
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" title="Sintonización en vivo abierta" />
               </div>
               <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
                 {modalDisplayTitle}
@@ -544,11 +537,10 @@ export default function QRCodeModal({
 
           {/* COLUMNA DERECHA: Instrucciones para la audiencia y diagnóstico */}
           <div className="flex flex-col space-y-6 text-left">
-            {/* Título de sala y badge de emisión */}
+            {/* Título de sala y punto de emisión en vivo */}
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-mono font-semibold text-emerald-700 dark:text-emerald-300 mb-2.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Audio simultáneo en vivo</span>
+              <div className="flex items-center gap-2 mb-2 sm:mb-2.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Audio simultáneo en vivo" />
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight leading-snug">
                 {modalDisplayTitle}

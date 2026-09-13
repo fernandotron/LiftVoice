@@ -752,9 +752,20 @@ class AudioRecorderService {
       if (this.sttEngine === 'deepgram') {
         // High-fidelity direct WebSocket streaming via Nova-2/Nova-3 and AudioWorklet
         const srcLower = (this.sourceLanguage || '').toLowerCase();
-        const langCode = (this.sourceLanguage && this.sourceLanguage !== 'auto')
-          ? (srcLower.startsWith('pt') && srcLower.includes('br') ? 'pt-BR' : (this.sourceLanguage.length > 2 ? this.sourceLanguage.slice(0, 2) : this.sourceLanguage))
-          : 'multi';
+        let langCode = 'es';
+        if (srcLower.startsWith('en')) {
+          langCode = 'en';
+        } else if (srcLower.startsWith('pt')) {
+          langCode = srcLower.includes('br') ? 'pt-BR' : 'pt';
+        } else if (srcLower.startsWith('it')) {
+          langCode = 'it';
+        } else if (srcLower.startsWith('es')) {
+          langCode = 'es';
+        } else if (this.sourceLanguage && this.sourceLanguage !== 'auto' && this.sourceLanguage !== 'multi') {
+          langCode = this.sourceLanguage.length > 2 ? this.sourceLanguage.slice(0, 2) : this.sourceLanguage;
+        } else {
+          langCode = 'es';
+        }
 
         let keyterms = [];
         if (options.medicalMode) {
@@ -887,8 +898,20 @@ class AudioRecorderService {
     this.recognition = rec;
     rec.continuous = true;
     rec.interimResults = true;
-    rec.maxAlternatives = 1;
-    rec.lang = (this.sourceLanguage && this.sourceLanguage !== 'auto') ? this.sourceLanguage : 'es-ES';
+    const srcLower = (this.sourceLanguage || '').toLowerCase();
+    let speechLang = 'es-ES';
+    if (srcLower.startsWith('en')) {
+      speechLang = 'en-US';
+    } else if (srcLower.startsWith('it')) {
+      speechLang = 'it-IT';
+    } else if (srcLower.startsWith('pt')) {
+      speechLang = srcLower.includes('pt-pt') ? 'pt-PT' : 'pt-BR';
+    } else if (srcLower.startsWith('es')) {
+      speechLang = 'es-ES';
+    } else if (this.sourceLanguage && this.sourceLanguage !== 'auto' && this.sourceLanguage !== 'multi') {
+      speechLang = this.sourceLanguage;
+    }
+    rec.lang = speechLang;
 
     rec.onresult = (event) => {
       if (this.recognition !== rec || !this.isRecording) return;

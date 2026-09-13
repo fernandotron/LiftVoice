@@ -428,21 +428,28 @@ export class DeepgramStreamingService {
     this.onFirstPartialLatency = callbacks.onFirstPartialLatency;
     const isEnglish = (config.language === 'en' || (typeof config.language === 'string' && config.language.startsWith('en-')));
     const fallbackModel = isEnglish ? 'nova-3' : 'nova-2';
+    const chosenModel = config.model || fallbackModel;
+    const isNova3 = chosenModel.includes('nova-3');
 
     const params = new URLSearchParams({
-      model: config.model || fallbackModel,
-      language: config.language || 'multi',
+      model: chosenModel,
+      language: config.language || (isEnglish ? 'en' : 'es'),
       encoding: 'linear16',
       sample_rate: String(config.sampleRate || ASR_SAMPLE_RATE),
       channels: '1',
       interim_results: 'true',
-      smart_format: 'true',
-      endpointing: String(ASR_ENDPOINTING_MS),
-      utterance_end_ms: String(ASR_UTTERANCE_END_MS)
+      smart_format: 'true'
     });
 
-    for (const term of config.keyterms || []) {
-      params.append('keyterm', term);
+    if (isNova3) {
+      params.append('endpointing', String(ASR_ENDPOINTING_MS));
+      params.append('utterance_end_ms', String(ASR_UTTERANCE_END_MS));
+      for (const term of config.keyterms || []) {
+        params.append('keyterm', term);
+      }
+    } else {
+      // Nova-2 (Español, Italiano, Portugués) soporta endpointing booleano y no acepta keyterm
+      params.append('endpointing', 'true');
     }
 
     if (config.mipOptOut || config.medicalMode) {
@@ -510,9 +517,10 @@ export class DeepgramStreamingService {
       }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (e) => {
       clearTimeout(connectTimer);
-      // ws.onclose maneja la reconexión
+      console.warn('[DeepgramStreaming] WebSocket error:', e);
+      if (callbacks.onError) callbacks.onError(new Error('Deepgram WebSocket connection error'));
     };
 
     ws.onclose = (event) => {
@@ -521,8 +529,16 @@ export class DeepgramStreamingService {
       this.clearFirstPartialTimer();
       const isAuthFailure = event.code === 1008 || event.code === 4401 || event.code === 4403 ||
         (typeof event.reason === 'string' && /auth|token|unauthorized|expired/i.test(event.reason));
+      const isHandshakeFailure = event.code === 1002 || event.code === 1003 || event.code === 4400;
 
       if (this.isActive) {
+        // Fail-fast: Si la conexión fue rechazada en handshake o de inmediato sin ningún parcial,
+        // avisar a callbacks.onError para activar el fallback a WebSpeech de inmediato
+        if (isHandshakeFailure || (!this.firstPartialSeen && this.reconnectAttempts >= 1)) {
+          console.error(`[DeepgramStreaming] ⚠️ Cierre inmediato o rechazo de WebSocket (${event.code}: ${event.reason || 'rechazado'}). Activando fallback.`);
+          if (callbacks.onError) callbacks.onError(new Error(`Deepgram failed (${event.code})`));
+        }
+
         this.setStatus('reconnecting');
         const reasonMsg = isAuthFailure
           ? `Token de concesión caducado o rechazado (${event.code})`

@@ -251,6 +251,9 @@ class SocketService {
       case 'HOST_JOINED_SUCCESS':
       case 'LISTENER_JOINED_SUCCESS':
         this.emit('joined_success', msg);
+        if (msg.stats) {
+          this.emit('room_stats', msg.stats);
+        }
         break;
       case 'LANGUAGE_CHANGED':
         this.emit('language_changed', msg.lang);
@@ -394,10 +397,17 @@ class SocketService {
 
   leaveRoom(roomId) {
     const rId = (roomId || this.currentRoomId || 'MAIN').toUpperCase();
-    this.send({
-      type: 'LISTENER_LEAVE',
-      roomId: rId
-    });
+    if (this.currentRole === 'HOST') {
+      this.send({
+        type: 'HOST_LEAVE',
+        roomId: rId
+      });
+    } else {
+      this.send({
+        type: 'LISTENER_LEAVE',
+        roomId: rId
+      });
+    }
     this.currentRoomId = null;
     this.currentRole = null;
   }

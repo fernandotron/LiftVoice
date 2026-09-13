@@ -236,8 +236,14 @@ class RoomManager {
     if (room.hostKey && room.hostKey !== hostKey) {
       return { success: false, error: 'INVALID_HOST_KEY' };
     }
-    if (room.hostSocket && room.hostSocket.readyState === 1 && room.hostSocketId !== socketId) {
-      return { success: false, error: 'HOST_ALREADY_CONNECTED' };
+    // Gracefully handle reconnection / host takeover: disconnect stale host socket if different
+    if (room.hostSocket && room.hostSocketId !== socketId) {
+      console.log(`[RoomManager] Host takeover in room ${room.id}: replacing socket ${room.hostSocketId} with ${socketId}`);
+      try {
+        if (room.hostSocket.readyState === 1) {
+          room.hostSocket.close(4001, 'Host session replaced by new connection');
+        }
+      } catch (e) {}
     }
     if (!room.hostKey && hostKey) {
       room.hostKey = hostKey;
@@ -462,10 +468,12 @@ class RoomManager {
       phone,
       initialLang: existing ? existing.initialLang : targetLang,
       currentLang: targetLang,
+      lang: targetLang,
       joinedAt: existing ? existing.joinedAt : new Date().toISOString(),
       lastSeenAt: new Date().toISOString(),
       reconnectCount: existing ? (existing.reconnectCount || 1) + 1 : 1,
       isKicked: existing ? Boolean(existing.isKicked) : false,
+      isOnline: true,
       ip
     });
 
@@ -491,9 +499,11 @@ class RoomManager {
       const oldLang = listener.lang;
       listener.lang = newLang.toLowerCase();
 
-      const leadKey = listener.email ? listener.email.toLowerCase() : socketId;
-      if (room.registeredAttendees.has(leadKey)) {
-        room.registeredAttendees.get(leadKey).currentLang = listener.lang;
+      const leadKey = listener.email ? listener.email.toLowerCase() : (listener.attendeeId || socketId);
+      if (room.registeredAttendees && room.registeredAttendees.has(leadKey)) {
+        const att = room.registeredAttendees.get(leadKey);
+        att.currentLang = listener.lang;
+        att.lang = listener.lang;
       }
 
       console.log(`[RoomManager] Listener ${socketId} in room ${roomId} switched lang from ${oldLang} to ${newLang}`);
@@ -511,6 +521,13 @@ class RoomManager {
 
       if (hasListener || isActiveSpeaker || isInQueue) {
         if (hasListener) {
+          const listener = room.listeners.get(socketId);
+          if (listener) {
+            const leadKey = listener.email ? listener.email.toLowerCase() : (listener.attendeeId || socketId);
+            if (room.registeredAttendees && room.registeredAttendees.has(leadKey)) {
+              room.registeredAttendees.get(leadKey).isOnline = false;
+            }
+          }
           room.listeners.delete(socketId);
         }
         // If queued question has a persistent attendeeId, keep it so reconnect restores socketId;
@@ -608,11 +625,17 @@ class RoomManager {
       }
     }
 
+    const activeListenersCount = room.listeners ? room.listeners.size : 0;
+    const registeredOnlineCount = room.registeredAttendees 
+      ? Array.from(room.registeredAttendees.values()).filter(a => !a.isKicked && a.isOnline !== false).length 
+      : 0;
+    const effectiveTotal = Math.max(activeListenersCount, registeredOnlineCount);
+
     return {
       roomId: room.id,
       title: room.title,
       isHostOnline: !!room.hostSocket,
-      totalListeners: room.listeners.size,
+      totalListeners: effectiveTotal,
       languageBreakdown: langCounts,
       qaQueueCount: (room.qaQueue || []).length,
       activeSpeaker: room.activeSpeaker ? { attendeeId: room.activeSpeaker.attendeeId, name: room.activeSpeaker.name, lang: room.activeSpeaker.lang } : null,
@@ -628,8 +651,8 @@ class RoomManager {
 
     return {
       ...publicStats,
-      totalRegisteredLeads: room.registeredAttendees.size,
-      attendees: Array.from(room.registeredAttendees.values()),
+      totalRegisteredLeads: room.registeredAttendees ? room.registeredAttendees.size : 0,
+      attendees: Array.from(room.registeredAttendees ? room.registeredAttendees.values() : []),
       kickedAttendees: Array.from((room.kickedAttendees || new Map()).values()),
       qaQueue: room.qaQueue || [],
       activeSpeaker: room.activeSpeaker || null

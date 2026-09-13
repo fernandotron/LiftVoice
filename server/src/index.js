@@ -538,15 +538,24 @@ app.post('/api/asr-token', async (req, res) => {
     }
 
     const body = req.body || {};
-    const requestedLang = (typeof body.language === 'string' && body.language) || (typeof body.lang === 'string' && body.lang) || 'auto';
-    let deepgramLang = 'multi';
-    if (requestedLang && requestedLang !== 'auto') {
-      const short = requestedLang.slice(0, 2).toLowerCase();
-      if (short === 'pt') {
-        deepgramLang = requestedLang.toLowerCase().includes('br') ? 'pt-BR' : 'pt';
-      } else {
-        deepgramLang = short;
-      }
+    const rawLang = (typeof body.language === 'string' && body.language) || (typeof body.lang === 'string' && body.lang) || 'auto';
+    const langLower = rawLang.trim().toLowerCase();
+
+    // Normalización de idioma para Deepgram
+    let deepgramLang = 'es'; // Por defecto español en LiftVoice
+    if (langLower.startsWith('en')) {
+      deepgramLang = 'en';
+    } else if (langLower.startsWith('pt')) {
+      deepgramLang = langLower.includes('br') ? 'pt-BR' : 'pt';
+    } else if (langLower.startsWith('it')) {
+      deepgramLang = 'it';
+    } else if (langLower.startsWith('es')) {
+      deepgramLang = 'es';
+    } else if (langLower === 'auto' || langLower === 'multi') {
+      // Para Deepgram streaming, 'auto' o 'multi' debe mapear a 'es' como idioma principal de la sala
+      deepgramLang = 'es';
+    } else if (langLower.length >= 2) {
+      deepgramLang = langLower.slice(0, 2);
     }
 
     const rawTerms = Array.isArray(req.body.keyterms) ? [...req.body.keyterms] : [];
@@ -627,6 +636,8 @@ app.post('/api/asr-token', async (req, res) => {
     }
 
     const sttModel = (deepgramLang === 'en') ? 'nova-3' : 'nova-2';
+    // Deepgram Nova-2 rechaza la conexión si recibe el query param keyterm (exclusivo de Nova-3)
+    const validKeyterms = (sttModel === 'nova-3') ? [...new Set(keyterms)].slice(0, 50) : [];
 
     return res.json({
       success: true,
@@ -635,7 +646,7 @@ app.post('/api/asr-token', async (req, res) => {
       listenUrl: 'wss://api.deepgram.com/v1/listen',
       model: sttModel,
       language: deepgramLang,
-      keyterms: [...new Set(keyterms)].slice(0, 50),
+      keyterms: validKeyterms,
       mipOptOut: Boolean(req.body.medicalMode)
     });
   } catch (err) {
@@ -1165,7 +1176,8 @@ wss.on('connection', (ws, req) => {
                 text: msg.text,
                 duration: result.durationMs,
                 latencyMs: result.latencyMs,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                isHostPreview: true
               }));
             }
           }
@@ -1219,6 +1231,17 @@ wss.on('connection', (ws, req) => {
               console.log(`[WS] 🎧 Host monitoring booth updated to: "${cleanLang || 'none'}" in room ${targetRoom}`);
               roomManager.broadcastStats(targetRoom);
             }
+          }
+          break;
+        }
+
+        case 'HOST_LEAVE': {
+          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
+          if (clientRole === 'HOST' || (targetRoom && roomManager.getRoom(targetRoom)?.hostSocketId === socketId)) {
+            roomManager.removeHost(socketId);
+            clientRole = null;
+            currentRoomId = null;
+            console.log(`[WS] 🚪 Host ${socketId} explicitly left room ${targetRoom}`);
           }
           break;
         }
