@@ -19,7 +19,7 @@ const CABIN_NAMES = {
   pt: 'Português'
 };
 
-function getEngineDisplayName(engine) {
+export function getEngineDisplayName(engine) {
   switch (engine) {
     case 'edge':
     case 'google': return 'Edge / Google Neural';
@@ -39,7 +39,7 @@ function normalizeLangCode(lang) {
   return clean.length > 2 ? clean.slice(0, 2) : clean;
 }
 
-const FALLBACK_VOICES = [
+export const FALLBACK_VOICES = [
   {
     id: 'es-ES-ElviraNeural',
     engine: 'edge',
@@ -240,6 +240,18 @@ const FALLBACK_VOICES = [
   }
 ];
 
+// Module-level memory cache to eliminate modal flicker
+let cachedModalVoices = null;
+try {
+  const stored = typeof window !== 'undefined' ? sessionStorage.getItem('lv_cached_catalog_voices') : null;
+  if (stored) {
+    const parsed = JSON.parse(stored);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      cachedModalVoices = parsed;
+    }
+  }
+} catch (e) {}
+
 export default function VoiceCatalogModal({
   isOpen = false,
   onClose = () => {},
@@ -249,8 +261,8 @@ export default function VoiceCatalogModal({
   onSelectVoice = () => {},
   configuredEngines = { deepgram: true, google: true, openai: false, elevenlabs: false, cartesia: false }
 }) {
-  const [voices, setVoices] = useState(FALLBACK_VOICES);
-  const [isLoadingVoices, setIsLoadingVoices] = useState(false);
+  const [voices, setVoices] = useState(() => cachedModalVoices || FALLBACK_VOICES);
+  const [isLoadingVoices, setIsLoadingVoices] = useState(!cachedModalVoices && isOpen);
   const [search, setSearch] = useState('');
   const [selectedEngineFilter, setSelectedEngineFilter] = useState('all');
   const [selectedGenderFilter, setSelectedGenderFilter] = useState('all');
@@ -333,10 +345,12 @@ export default function VoiceCatalogModal({
     };
   }, []);
 
-  // Carga de voces desde el backend
+  // Carga de voces desde el backend con caché persistente
   useEffect(() => {
     if (isOpen) {
-      setIsLoadingVoices(true);
+      if (!cachedModalVoices) {
+        setIsLoadingVoices(true);
+      }
       fetch('/api/voices')
         .then((res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -344,7 +358,16 @@ export default function VoiceCatalogModal({
         })
         .then((data) => {
           if (data && data.success && Array.isArray(data.voices) && data.voices.length > 0) {
-            setVoices(data.voices);
+            cachedModalVoices = data.voices;
+            try {
+              sessionStorage.setItem('lv_cached_catalog_voices', JSON.stringify(data.voices));
+            } catch (e) {}
+            setVoices((prev) => {
+              if (prev && prev.length === data.voices.length && prev[0]?.id === data.voices[0]?.id) {
+                return prev;
+              }
+              return data.voices;
+            });
           }
         })
         .catch((err) => {
@@ -764,7 +787,7 @@ export default function VoiceCatalogModal({
                     key={voice.id}
                     className={`group relative p-4 sm:p-5 rounded-3xl border-2 transition-all duration-200 select-none text-left flex flex-col justify-between gap-3 ${
                       isSelected
-                        ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-500/[0.03] dark:bg-emerald-500/[0.06] shadow-xs'
+                        ? 'border-zinc-900 dark:border-white/80 bg-zinc-100/80 dark:bg-zinc-800/80 shadow-xs ring-1 ring-zinc-400/20 dark:ring-white/20'
                         : 'border-zinc-200/80 dark:border-white/10 bg-white dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-white/20 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/70 shadow-2xs'
                     }`}
                   >
@@ -774,7 +797,7 @@ export default function VoiceCatalogModal({
                       role="radio"
                       aria-checked={isSelected}
                       onClick={() => handleSelectVoice(voice)}
-                      className="absolute inset-0 w-full h-full rounded-3xl z-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                      className="absolute inset-0 w-full h-full rounded-3xl z-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-white"
                       aria-label={`Seleccionar voz ${voice.name} para cabina de ${CABIN_NAMES[targetLang] || targetLang}`}
                     />
 
@@ -854,7 +877,7 @@ export default function VoiceCatalogModal({
                       {/* Indicador de Selección Superior Derecho (Círculo con Check) */}
                       <div className="shrink-0 flex items-center">
                         {isSelected ? (
-                          <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-2xs transition-all animate-fadeIn">
+                          <div className="w-5 h-5 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 flex items-center justify-center shadow-2xs transition-all animate-fadeIn">
                             <Check className="w-3 h-3 stroke-[3]" />
                           </div>
                         ) : (

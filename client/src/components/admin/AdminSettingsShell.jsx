@@ -165,7 +165,7 @@ const BOOTH_VOICE_OPTIONS = {
     { id: 'alloy', name: 'OpenAI Alloy', gender: 'neutral', engine: 'openai', desc: 'Neutra y corporativa • OpenAI' },
     { id: 'echo', name: 'OpenAI Echo', gender: 'male', engine: 'openai', desc: 'Barítono suave • OpenAI' },
     { id: '21m00Tcm4TlvDq8ikWAM', name: 'ElevenLabs Rachel', gender: 'female', engine: 'elevenlabs', desc: 'Fotorrealismo insignia • 11Labs' },
-    { id: 'ErXwobaYiN019PkySvjV', name: 'ElevenLabs Antoni', gender: 'male', engine: 'elevenlabs', desc: 'Cinematográfico • 11Labs' }
+    { id: 'pNInz6obpgDQGcFmaJgB', name: 'ElevenLabs Adam', gender: 'male', engine: 'elevenlabs', desc: 'Keynote magistral • 11Labs' }
   ],
   en: [
     { id: 'aura-asteria-en', name: 'Deepgram Asteria', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
@@ -194,7 +194,7 @@ const BOOTH_VOICE_OPTIONS = {
     { id: 'qwen3-tts-pt', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
     { id: 'echo', name: 'OpenAI Echo', gender: 'male', engine: 'openai', desc: 'Voz pausada y clara • OpenAI' },
     { id: 'nova', name: 'OpenAI Nova', gender: 'female', engine: 'openai', desc: 'Expresiva • OpenAI' },
-    { id: 'ErXwobaYiN019PkySvjV', name: 'ElevenLabs Antoni', gender: 'male', engine: 'elevenlabs', desc: 'Locución natural • 11Labs' }
+    { id: 'pNInz6obpgDQGcFmaJgB', name: 'ElevenLabs Adam', gender: 'male', engine: 'elevenlabs', desc: 'Locución natural • 11Labs' }
   ]
 };
 
@@ -248,6 +248,7 @@ const STT_VAD_OPTIONS = [
 const TTS_GLOBAL_ENGINE_OPTIONS = [
   { value: 'deepgram', label: 'Deepgram Aura / Aura-2', description: 'Latencia ~140ms • Saldo $200' },
   { value: 'google', label: 'Google Neural Universal', description: '100% Gratuito & Ilimitado' },
+  { value: 'cartesia', label: 'Cartesia Sonic (SSM)', description: 'Ultra-baja latencia <100ms • Voces Sonic' },
   { value: 'qwen_tts', label: 'Alibaba Qwen3-TTS', description: 'Ultra-rápido 97ms • CosyVoice' },
   { value: 'elevenlabs', label: 'ElevenLabs Turbo v2.5', description: 'Hiper-realismo VIP • Latencia optimizada' },
   { value: 'openai', label: 'OpenAI TTS-1', description: 'Voces Alloy, Nova, Echo, Shimmer' },
@@ -648,7 +649,7 @@ export default function AdminSettingsShell({
     },
     max_quality: {
       stt: 'deepgram', engine: 'openai', tts: 'elevenlabs',
-      voices: { es: '21m00Tcm4TlvDq8ikWAM', en: '21m00Tcm4TlvDq8ikWAM', it: 'AZnzlk1XvdvUeBnXmlld', pt: 'ErXwobaYiN019PkySvjV' }
+      voices: { es: '21m00Tcm4TlvDq8ikWAM', en: '21m00Tcm4TlvDq8ikWAM', it: 'AZnzlk1XvdvUeBnXmlld', pt: 'pNInz6obpgDQGcFmaJgB' }
     }
   };
 
@@ -2173,7 +2174,7 @@ export default function AdminSettingsShell({
                   </button>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
-                  Opcional. Habilita timbres fotorrealistas VIP (Rachel, Adam, Antoni).
+                  Opcional. Habilita timbres fotorrealistas VIP (Rachel, Adam, Domi).
                 </p>
               </div>
 

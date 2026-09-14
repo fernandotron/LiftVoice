@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Settings, Sparkles, Headphones, Users, QrCode, Copy, Check,
+  Settings, Users, QrCode, Copy, Check,
   Sun, Moon, LogOut
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
@@ -150,26 +150,6 @@ export default function MobileHeaderMenu({
                   {attendeesCount}
                 </span>
               )}
-            </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => { setIsOpen(false); onOpenSummary(); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-[0.98] transition-all cursor-pointer"
-            >
-              <Sparkles className="w-4.5 h-4.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-              <span className="flex-1 text-left truncate">Resumen de sesión IA</span>
-            </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => { setIsOpen(false); onOpenVoices(); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-[0.98] transition-all cursor-pointer"
-            >
-              <Headphones className="w-4.5 h-4.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-              <span className="flex-1 text-left truncate">Catálogo de voces</span>
             </button>
           </div>
 

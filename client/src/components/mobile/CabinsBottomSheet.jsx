@@ -142,7 +142,7 @@ export default function CabinsBottomSheet({
                   key={cab.code}
                   className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
                     isMonitored
-                      ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs'
+                      ? 'border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/80 ring-1 ring-zinc-400/20 dark:ring-zinc-700/50 shadow-xs'
                       : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-800/30'
                   }`}
                 >
@@ -161,20 +161,20 @@ export default function CabinsBottomSheet({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                     <button
                       type="button"
                       onClick={() => onToggleMonitoring(cab.code)}
                       aria-pressed={isMonitored}
                       aria-label={isMonitored ? `Detener escucha de cabina ${cab.name}` : `Escuchar cabina de ${cab.name} en auriculares`}
-                      className={`px-3 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 ${
+                      title={isMonitored ? `Detener escucha de cabina ${cab.name}` : `Escuchar cabina de ${cab.name} en auriculares`}
+                      className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-95 ${
                         isMonitored
-                          ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-xs'
+                          ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 ring-2 ring-zinc-950/20 dark:ring-white/20 shadow-xs'
                           : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-200'
                       }`}
                     >
-                      <Headphones className="w-3.5 h-3.5" />
-                      <span>{isMonitored ? 'Escuchando' : 'Escuchar'}</span>
+                      <Headphones className="w-4 h-4" />
                     </button>
 
                     <button

@@ -14,7 +14,17 @@ export default function CountryFlag({
   bordered = true
 }) {
   const rawCode = (code || languageCode || 'es').toString().toLowerCase().trim();
-  const normalizedCode = rawCode.startsWith('pt') ? 'pt' : (rawCode.length > 2 ? rawCode.slice(0, 2) : rawCode);
+  let normalizedCode = rawCode;
+  if (rawCode === 'pt-br' || rawCode === 'br' || rawCode === 'pt') normalizedCode = 'br';
+  else if (rawCode === 'pt-pt') normalizedCode = 'pt';
+  else if (rawCode === 'gb' || rawCode === 'uk' || rawCode === 'en-uk' || rawCode === 'en-gb') normalizedCode = 'gb';
+  else if (rawCode.startsWith('en')) normalizedCode = 'gb'; // Usar bandera británica como en la captura
+  else if (rawCode.startsWith('de')) normalizedCode = 'de';
+  else if (rawCode.startsWith('it')) normalizedCode = 'it';
+  else if (rawCode.startsWith('fr')) normalizedCode = 'fr';
+  else if (rawCode.startsWith('es')) normalizedCode = 'es';
+  else if (rawCode === 'auto') normalizedCode = 'auto';
+  else if (rawCode === 'all' || rawCode === 'global' || rawCode === 'multi' || rawCode === 'multilingual') normalizedCode = 'all';
 
   const content = (() => {
     switch (normalizedCode) {
@@ -31,7 +41,18 @@ export default function CountryFlag({
           </svg>
         );
 
-      case 'en':
+      case 'gb':
+        return (
+          <svg viewBox="0 0 36 36" className="w-full h-full block" role="img" aria-label={title || 'Bandera de Reino Unido'}>
+            <rect width="36" height="36" fill="#012169" />
+            <path d="M0,0 L36,36 M36,0 L0,36" stroke="#ffffff" strokeWidth="6" />
+            <path d="M0,0 L36,36 M36,0 L0,36" stroke="#c8102e" strokeWidth="2.5" />
+            <path d="M18,0 V36 M0,18 H36" stroke="#ffffff" strokeWidth="9" />
+            <path d="M18,0 V36 M0,18 H36" stroke="#c8102e" strokeWidth="5" />
+          </svg>
+        );
+
+      case 'us':
         return (
           <svg viewBox="0 0 36 36" className="w-full h-full block" role="img" aria-label={title || 'Bandera de Estados Unidos'}>
             <rect width="36" height="36" fill="#b22234" />
@@ -58,6 +79,15 @@ export default function CountryFlag({
           </svg>
         );
 
+      case 'de':
+        return (
+          <svg viewBox="0 0 36 36" className="w-full h-full block" role="img" aria-label={title || 'Bandera de Alemania'}>
+            <rect width="36" height="12" fill="#000000" />
+            <rect y="12" width="36" height="12" fill="#dd0000" />
+            <rect y="24" width="36" height="12" fill="#ffce00" />
+          </svg>
+        );
+
       case 'it':
         return (
           <svg viewBox="0 0 36 36" className="w-full h-full block" role="img" aria-label={title || 'Bandera de Italia'}>
@@ -67,7 +97,7 @@ export default function CountryFlag({
           </svg>
         );
 
-      case 'pt':
+      case 'br':
         return (
           <svg viewBox="0 0 36 36" className="w-full h-full block" role="img" aria-label={title || 'Bandera de Brasil'}>
             <rect width="36" height="36" fill="#009b3a" />
@@ -77,8 +107,49 @@ export default function CountryFlag({
           </svg>
         );
 
+      case 'pt':
+        return (
+          <svg viewBox="0 0 36 36" className="w-full h-full block" role="img" aria-label={title || 'Bandera de Portugal'}>
+            <rect width="15" height="36" fill="#006600" />
+            <rect x="15" width="21" height="36" fill="#ff0000" />
+            <circle cx="15" cy="18" r="6.5" fill="#ffff00" stroke="#000000" strokeWidth="0.5" />
+            <circle cx="15" cy="18" r="4.5" fill="#ffffff" stroke="#003399" strokeWidth="0.8" />
+            <rect x="13.5" y="16.5" width="3" height="3" fill="#003399" />
+          </svg>
+        );
+
+      case 'fr':
+        return (
+          <svg viewBox="0 0 36 36" className="w-full h-full block" role="img" aria-label={title || 'Bandera de Francia'}>
+            <rect width="12" height="36" fill="#002395" />
+            <rect x="12" width="12" height="36" fill="#ffffff" />
+            <rect x="24" width="12" height="36" fill="#ed2939" />
+          </svg>
+        );
+
+      case 'auto':
+        return (
+          <svg viewBox="0 0 36 36" className="w-full h-full block" role="img" aria-label="Detección Automática">
+            <rect width="36" height="36" fill="#3f3f46" />
+            <circle cx="18" cy="18" r="10" fill="none" stroke="#ffffff" strokeWidth="1.8" />
+            <ellipse cx="18" cy="18" rx="5" ry="10" fill="none" stroke="#ffffff" strokeWidth="1.4" />
+            <line x1="8" y1="18" x2="28" y2="18" stroke="#ffffff" strokeWidth="1.4" />
+          </svg>
+        );
+
+      case 'all':
       default:
-        return <span className="text-base leading-none">🌐</span>;
+        return (
+          <svg viewBox="0 0 36 36" className="w-full h-full block" role="img" aria-label={title || 'Multilingüe Global'}>
+            <rect width="36" height="36" className="fill-zinc-100 dark:fill-zinc-950" />
+            <circle cx="18" cy="18" r="14" className="fill-sky-100 dark:fill-[#082f49] stroke-sky-600 dark:stroke-sky-400" strokeWidth="1.8" />
+            <ellipse cx="18" cy="18" rx="7" ry="14" fill="none" className="stroke-sky-600 dark:stroke-sky-400" strokeWidth="1.4" />
+            <line x1="4" y1="18" x2="32" y2="18" className="stroke-sky-600 dark:stroke-sky-400" strokeWidth="1.4" />
+            <line x1="18" y1="4" x2="18" y2="32" className="stroke-sky-600 dark:stroke-sky-400" strokeWidth="1.4" />
+            <line x1="7" y1="11" x2="29" y2="11" className="stroke-sky-600 dark:stroke-sky-400" strokeWidth="1.1" strokeOpacity="0.85" />
+            <line x1="7" y1="25" x2="29" y2="25" className="stroke-sky-600 dark:stroke-sky-400" strokeWidth="1.1" strokeOpacity="0.85" />
+          </svg>
+        );
     }
   })();
 
@@ -86,7 +157,7 @@ export default function CountryFlag({
 
   return (
     <span
-      className={`inline-flex items-center justify-center overflow-hidden shrink-0 ${
+      className={`inline-flex items-center justify-center overflow-hidden shrink-0 bg-white dark:bg-zinc-900 ${
         bordered ? 'border border-zinc-300 dark:border-zinc-700 shadow-2xs' : ''
       } ${className} ${hasCustomRadius ? '' : 'rounded-full'}`}
     >

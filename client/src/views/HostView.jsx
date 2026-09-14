@@ -9,7 +9,6 @@ import {
 import CountryFlag from '../components/shared/CountryFlag.jsx';
 import LiveCaptions from '../components/LiveCaptions.jsx';
 import ElevenSlider from '../components/ElevenSlider.jsx';
-import VoiceCatalogModal from '../components/VoiceCatalogModal.jsx';
 import ErrorBoundary from '../components/shared/ErrorBoundary.jsx';
 import QRCodeModal from '../components/QRCodeModal.jsx';
 import AttendeesModal from '../components/AttendeesModal.jsx';
@@ -20,6 +19,9 @@ import QABannerAlert from '../components/mobile/QABannerAlert.jsx';
 import MobileHeaderMenu from '../components/mobile/MobileHeaderMenu.jsx';
 import Banner from '../components/shared/Banner.jsx';
 import DesktopHeaderMenu from '../components/shared/DesktopHeaderMenu.jsx';
+import StudioSidebar from '../components/shared/StudioSidebar.jsx';
+import SidebarVoiceCatalog from '../components/sidebar/SidebarVoiceCatalog.jsx';
+import SidebarSessionSummary from '../components/sidebar/SidebarSessionSummary.jsx';
 import SelectDropdown from '../components/shared/SelectDropdown.jsx';
 import UserMenu from '../components/shared/UserMenu.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
@@ -55,6 +57,7 @@ export const SPEAKER_LANGUAGES = [
   { code: 'pt', langCode: 'pt-BR', label: 'Português (Palestrante)', nativeName: 'Português', voice: 'Voz do palestrante' },
   { code: 'auto', langCode: 'auto', label: 'Detección Automática', nativeName: 'Automático', voice: 'Detección automática' }
 ];
+
 
 export default function HostView({
   roomId = 'MAIN',
@@ -107,9 +110,10 @@ export default function HostView({
   const [socketLatency, setSocketLatency] = useState(1);
   const [inspectorTab, setInspectorTab] = useState('cabins'); // 'cabins' | 'qa' | 'room'
   const [captionSize, setCaptionSize] = useState('md'); // 'sm' | 'md' | 'lg' | 'xl'
-  const [isVoiceCatalogOpen, setIsVoiceCatalogOpen] = useState(false);
-  const [selectedCatalogLang, setSelectedCatalogLang] = useState('es');
+  const [selectedCatalogLang, setSelectedCatalogLang] = useState('all');
+  const [catalogNavNonce, setCatalogNavNonce] = useState(0);
   const [voiceToast, setVoiceToast] = useState(null);
+
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isAttendeesModalOpen, setIsAttendeesModalOpen] = useState(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
@@ -177,8 +181,6 @@ export default function HostView({
   const activeMicLabel = selectedDevice === 'default'
     ? 'Micrófono Predeterminado'
     : (devices.find(d => d.deviceId === selectedDevice)?.label || 'Micrófono Externo');
-
-  const currentSpeakerLang = SPEAKER_LANGUAGES.find(l => l.langCode === sourceLanguage || l.code === sourceLanguage) || SPEAKER_LANGUAGES.find(l => l.code === 'auto') || SPEAKER_LANGUAGES[0];
 
   const isGenericRoomTitle = !roomTitle ||
     roomTitle.toLowerCase() === `sala ${roomId.toLowerCase()}` ||
@@ -970,8 +972,10 @@ export default function HostView({
     setQaQueue(prev => prev.filter(q => q.questionId !== questionId));
   };
 
-  const handleGenerateSummary = async () => {
-    setIsSummaryModalOpen(true);
+  const handleGenerateSummary = async (openModal = false) => {
+    if (openModal) {
+      setIsSummaryModalOpen(true);
+    }
     setIsGeneratingSummary(true);
     setSummaryError(null);
 
@@ -993,6 +997,29 @@ export default function HostView({
       setIsGeneratingSummary(false);
     }
   };
+
+  const [sidebarTab, setSidebarTab] = useState('studio'); // 'studio' | 'catalog' | 'summary'
+
+  const handleSelectStudio = useCallback(() => {
+    setSidebarTab('studio');
+  }, []);
+
+  const handleSelectCatalog = useCallback(() => {
+    setSidebarTab('catalog');
+  }, []);
+
+  const handleOpenCatalogForCabin = useCallback((langCode) => {
+    setSelectedCatalogLang(langCode || 'all');
+    setSidebarTab('catalog');
+    setCatalogNavNonce(prev => prev + 1);
+  }, []);
+
+  const handleSelectSummary = useCallback(() => {
+    setSidebarTab('summary');
+    if (!summaryData && !isGeneratingSummary) {
+      handleGenerateSummary(false);
+    }
+  }, [summaryData, isGeneratingSummary]);
 
   const handleKickAttendee = (attendeeId, name) => {
     if (!attendeeId) return;
@@ -1039,21 +1066,9 @@ export default function HostView({
         <div className="space-y-4 text-left animate-fadeIn">
           {/* Headphone Monitor & Volume Card */}
           <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-3 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Headphones className="w-4 h-4 text-zinc-800 dark:text-zinc-200" />
-                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Retorno de Auriculares</span>
-              </div>
-              {monitoredLang !== 'none' ? (
-                <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 font-mono text-[10px] font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  {monitoredLang.toUpperCase()} activo
-                </span>
-              ) : (
-                <span className="px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 font-mono text-[10px] font-medium">
-                  Silenciado
-                </span>
-              )}
+            <div className="flex items-center gap-2">
+              <Headphones className="w-4 h-4 text-zinc-800 dark:text-zinc-200" />
+              <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Retorno de Auriculares</span>
             </div>
 
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -1076,24 +1091,11 @@ export default function HostView({
               </div>
             )}
 
-            <div className="pt-0.5 flex gap-2">
-              {monitoredLang !== 'none' ? (
-                <button
-                  onClick={handleStopMonitoring}
-                  className="flex-1 py-1.5 px-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
-                >
-                  <Volume2 className="w-3.5 h-3.5" />
-                  <span>Silenciar Retorno</span>
-                </button>
-              ) : (
-                <div className="flex-1 text-[11px] text-zinc-400 dark:text-zinc-500 italic flex items-center">
-                  Selecciona una cabina abajo para escuchar.
-                </div>
-              )}
+            <div className="pt-0.5 flex">
               <button
                 type="button"
                 onClick={() => audioPlayerService.playAudioTestTone()}
-                className="py-1.5 px-3 rounded-xl bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 flex-shrink-0 shadow-2xs"
+                className="w-full py-1.5 px-3 rounded-xl bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
                 title="Probar sonido de altavoz o auriculares locales"
               >
                 <Bell className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" />
@@ -1127,8 +1129,8 @@ export default function HostView({
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedCatalogLang('es');
-                  setIsVoiceCatalogOpen(true);
+                  setSelectedCatalogLang('all');
+                  setSidebarTab('catalog');
                 }}
                 className="text-[11px] text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white font-medium flex items-center gap-1 cursor-pointer"
               >
@@ -1151,7 +1153,7 @@ export default function HostView({
                   key={cab.code}
                   className={`p-3.5 rounded-2xl border transition-all space-y-2.5 shadow-2xs ${
                     isMonitored
-                      ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-950/30 ring-1 ring-emerald-200 dark:ring-emerald-800/50'
+                      ? 'border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/80 ring-1 ring-zinc-400/20 dark:ring-zinc-700/50'
                       : 'border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900/80'
                   }`}
                 >
@@ -1162,10 +1164,7 @@ export default function HostView({
                         <div className="text-xs font-bold text-zinc-950 dark:text-zinc-100">{cab.name}</div>
                         <button
                           type="button"
-                          onClick={() => {
-                            setSelectedCatalogLang(cab.code);
-                            setIsVoiceCatalogOpen(true);
-                          }}
+                          onClick={() => handleOpenCatalogForCabin(cab.code)}
                           className="text-[10px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 font-mono truncate max-w-[130px] block text-left hover:underline cursor-pointer"
                           title={`Cambiar voz para ${cab.name}`}
                         >
@@ -1176,16 +1175,17 @@ export default function HostView({
 
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <button
+                        type="button"
                         onClick={() => handleToggleMonitoring(cab.code)}
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-mono transition-all cursor-pointer flex items-center gap-1 shadow-2xs ${
+                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 ${
                           isMonitored
-                            ? 'bg-emerald-600 text-white font-bold'
+                            ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 ring-2 ring-zinc-950/20 dark:ring-white/20'
                             : 'bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300'
                         }`}
-                        title={isMonitored ? 'Silenciar auricular' : `Escuchar ${cab.name}`}
+                        title={isMonitored ? `Silenciar retorno de ${cab.name}` : `Escuchar retorno en directo de ${cab.name}`}
+                        aria-label={isMonitored ? `Silenciar retorno de ${cab.name}` : `Escuchar retorno en directo de ${cab.name}`}
                       >
-                        <Headphones className="w-3 h-3" />
-                        <span>{isMonitored ? 'Activo' : 'Escuchar'}</span>
+                        <Headphones className="w-3.5 h-3.5" />
                       </button>
 
                       <button
@@ -1210,7 +1210,7 @@ export default function HostView({
 
                   {/* Vista previa de traducción en tiempo real */}
                   <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 flex items-start gap-1.5">
-                    <span className={`w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${isMonitored ? 'bg-emerald-500 animate-pulse' : (cabinText ? 'bg-blue-500' : 'bg-zinc-400 dark:bg-zinc-600')}`} />
+                    <span className={`w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${cabinText ? 'bg-blue-500' : (isMonitored ? 'bg-zinc-400 dark:bg-zinc-300 animate-pulse' : 'bg-zinc-400 dark:bg-zinc-600')}`} />
                     <p className="text-[11px] text-zinc-600 dark:text-zinc-300 italic line-clamp-2 leading-tight">
                       {cabinText ? `“${cabinText}”` : (effectiveTotalListeners === 0 && monitoredLang === 'none' ? 'En reposo (0 oyentes)' : 'Esperando locución...')}
                     </p>
@@ -1499,7 +1499,7 @@ export default function HostView({
 
   return (
     <div className="h-dvh min-h-dvh w-full flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-hidden font-sans select-none transition-colors">
-      
+
       {/* ───────────────────────────────────────────────────────────── */}
       {/* CABECERA MÓVIL (MOBILE HEADER 48px, sm:hidden)                */}
       {/* ───────────────────────────────────────────────────────────── */}
@@ -1531,8 +1531,8 @@ export default function HostView({
           attendeesCount={roomStats.attendees?.length || 0}
           onOpenSummary={handleGenerateSummary}
           onOpenVoices={() => {
-            setSelectedCatalogLang('es');
-            setIsVoiceCatalogOpen(true);
+            setSelectedCatalogLang('all');
+            setSidebarTab('catalog');
           }}
           onOpenQR={() => setIsQrModalOpen(true)}
           hasCopiedLink={hasCopiedLink}
@@ -1545,7 +1545,8 @@ export default function HostView({
       {/* CABECERA ESCRITORIO (DESKTOP HEADER 48px, hidden sm:flex)     */}
       {/* ───────────────────────────────────────────────────────────── */}
       <header className="hidden sm:flex h-12 w-full border-b border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 px-4 items-center justify-between flex-shrink-0 z-30 select-none">
-        <div className="flex items-center gap-3">
+        {/* Menú principal hamburguesa alineado exactamente sobre la barra lateral StudioSidebar */}
+        <div className="w-[70px] -ml-4 flex items-center justify-center flex-shrink-0">
           <DesktopHeaderMenu
             onExit={() => onLeave({ reason: 'voluntary' })}
             hasCopiedLink={hasCopiedLink}
@@ -1561,17 +1562,6 @@ export default function HostView({
               {
                 label: 'Proyectar código QR',
                 onClick: () => setIsQrModalOpen(true)
-              },
-              {
-                label: 'Resumen de sesión IA',
-                onClick: handleGenerateSummary
-              },
-              {
-                label: 'Catálogo de Voces',
-                onClick: () => {
-                  setSelectedCatalogLang('es');
-                  setIsVoiceCatalogOpen(true);
-                }
               },
               {
                 label: 'Ajustes de Sala',
@@ -1664,16 +1654,28 @@ export default function HostView({
       />
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* CUERPO PRINCIPAL (3 ZONAS: CONTROLES, STAGE, INSPECTOR)        */}
+      {/* CUERPO PRINCIPAL (StudioSidebar + Zona 1 + Stage + Inspector)  */}
       {/* ───────────────────────────────────────────────────────────── */}
       <div className="flex-1 min-h-0 w-full flex flex-row overflow-hidden">
 
+        {/* ───────────────────────────────────────────────────────────── */}
+        {/* SIDEBAR VERTICAL IZQUIERDO (STUDIO SIDEBAR, hidden sm:flex)   */}
+        {/* ───────────────────────────────────────────────────────────── */}
+        <StudioSidebar
+          activeTab={sidebarTab}
+          onSelectStudio={handleSelectStudio}
+          onSelectCatalog={handleSelectCatalog}
+          onSelectSummary={handleSelectSummary}
+        />
+
         {/* ─────────────────────────────────────────────────────────── */}
-        {/* ZONA 1: PANEL DE CONTROL DE EMISIÓN (hidden sm:flex, w-80)  */}
+        {/* ZONA 1: PANEL DE CONTROL / CATÁLOGO / RESUMEN (w-[380px])   */}
         {/* ─────────────────────────────────────────────────────────── */}
-        <aside className="hidden sm:flex w-80 h-full border-r border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 flex-col flex-shrink-0 select-none overflow-hidden">
-          {/* Header con datum line h-14 alineado con canvas e inspector */}
-          <div className="h-14 px-5 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0">
+        <aside className="hidden sm:flex w-[380px] h-full border-r border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 flex-col flex-shrink-0 select-none overflow-hidden">
+          {/* Tab 1: Estudio de Emisión (persistente) */}
+          <div className={`flex-col h-full overflow-hidden ${sidebarTab === 'studio' ? 'flex' : 'hidden'}`}>
+              {/* Header con datum line h-14 alineado con canvas e inspector */}
+              <div className="h-14 px-5 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0">
             <div>
               <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
                 Estudio de Emisión
@@ -1939,10 +1941,38 @@ export default function HostView({
               ) : (
                 <>
                   <Mic className="w-4 h-4 text-current" />
-                  <span>Iniciar Emisión en Directo</span>
+                  <span>Iniciar Emisión</span>
                 </>
               )}
             </button>
+          </div>
+        </div>
+
+        {/* Tab 2: Catálogo de Voces (mantenido montado en segundo plano para 0ms y cero parpadeo) */}
+          <div className={`h-full overflow-hidden ${sidebarTab === 'catalog' ? 'flex flex-col' : 'hidden'}`}>
+            <SidebarVoiceCatalog
+              roomId={roomId}
+              selectedVoices={selectedVoices}
+              targetLang={selectedCatalogLang}
+              navNonce={catalogNavNonce}
+              onSelectVoice={(targetLang, voiceObj) => {
+                const voiceId = typeof voiceObj === 'object' && voiceObj ? voiceObj.id : voiceObj;
+                const gender = typeof voiceObj === 'object' && voiceObj ? voiceObj.gender : undefined;
+                const engine = typeof voiceObj === 'object' && voiceObj ? voiceObj.engine : undefined;
+                handleSelectVoiceFromCatalog(targetLang, voiceId, engine, gender);
+              }}
+            />
+          </div>
+
+          {/* Tab 3: Resumen de Sesión */}
+          <div className={`h-full overflow-hidden ${sidebarTab === 'summary' ? 'flex flex-col' : 'hidden'}`}>
+            <SidebarSessionSummary
+              roomId={roomId}
+              summaryData={summaryData}
+              isLoading={isGeneratingSummary}
+              error={summaryError}
+              onGenerate={() => handleGenerateSummary(false)}
+            />
           </div>
         </aside>
 
@@ -2206,9 +2236,8 @@ export default function HostView({
         onPreviewVoice={handlePreviewChannelVoice}
         onTestAudio={() => audioPlayerService.playAudioTestTone()}
         onOpenCatalogForLang={(lang) => {
-          setSelectedCatalogLang(lang || 'es');
           setIsCabinsSheetOpen(false);
-          setIsVoiceCatalogOpen(true);
+          handleOpenCatalogForCabin(lang || 'all');
         }}
         decalageValue={decalageValue}
         onDecalageChange={setDecalageValue}
@@ -2217,25 +2246,6 @@ export default function HostView({
       />
 
       {/* Global Modals */}
-      <ErrorBoundary onClose={() => setIsVoiceCatalogOpen(false)}>
-        <VoiceCatalogModal
-          isOpen={isVoiceCatalogOpen}
-          onClose={() => {
-            setIsVoiceCatalogOpen(false);
-            try { audioPlayerService.stopAll(); } catch (e) {}
-          }}
-          currentLanguage={selectedCatalogLang}
-          selectedVoices={selectedVoices}
-          onSelectVoice={handleSelectVoiceFromCatalog}
-          roomId={roomId}
-          configuredEngines={{
-            deepgram: true,
-            google: true,
-            openai: Boolean(localStorage.getItem('lv_openai_key')),
-            elevenlabs: Boolean(localStorage.getItem('lv_eleven_key'))
-          }}
-        />
-      </ErrorBoundary>
 
       <QRCodeModal
         roomId={roomId}

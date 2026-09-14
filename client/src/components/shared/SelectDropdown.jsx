@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check, X } from 'lucide-react';
+import CountryFlag from './CountryFlag.jsx';
 
 /**
  * SelectDropdown — Replicado fielmente de standalone-assistant/app/admin/components/SelectDropdown.tsx.
@@ -41,7 +42,9 @@ export default function SelectDropdown({
           rawList.push({
             value: child.props.value !== undefined ? child.props.value : child.props.children,
             label: child.props.children || child.props.label || String(child.props.value),
-            description: child.props['data-description'] || child.props.description
+            description: child.props['data-description'] || child.props.description,
+            flag: child.props['data-flag'] || child.props.flag || child.props['data-code'] || child.props.code,
+            icon: child.props['data-icon'] || child.props.icon
           });
         }
       });
@@ -52,7 +55,7 @@ export default function SelectDropdown({
         opt = { value: opt, label: String(opt) };
       }
       if (!opt || typeof opt !== 'object') {
-        return { value: '', label: '', description: null };
+        return { value: '', label: '', description: null, flag: null, icon: null };
       }
 
       const rawVal = opt.value !== undefined ? opt.value : opt.label;
@@ -71,11 +74,16 @@ export default function SelectDropdown({
         }
       }
 
+      const rawFlag = opt.flag || opt.code || opt['data-flag'] || opt['data-code'] || null;
+      const rawIcon = opt.icon || opt['data-icon'] || null;
+
       return {
         value: rawVal,
         label: cleanLabel || labelStr,
         description: desc,
-        originalLabel: labelStr
+        originalLabel: labelStr,
+        flag: rawFlag,
+        icon: rawIcon
       };
     });
   }, [optionsProp, children]);
@@ -109,7 +117,8 @@ export default function SelectDropdown({
 
     const rect = buttonRef.current.getBoundingClientRect();
     const hasDescriptions = parsedOptions.some(opt => !!opt.description);
-    const optionHeight = hasDescriptions ? 56 : 40;
+    const hasFlags = parsedOptions.some(opt => !!opt.flag || !!opt.icon);
+    const optionHeight = hasDescriptions ? 56 : (hasFlags ? 44 : 40);
     const spacing = 4;
     const spaceBelow = window.innerHeight - rect.bottom - spacing - 16;
     const spaceAbove = rect.top - spacing - 16;
@@ -119,8 +128,9 @@ export default function SelectDropdown({
     const openUp = spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow;
     const maxAvailableHeight = Math.min(menuMaxHeight, Math.max(160, openUp ? spaceAbove : spaceBelow));
 
-    // En ancho: ajustado exactamente al ancho del disparador para eliminar el espacio lateral sobrante
-    const menuWidth = Math.max(rect.width, hasDescriptions ? 260 : 144);
+    // En ancho: ajustado al disparador o al ancho mínimo para opciones con banderas / descripciones
+    const minCalculated = hasDescriptions ? 260 : (hasFlags ? 220 : 144);
+    const menuWidth = Math.max(rect.width, minCalculated);
     const maxLeft = Math.max(12, window.innerWidth - menuWidth - 12);
     const adjustedLeft = Math.max(12, Math.min(rect.left, maxLeft));
 
@@ -194,7 +204,7 @@ export default function SelectDropdown({
     return () => document.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen]);
 
-  const isFilterActive = value && value !== 'ALL';
+  const isFilterActive = value && value !== 'ALL' && value !== 'all' && value !== '';
 
   return (
     <>
@@ -207,7 +217,11 @@ export default function SelectDropdown({
         aria-expanded={isOpen}
         disabled={disabled}
         onClick={abrir}
-        className={`w-full appearance-none transition-all cursor-pointer flex items-center justify-between relative select-none disabled:opacity-50 disabled:cursor-not-allowed h-11 px-4 pr-10 rounded-2xl text-xs sm:text-sm font-medium border ${
+        className={`w-full appearance-none transition-all cursor-pointer flex items-center justify-between relative select-none disabled:opacity-50 disabled:cursor-not-allowed ${
+          isCompact
+            ? 'h-9 px-2.5 pr-8 rounded-xl text-xs font-medium'
+            : 'h-11 px-3.5 pr-10 rounded-2xl text-xs sm:text-sm font-medium'
+        } border ${
           isFilterActive
             ? 'bg-zinc-200/70 dark:bg-white/10 text-zinc-950 dark:text-white border-zinc-300 dark:border-white/20 shadow-2xs font-semibold'
             : isOpen
@@ -215,15 +229,37 @@ export default function SelectDropdown({
             : 'bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 border-zinc-200/80 dark:border-white/10'
         } focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-blue-500 dark:focus-visible:ring-white/40 ${className}`}
       >
-        <span className="truncate text-left">
-          {displayLabel}
-        </span>
-        <ChevronDown
-          className={`shrink-0 text-zinc-400 dark:text-zinc-500 absolute transition-transform duration-200 w-4 h-4 right-3.5 ${
-            isOpen ? 'rotate-180 text-zinc-700 dark:text-zinc-200' : ''
-          }`}
-          aria-hidden="true"
-        />
+        <div className="flex items-center gap-2 min-w-0 pr-1">
+          {selectedOption?.flag && (
+            <CountryFlag
+              code={selectedOption.flag}
+              className={`${isCompact ? 'w-4 h-4' : 'w-5 h-5'} rounded-full object-cover shrink-0 shadow-2xs`}
+            />
+          )}
+          {selectedOption?.icon && !selectedOption?.flag && (
+            <div className={`${isCompact ? 'w-4 h-4' : 'w-5 h-5'} flex items-center justify-center shrink-0`}>
+              <selectedOption.icon className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-zinc-400 dark:text-zinc-400`} />
+            </div>
+          )}
+          <span className="truncate text-left">
+            {displayLabel}
+          </span>
+        </div>
+        {isOpen ? (
+          <X
+            className={`shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 absolute ${
+              isCompact ? 'w-3.5 h-3.5 right-2.5' : 'w-4 h-4 right-3.5'
+            }`}
+            aria-hidden="true"
+          />
+        ) : (
+          <ChevronDown
+            className={`shrink-0 text-zinc-400 dark:text-zinc-500 absolute transition-transform duration-200 ${
+              isCompact ? 'w-3.5 h-3.5 right-2.5' : 'w-4 h-4 right-3.5'
+            }`}
+            aria-hidden="true"
+          />
+        )}
       </button>
 
       {isOpen && typeof window !== 'undefined' && createPortal(
@@ -272,21 +308,34 @@ export default function SelectDropdown({
                             : 'text-zinc-600 dark:text-zinc-400 font-normal hover:bg-zinc-100/70 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200'
                         }`}
                       >
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span className={`truncate ${isCompact ? 'text-xs' : 'text-sm'}`}>
-                            {option.label}
-                          </span>
-                          {option.description && (
-                            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5 leading-snug">
-                              {option.description}
-                            </span>
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          {option.flag && (
+                            <CountryFlag
+                              code={option.flag}
+                              className="w-4.5 h-4.5 rounded-full object-cover shrink-0 shadow-2xs"
+                            />
                           )}
+                          {option.icon && !option.flag && (
+                            <div className="w-4.5 h-4.5 flex items-center justify-center shrink-0">
+                              <option.icon className="w-4 h-4 text-zinc-400 dark:text-zinc-400" />
+                            </div>
+                          )}
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className={`truncate ${isCompact ? 'text-xs' : 'text-sm'}`}>
+                              {option.label}
+                            </span>
+                            {option.description && (
+                              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5 leading-snug">
+                                {option.description}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {isSelected && (
                           <Check
-                            className="shrink-0 text-zinc-900 dark:text-zinc-100 w-3.5 h-3.5 ml-1.5"
-                            strokeWidth={2}
+                            className="shrink-0 text-zinc-900 dark:text-zinc-100 w-4 h-4 ml-1.5 stroke-[2.5]"
+                            strokeWidth={2.5}
                             aria-hidden="true"
                           />
                         )}
@@ -339,20 +388,33 @@ export default function SelectDropdown({
                           : 'text-zinc-600 dark:text-zinc-400 font-normal hover:bg-zinc-100/60 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200'
                       }`}
                     >
-                      <div className="flex flex-col min-w-0 flex-1 pr-2">
-                        <span className="truncate">
-                          {option.label}
-                        </span>
-                        {option.description && (
-                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5 leading-snug">
-                            {option.description}
-                          </span>
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                        {option.flag && (
+                          <CountryFlag
+                            code={option.flag}
+                            className="w-4.5 h-4.5 rounded-full object-cover shrink-0 shadow-2xs"
+                          />
                         )}
+                        {option.icon && !option.flag && (
+                          <div className="w-4.5 h-4.5 flex items-center justify-center shrink-0">
+                            <option.icon className="w-4 h-4 text-zinc-400 dark:text-zinc-400" />
+                          </div>
+                        )}
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="truncate">
+                            {option.label}
+                          </span>
+                          {option.description && (
+                            <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5 leading-snug">
+                              {option.description}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {isSelected && (
                         <Check
-                          className="shrink-0 text-zinc-900 dark:text-zinc-100 w-4 h-4 ml-2"
-                          strokeWidth={2}
+                          className="shrink-0 text-zinc-900 dark:text-zinc-100 w-4 h-4 ml-2 stroke-[2.5]"
+                          strokeWidth={2.5}
                           aria-hidden="true"
                         />
                       )}

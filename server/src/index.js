@@ -27,6 +27,19 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config();
+
+// Ensure AI pipeline and TTS services receive environment keys immediately after dotenv load
+aiPipeline.setApiKeys({
+  openaiApiKey: process.env.OPENAI_API_KEY,
+  deepgramApiKey: process.env.DEEPGRAM_API_KEY,
+  elevenLabsApiKey: process.env.ELEVENLABS_API_KEY,
+  cartesiaApiKey: process.env.CARTESIA_API_KEY,
+  deeplApiKey: process.env.DEEPL_API_KEY,
+  geminiApiKey: process.env.GEMINI_API_KEY,
+  qwenApiKey: process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY,
+  qwenTtsEndpoint: process.env.QWEN_TTS_ENDPOINT
+});
+
 const clientDistPath = path.resolve(__dirname, '../../client/dist');
 
 const app = express();
@@ -774,7 +787,7 @@ app.post('/api/rooms/:roomId/summary', async (req, res) => {
 // Rate limiter in memory for voice previews (prevents abuse and upstream quota exhaustion)
 const previewRateLimitMap = new Map();
 const PREVIEW_LIMIT_WINDOW_MS = 60 * 1000;
-const PREVIEW_MAX_REQUESTS = 12; // 12 previews per minute per IP
+const PREVIEW_MAX_REQUESTS = 40; // 40 previews per minute per IP
 
 function checkPreviewRateLimit(clientIp) {
   const now = Date.now();
@@ -863,6 +876,36 @@ app.post('/api/rooms/:roomId/preview-voice', async (req, res) => {
 
   try {
     const { ttsService } = await import('./services/ttsService.js');
+
+    // 1. Muestras pre-grabadas de ElevenLabs según el idioma solicitado (ES, IT, PT, EN)
+    if (voice && (engine === 'elevenlabs' || /^[a-zA-Z0-9]{20,22}$/.test(String(voice).trim())) && !ttsService.elevenLabsApiKey) {
+      const candidateFiles = targetLang === 'en'
+        ? [`${voice}_en.mp3`, `${voice}.mp3`]
+        : [`${voice}_${targetLang}.mp3`];
+
+      for (const fileName of candidateFiles) {
+        const candidatePaths = [
+          path.join(clientDistPath, 'audio', 'samples', 'elevenlabs', fileName),
+          path.resolve(clientDistPath, '..', 'public', 'audio', 'samples', 'elevenlabs', fileName),
+          path.resolve(process.cwd(), 'client', 'public', 'audio', 'samples', 'elevenlabs', fileName),
+          path.resolve(process.cwd(), 'client', 'dist', 'audio', 'samples', 'elevenlabs', fileName)
+        ];
+        for (const sp of candidatePaths) {
+          if (fs.existsSync(sp)) {
+            const audioBuffer = fs.readFileSync(sp);
+            return res.json({
+              success: true,
+              audioBase64: audioBuffer.toString('base64'),
+              mimeType: 'audio/mpeg',
+              lang: targetLang,
+              provider: 'elevenlabs',
+              isOfficialSample: true
+            });
+          }
+        }
+      }
+    }
+
     let result = null;
     try {
       result = await ttsService.synthesize(text, targetLang, { voice, gender, engine });

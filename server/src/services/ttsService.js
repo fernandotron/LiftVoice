@@ -7,25 +7,25 @@ import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 
 export class TTSService {
   constructor(config = {}) {
-    this.openaiApiKey = config.openaiApiKey || process.env.OPENAI_API_KEY || '';
-    this.elevenLabsApiKey = config.elevenLabsApiKey || process.env.ELEVENLABS_API_KEY || '';
-    this.deepgramApiKey = config.deepgramApiKey || process.env.DEEPGRAM_API_KEY || '';
-    this.cartesiaApiKey = config.cartesiaApiKey || process.env.CARTESIA_API_KEY || '';
-    this.qwenApiKey = config.qwenApiKey || process.env.DASHSCOPE_API_KEY || '';
-    this.qwenTtsEndpoint = config.qwenTtsEndpoint || process.env.QWEN_TTS_ENDPOINT || '';
+    this._openaiApiKey = config.openaiApiKey || null;
+    this._elevenLabsApiKey = config.elevenLabsApiKey || null;
+    this._deepgramApiKey = config.deepgramApiKey || null;
+    this._cartesiaApiKey = config.cartesiaApiKey || null;
+    this._qwenApiKey = config.qwenApiKey || null;
+    this._qwenTtsEndpoint = config.qwenTtsEndpoint || null;
     this.preferredTtsEngine = config.preferredTtsEngine || 'auto'; // 'auto' | 'edge' | 'deepgram' | 'cartesia' | 'google' | 'qwen_tts' | 'elevenlabs' | 'openai'
-    
+
     // Voice mapping for natural multilingual personas
     this.voiceMap = {
       en: { openai: 'alloy', edge: 'en-US-JennyNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-2-thalia-en', cartesia: '794f9389-aac1-45b6-b726-9d9369183238', qwen_tts: 'qwen3-tts-en' },
       es: { openai: 'nova', edge: 'es-ES-ElviraNeural', eleven: 'AZnzlk1XvdvUeBnXmlld', deepgram: 'aura-2-carina-es', cartesia: 'a0e99841-438c-4a64-b679-ae501e7d6091', qwen_tts: 'qwen3-tts-es' },
       it: { openai: 'shimmer', edge: 'it-IT-ElsaNeural', eleven: 'EXAVITQu4vr4xnSDxMaL', deepgram: 'aura-2-diana-it', cartesia: '5345cf08-6fba-4089-a296-ee1a9673a726', qwen_tts: 'qwen3-tts-it' },
-      pt: { openai: 'echo', edge: 'pt-BR-FranciscaNeural', eleven: 'ErXwobaYiN019PkySvjV', deepgram: 'aura-asteria-en', cartesia: '4c65db53-8417-48f8-8422-af1f26ec5809', qwen_tts: 'qwen3-tts-pt' },
+      pt: { openai: 'echo', edge: 'pt-BR-FranciscaNeural', eleven: 'pNInz6obpgDQGcFmaJgB', deepgram: 'aura-asteria-en', cartesia: '4c65db53-8417-48f8-8422-af1f26ec5809', qwen_tts: 'qwen3-tts-pt' },
       fr: { openai: 'shimmer', edge: 'fr-FR-DeniseNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en' },
       de: { openai: 'alloy', edge: 'de-DE-KatjaNeural', eleven: 'pNInz6obpgDQGcFmaJgB', deepgram: 'aura-asteria-en' },
       zh: { openai: 'nova', edge: 'zh-CN-XiaoxiaoNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en' },
       ja: { openai: 'shimmer', edge: 'ja-JP-NanamiNeural', eleven: 'AZnzlk1XvdvUeBnXmlld', deepgram: 'aura-asteria-en' },
-      ar: { openai: 'echo', edge: 'ar-SA-ZariyahNeural', eleven: 'ErXwobaYiN019PkySvjV', deepgram: 'aura-asteria-en' },
+      ar: { openai: 'echo', edge: 'ar-SA-ZariyahNeural', eleven: 'pNInz6obpgDQGcFmaJgB', deepgram: 'aura-asteria-en' },
       ru: { openai: 'onyx', edge: 'ru-RU-SvetlanaNeural', eleven: 'pNInz6obpgDQGcFmaJgB', deepgram: 'aura-asteria-en' },
       ko: { openai: 'nova', edge: 'ko-KR-SunHiNeural', eleven: 'AZnzlk1XvdvUeBnXmlld', deepgram: 'aura-asteria-en' },
       hi: { openai: 'alloy', edge: 'hi-IN-SwaraNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en' }
@@ -84,6 +84,48 @@ export class TTSService {
     console.warn(`[TTSService] 🚨 Circuit breaker tripped for ${provider} (HTTP ${status}). Cooling down for ${Math.round(durationMs / 60000)} minutes.`);
   }
 
+  get openaiApiKey() {
+    return (this._openaiApiKey !== null && this._openaiApiKey !== undefined) ? this._openaiApiKey : (process.env.OPENAI_API_KEY || '');
+  }
+  set openaiApiKey(val) {
+    this._openaiApiKey = val;
+  }
+
+  get elevenLabsApiKey() {
+    return (this._elevenLabsApiKey !== null && this._elevenLabsApiKey !== undefined) ? this._elevenLabsApiKey : (process.env.ELEVENLABS_API_KEY || '');
+  }
+  set elevenLabsApiKey(val) {
+    this._elevenLabsApiKey = val;
+  }
+
+  get deepgramApiKey() {
+    return (this._deepgramApiKey !== null && this._deepgramApiKey !== undefined) ? this._deepgramApiKey : (process.env.DEEPGRAM_API_KEY || '');
+  }
+  set deepgramApiKey(val) {
+    this._deepgramApiKey = val;
+  }
+
+  get cartesiaApiKey() {
+    return (this._cartesiaApiKey !== null && this._cartesiaApiKey !== undefined) ? this._cartesiaApiKey : (process.env.CARTESIA_API_KEY || '');
+  }
+  set cartesiaApiKey(val) {
+    this._cartesiaApiKey = val;
+  }
+
+  get qwenApiKey() {
+    return (this._qwenApiKey !== null && this._qwenApiKey !== undefined) ? this._qwenApiKey : (process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY || '');
+  }
+  set qwenApiKey(val) {
+    this._qwenApiKey = val;
+  }
+
+  get qwenTtsEndpoint() {
+    return (this._qwenTtsEndpoint !== null && this._qwenTtsEndpoint !== undefined) ? this._qwenTtsEndpoint : (process.env.QWEN_TTS_ENDPOINT || '');
+  }
+  set qwenTtsEndpoint(val) {
+    this._qwenTtsEndpoint = val;
+  }
+
   resetCircuit(provider) {
     if (provider) {
       this.circuitBreakers?.delete(provider);
@@ -96,6 +138,7 @@ export class TTSService {
     if (openaiApiKey !== undefined) {
       this.openaiApiKey = openaiApiKey;
       this.resetCircuit('openai');
+      this.cache?.clear();
     }
     if (elevenLabsApiKey !== undefined) {
       this.elevenLabsApiKey = elevenLabsApiKey;
@@ -615,7 +658,7 @@ export class TTSService {
         response_format: 'mp3',
         speed: 1.05
       }),
-      signal: AbortSignal.timeout(2800)
+      signal: AbortSignal.timeout(options.timeoutMs || 5000)
     });
 
     if (!response.ok) {
@@ -1915,24 +1958,6 @@ export class TTSService {
         tier: 'premium_studio',
         tierLabel: 'Studio Pro',
         scenario: 'panel',
-        isFree: false,
-        requiresKey: true,
-        isConfigured: hasEleven
-      },
-      {
-        id: 'ErXwobaYiN019PkySvjV',
-        engine: 'elevenlabs',
-        name: 'Antoni',
-        gender: 'male',
-        tone: 'Modular, Suave',
-        desc: 'Modulación cinematográfica con ritmo oratorio pausado.',
-        lang: 'all',
-        languages: ['es', 'en', 'it', 'pt'],
-        latency: '~110ms',
-        badge: 'ElevenLabs Flash 🌟',
-        tier: 'premium_studio',
-        tierLabel: 'Studio Pro',
-        scenario: 'keynote',
         isFree: false,
         requiresKey: true,
         isConfigured: hasEleven

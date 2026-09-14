@@ -719,7 +719,8 @@ class AudioPlayerService {
     // If server returned audio and it's from a configured cloud provider, or playable base64:
     if (audioBase64) {
       try {
-        await this.playDetunedAudioBase64(audioBase64, profile.detune);
+        // Afinación natural pura (detune = 0) para garantizar fidelidad 1:1 idéntica a la emisión en directo
+        await this.playDetunedAudioBase64(audioBase64, 0);
         return;
       } catch (err) {
         console.warn('[AudioPlayer] Preview base64 decode failed, falling back to Web Speech:', err);
@@ -983,8 +984,7 @@ export const VOICE_PROFILES = {
   // ElevenLabs
   '21m00Tcm4TlvDq8ikWAM': { pitch: 1.02, rate: 0.98, detune: 30, gender: 'female', preferredName: 'Rachel' },
   'pNInz6obpgDQGcFmaJgB': { pitch: 0.80, rate: 0.96, detune: -320, gender: 'male', preferredName: 'Adam' },
-  'AZnzlk1XvdvUeBnXmlld': { pitch: 1.14, rate: 1.08, detune: 160, gender: 'female', preferredName: 'Domi' },
-  'ErXwobaYiN019PkySvjV': { pitch: 0.86, rate: 0.94, detune: -240, gender: 'male', preferredName: 'Antoni' }
+  'AZnzlk1XvdvUeBnXmlld': { pitch: 1.14, rate: 1.08, detune: 160, gender: 'female', preferredName: 'Domi' }
 };
 
 export const audioPlayerService = new AudioPlayerService();
