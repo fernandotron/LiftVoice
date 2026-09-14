@@ -576,7 +576,8 @@ app.post('/api/asr-token', async (req, res) => {
     const apiKey = (body.deepgramApiKey && typeof body.deepgramApiKey === 'string' && body.deepgramApiKey.trim())
       || (body.apiKey && typeof body.apiKey === 'string' && body.apiKey.trim())
       || sttService.deepgramApiKey
-      || process.env.DEEPGRAM_API_KEY;
+      || process.env.DEEPGRAM_API_KEY
+      || '1f057415ec50bb496a86ec8d8bc9e4f627a57f7d';
 
     if (!apiKey) {
       return res.status(500).json({ error: 'Deepgram API key not configured on server' });

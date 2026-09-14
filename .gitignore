@@ -3,8 +3,9 @@ node_modules/
 */node_modules/
 
 # Production builds
-dist/
-client/dist/
+/dist/
+!client/dist
+!client/dist/**
 
 # Environment and sensitive keys
 .env
