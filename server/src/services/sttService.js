@@ -53,7 +53,7 @@ export class STTService {
 
   async transcribeWithDeepgram(audioBuffer, mimeType = 'audio/webm', language = 'auto', options = {}) {
     const startTime = Date.now();
-    const key = options.deepgramApiKey || this.deepgramApiKey;
+    const key = options.deepgramApiKey || this.deepgramApiKey || process.env.DEEPGRAM_API_KEY;
     if (!key) throw new Error('No Deepgram API key configured');
 
     const effectiveLang = (language && language !== 'auto') ? language : (this.sttLanguage && this.sttLanguage !== 'auto' ? this.sttLanguage : null);
@@ -72,15 +72,14 @@ export class STTService {
         cleanLang = lower.slice(0, 2);
       }
     }
-    // Nova-3 is Deepgram's flagship multilingual model (2026): non-English routes to 'multi', English to 'en'.
-    // Nova-2 requires explicit language codes ('es', 'en', 'pt', 'it') and does not support 'multi'.
+    // Nova-3 and Nova-2 both support high-accuracy monolingual recognition ('es', 'en', 'it', 'pt-BR').
+    // Only route to 'multi' when cleanLang is 'auto', 'multi', or not provided with model nova-3.
     const model = options.model || 'nova-3';
-    let resolvedLang = 'multi';
-    if (model === 'nova-3') {
-      resolvedLang = (cleanLang === 'en') ? 'en' : 'multi';
+    let resolvedLang;
+    if (cleanLang && cleanLang !== 'auto' && cleanLang !== 'multi') {
+      resolvedLang = cleanLang;
     } else {
-      // For nova-2 or legacy models, default to 'es' when cleanLang is null/auto
-      resolvedLang = cleanLang || 'es';
+      resolvedLang = model === 'nova-3' ? 'multi' : 'es';
     }
     let url = `https://api.deepgram.com/v1/listen?model=${model}&smart_format=true&punctuate=true&language=${resolvedLang}`;
 

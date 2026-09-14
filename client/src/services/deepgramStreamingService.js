@@ -210,8 +210,9 @@ export class DeepgramStreamingService {
     } else {
       transportConfig.token = this.tokenMetadata.token;
       transportConfig.listenUrl = this.tokenMetadata.listenUrl || transportConfig.listenUrl;
-      transportConfig.model = this.tokenMetadata.model || transportConfig.model;
-      transportConfig.language = this.tokenMetadata.language || transportConfig.language;
+      transportConfig.model = config.model || this.tokenMetadata.model || transportConfig.model;
+      transportConfig.language = config.language || transportConfig.language || this.tokenMetadata.language;
+      this.tokenMetadata.language = transportConfig.language;
     }
 
     if (seq !== this.startSeq || !this.isActive) return;
@@ -449,10 +450,20 @@ export class DeepgramStreamingService {
     this.onFirstPartialLatency = callbacks.onFirstPartialLatency;
     const chosenModel = config.model || 'nova-3';
     const isNova3 = chosenModel.toLowerCase().includes('nova-3');
-    let resolvedLanguage = config.language || 'multi';
-    if (isNova3) {
-      const lLower = (resolvedLanguage || '').toLowerCase();
-      resolvedLanguage = (lLower === 'en' || lLower.startsWith('en-')) ? 'en' : 'multi';
+    let resolvedLanguage = config.language || 'es';
+    const lLower = (resolvedLanguage || '').toLowerCase().trim();
+    if (lLower.startsWith('es')) {
+      resolvedLanguage = 'es';
+    } else if (lLower.startsWith('en')) {
+      resolvedLanguage = 'en';
+    } else if (lLower.startsWith('it')) {
+      resolvedLanguage = 'it';
+    } else if (lLower.startsWith('pt')) {
+      resolvedLanguage = lLower.includes('br') ? 'pt-BR' : 'pt';
+    } else if (lLower === 'auto' || lLower === 'multi') {
+      resolvedLanguage = isNova3 ? 'multi' : 'es';
+    } else {
+      resolvedLanguage = lLower.length > 2 ? lLower.slice(0, 2) : (lLower || 'es');
     }
 
     const params = new URLSearchParams({

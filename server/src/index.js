@@ -22,10 +22,11 @@ import {
   recordSuccessfulAttempt
 } from './services/adminAuth.js';
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config();
 const clientDistPath = path.resolve(__dirname, '../../client/dist');
 
 const app = express();
@@ -589,29 +590,22 @@ app.post('/api/asr-token', async (req, res) => {
     const rawLang = (typeof body.language === 'string' && body.language) || (typeof body.lang === 'string' && body.lang) || 'auto';
     const langLower = rawLang.trim().toLowerCase();
 
-    // Language resolution logic:
-    // Under Nova-3 streaming, non-English languages MUST route to 'multi' for native live code-switching and dynamic detection.
-    // English routes strictly to 'en'.
-    // Under Nova-2 fallback, monolingual codes are used ('es', 'en', 'it', 'pt-BR').
+    // Language resolution logic (homologous to toDeepgramLanguage in App Salud):
+    // Nova-3 supports high-accuracy native monolingual streaming ('es', 'en', 'it', 'pt-BR').
+    // Only route to 'multi' when the user explicitly requests auto-detection or multilingual code-switching.
     let deepgramLang;
-    if (effectiveModel === 'nova-3') {
-      if (langLower.startsWith('en')) {
-        deepgramLang = 'en';
-      } else {
-        // es, pt, it, auto, multi, etc. all route to 'multi' in Nova-3 streaming
-        deepgramLang = 'multi';
-      }
+    if (langLower.startsWith('en')) {
+      deepgramLang = 'en';
+    } else if (langLower.startsWith('es')) {
+      deepgramLang = 'es';
+    } else if (langLower.startsWith('it')) {
+      deepgramLang = 'it';
+    } else if (langLower.startsWith('pt')) {
+      deepgramLang = langLower.includes('br') ? 'pt-BR' : 'pt';
+    } else if (langLower === 'auto' || langLower === 'multi' || !langLower) {
+      deepgramLang = effectiveModel === 'nova-3' ? 'multi' : 'es';
     } else {
-      // Nova-2 Monolingual fallback
-      if (langLower.startsWith('en')) {
-        deepgramLang = 'en';
-      } else if (langLower.startsWith('pt')) {
-        deepgramLang = langLower.includes('br') ? 'pt-BR' : 'pt';
-      } else if (langLower.startsWith('it')) {
-        deepgramLang = 'it';
-      } else {
-        deepgramLang = 'es'; // default to Spanish for LiftVoice
-      }
+      deepgramLang = langLower.length > 2 ? langLower.slice(0, 2) : langLower;
     }
 
     const rawTerms = Array.isArray(req.body.keyterms) ? [...req.body.keyterms] : [];
