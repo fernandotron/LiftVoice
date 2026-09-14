@@ -13,9 +13,13 @@ export function DegradadoPie() {
 export default function AdminStickyFooter({
   onSave,
   onCancel,
+  onResetDefaults,
+  resetLabel,
+  savedMessage,
   isDirty,
   isSaving,
   isSaved,
+  isResetting = false,
   variant = 'modal'
 }) {
   const isPage = variant === 'page';
@@ -58,10 +62,10 @@ export default function AdminStickyFooter({
           ) : isSaved ? (
             <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 truncate">
               <Check className="w-4 h-4 stroke-[2.5] shrink-0" />
-              <span>Ajustes guardados correctamente</span>
+              <span>{savedMessage || 'Ajustes guardados correctamente'}</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 truncate">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 truncate">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
               <span className="font-medium text-zinc-700 dark:text-zinc-300">LiftVoice Studio</span>
               <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline">•</span>
@@ -71,7 +75,23 @@ export default function AdminStickyFooter({
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+        <div className="flex items-center justify-end gap-2.5 sm:gap-3 shrink-0 ml-auto sm:ml-0">
+          {onResetDefaults && (
+            <button
+              type="button"
+              onClick={onResetDefaults}
+              disabled={isSaving || isResetting}
+              title={resetLabel ? `Restablecer ${resetLabel} a los valores recomendados por defecto` : "Restablecer a los valores recomendados por defecto"}
+              className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-amber-500/10 hover:border-amber-500/30 hover:text-amber-600 dark:hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none text-zinc-600 dark:text-zinc-400 text-xs sm:text-sm font-medium flex items-center justify-center transition-all cursor-pointer active:scale-95 shadow-2xs shrink-0"
+            >
+              {isResetting ? (
+                <span>Restableciendo...</span>
+              ) : (
+                <span>{resetLabel ? `Restablecer ${resetLabel}` : "Restablecer"}</span>
+              )}
+            </button>
+          )}
+
           {isDirty && (
             <button
               type="button"

@@ -43,7 +43,7 @@ export default function AttendeesModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 dark:bg-black/75 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/60 dark:bg-black/75 backdrop-blur-sm animate-fadeIn"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -51,10 +51,10 @@ export default function AttendeesModal({
       aria-modal="true"
       aria-labelledby="attendees-dialog-title"
     >
-      <div className="relative w-full max-w-4xl max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden rounded-[28px] sm:rounded-[32px] bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-white/10 shadow-2xl text-left text-zinc-900 dark:text-zinc-100">
+      <div className="relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-4xl flex flex-col overflow-hidden rounded-none sm:rounded-[32px] bg-white dark:bg-zinc-950 border-0 sm:border border-zinc-200/80 dark:border-white/10 shadow-2xl text-left text-zinc-900 dark:text-zinc-100">
         
         {/* Header matching AdminSettingsShell modal */}
-        <header className="relative z-20 flex shrink-0 items-center justify-between gap-4 px-6 sm:px-8 py-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md">
+        <header className="relative z-20 flex shrink-0 items-center justify-between gap-4 px-5 sm:px-8 py-4 sm:py-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0 shadow-2xs">
               <Users className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -99,7 +99,7 @@ export default function AttendeesModal({
         </header>
 
         {/* Content Body */}
-        <div className="px-6 sm:px-8 py-5 flex-1 flex flex-col min-h-0 overflow-hidden space-y-4">
+        <div className="px-4 sm:px-8 py-4 sm:py-5 flex-1 flex flex-col min-h-0 overflow-hidden space-y-3.5 sm:space-y-4">
           
           {/* Search Filter */}
           <div className="relative w-full shrink-0">
@@ -312,7 +312,7 @@ export default function AttendeesModal({
         </div>
 
         {/* Footer matching AdminSettingsShell modal */}
-        <footer className="px-6 sm:px-8 py-4 bg-zinc-50/80 dark:bg-zinc-900/60 border-t border-zinc-200/80 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400 font-mono flex-shrink-0">
+        <footer className="px-4 sm:px-8 py-3 sm:py-4 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-4 bg-zinc-50/80 dark:bg-zinc-900/60 border-t border-zinc-200/80 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 text-xs text-zinc-500 dark:text-zinc-400 font-mono flex-shrink-0">
           <div className="flex items-center gap-2">
             <span>{filteredAttendees.length} de {attendees.length} asistentes registrados</span>
           </div>

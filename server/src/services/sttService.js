@@ -67,17 +67,12 @@ export class STTService {
       url += '&detect_language=true';
     }
 
-    const vadSensitivity = options.sttVad || this.sttVad || 'standard';
-    if (vadSensitivity === 'aggressive') {
-      url += '&utterance_end_ms=1500&vad_turnoff=800';
-    } else if (vadSensitivity === 'high') {
-      url += '&utterance_end_ms=800&vad_turnoff=400';
-    } else {
-      url += '&utterance_end_ms=1000';
-    }
-
     if (options.medicalMode) {
-      url += '&keywords=ECG:2&keywords=arritmia:2&keywords=infarto:2&keywords=fentanilo:2';
+      if (model === 'nova-3') {
+        url += '&keyterm=ECG&keyterm=arritmia&keyterm=infarto&keyterm=fentanilo';
+      } else {
+        url += '&keywords=ECG:2&keywords=arritmia:2&keywords=infarto:2&keywords=fentanilo:2';
+      }
     }
 
     const cleanMime = mimeType ? mimeType.split(';')[0].trim() : 'audio/webm';

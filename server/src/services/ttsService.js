@@ -212,9 +212,22 @@ export class TTSService {
     const cleanText = this.cleanTextForTTS(text);
     if (!cleanText) return null;
 
-    const engine = options.engine || this.preferredTtsEngine || 'auto';
+    let engine = options.engine || this.preferredTtsEngine || 'auto';
     const voice = options.voice || this.voiceConfig[lang] || '';
     const gender = options.gender || this.voiceGender[lang] || 'female';
+
+    // Auto-detect engine from voice identifier when engine is auto
+    if ((engine === 'auto' || !options.engine) && voice) {
+      if (typeof voice === 'string' && voice.startsWith('aura-')) {
+        engine = 'deepgram';
+      } else if (['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer', 'sage', 'coral'].includes(voice)) {
+        engine = 'openai';
+      } else if (typeof voice === 'string' && /^[a-zA-Z0-9]{20,22}$/.test(voice.trim())) {
+        engine = 'elevenlabs';
+      } else if (typeof voice === 'string' && voice.includes('-') && /^[a-z]{2}-[A-Z]{2}-/.test(voice)) {
+        engine = 'google';
+      }
+    }
 
     const cacheKey = `${lang}:${engine}:${voice}:${gender}:${cleanText}`;
     const cached = this.getCache(cacheKey);

@@ -3,7 +3,7 @@ import {
   Settings, Key, X, Check, Shield, Cpu, Zap, Volume2, Mic,
   Sparkles, Stethoscope, Activity, BookOpen, Play, Square, Loader2, Headphones,
   Radio, User, Users, ChevronRight, CheckCircle2, Lock, Server, Globe, VolumeX,
-  Palette, Sun, Moon, Monitor, Eye, EyeOff, AlertCircle, ArrowLeft, Home, Sliders
+  Palette, Sun, Moon, Monitor, Eye, EyeOff, AlertCircle, ArrowLeft, Home, Sliders, RotateCcw
 } from 'lucide-react';
 import { audioPlayerService } from '../../services/audioPlayer.js';
 import { audioRecorderService } from '../../services/audioRecorder.js';
@@ -13,6 +13,7 @@ import SelectDropdown from '../shared/SelectDropdown.jsx';
 import AdminSidebarRail from './AdminSidebarRail.jsx';
 import AdminStickyFooter from './AdminStickyFooter.jsx';
 import UnsavedChangesPrompt from './UnsavedChangesPrompt.jsx';
+import Banner from '../shared/Banner.jsx';
 import { AdminLoginCard } from './AdminLoginCard.jsx';
 import UsersSection from './UsersSection.jsx';
 import RoomsSection from './RoomsSection.jsx';
@@ -48,6 +49,112 @@ const DEFAULT_GENDERS = {
   it: 'female',
   pt: 'female'
 };
+
+export const OPTIMAL_CONFIG_DEFAULTS = {
+  sttEngine: 'deepgram',
+  sttLang: 'es',
+  sttVad: 'standard',
+  decalageMode: 'natural',
+  preferredTtsEngine: 'deepgram',
+  voiceConfig: DEFAULT_VOICES,
+  voiceGender: DEFAULT_GENDERS,
+  preferredEngine: 'gemini',
+  aiStrategy: 'json_single',
+  geminiModel: 'google/gemini-3.1-flash-lite',
+  geminiTemp: '0.1',
+  openaiModel: 'gpt-4o-mini',
+  openaiTemp: '0.1',
+  qwenModel: 'qwen/qwen-3.8-27b',
+  qwenTemp: '0.1',
+  medicalMode: false,
+  medicalSpecialty: 'general',
+  customGlossary: '',
+  googleNeuralMode: 'universal'
+};
+
+export const SECTION_DEFAULTS_MAP = {
+  stt: {
+    id: 'stt',
+    title: 'Reconocimiento de voz',
+    shortLabel: 'Reconocimiento de voz',
+    subtitle: 'Restaura el motor Deepgram Nova con latencia ~150ms, español (es) como idioma predeterminado, corte acústico a 300ms y filtro VAD estándar.',
+    highlights: [
+      { label: 'Motor', value: 'Deepgram Nova' },
+      { label: 'Idioma', value: 'Español (es)' },
+      { label: 'Endpointing', value: '300 ms' },
+      { label: 'VAD & Décalage', value: 'Estándar / Natural' }
+    ],
+    keys: ['lv_stt_engine', 'lv_stt_lang', 'lv_stt_vad', 'lv_decalage_mode']
+  },
+  ai: {
+    id: 'ai',
+    title: 'Modelos de traducción',
+    shortLabel: 'Modelos de traducción',
+    subtitle: 'Restaura el motor Google Gemini 3.1 Flash-Lite con temperatura 0.1 y estrategia de llamada única estructurada en JSON.',
+    highlights: [
+      { label: 'Proveedor', value: 'Google Gemini' },
+      { label: 'Modelo', value: 'gemini-3.1-flash-lite' },
+      { label: 'Temperatura', value: '0.1' },
+      { label: 'Estrategia', value: 'Llamada única JSON' }
+    ],
+    keys: ['lv_preferred_engine', 'lv_ai_strategy', 'lv_gemini_model', 'lv_gemini_temp', 'lv_openai_model', 'lv_openai_temp', 'lv_qwen_model', 'lv_qwen_temp']
+  },
+  tts: {
+    id: 'tts',
+    title: 'Voces de cabinas',
+    shortLabel: 'Voces de cabinas',
+    subtitle: 'Restaura el motor Deepgram TTS y los timbres neuronales recomendados para las 4 cabinas de traducción (ES, EN, IT, PT).',
+    highlights: [
+      { label: 'Motor', value: 'Deepgram TTS' },
+      { label: 'Cabinas', value: 'ES (Elvira), EN (Asteria), IT (Elsa), PT (Francisca)' },
+      { label: 'Modo neuronal', value: 'Universal' }
+    ],
+    keys: ['lv_tts_engine', 'lv_voice_config', 'lv_voice_gender', 'lv_google_neural_mode']
+  },
+  medical: {
+    id: 'medical',
+    title: 'Modo clínico',
+    shortLabel: 'Modo clínico',
+    subtitle: 'Desactiva la heurística hospitalaria forzada, restablece la especialidad a Medicina General y vacía el glosario personalizado.',
+    highlights: [
+      { label: 'Modo Clínico', value: 'Desactivado' },
+      { label: 'Especialidad', value: 'Medicina General' },
+      { label: 'Glosario', value: 'Vacío' }
+    ],
+    keys: ['lv_medical_mode', 'lv_medical_specialty', 'lv_custom_glossary']
+  }
+};
+
+export const buildSettingsSnapshot = (data = {}) => ({
+  sttEngine: data.sttEngine || 'deepgram',
+  preferredTtsEngine: data.preferredTtsEngine || 'deepgram',
+  voiceConfig: data.voiceConfig || DEFAULT_VOICES,
+  voiceGender: data.voiceGender || DEFAULT_GENDERS,
+  deepgramKey: data.deepgramKey || '',
+  geminiKey: data.geminiKey || '',
+  geminiModel: data.geminiModel || 'google/gemini-3.1-flash-lite',
+  geminiTemp: data.geminiTemp !== undefined ? String(data.geminiTemp) : '0.1',
+  elevenLabsKey: data.elevenLabsKey || '',
+  openaiKey: data.openaiKey || '',
+  openaiModel: data.openaiModel || 'gpt-4o-mini',
+  openaiTemp: data.openaiTemp !== undefined ? String(data.openaiTemp) : '0.1',
+  qwenKey: data.qwenKey || '',
+  qwenModel: data.qwenModel || 'qwen/qwen-3.8-27b',
+  qwenTemp: data.qwenTemp !== undefined ? String(data.qwenTemp) : '0.1',
+  qwenEndpoint: data.qwenEndpoint || '',
+  qwenTtsEndpoint: data.qwenTtsEndpoint || '',
+  preferredEngine: data.preferredEngine || 'gemini',
+  aiStrategy: data.aiStrategy || 'json_single',
+  medicalMode: Boolean(data.medicalMode),
+  medicalSpecialty: data.medicalSpecialty || 'general',
+  customGlossary: typeof data.customGlossary === 'string'
+    ? data.customGlossary
+    : (Array.isArray(data.customGlossary) ? data.customGlossary.join(', ') : ''),
+  decalageMode: data.decalageMode || 'natural',
+  sttLang: data.sttLang || 'auto',
+  sttVad: data.sttVad || 'standard',
+  googleNeuralMode: data.googleNeuralMode || 'universal'
+});
 
 const BOOTH_VOICE_OPTIONS = {
   es: [
@@ -99,14 +206,14 @@ const BOOTHS = [
 ];
 
 const TAB_METADATA = {
-  'stt': { title: 'Motor de reconocimiento de voz', desc: 'Configura la transcripción en directo y los parámetros de captura acústica' },
-  'tts': { title: 'Voces de síntesis por cabina', desc: 'Asigna timbres de voz natural para las cuatro cabinas de interpretación' },
-  'ai': { title: 'Modelos de traducción', desc: 'Gestiona los modelos y la estrategia de inferencia para la interpretación simultánea' },
-  'appearance': { title: 'Apariencia y tema visual', desc: 'Personaliza la interfaz, esquemas de color y modo claro u oscuro' },
-  'medical': { title: 'Modo clínico y glosario', desc: 'Activa vocabulario médico especializado y reglas léxicas estrictas' },
-  'users': { title: 'Usuarios', desc: 'Cuentas registradas, roles de acceso y actividad en conferencias' },
-  'rooms': { title: 'Salas en directo', desc: 'Monitoreo de conferencias activas, oyentes por idioma y control de emisión' },
-  'keys': { title: 'Claves de proveedores', desc: 'Administra tus credenciales de Deepgram, Google, ElevenLabs y OpenAI' }
+  'stt': { title: 'Reconocimiento de voz', desc: 'Transcripción en directo y captura acústica' },
+  'tts': { title: 'Voces de cabinas', desc: 'Timbres neuronales para las 4 cabinas de traducción' },
+  'ai': { title: 'Modelos de traducción', desc: 'Modelos de IA y estrategia de inferencia en directo' },
+  'appearance': { title: 'Apariencia y tema', desc: 'Interfaz visual, esquemas de color y modo oscuro' },
+  'medical': { title: 'Modo clínico', desc: 'Vocabulario médico especializado y glosario' },
+  'users': { title: 'Usuarios', desc: 'Cuentas de acceso, roles y actividad en salas' },
+  'rooms': { title: 'Salas en directo', desc: 'Monitoreo de conferencias activas y oyentes' },
+  'keys': { title: 'Claves de API', desc: 'Credenciales de proveedores de IA y voz' }
 };
 
 // Opciones enriquecidas de dos niveles: Título nítido + Subtítulo técnico
@@ -317,34 +424,52 @@ export default function AdminSettingsShell({
   // Track dirtiness based on state changes. We can do it by saving initial state.
   const [initialState, setInitialState] = useState(null);
   
+  const currentSnapshot = useMemo(() => buildSettingsSnapshot({
+    sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
+    deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
+    qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
+    preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
+    sttLang, sttVad, googleNeuralMode
+  }), [
+    sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
+    deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
+    qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
+    preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
+    sttLang, sttVad, googleNeuralMode
+  ]);
+
   useEffect(() => {
     if (!initialState && !isCheckingAuth) {
-      setInitialState({
-        sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
-        deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
-        qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
-        preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
-        sttLang, sttVad, googleNeuralMode
-      });
+      setInitialState(currentSnapshot);
     }
-  }, [isCheckingAuth]);
+  }, [isCheckingAuth, currentSnapshot, initialState]);
 
   useEffect(() => {
     if (initialState) {
-      const current = {
-        sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
-        deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
-        qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
-        preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
-        sttLang, sttVad, googleNeuralMode
-      };
-      setIsDirty(JSON.stringify(current) !== JSON.stringify(initialState));
+      setIsDirty(JSON.stringify(currentSnapshot) !== JSON.stringify(initialState));
     }
-  }, [sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
-      deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
-      qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
-      preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
-      sttLang, sttVad, googleNeuralMode]);
+  }, [currentSnapshot, initialState]);
+
+  const [showResetPrompt, setShowResetPrompt] = useState(false);
+  const [savedMessage, setSavedMessage] = useState(null);
+  const contentScrollRef = useRef(null);
+
+  // Cerrar el diálogo contextual al cambiar de pestaña
+  useEffect(() => {
+    setShowResetPrompt(false);
+  }, [activeTab]);
+
+  const isCurrentTabResettable = Boolean(SECTION_DEFAULTS_MAP[activeTab]);
+  const currentSectionInfo = SECTION_DEFAULTS_MAP[activeTab] || null;
+  const handleOpenResetPrompt = () => {
+    setShowResetPrompt(true);
+    if (contentScrollRef.current) {
+      contentScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    if (typeof window !== 'undefined' && variant === 'page') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
       
   const handleCloseAttempt = (e) => {
     if (e) e.preventDefault();
@@ -390,6 +515,7 @@ export default function AdminSettingsShell({
 
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
   const [serverFlags, setServerFlags] = useState({
@@ -499,6 +625,18 @@ export default function AdminSettingsShell({
     }
   }, [isOpen, onClose, variant]);
 
+  // Sincronización reactiva con eventos de guardado de voces y configuración en vivo
+  useEffect(() => {
+    const handleConfigEvent = (e) => {
+      const cfg = e?.detail;
+      if (!cfg) return;
+      if (cfg.voiceConfig) setVoiceConfig(prev => ({ ...prev, ...cfg.voiceConfig }));
+      if (cfg.voiceGender) setVoiceGender(prev => ({ ...prev, ...cfg.voiceGender }));
+    };
+    window.addEventListener('liftvoice_config_saved', handleConfigEvent);
+    return () => window.removeEventListener('liftvoice_config_saved', handleConfigEvent);
+  }, []);
+
   const PRESETS = {
     deepgram_balance: {
       stt: 'deepgram', engine: 'gemini', tts: 'deepgram',
@@ -580,7 +718,7 @@ export default function AdminSettingsShell({
             if (data.googleNeuralMode) setGoogleNeuralMode(data.googleNeuralMode);
 
             // Sincronizar el estado inicial de referencia para que NO aparezca "Modificaciones sin guardar" al abrir el modal
-            setInitialState({
+            setInitialState(buildSettingsSnapshot({
               sttEngine: loadedStt,
               preferredTtsEngine: loadedTtsEngine,
               voiceConfig: loadedVoiceCfg,
@@ -603,7 +741,7 @@ export default function AdminSettingsShell({
               sttLang: loadedSttLang,
               sttVad: loadedSttVad,
               googleNeuralMode: loadedGoogleNeural
-            });
+            }));
             setIsDirty(false);
           }
         })
@@ -769,9 +907,9 @@ export default function AdminSettingsShell({
       // Propagar al grabador de audio en vivo del cliente
       try {
         if (typeof audioRecorderService !== 'undefined') {
-          if (sttLang) audioRecorderService.setLanguage(sttLang);
-          if (sttVad) audioRecorderService.setVadSensitivity(sttVad);
-          if (decalageMode) audioRecorderService.setDecalageMode(decalageMode);
+          if (sttLang) audioRecorderService.setLanguage?.(sttLang);
+          if (sttVad) audioRecorderService.setVadSensitivity?.(sttVad);
+          if (decalageMode) audioRecorderService.setDecalageMode?.(decalageMode);
         }
       } catch (e) {
         console.warn('[AdminSettingsShell] Could not apply audioRecorder settings:', e);
@@ -795,7 +933,13 @@ export default function AdminSettingsShell({
 
       setIsSaving(false);
       setIsSaved(true);
-      setInitialState(savedCfg);
+      setInitialState(buildSettingsSnapshot({
+        sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
+        deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
+        qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
+        preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
+        sttLang, sttVad, googleNeuralMode
+      }));
       setIsDirty(false);
 
       if (onSaveConfig) onSaveConfig(savedCfg);
@@ -810,6 +954,241 @@ export default function AdminSettingsShell({
       setIsSaving(false);
       setSaveError(err.message || 'Error al conectar con el servidor.');
     }
+  };
+
+  const executeReset = async (target = 'all') => {
+    setIsResetting(true);
+    setSaveError(null);
+    setShowResetPrompt(false);
+
+    const isResetAll = target === 'all';
+    const isResetStt = isResetAll || target === 'stt';
+    const isResetAi = isResetAll || target === 'ai';
+    const isResetTts = isResetAll || target === 'tts';
+    const isResetMedical = isResetAll || target === 'medical';
+
+    // 1. Purgar claves locales de configuración técnica pertinentes
+    const keysToPurge = [];
+    if (isResetStt) keysToPurge.push('lv_stt_engine', 'lv_stt_lang', 'lv_stt_vad', 'lv_decalage_mode');
+    if (isResetAi) keysToPurge.push('lv_preferred_engine', 'lv_ai_strategy', 'lv_gemini_model', 'lv_gemini_temp', 'lv_openai_model', 'lv_openai_temp', 'lv_qwen_model', 'lv_qwen_temp');
+    if (isResetTts) keysToPurge.push('lv_tts_engine', 'lv_voice_config', 'lv_voice_gender', 'lv_google_neural_mode');
+    if (isResetMedical) keysToPurge.push('lv_medical_mode', 'lv_medical_specialty', 'lv_custom_glossary');
+
+    for (const k of keysToPurge) {
+      try { localStorage.removeItem(k); } catch (e) {}
+    }
+
+    // 2. Rehidratar estado React y persistir en localStorage
+    let nextSttEngine = sttEngine;
+    let nextSttLang = sttLang;
+    let nextSttVad = sttVad;
+    let nextDecalageMode = decalageMode;
+    let nextPreferredEngine = preferredEngine;
+    let nextAiStrategy = aiStrategy;
+    let nextGeminiModel = geminiModel;
+    let nextGeminiTemp = geminiTemp;
+    let nextOpenaiModel = openaiModel;
+    let nextOpenaiTemp = openaiTemp;
+    let nextQwenModel = qwenModel;
+    let nextQwenTemp = qwenTemp;
+    let nextPreferredTtsEngine = preferredTtsEngine;
+    let nextVoiceConfig = voiceConfig;
+    let nextVoiceGender = voiceGender;
+    let nextGoogleNeuralMode = googleNeuralMode;
+    let nextMedicalMode = medicalMode;
+    let nextMedicalSpecialty = medicalSpecialty;
+    let nextCustomGlossary = customGlossary;
+
+    if (isResetStt) {
+      nextSttEngine = OPTIMAL_CONFIG_DEFAULTS.sttEngine;
+      nextSttLang = OPTIMAL_CONFIG_DEFAULTS.sttLang;
+      nextSttVad = OPTIMAL_CONFIG_DEFAULTS.sttVad;
+      nextDecalageMode = OPTIMAL_CONFIG_DEFAULTS.decalageMode;
+
+      setSttEngine(nextSttEngine);
+      setSttLang(nextSttLang);
+      setSttVad(nextSttVad);
+      setDecalageMode(nextDecalageMode);
+
+      safeSetItem('lv_stt_engine', nextSttEngine);
+      safeSetItem('lv_stt_lang', nextSttLang);
+      safeSetItem('lv_stt_vad', nextSttVad);
+      safeSetItem('lv_decalage_mode', nextDecalageMode);
+
+      try {
+        if (typeof audioRecorderService !== 'undefined') {
+          audioRecorderService.setSttEngine?.(nextSttEngine);
+          audioRecorderService.setLanguage?.(nextSttLang);
+          audioRecorderService.setVadSensitivity?.(nextSttVad);
+          audioRecorderService.setDecalageMode?.(nextDecalageMode);
+        }
+      } catch (e) {
+        console.warn('[AdminSettingsShell] Error al sincronizar defaults con audioRecorder:', e);
+      }
+    }
+
+    if (isResetAi) {
+      nextPreferredEngine = OPTIMAL_CONFIG_DEFAULTS.preferredEngine;
+      nextAiStrategy = OPTIMAL_CONFIG_DEFAULTS.aiStrategy;
+      nextGeminiModel = OPTIMAL_CONFIG_DEFAULTS.geminiModel;
+      nextGeminiTemp = OPTIMAL_CONFIG_DEFAULTS.geminiTemp;
+      nextOpenaiModel = OPTIMAL_CONFIG_DEFAULTS.openaiModel;
+      nextOpenaiTemp = OPTIMAL_CONFIG_DEFAULTS.openaiTemp;
+      nextQwenModel = OPTIMAL_CONFIG_DEFAULTS.qwenModel;
+      nextQwenTemp = OPTIMAL_CONFIG_DEFAULTS.qwenTemp;
+
+      setPreferredEngine(nextPreferredEngine);
+      setAiStrategy(nextAiStrategy);
+      setGeminiModel(nextGeminiModel);
+      setGeminiTemp(nextGeminiTemp);
+      setOpenaiModel(nextOpenaiModel);
+      setOpenaiTemp(nextOpenaiTemp);
+      setQwenModel(nextQwenModel);
+      setQwenTemp(nextQwenTemp);
+
+      safeSetItem('lv_preferred_engine', nextPreferredEngine);
+      safeSetItem('lv_ai_strategy', nextAiStrategy);
+      safeSetItem('lv_gemini_model', nextGeminiModel);
+      safeSetItem('lv_gemini_temp', nextGeminiTemp);
+      safeSetItem('lv_openai_model', nextOpenaiModel);
+      safeSetItem('lv_openai_temp', nextOpenaiTemp);
+      safeSetItem('lv_qwen_model', nextQwenModel);
+      safeSetItem('lv_qwen_temp', nextQwenTemp);
+    }
+
+    if (isResetTts) {
+      nextPreferredTtsEngine = OPTIMAL_CONFIG_DEFAULTS.preferredTtsEngine;
+      nextVoiceConfig = OPTIMAL_CONFIG_DEFAULTS.voiceConfig;
+      nextVoiceGender = OPTIMAL_CONFIG_DEFAULTS.voiceGender;
+      nextGoogleNeuralMode = OPTIMAL_CONFIG_DEFAULTS.googleNeuralMode;
+
+      setPreferredTtsEngine(nextPreferredTtsEngine);
+      setVoiceConfig(nextVoiceConfig);
+      setVoiceGender(nextVoiceGender);
+      setGoogleNeuralMode(nextGoogleNeuralMode);
+
+      safeSetItem('lv_tts_engine', nextPreferredTtsEngine);
+      safeSetItem('lv_voice_config', nextVoiceConfig);
+      safeSetItem('lv_voice_gender', nextVoiceGender);
+      safeSetItem('lv_google_neural_mode', nextGoogleNeuralMode);
+
+      if (effectiveRoomId) {
+        fetch(`/api/rooms/${effectiveRoomId}/voices`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ voiceConfig: nextVoiceConfig, voiceGender: nextVoiceGender })
+        }).catch(() => {});
+      }
+    }
+
+    if (isResetMedical) {
+      nextMedicalMode = OPTIMAL_CONFIG_DEFAULTS.medicalMode;
+      nextMedicalSpecialty = OPTIMAL_CONFIG_DEFAULTS.medicalSpecialty;
+      nextCustomGlossary = OPTIMAL_CONFIG_DEFAULTS.customGlossary;
+
+      setMedicalMode(nextMedicalMode);
+      setMedicalSpecialty(nextMedicalSpecialty);
+      setCustomGlossary(nextCustomGlossary);
+
+      safeSetItem('lv_medical_mode', 'false');
+      safeSetItem('lv_medical_specialty', 'general');
+      safeSetItem('lv_custom_glossary', '');
+    }
+
+    const savedCfg = {
+      sttEngine: nextSttEngine,
+      preferredTtsEngine: nextPreferredTtsEngine,
+      voiceConfig: nextVoiceConfig,
+      voiceGender: nextVoiceGender,
+      preferredEngine: nextPreferredEngine,
+      sttLang: nextSttLang,
+      sttVad: nextSttVad,
+      aiStrategy: nextAiStrategy,
+      openaiKey,
+      openaiModel: nextOpenaiModel,
+      openaiTemp: nextOpenaiTemp,
+      elevenLabsKey,
+      deepgramKey,
+      geminiKey,
+      geminiModel: nextGeminiModel,
+      geminiTemp: nextGeminiTemp,
+      qwenKey,
+      qwenModel: nextQwenModel,
+      qwenTemp: nextQwenTemp,
+      qwenEndpoint,
+      qwenTtsEndpoint,
+      medicalMode: nextMedicalMode,
+      medicalSpecialty: nextMedicalSpecialty,
+      customGlossary: typeof nextCustomGlossary === 'string'
+        ? nextCustomGlossary.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean)
+        : (Array.isArray(nextCustomGlossary) ? nextCustomGlossary : []),
+      decalageMode: nextDecalageMode,
+      googleNeuralMode: nextGoogleNeuralMode,
+      preferredSttEngine: nextSttEngine,
+      preferredTranslationEngine: nextPreferredEngine
+    };
+
+    // 3. Persistir en el backend si el token de administración está disponible
+    try {
+      const token = adminAuthService.getToken();
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(savedCfg)
+      });
+    } catch (err) {
+      console.warn('[AdminSettingsShell] Aviso al sincronizar defaults con servidor:', err);
+    }
+
+    const resetSnapshot = buildSettingsSnapshot({
+      sttEngine: nextSttEngine,
+      preferredTtsEngine: nextPreferredTtsEngine,
+      voiceConfig: nextVoiceConfig,
+      voiceGender: nextVoiceGender,
+      deepgramKey,
+      geminiKey,
+      geminiModel: nextGeminiModel,
+      geminiTemp: nextGeminiTemp,
+      elevenLabsKey,
+      openaiKey,
+      openaiModel: nextOpenaiModel,
+      openaiTemp: nextOpenaiTemp,
+      qwenKey,
+      qwenModel: nextQwenModel,
+      qwenTemp: nextQwenTemp,
+      qwenEndpoint,
+      qwenTtsEndpoint,
+      preferredEngine: nextPreferredEngine,
+      aiStrategy: nextAiStrategy,
+      medicalMode: nextMedicalMode,
+      medicalSpecialty: nextMedicalSpecialty,
+      customGlossary: nextCustomGlossary,
+      decalageMode: nextDecalageMode,
+      sttLang: nextSttLang,
+      sttVad: nextSttVad,
+      googleNeuralMode: nextGoogleNeuralMode
+    });
+
+    setIsResetting(false);
+    setIsDirty(false);
+    setIsSaved(true);
+    setInitialState(resetSnapshot);
+
+    const sectionLabel = SECTION_DEFAULTS_MAP[target]?.shortLabel || 'la sección';
+    const successMsg = isResetAll
+      ? 'Configuración completa restablecida a los valores recomendados'
+      : `Valores de ${sectionLabel} restablecidos con éxito`;
+    setSavedMessage(successMsg);
+
+    if (onSaveConfig) onSaveConfig(savedCfg);
+    window.dispatchEvent(new CustomEvent('liftvoice_config_saved', { detail: savedCfg }));
+
+    setTimeout(() => {
+      setIsSaved(false);
+      setSavedMessage(null);
+    }, 3000);
   };
 
   const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
@@ -1040,6 +1419,55 @@ export default function AdminSettingsShell({
 
   const mainContent = (
     <div className={`flex-1 ${variant === 'modal' ? 'px-6 sm:px-8 pt-6 pb-8 space-y-8' : 'min-w-0 space-y-8'}`}>
+      {/* Banner de confirmación de restablecimiento contextual (diseño idéntico a Banner QR) */}
+      {showResetPrompt && (
+        <Banner
+          icon={<RotateCcw className="w-4 h-4 text-white" strokeWidth={2.2} />}
+          color="#f59e0b"
+          title={isCurrentTabResettable ? `¿Restablecer ${currentSectionInfo?.title}?` : '¿Restablecer configuración?'}
+          subtitle="Valores recomendados de fábrica"
+          desc={
+            isCurrentTabResettable
+              ? `Restaura únicamente los parámetros recomendados de ${currentSectionInfo?.shortLabel}. Las claves de API y las demás secciones se mantendrán intactas.`
+              : 'Restaura todos los motores de voz, modelos de IA y cabinas de traducción a sus valores recomendados de fábrica.'
+          }
+          action={
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={() => executeReset(isCurrentTabResettable ? activeTab : 'all')}
+                className="hidden sm:inline-flex h-8 px-3.5 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-xs cursor-pointer items-center justify-center transition-all active:scale-95 disabled:opacity-50 shrink-0"
+              >
+                {isResetting ? 'Restableciendo...' : 'Restablecer'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowResetPrompt(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                title="Cerrar aviso"
+                aria-label="Cerrar aviso"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          }
+          bottomAction={
+            <button
+              type="button"
+              disabled={isResetting}
+              onClick={() => executeReset(isCurrentTabResettable ? activeTab : 'all')}
+              className="w-full h-9 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-xs cursor-pointer flex items-center justify-center transition-all active:scale-95 disabled:opacity-50"
+            >
+              {isResetting ? 'Restableciendo...' : 'Restablecer'}
+            </button>
+          }
+          bottomActionClassName="sm:hidden"
+          className="animate-fadeIn shadow-xs mb-6"
+          style={{ padding: '14px 16px', borderRadius: 20 }}
+        />
+      )}
+
       {/* ═══════════════════════════════════════════════════════════ */}
       {/* PESTAÑA: RECONOCIMIENTO DE VOZ                              */}
       {/* ═══════════════════════════════════════════════════════════ */}
@@ -1952,7 +2380,7 @@ export default function AdminSettingsShell({
   if (variant === 'modal') {
     return (
       <div 
-        className="relative w-full h-full sm:h-[88vh] sm:max-h-[820px] sm:max-w-[1100px] flex flex-col md:flex-row overflow-hidden rounded-none sm:rounded-[32px] bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-white/10 shadow-2xl text-left focus:outline-none" 
+        className="relative w-full h-full sm:h-[88vh] sm:max-h-[820px] sm:max-w-[1100px] flex flex-col md:flex-row overflow-hidden rounded-none sm:rounded-[32px] bg-white dark:bg-zinc-950 border-0 sm:border border-zinc-200/80 dark:border-white/10 shadow-2xl text-left focus:outline-none" 
         ref={modalContainerRef}
       >
         {/* Left Sidebar Rail (Visible en md+, en móvil oculto para activar MenuDeArea) */}
@@ -2018,7 +2446,7 @@ export default function AdminSettingsShell({
           </header>
 
           {/* Scrollable Content Body */}
-          <div className="flex-1 overflow-y-auto min-h-0 scrollbar-custom scrollbar-fina">
+          <div ref={contentScrollRef} className="flex-1 overflow-y-auto min-h-0 scrollbar-custom scrollbar-fina">
             {mainContent}
           </div>
 
@@ -2028,9 +2456,12 @@ export default function AdminSettingsShell({
               variant="modal"
               onSave={handleSave} 
               onCancel={handleCloseAttempt} 
+              onResetDefaults={handleOpenResetPrompt}
+              savedMessage={savedMessage}
               isDirty={isDirty} 
               isSaving={isSaving} 
               isSaved={isSaved} 
+              isResetting={isResetting}
             />
           )}
 
@@ -2105,7 +2536,17 @@ export default function AdminSettingsShell({
         </section>
       </main>
       {shouldShowFooter && (
-        <AdminStickyFooter variant="page" onSave={handleSave} onCancel={handleReturn} isDirty={isDirty} isSaving={isSaving} isSaved={isSaved} />
+        <AdminStickyFooter 
+          variant="page" 
+          onSave={handleSave} 
+          onCancel={handleReturn} 
+          onResetDefaults={handleOpenResetPrompt}
+          savedMessage={savedMessage}
+          isDirty={isDirty} 
+          isSaving={isSaving} 
+          isSaved={isSaved} 
+          isResetting={isResetting}
+        />
       )}
       <div ref={setFooterSlot} className="contents" />
       <UnsavedChangesPrompt isOpen={showUnsavedPrompt} onCancel={() => setShowUnsavedPrompt(false)} onConfirm={() => { revertToInitialState(); setShowUnsavedPrompt(false); executeReturn(); }} />

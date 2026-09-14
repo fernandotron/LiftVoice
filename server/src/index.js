@@ -645,8 +645,8 @@ app.post('/api/asr-token', async (req, res) => {
     }
 
     const sttModel = (deepgramLang === 'en') ? 'nova-3' : 'nova-2';
-    // Deepgram Nova-2 rechaza la conexión si recibe el query param keyterm (exclusivo de Nova-3)
-    const validKeyterms = (sttModel === 'nova-3') ? [...new Set(keyterms)].slice(0, 50) : [];
+    // El cliente mapea keyterms a 'keyterm' (Nova-3) o 'keywords' (Nova-2) para boost léxico
+    const validKeyterms = Array.isArray(keyterms) ? [...new Set(keyterms)].slice(0, 50) : [];
 
     return res.json({
       success: true,
@@ -732,13 +732,20 @@ app.post('/api/rooms/:roomId/preview-voice', async (req, res) => {
 
 // Update Room Voice Configuration
 app.post('/api/rooms/:roomId/voices', async (req, res) => {
-  const { voiceConfig } = req.body;
+  const { voiceConfig, voiceGender } = req.body;
   try {
-    if (voiceConfig) {
-      const { ttsService } = await import('./services/ttsService.js');
-      ttsService.setConfig({ voiceConfig });
+    const { ttsService } = await import('./services/ttsService.js');
+    if (voiceConfig || voiceGender) {
+      ttsService.setConfig({ voiceConfig, voiceGender });
     }
-    res.json({ success: true, voiceConfig });
+    if (req.params.roomId && roomManager) {
+      roomManager.broadcastToRoom(req.params.roomId, {
+        type: 'ROOM_VOICES_UPDATED',
+        voiceConfig,
+        voiceGender
+      });
+    }
+    res.json({ success: true, voiceConfig, voiceGender });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

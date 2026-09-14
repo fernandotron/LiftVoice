@@ -314,6 +314,85 @@ class AudioRecorderService {
     }
   }
 
+  setSttEngine(engine) {
+    if (!engine) return;
+    const prevEngine = this.sttEngine;
+    this.sttEngine = engine;
+    console.log(`[AudioRecorder] 🎙️ STT Engine establecido: "${engine}" (anterior: "${prevEngine}")`);
+
+    if (this.isRecording && prevEngine !== engine) {
+      if (engine === 'deepgram') {
+        if (this.recognition) {
+          try {
+            this.recognition.onend = null;
+            this.recognition.onerror = null;
+            this.recognition.onresult = null;
+            this.recognition.abort();
+          } catch (e) {}
+          this.recognition = null;
+        }
+        if (this.mediaStream && (!this.deepgramStreamingService.active || !this.deepgramStreamingService.ws)) {
+          const opts = this.recordingOptions || {};
+          const srcLower = (this.sourceLanguage || '').toLowerCase();
+          let langCode = 'es';
+          if (srcLower.startsWith('en')) langCode = 'en';
+          else if (srcLower.startsWith('pt')) langCode = srcLower.includes('br') ? 'pt-BR' : 'pt';
+          else if (srcLower.startsWith('it')) langCode = 'it';
+          else if (srcLower.startsWith('es')) langCode = 'es';
+          else if (this.sourceLanguage && this.sourceLanguage !== 'auto' && this.sourceLanguage !== 'multi') {
+            langCode = this.sourceLanguage.length > 2 ? this.sourceLanguage.slice(0, 2) : this.sourceLanguage;
+          }
+
+          let keyterms = [];
+          if (opts.medicalMode) keyterms.push(...getLocalizedMedicalKeyterms(langCode));
+          if (Array.isArray(opts.customGlossary)) keyterms.push(...opts.customGlossary);
+          this.currentKeyterms = keyterms;
+
+          this.deepgramStreamingService.start(
+            this.mediaStream,
+            {
+              language: langCode,
+              medicalMode: opts.medicalMode,
+              medicalSpecialty: opts.medicalSpecialty,
+              customGlossary: opts.customGlossary,
+              keyterms
+            },
+            {
+              onTranscript: ({ transcript, isFinal, detectedLanguage }) => {
+                if (!this.isRecording && !isFinal) return;
+                const clean = (transcript || '').trim();
+                if (!clean) return;
+                if (isFinal) {
+                  this.currentPendingText = '';
+                  this.notifyInterim('');
+                  if (this.onSpeechTextCallback) {
+                    this.onSpeechTextCallback(clean, detectedLanguage || langCode);
+                  }
+                } else {
+                  this.currentPendingText = clean;
+                  this.notifyInterim(clean);
+                }
+              },
+              onError: (err) => {
+                console.warn('[AudioRecorder] Fallo Deepgram tras conmutación de motor, cayendo a WebSpeech:', err);
+                this.deepgramStreamingService.stop().catch(() => {});
+                this.sttEngine = 'webspeech';
+                if (this.isRecording && !this.recognition) this.initSpeechRecognition();
+              }
+            }
+          ).catch(() => {});
+        }
+      } else if (engine === 'webspeech') {
+        if (this.deepgramStreamingService.active) {
+          this.deepgramStreamingService.stop().catch(() => {});
+        }
+        if (!this.recognition) {
+          this.initSpeechRecognition();
+        }
+      }
+    }
+  }
+
   async getAudioInputDevices() {
     try {
       if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
@@ -644,7 +723,11 @@ class AudioRecorderService {
           console.log('[AudioRecorder] Deepgram reconnect stream closed:', code, wasClean);
         }
       }).catch(e => {
-        console.warn('[AudioRecorder] Error reconnecting Deepgram on language change:', e);
+        console.warn('[AudioRecorder] Error reconnecting Deepgram on language change, falling back to WebSpeech:', e);
+        this.sttEngine = 'webspeech';
+        if (this.isRecording && !this.recognition) {
+          this.initSpeechRecognition();
+        }
       });
       return;
     }

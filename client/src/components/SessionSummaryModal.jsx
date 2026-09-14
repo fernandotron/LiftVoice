@@ -85,7 +85,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 dark:bg-black/75 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/60 dark:bg-black/75 backdrop-blur-sm animate-fadeIn"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -93,10 +93,10 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
       aria-modal="true"
       aria-labelledby="summary-dialog-title"
     >
-      <div className="relative w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden rounded-[28px] sm:rounded-[32px] bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-white/10 shadow-2xl text-left text-zinc-900 dark:text-zinc-100">
+      <div className="relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-2xl flex flex-col overflow-hidden rounded-none sm:rounded-[32px] bg-white dark:bg-zinc-950 border-0 sm:border border-zinc-200/80 dark:border-white/10 shadow-2xl text-left text-zinc-900 dark:text-zinc-100">
         
         {/* Header exacto del modal de configuración admin */}
-        <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-6 sm:px-8 pt-6 pb-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md">
+        <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-5 sm:px-8 pt-4 sm:pt-6 pb-3.5 sm:pb-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md">
           <div className="min-w-0 flex-1">
             <h3 id="summary-dialog-title" className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">
               Resumen Ejecutivo con IA
@@ -117,7 +117,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
         </header>
 
         {/* Scrollable Content Body con estética Admin */}
-        <div className="flex-1 overflow-y-auto min-h-0 px-6 sm:px-8 py-6 space-y-6 scrollbar-custom text-left">
+        <div className="flex-1 overflow-y-auto min-h-0 px-4 sm:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 scrollbar-custom text-left">
           
           {isLoading && (
             <div className="py-16 text-center space-y-3">
@@ -238,7 +238,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
         </div>
 
         {/* Footer idéntico al del panel de administración */}
-        <footer className="relative z-20 flex shrink-0 items-center justify-between gap-4 px-6 sm:px-8 py-4 sm:py-5 border-t border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md">
+        <footer className="relative z-20 flex shrink-0 items-center justify-between gap-3 sm:gap-4 px-4 sm:px-8 py-3.5 sm:py-5 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-5 border-t border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md">
           <div className="text-xs text-zinc-400 dark:text-zinc-500 font-mono hidden sm:block">
             LiftVoice Studio Summary
           </div>

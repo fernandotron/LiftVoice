@@ -78,10 +78,22 @@ export function getInitialRouteState() {
   }
 
   if (viewParam === 'voices') {
+    if (roomParam) {
+      const normalized = normalizeRoomCode(roomParam);
+      try {
+        localStorage.setItem('lv_active_room_id', normalized);
+      } catch (e) {}
+      return {
+        currentView: 'host',
+        roomId: normalized,
+        roomTitle: `Sala ${normalized}`,
+        pendingJoinRoom: null
+      };
+    }
     return {
       currentView: 'voices',
-      roomId: roomParam ? normalizeRoomCode(roomParam) : null,
-      roomTitle: roomParam ? `Sala ${normalizeRoomCode(roomParam)}` : 'Conferencia Principal',
+      roomId: null,
+      roomTitle: 'Conferencia Principal',
       pendingJoinRoom: null
     };
   }
@@ -483,7 +495,6 @@ export default function App() {
             onLeave={handleLeave}
             localIp={localIp}
             onOpenSettings={() => setIsSettingsOpen(true)}
-            onNavigateVoices={() => setCurrentView('voices')}
           />
         )}
 

@@ -16,6 +16,7 @@ import SessionSummaryModal from '../components/SessionSummaryModal.jsx';
 import MasterBroadcastDock from '../components/mobile/MasterBroadcastDock.jsx';
 import CabinsBottomSheet from '../components/mobile/CabinsBottomSheet.jsx';
 import QABannerAlert from '../components/mobile/QABannerAlert.jsx';
+import MobileHeaderMenu from '../components/mobile/MobileHeaderMenu.jsx';
 import Banner from '../components/shared/Banner.jsx';
 import DesktopHeaderMenu from '../components/shared/DesktopHeaderMenu.jsx';
 import SelectDropdown from '../components/shared/SelectDropdown.jsx';
@@ -39,6 +40,13 @@ export const DEFAULT_VOICES = {
   pt: 'pt-BR-FranciscaNeural'
 };
 
+export const DEFAULT_GENDERS = {
+  es: 'female',
+  en: 'female',
+  it: 'female',
+  pt: 'female'
+};
+
 export const SPEAKER_LANGUAGES = [
   { code: 'es', langCode: 'es-ES', label: 'Español (Ponente)', nativeName: 'Español', voice: 'Voz del ponente' },
   { code: 'en', langCode: 'en-US', label: 'English (Speaker)', nativeName: 'English', voice: 'Speaker voice' },
@@ -52,8 +60,7 @@ export default function HostView({
   roomTitle = 'Conferencia Principal',
   onLeave = () => {},
   localIp = '192.168.1.12',
-  onOpenSettings = () => {},
-  onNavigateVoices = null
+  onOpenSettings = () => {}
 }) {
   const { resolvedTheme, toggleTheme } = useTheme();
   const [isBroadcasting, setIsBroadcasting] = useState(false);
@@ -72,6 +79,8 @@ export default function HostView({
   const [inspectorTab, setInspectorTab] = useState('cabins'); // 'cabins' | 'qa' | 'room'
   const [captionSize, setCaptionSize] = useState('md'); // 'sm' | 'md' | 'lg' | 'xl'
   const [isVoiceCatalogOpen, setIsVoiceCatalogOpen] = useState(false);
+  const [selectedCatalogLang, setSelectedCatalogLang] = useState('es');
+  const [voiceToast, setVoiceToast] = useState(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isAttendeesModalOpen, setIsAttendeesModalOpen] = useState(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
@@ -206,6 +215,15 @@ export default function HostView({
     }
   });
 
+  const [voiceGender, setVoiceGender] = useState(() => {
+    try {
+      const saved = localStorage.getItem('lv_voice_gender');
+      return saved ? { ...DEFAULT_GENDERS, ...JSON.parse(saved) } : DEFAULT_GENDERS;
+    } catch (e) {
+      return DEFAULT_GENDERS;
+    }
+  });
+
   const [preferredEngine, setPreferredEngine] = useState(() => {
     return localStorage.getItem('lv_preferred_engine') || 'gemini';
   });
@@ -251,7 +269,7 @@ export default function HostView({
 
   // Synchronize microphone / STT engine language dynamically
   useEffect(() => {
-    audioRecorderService.setLanguage(sourceLanguage);
+    audioRecorderService.setLanguage?.(sourceLanguage);
   }, [sourceLanguage]);
 
   // Synchronize dynamic parameters when admin config is saved or on mount
@@ -260,13 +278,13 @@ export default function HostView({
 
     try {
       const savedVad = localStorage.getItem('lv_stt_vad');
-      if (savedVad) audioRecorderService.setVadSensitivity(savedVad);
+      if (savedVad) audioRecorderService.setVadSensitivity?.(savedVad);
       const savedDecalage = localStorage.getItem('lv_decalage_mode');
-      if (savedDecalage) audioRecorderService.setDecalageMode(savedDecalage);
+      if (savedDecalage) audioRecorderService.setDecalageMode?.(savedDecalage);
       const savedLang = localStorage.getItem('lv_stt_lang');
       if (savedLang) {
         setSourceLanguage(savedLang);
-        audioRecorderService.setLanguage(savedLang);
+        audioRecorderService.setLanguage?.(savedLang);
       }
     } catch (e) {}
 
@@ -277,13 +295,14 @@ export default function HostView({
         if (!isSubscribed || !cfg) return;
         if (cfg.preferredSttEngine) {
           setSttEngine(cfg.preferredSttEngine);
-          audioRecorderService.setSttEngine(cfg.preferredSttEngine);
+          audioRecorderService.setSttEngine?.(cfg.preferredSttEngine);
         }
         if (cfg.sttLang && cfg.sttLang !== 'auto' && !localStorage.getItem('lv_stt_lang')) {
           setSourceLanguage(cfg.sttLang);
-          audioRecorderService.setLanguage(cfg.sttLang);
+          audioRecorderService.setLanguage?.(cfg.sttLang);
         }
         if (cfg.voiceConfig) setSelectedVoices(cfg.voiceConfig);
+        if (cfg.voiceGender) setVoiceGender(cfg.voiceGender);
         if (cfg.preferredTranslationEngine) setPreferredEngine(cfg.preferredTranslationEngine);
         if (cfg.medicalMode !== undefined) {
           setMedicalConfig({
@@ -304,23 +323,36 @@ export default function HostView({
       if (!cfg) return;
       if (cfg.sttLang) {
         setSourceLanguage(cfg.sttLang);
-        audioRecorderService.setLanguage(cfg.sttLang);
+        audioRecorderService.setLanguage?.(cfg.sttLang);
       }
       if (cfg.sttEngine) {
         setSttEngine(cfg.sttEngine);
-        audioRecorderService.setSttEngine(cfg.sttEngine);
+        audioRecorderService.setSttEngine?.(cfg.sttEngine);
       }
       if (cfg.sttVad) {
-        audioRecorderService.setVadSensitivity(cfg.sttVad);
+        audioRecorderService.setVadSensitivity?.(cfg.sttVad);
       }
       if (cfg.decalageMode) {
-        audioRecorderService.setDecalageMode(cfg.decalageMode);
+        audioRecorderService.setDecalageMode?.(cfg.decalageMode);
       }
-      if (cfg.medicalMode !== undefined || cfg.medicalSpecialty || cfg.customGlossary) {
+      if (cfg.voiceConfig) {
+        setSelectedVoices(cfg.voiceConfig);
+      }
+      if (cfg.voiceGender) {
+        setVoiceGender(cfg.voiceGender);
+      }
+      if (cfg.preferredEngine) {
+        setPreferredEngine(cfg.preferredEngine);
+      }
+      if (cfg.medicalMode !== undefined || cfg.medicalSpecialty || cfg.customGlossary !== undefined) {
         setMedicalConfig({
           medicalMode: Boolean(cfg.medicalMode),
           medicalSpecialty: cfg.medicalSpecialty || 'general',
-          customGlossary: Array.isArray(cfg.customGlossary) ? cfg.customGlossary : []
+          customGlossary: Array.isArray(cfg.customGlossary)
+            ? cfg.customGlossary
+            : (typeof cfg.customGlossary === 'string'
+                ? cfg.customGlossary.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean)
+                : [])
         });
       }
     };
@@ -534,30 +566,6 @@ export default function HostView({
     };
   }, [roomId]);
 
-  // Reactive listener for global SettingsModal updates
-  useEffect(() => {
-    const handleConfigSaved = (e) => {
-      const cfg = e.detail;
-      if (!cfg) return;
-      if (cfg.sttEngine) setSttEngine(cfg.sttEngine);
-      if (cfg.voiceConfig) setSelectedVoices(cfg.voiceConfig);
-      if (cfg.preferredEngine) setPreferredEngine(cfg.preferredEngine);
-      if (cfg.medicalMode !== undefined) {
-        setMedicalConfig({
-          medicalMode: Boolean(cfg.medicalMode),
-          medicalSpecialty: cfg.medicalSpecialty || 'general',
-          customGlossary: Array.isArray(cfg.customGlossary)
-            ? cfg.customGlossary
-            : (typeof cfg.customGlossary === 'string'
-                ? cfg.customGlossary.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean)
-                : [])
-        });
-      }
-    };
-    window.addEventListener('liftvoice_config_saved', handleConfigSaved);
-    return () => window.removeEventListener('liftvoice_config_saved', handleConfigSaved);
-  }, []);
-
   // Zero-Reflow GPU VAD listener
   useEffect(() => {
     const unsubAudioLevel = audioRecorderService.onAudioLevel((lvl) => {
@@ -736,17 +744,69 @@ export default function HostView({
     sendSpeechToEngines(textToSend);
   };
 
-  const handleSelectVoiceFromCatalog = (lang, voiceId) => {
-    const updated = { ...selectedVoices, [lang]: voiceId };
-    setSelectedVoices(updated);
+  const handleSelectVoiceFromCatalog = (langOrConfig, maybeVoiceId, engine, gender) => {
+    if (!langOrConfig) return;
+
+    let updatedVoices;
+    let updatedGenders;
+    let toastMessage = 'Voces actualizadas correctamente';
+    let toastLang = 'all';
+
+    if (typeof langOrConfig === 'object' && langOrConfig !== null) {
+      updatedVoices = { ...selectedVoices, ...langOrConfig };
+      updatedGenders = (typeof maybeVoiceId === 'object' && maybeVoiceId !== null)
+        ? { ...voiceGender, ...maybeVoiceId }
+        : voiceGender;
+      toastMessage = 'Voces de cabina guardadas y sincronizadas';
+    } else {
+      const lang = langOrConfig;
+      const voiceId = maybeVoiceId;
+      if (!voiceId) return;
+
+      const resolvedGender = gender || (voiceGender && voiceGender[lang]) || 'female';
+      updatedVoices = { ...selectedVoices, [lang]: voiceId };
+      updatedGenders = { ...voiceGender, [lang]: resolvedGender };
+
+      const cabinInfo = ALL_CABINS.find(c => c.code === lang);
+      toastMessage = `Voz actualizada en cabina ${cabinInfo ? cabinInfo.name : lang.toUpperCase()}`;
+      toastLang = lang;
+    }
+
+    setSelectedVoices(updatedVoices);
+    setVoiceGender(updatedGenders);
+
     try {
-      localStorage.setItem('lv_voice_config', JSON.stringify(updated));
-      fetch(`/api/rooms/${roomId}/voices`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voiceConfig: updated })
-      }).catch(() => {});
-    } catch (e) {}
+      localStorage.setItem('lv_voice_config', JSON.stringify(updatedVoices));
+      localStorage.setItem('lv_voice_gender', JSON.stringify(updatedGenders));
+
+      if (roomId) {
+        fetch(`/api/rooms/${roomId}/voices`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            voiceConfig: updatedVoices,
+            voiceGender: updatedGenders
+          })
+        }).catch((err) => {
+          console.warn('[HostView] Aviso al actualizar voces en el servidor:', err);
+        });
+      }
+
+      window.dispatchEvent(new CustomEvent('liftvoice_config_saved', {
+        detail: {
+          voiceConfig: updatedVoices,
+          voiceGender: updatedGenders
+        }
+      }));
+
+      setVoiceToast({
+        message: toastMessage,
+        lang: toastLang
+      });
+      setTimeout(() => setVoiceToast(null), 3000);
+    } catch (e) {
+      console.warn('[HostView] Error al persistir voces:', e);
+    }
   };
 
   const handlePreviewChannelVoice = async (langCode) => {
@@ -978,7 +1038,11 @@ export default function HostView({
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Cabinas de Traducción</span>
               <button
-                onClick={() => (onNavigateVoices ? onNavigateVoices() : setIsVoiceCatalogOpen(true))}
+                type="button"
+                onClick={() => {
+                  setSelectedCatalogLang('es');
+                  setIsVoiceCatalogOpen(true);
+                }}
                 className="text-[11px] text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white font-medium flex items-center gap-1 cursor-pointer"
               >
                 <span>Catálogo de Voces</span>
@@ -1009,7 +1073,17 @@ export default function HostView({
                       <CountryFlag code={cab.code} className="w-6 h-6 rounded-full shadow-2xs flex-shrink-0" />
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-zinc-950 dark:text-zinc-100">{cab.name}</div>
-                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono truncate max-w-[130px]">{voice}</div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCatalogLang(cab.code);
+                            setIsVoiceCatalogOpen(true);
+                          }}
+                          className="text-[10px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 font-mono truncate max-w-[130px] block text-left hover:underline cursor-pointer"
+                          title={`Cambiar voz para ${cab.name}`}
+                        >
+                          {voice}
+                        </button>
                       </div>
                     </div>
 
@@ -1363,15 +1437,21 @@ export default function HostView({
           {hasCopiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> : <Copy className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setIsQrModalOpen(true)}
-          className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
-          title="Proyectar código QR"
-          aria-label="Proyectar código QR"
-        >
-          <QrCode className="w-4 h-4" />
-        </button>
+        <MobileHeaderMenu
+          roomId={roomId}
+          onOpenSettings={() => onOpenSettings && onOpenSettings()}
+          onOpenAttendees={() => setIsAttendeesModalOpen(true)}
+          attendeesCount={roomStats.attendees?.length || 0}
+          onOpenSummary={handleGenerateSummary}
+          onOpenVoices={() => {
+            setSelectedCatalogLang('es');
+            setIsVoiceCatalogOpen(true);
+          }}
+          onOpenQR={() => setIsQrModalOpen(true)}
+          hasCopiedLink={hasCopiedLink}
+          onCopyLink={handleCopyMeetingLink}
+          onLeave={() => onLeave({ reason: 'voluntary', isMobile: true })}
+        />
       </header>
 
       {/* ───────────────────────────────────────────────────────────── */}
@@ -1401,7 +1481,10 @@ export default function HostView({
               },
               {
                 label: 'Catálogo de Voces',
-                onClick: () => (onNavigateVoices ? onNavigateVoices() : setIsVoiceCatalogOpen(true))
+                onClick: () => {
+                  setSelectedCatalogLang('es');
+                  setIsVoiceCatalogOpen(true);
+                }
               },
               {
                 label: 'Ajustes de Sala',
@@ -2008,6 +2091,11 @@ export default function HostView({
         onStopMonitoring={handleStopMonitoring}
         onPreviewVoice={handlePreviewChannelVoice}
         onTestAudio={() => audioPlayerService.playAudioTestTone()}
+        onOpenCatalogForLang={(lang) => {
+          setSelectedCatalogLang(lang || 'es');
+          setIsCabinsSheetOpen(false);
+          setIsVoiceCatalogOpen(true);
+        }}
         decalageValue={decalageValue}
         onDecalageChange={setDecalageValue}
         boothVolume={boothVolume}
@@ -2017,10 +2105,20 @@ export default function HostView({
       {/* Global Modals */}
       <VoiceCatalogModal
         isOpen={isVoiceCatalogOpen}
-        onClose={() => setIsVoiceCatalogOpen(false)}
+        onClose={() => {
+          setIsVoiceCatalogOpen(false);
+          try { audioPlayerService.stopAll(); } catch (e) {}
+        }}
+        currentLanguage={selectedCatalogLang}
         selectedVoices={selectedVoices}
         onSelectVoice={handleSelectVoiceFromCatalog}
         roomId={roomId}
+        configuredEngines={{
+          deepgram: true,
+          google: true,
+          openai: Boolean(localStorage.getItem('lv_openai_key')),
+          elevenlabs: Boolean(localStorage.getItem('lv_eleven_key'))
+        }}
       />
 
       <QRCodeModal
@@ -2048,6 +2146,14 @@ export default function HostView({
         isLoading={isGeneratingSummary}
         error={summaryError}
       />
+
+      {/* Micro-toast flotante de confirmación de voz en vivo */}
+      {voiceToast && (
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-zinc-900/90 dark:bg-white/95 text-white dark:text-zinc-900 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-2 backdrop-blur-xs animate-fadeIn border border-white/10 dark:border-zinc-200">
+          <Check className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600 flex-shrink-0 stroke-[2.5]" />
+          <span>{voiceToast.message}</span>
+        </div>
+      )}
 
     </div>
   );

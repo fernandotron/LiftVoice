@@ -31,6 +31,7 @@ const ASR_CLOSE_DRAIN_TIMEOUT_MS = 1500;
 export class DeepgramStreamingService {
   constructor() {
     this.ws = null;
+    this.drainingWs = null;
     this.audioContext = null;
     this.sourceNode = null;
     this.workletNode = null;
@@ -441,15 +442,18 @@ export class DeepgramStreamingService {
       smart_format: 'true'
     });
 
+    params.append('endpointing', String(ASR_ENDPOINTING_MS));
+    params.append('utterance_end_ms', String(ASR_UTTERANCE_END_MS));
+
     if (isNova3) {
-      params.append('endpointing', String(ASR_ENDPOINTING_MS));
-      params.append('utterance_end_ms', String(ASR_UTTERANCE_END_MS));
       for (const term of config.keyterms || []) {
         params.append('keyterm', term);
       }
-    } else {
-      // Nova-2 (Español, Italiano, Portugués) soporta endpointing booleano y no acepta keyterm
-      params.append('endpointing', 'true');
+    } else if (Array.isArray(config.keyterms) && config.keyterms.length > 0) {
+      // Nova-2 soporta keywords para boost léxico en lugar de keyterm
+      for (const term of config.keyterms) {
+        params.append('keywords', `${term}:2`);
+      }
     }
 
     if (config.mipOptOut || config.medicalMode) {
@@ -486,7 +490,9 @@ export class DeepgramStreamingService {
     };
 
     ws.onmessage = (event) => {
-      if (!this.isActive || this.ws !== ws) return;
+      const isDraining = (this.drainingWs === ws);
+      if (!this.isActive && !isDraining) return;
+      if (this.ws !== ws && !isDraining) return;
       if (typeof event.data !== 'string') return;
       let data;
       try {
@@ -593,10 +599,12 @@ export class DeepgramStreamingService {
     if (!ws) return;
 
     this.ws = null;
+    this.drainingWs = ws;
     ws.onopen = null;
     ws.onerror = null;
 
     if (ws.readyState !== WebSocket.OPEN) {
+      if (this.drainingWs === ws) this.drainingWs = null;
       ws.onmessage = null;
       ws.onclose = null;
       try {
@@ -612,6 +620,7 @@ export class DeepgramStreamingService {
     const finalize = () => {
       if (finalized) return;
       finalized = true;
+      if (this.drainingWs === ws) this.drainingWs = null;
       if (drainTimer) {
         clearTimeout(drainTimer);
         drainTimer = null;

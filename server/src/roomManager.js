@@ -118,6 +118,7 @@ class RoomManager {
       },
       transcriptHistory: [],
       config: {
+        sttEngine: 'deepgram',
         targetLanguages: ['es', 'en', 'it', 'pt'],
         autoDetectSource: true,
         defaultLanguage: 'es',

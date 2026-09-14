@@ -627,7 +627,10 @@ h1, h2, h3, h4, h5, h6 {
   .gemini-gradient-bg,
   .gemini-aura-glow,
   .gemini-text-stream,
-  .gemini-bar-active {
+  .gemini-bar-active,
+  .animate-soundwave-1,
+  .animate-soundwave-2,
+  .animate-soundwave-3 {
     animation: none !important;
   }
 }
@@ -639,4 +642,20 @@ h1, h2, h3, h4, h5, h6 {
 
 .animate-backdrop-in {
   animation: backdropIn 0.2s ease-out forwards;
+}
+
+/* Audio Preview Waveform Bars */
+@keyframes audioWaveformBar {
+  0%, 100% { height: 4px; }
+  50% { height: 14px; }
+}
+
+.animate-soundwave-1 {
+  animation: audioWaveformBar 0.8s ease-in-out infinite;
+}
+.animate-soundwave-2 {
+  animation: audioWaveformBar 0.8s ease-in-out infinite 0.25s;
+}
+.animate-soundwave-3 {
+  animation: audioWaveformBar 0.8s ease-in-out infinite 0.45s;
 }

@@ -30,7 +30,8 @@ export default function Banner({
   bottomAction,
   className = '',
   style = {},
-  alignCenter = false
+  alignCenter = false,
+  bottomActionClassName = ''
 }) {
   const { isDark } = useTheme();
   const isLightTheme = !isDark;
@@ -158,7 +159,7 @@ export default function Banner({
 
       {/* Bottom action block */}
       {bottomAction && (
-        <div style={{ marginTop: 12, width: '100%' }}>
+        <div className={`w-full ${bottomActionClassName || ''}`} style={{ marginTop: 12 }}>
           {bottomAction}
         </div>
       )}

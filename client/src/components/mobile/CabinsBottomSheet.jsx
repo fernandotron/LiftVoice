@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Headphones, Play, Square, Sparkles, Globe, Bell } from 'lucide-react';
+import { X, Headphones, Play, Square, Sparkles, Globe, Bell, ChevronRight } from 'lucide-react';
 import ElevenSlider from '../ElevenSlider.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
 
@@ -22,6 +22,7 @@ export default function CabinsBottomSheet({
   onStopMonitoring = () => {},
   onPreviewVoice = () => {},
   onTestAudio = () => {},
+  onOpenCatalogForLang = () => {},
   decalageValue = 50,
   onDecalageChange = () => {},
   boothVolume = 85,
@@ -145,10 +146,17 @@ export default function CabinsBottomSheet({
                       : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-800/30'
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="flex items-center gap-3 min-w-0 cursor-pointer group/cab"
+                    onClick={() => onOpenCatalogForLang(cab.code)}
+                    title={`Cambiar voz para ${cab.name}`}
+                  >
                     <CountryFlag code={cab.code} className="w-7 h-7 shrink-0" title={cab.name} />
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-zinc-900 dark:text-white truncate">{cab.name}</div>
+                      <div className="text-xs font-bold text-zinc-900 dark:text-white truncate group-hover/cab:text-indigo-600 dark:group-hover/cab:text-indigo-400 transition-colors flex items-center gap-1">
+                        <span>{cab.name}</span>
+                        <ChevronRight className="w-3 h-3 text-zinc-400 opacity-60" />
+                      </div>
                       <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono truncate max-w-[130px]">{voiceName}</div>
                     </div>
                   </div>
