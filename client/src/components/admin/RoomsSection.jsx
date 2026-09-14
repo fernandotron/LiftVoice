@@ -285,9 +285,8 @@ export default function RoomsSection({
 
     const footerSystemStatus = (
       <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 truncate">
-        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isLive ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'}`} />
         <span className="font-medium text-zinc-700 dark:text-zinc-300">LiftVoice Studio</span>
-        <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline">•</span>
+        <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline">/</span>
         <span className="hidden sm:inline">
           {roomSubSection === 'cabins'
             ? `${selectedRoom.totalListeners || 0} oyentes activos`
@@ -353,7 +352,6 @@ export default function RoomsSection({
                     <span className={`text-[11px] font-medium flex items-center gap-1.5 ${
                       selectedRoom.isHostOnline ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'
                     }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${selectedRoom.isHostOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'}`} />
                       {selectedRoom.isHostOnline ? 'En directo' : 'Desconectado'}
                     </span>
                   </div>
@@ -596,7 +594,7 @@ export default function RoomsSection({
               </div>
 
               <div className="p-4 sm:p-4.5 rounded-2xl bg-zinc-100/60 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 stroke-[2.5]" />
                 <span>Las cabinas operan con arquitectura Lazy Cabins: se activan y traducen únicamente cuando hay oyentes escuchando.</span>
               </div>
             </div>
@@ -788,12 +786,11 @@ export default function RoomsSection({
 
                     {/* Badges de Estado, Tiempo y Chevron a la derecha */}
                     <div className="flex items-center gap-2.5 shrink-0">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         isLive
                           ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:border dark:border-emerald-800/40 dark:text-emerald-400'
                           : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                         <span>{isLive ? 'En directo' : 'En pausa'}</span>
                       </span>
 
@@ -813,7 +810,7 @@ export default function RoomsSection({
                       <span className="font-medium text-zinc-800 dark:text-zinc-200">
                         {room.hostName || (isLive ? 'Ponente activo' : 'Sin anfitrión')}
                       </span>
-                      <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                      <span className="text-zinc-300 dark:text-zinc-700 select-none">/</span>
                       <div className="flex items-center gap-1.5">
                         <CountryFlag code={room.sourceLanguage || 'es'} className="w-4 h-4 rounded-full shrink-0 shadow-2xs" />
                         <span>{getLanguageLabel(room.sourceLanguage || 'es')}</span>

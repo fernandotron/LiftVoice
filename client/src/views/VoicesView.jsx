@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search, Play, Square, Loader2, Volume2, Check, Sparkles, Filter, SlidersHorizontal,
   Home, Radio, Layers, Settings, QrCode, Users, Globe, ArrowRight, ShieldCheck,
@@ -7,13 +7,31 @@ import {
 import { audioPlayerService } from '../services/audioPlayer.js';
 
 const VOICE_CATEGORIES = [
-  { id: 'all', label: 'Todas las voces' },
-  { id: 'conversational', label: 'Conversacional' },
-  { id: 'keynote', label: 'Oratoria & Keynote' },
-  { id: 'medical', label: 'Médico & Clínico' },
-  { id: 'deepgram', label: 'Deepgram Aura ⚡' },
-  { id: 'google', label: 'Google Neural 🌐' },
-  { id: 'openai', label: 'OpenAI TTS' }
+  { id: 'all', label: 'Todos los motores' },
+  { id: 'edge', label: 'Edge Neural 🌐' },
+  { id: 'deepgram', label: 'Deepgram Aura-2 ⚡' },
+  { id: 'openai', label: 'OpenAI TTS 🤖' },
+  { id: 'elevenlabs', label: 'ElevenLabs Flash 🌟' },
+  { id: 'cartesia', label: 'Cartesia Sonic 🚀' }
+];
+
+const TIER_FILTERS = [
+  { id: 'all', label: 'Todos los niveles' },
+  { id: 'zero_cost', label: '⚡ Gratuito (Zero-Cost)' },
+  { id: 'premium_studio', label: '🌟 Studio Pro (Cloud Keys)' }
+];
+
+const GENDER_FILTERS = [
+  { id: 'all', label: 'Todos los géneros' },
+  { id: 'female', label: '♀ Femenina' },
+  { id: 'male', label: '♂ Masculina' }
+];
+
+const SCENARIO_FILTERS = [
+  { id: 'all', label: 'Todos los escenarios' },
+  { id: 'keynote', label: '🎤 Keynote & Plenaria' },
+  { id: 'panel', label: '💬 Panel & Debate' },
+  { id: 'medical', label: '🩺 Médico & Clínico' }
 ];
 
 const LANG_PILLS = [
@@ -26,7 +44,7 @@ const LANG_PILLS = [
 
 const DEFAULT_ACTIVE_VOICES = {
   es: 'es-ES-ElviraNeural',
-  en: 'aura-asteria-en',
+  en: 'aura-2-thalia-en',
   it: 'it-IT-ElsaNeural',
   pt: 'pt-BR-FranciscaNeural'
 };
@@ -53,9 +71,13 @@ export default function VoicesView({
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedLang, setSelectedLang] = useState('all');
+  const [selectedGender, setSelectedGender] = useState('all');
+  const [selectedTier, setSelectedTier] = useState('all');
+  const [selectedScenario, setSelectedScenario] = useState('all');
   const [playingVoiceId, setPlayingVoiceId] = useState(null);
   const [assignedFeedback, setAssignedFeedback] = useState(null);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const auditionAbortRef = useRef(null);
 
   const [activeVoices, setActiveVoices] = useState(() => {
     try {
@@ -63,7 +85,7 @@ export default function VoicesView({
       if (saved) {
         const parsed = JSON.parse(saved);
         Object.keys(DEFAULT_ACTIVE_VOICES).forEach(lang => {
-          if (!parsed[lang] || (lang !== 'en' && typeof parsed[lang] === 'string' && parsed[lang].startsWith('aura-'))) {
+          if (!parsed[lang] || (lang !== 'en' && typeof parsed[lang] === 'string' && parsed[lang].startsWith('aura-') && !parsed[lang].includes('-2-'))) {
             parsed[lang] = DEFAULT_ACTIVE_VOICES[lang];
           }
         });
@@ -96,10 +118,18 @@ export default function VoicesView({
 
     return () => {
       unsubState();
+      if (auditionAbortRef.current) {
+        auditionAbortRef.current.abort();
+      }
     };
   }, []);
 
   const handleAudition = async (voice) => {
+    if (auditionAbortRef.current) {
+      auditionAbortRef.current.abort();
+      auditionAbortRef.current = null;
+    }
+
     if (playingVoiceId === voice.id) {
       audioPlayerService.stopAll();
       setPlayingVoiceId(null);
@@ -109,6 +139,9 @@ export default function VoicesView({
     // Immediately stop any previous audio (playlist-style instant switch)
     audioPlayerService.stopAll();
     setPlayingVoiceId(voice.id);
+
+    const abortController = new AbortController();
+    auditionAbortRef.current = abortController;
 
     const supportedLangs = (voice.languages && voice.languages.length > 0)
       ? voice.languages
@@ -121,13 +154,33 @@ export default function VoicesView({
 
     try {
       await audioPlayerService.unlockAudio(roomId, langToUse);
-      const sampleTexts = {
-        es: 'Hola, esta es una demostración en tiempo real de mi voz neuronal para conferencias y traducción simultánea.',
-        en: 'Hello, this is a real-time neural speech demonstration of my voice for live conferences and keynotes.',
-        it: 'Ciao, questa è una dimostrazione in tempo reale della mia voce neurale per conferenze dal vivo.',
-        pt: 'Olá, esta é uma demonstração em tempo real da minha voz neural para conferências ao vivo.'
+
+      // Contextual sample scripts matched to the voice's scenario
+      const rawScenario = voice.scenario || 'panel';
+      const scenario = rawScenario === 'conversational' ? 'panel' : rawScenario;
+      const CONTEXTUAL_SCRIPTS = {
+        keynote: {
+          es: 'Damas y caballeros, bienvenidos a la sesión plenaria de LiftVoice. Hoy exploraremos el futuro de la interpretación simultánea con inteligencia artificial.',
+          en: 'Ladies and gentlemen, welcome to the LiftVoice keynote session. Today we explore the future of real-time simultaneous AI interpretation.',
+          it: "Signore e signori, benvenuti alla sessione plenaria di LiftVoice. Oggi esploriamo l'interpretazione simultanea con intelligenza artificiale.",
+          pt: 'Senhoras e senhores, bem-vindos à sessão plenária do LiftVoice. Hoje exploraremos a interpretação simultânea com inteligência artificial.'
+        },
+        medical: {
+          es: 'Protocolo clínico asistencial: la administración endovenosa requiere monitorización hemodinámica continua y control estricto de saturación de oxígeno.',
+          en: 'Clinical care protocol: intravenous administration requires continuous hemodynamic monitoring and strict arterial oxygen saturation control.',
+          it: 'Protocollo clinico: la somministrazione endovenosa richiede un monitoraggio emodinamico costante e saturazione arteriosa.',
+          pt: 'Protocolo clínico: a administración intravenosa requer monitoramento hemodinâmico contínuo e saturação de oxigênio.'
+        },
+        panel: {
+          es: 'Hola, esta es una demostración en vivo de mi voz neuronal para paneles de debate, fluidez conversacional y traducción simultánea.',
+          en: 'Hello, this is a live demonstration of my neural voice for conversational panels, debates and real-time translation.',
+          it: 'Ciao, questa è una dimostrazione in tempo reale della mia voce neurale per dibattiti dal vivo e traduzione simultanea.',
+          pt: 'Olá, esta é uma demonstração em tempo real da minha voz neural para painéis de debate e tradução simultânea ao vivo.'
+        }
       };
-      const text = sampleTexts[langToUse] || sampleTexts.es;
+
+      const scenarioScripts = CONTEXTUAL_SCRIPTS[scenario] || CONTEXTUAL_SCRIPTS.panel;
+      const text = scenarioScripts[langToUse] || CONTEXTUAL_SCRIPTS.panel[langToUse] || CONTEXTUAL_SCRIPTS.panel.es;
 
       let serverAudio = null;
       let mimeType = 'audio/mp3';
@@ -135,6 +188,7 @@ export default function VoicesView({
         const res = await fetch(`/api/rooms/${roomId}/preview-voice`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: abortController.signal,
           body: JSON.stringify({
             lang: langToUse,
             sampleText: text,
@@ -143,14 +197,20 @@ export default function VoicesView({
             gender: voice.gender || 'female'
           })
         });
+        if (!res.ok) {
+          throw new Error(`Server returned HTTP ${res.status}`);
+        }
         const data = await res.json();
         if (data && data.audioBase64) {
           serverAudio = data.audioBase64;
           mimeType = data.mimeType || 'audio/mp3';
         }
       } catch (err) {
+        if (err.name === 'AbortError') return;
         // Fallback to distinct browser persona speech
       }
+
+      if (abortController.signal.aborted) return;
 
       await audioPlayerService.playVoicePreview({
         voiceId: voice.id,
@@ -162,6 +222,7 @@ export default function VoicesView({
         gender: voice.gender || 'female'
       });
     } catch (err) {
+      if (err.name === 'AbortError') return;
       console.warn('Audition error:', err);
       setPlayingVoiceId(null);
     }
@@ -191,26 +252,54 @@ export default function VoicesView({
     setTimeout(() => setAssignedFeedback(null), 2500);
   };
 
-  // Filter voices
-  const filteredVoices = voices.filter(v => {
-    const q = search.toLowerCase();
-    const matchesSearch =
-      v.name.toLowerCase().includes(q) ||
-      (v.tone && v.tone.toLowerCase().includes(q)) ||
-      (v.desc && v.desc.toLowerCase().includes(q));
+  // Filter voices across all dimensions (search, lang, engine, gender, tier, scenario)
+  const normalize = (str) =>
+    (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
+  const filteredVoices = voices.filter(v => {
+    const q = normalize(search);
+    const matchesSearch = !q ||
+      normalize(v.name).includes(q) ||
+      normalize(v.tone).includes(q) ||
+      normalize(v.desc).includes(q) ||
+      normalize(v.engine).includes(q) ||
+      normalize(v.tierLabel).includes(q);
+
+    const voiceLangs = (v.languages && v.languages.length > 0)
+      ? v.languages
+      : (v.lang === 'all' ? ['es', 'en', 'it', 'pt'] : [v.lang]);
     const matchesLang =
-      selectedLang === 'all' || v.lang === 'all' || v.lang === selectedLang;
+      selectedLang === 'all' || v.lang === 'all' || voiceLangs.includes(selectedLang);
 
     let matchesCat = true;
-    if (selectedCategory === 'deepgram') matchesCat = v.engine === 'deepgram';
-    else if (selectedCategory === 'google') matchesCat = v.engine === 'google';
-    else if (selectedCategory === 'openai') matchesCat = v.engine === 'openai';
-    else if (selectedCategory === 'conversational') matchesCat = (v.tone || '').toLowerCase().includes('conversacional') || (v.desc || '').toLowerCase().includes('cálid') || (v.gender === 'female');
-    else if (selectedCategory === 'keynote') matchesCat = (v.tone || '').toLowerCase().includes('oratoria') || (v.tone || '').toLowerCase().includes('autoridad') || (v.gender === 'male');
-    else if (selectedCategory === 'medical') matchesCat = true; // all voices support clinical glossary
+    if (selectedCategory === 'edge' || selectedCategory === 'google') {
+      matchesCat = v.engine === 'edge' || v.engine === 'google';
+    } else if (selectedCategory === 'deepgram') {
+      matchesCat = v.engine === 'deepgram';
+    } else if (selectedCategory === 'openai') {
+      matchesCat = v.engine === 'openai';
+    } else if (selectedCategory === 'elevenlabs') {
+      matchesCat = v.engine === 'elevenlabs';
+    } else if (selectedCategory === 'cartesia') {
+      matchesCat = v.engine === 'cartesia';
+    }
 
-    return matchesSearch && matchesLang && matchesCat;
+    const matchesGender =
+      selectedGender === 'all' || v.gender === selectedGender;
+
+    const matchesTier =
+      selectedTier === 'all' ||
+      v.tier === selectedTier ||
+      (selectedTier === 'zero_cost' && v.isFree) ||
+      (selectedTier === 'premium_studio' && !v.isFree);
+
+    const matchesScenario =
+      selectedScenario === 'all' ||
+      v.scenario === selectedScenario ||
+      (v.scenario === 'conversational' && selectedScenario === 'panel') ||
+      (v.scenario === 'keynote_medical' && (selectedScenario === 'keynote' || selectedScenario === 'medical'));
+
+    return matchesSearch && matchesLang && matchesCat && matchesGender && matchesTier && matchesScenario;
   });
 
   // Reusable Sidebar content for desktop and mobile drawer
@@ -491,7 +580,7 @@ export default function VoicesView({
                 </div>
               </div>
 
-              {/* Language and Category Filter Pills (Horizontal smooth scroll) */}
+              {/* Language and Engine Filter Pills (Horizontal smooth scroll) */}
               <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar pt-1">
                 {/* Languages Dropdown / Pills */}
                 {LANG_PILLS.map((l) => (
@@ -510,7 +599,7 @@ export default function VoicesView({
 
                 <span className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1 flex-shrink-0" />
 
-                {/* Categories */}
+                {/* Engine Categories */}
                 {VOICE_CATEGORIES.map((c) => (
                   <button
                     key={c.id}
@@ -525,17 +614,75 @@ export default function VoicesView({
                   </button>
                 ))}
               </div>
+
+              {/* Secondary Filter Bar: Tier (Zero-Cost vs Pro), Gender & Scenario */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs">
+                {/* Tier Filter */}
+                <div className="flex items-center bg-zinc-100 dark:bg-zinc-900/80 rounded-full p-0.5 border border-zinc-200 dark:border-zinc-800 flex-shrink-0">
+                  {TIER_FILTERS.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTier(t.id)}
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap ${
+                        selectedTier === t.id
+                          ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-100 shadow-xs font-semibold'
+                          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+
+                <span className="w-px h-3.5 bg-zinc-200 dark:bg-zinc-800 mx-0.5 flex-shrink-0" />
+
+                {/* Gender Filter */}
+                <div className="flex items-center bg-zinc-100 dark:bg-zinc-900/80 rounded-full p-0.5 border border-zinc-200 dark:border-zinc-800 flex-shrink-0">
+                  {GENDER_FILTERS.map(g => (
+                    <button
+                      key={g.id}
+                      onClick={() => setSelectedGender(g.id)}
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap ${
+                        selectedGender === g.id
+                          ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-100 shadow-xs font-semibold'
+                          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100'
+                      }`}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+
+                <span className="w-px h-3.5 bg-zinc-200 dark:bg-zinc-800 mx-0.5 flex-shrink-0" />
+
+                {/* Scenario Filter */}
+                <div className="flex items-center bg-zinc-100 dark:bg-zinc-900/80 rounded-full p-0.5 border border-zinc-200 dark:border-zinc-800 flex-shrink-0">
+                  {SCENARIO_FILTERS.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => setSelectedScenario(s.id)}
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap ${
+                        selectedScenario === s.id
+                          ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-100 shadow-xs font-semibold'
+                          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Section: Trending Voices Grid */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-zinc-950 dark:text-zinc-100 tracking-tight flex items-center gap-1.5">
-                  <span>Voces en tendencia</span>
+                  <span>Voces en tendencia ({filteredVoices.length})</span>
                   <ChevronRight className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
                 </h2>
                 <span className="text-[10px] sm:text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
-                  Clic en ▶ para audicionar
+                  Clic en ▶ para audicionar con guion contextual
                 </span>
               </div>
 
@@ -547,7 +694,7 @@ export default function VoicesView({
               ) : filteredVoices.length === 0 ? (
                 <div className="py-16 text-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-2">
                   <p className="text-xs font-semibold text-zinc-950 dark:text-zinc-100">No se encontraron voces</p>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Intenta buscar con otros términos o cambia los filtros de idioma.</p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Intenta buscar con otros términos o cambia los filtros de idioma, género o nivel.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -577,19 +724,41 @@ export default function VoicesView({
                               </span>
                             </div>
 
-                            <div className="min-w-0 space-y-0.5">
-                              <h3 className="font-semibold text-xs text-zinc-950 dark:text-zinc-100 truncate tracking-tight">
-                                {voice.name}
-                              </h3>
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h3 className="font-semibold text-xs text-zinc-950 dark:text-zinc-100 truncate tracking-tight">
+                                  {voice.name}
+                                </h3>
+                                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-zinc-700/60">
+                                  {voice.gender === 'female' ? '♀ Fem' : voice.gender === 'male' ? '♂ Masc' : 'Neutro'}
+                                </span>
+                                {voice.tier === 'zero_cost' || voice.isFree ? (
+                                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                                    ⚡ Zero-Cost
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
+                                    🌟 Studio Pro
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
                                 {voice.tone || voice.desc || 'Narración'}
                               </p>
-                              <div className="flex items-center gap-1.5 pt-0.5">
+                              <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
                                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
                                   {supportedLangs.length === 1
                                     ? (supportedLangs[0] === 'es' ? '🇪🇸 Español' : supportedLangs[0] === 'en' ? '🇺🇸 English' : supportedLangs[0] === 'it' ? '🇮🇹 Italiano' : '🇧🇷 Português')
                                     : `🌐 Multilingüe (${supportedLangs.join(', ')})`}
                                 </span>
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-50 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800">
+                                  {voice.badge || voice.engine}
+                                </span>
+                                {voice.latency && (
+                                  <span className="text-[9px] font-mono text-zinc-400 dark:text-zinc-500">
+                                    {voice.latency}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>

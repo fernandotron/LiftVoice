@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X, Play, Square, Loader2, Check, Headphones, Volume2, Search, SlidersHorizontal
 } from 'lucide-react';
@@ -21,10 +21,12 @@ const CABIN_NAMES = {
 
 function getEngineDisplayName(engine) {
   switch (engine) {
-    case 'google': return 'Google Neural';
-    case 'deepgram': return 'Deepgram Aura';
+    case 'edge':
+    case 'google': return 'Edge / Google Neural';
+    case 'deepgram': return 'Deepgram Aura-2';
     case 'openai': return 'OpenAI TTS';
-    case 'elevenlabs': return 'ElevenLabs Turbo';
+    case 'elevenlabs': return 'ElevenLabs Flash';
+    case 'cartesia': return 'Cartesia Sonic';
     case 'qwen_tts': return 'Qwen Audio';
     default: return engine ? engine.charAt(0).toUpperCase() + engine.slice(1) : 'Neuronal';
   }
@@ -37,12 +39,14 @@ export default function VoiceCatalogModal({
   currentLanguage = 'es',
   selectedVoices = {},
   onSelectVoice = () => {},
-  configuredEngines = { deepgram: true, google: true, openai: false, elevenlabs: false }
+  configuredEngines = { deepgram: true, google: true, openai: false, elevenlabs: false, cartesia: false }
 }) {
   const [voices, setVoices] = useState([]);
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedEngineFilter, setSelectedEngineFilter] = useState('all');
+  const [selectedGenderFilter, setSelectedGenderFilter] = useState('all');
+  const [selectedTierFilter, setSelectedTierFilter] = useState('all');
   const [targetLang, setTargetLang] = useState(currentLanguage || 'es');
   const [playingVoiceId, setPlayingVoiceId] = useState(null);
 
@@ -62,6 +66,8 @@ export default function VoiceCatalogModal({
       setDraftGenders({});
       setSearch('');
       setSelectedEngineFilter('all');
+      setSelectedGenderFilter('all');
+      setSelectedTierFilter('all');
       setIsSaved(false);
       setIsSaving(false);
     } else {
@@ -134,15 +140,39 @@ export default function VoiceCatalogModal({
     (lang) => Boolean(draftVoices[lang]) && draftVoices[lang] !== (selectedVoices[lang] || '')
   );
 
-  const filteredVoices = voices.filter((v) => {
-    const matchesSearch =
-      v.name.toLowerCase().includes(search.toLowerCase()) ||
-      (v.tone && v.tone.toLowerCase().includes(search.toLowerCase())) ||
-      (v.desc && v.desc.toLowerCase().includes(search.toLowerCase()));
-    const matchesEngine = selectedEngineFilter === 'all' || v.engine === selectedEngineFilter;
-    const matchesLang = v.lang === 'all' || v.lang === targetLang;
-    return matchesSearch && matchesEngine && matchesLang;
-  });
+  const normalize = (str) =>
+    (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+  const filteredVoices = useMemo(() => {
+    return voices.filter((v) => {
+      const q = normalize(search);
+      const matchesSearch = !q ||
+        normalize(v.name).includes(q) ||
+        normalize(v.tone).includes(q) ||
+        normalize(v.desc).includes(q);
+
+      const matchesEngine =
+        selectedEngineFilter === 'all' ||
+        v.engine === selectedEngineFilter ||
+        (selectedEngineFilter === 'edge' && (v.engine === 'edge' || v.engine === 'google'));
+
+      const voiceLangs = (v.languages && v.languages.length > 0)
+        ? v.languages
+        : (v.lang === 'all' ? ['es', 'en', 'it', 'pt'] : [v.lang]);
+      const matchesLang = v.lang === 'all' || voiceLangs.includes(targetLang);
+
+      const matchesGender =
+        selectedGenderFilter === 'all' || v.gender === selectedGenderFilter;
+
+      const matchesTier =
+        selectedTierFilter === 'all' ||
+        v.tier === selectedTierFilter ||
+        (selectedTierFilter === 'zero_cost' && v.isFree) ||
+        (selectedTierFilter === 'premium_studio' && !v.isFree);
+
+      return matchesSearch && matchesEngine && matchesLang && matchesGender && matchesTier;
+    });
+  }, [voices, search, selectedEngineFilter, targetLang, selectedGenderFilter, selectedTierFilter]);
 
   const handleAudition = async (voice) => {
     if (auditionAbortRef.current) auditionAbortRef.current.abort();
@@ -162,42 +192,71 @@ export default function VoiceCatalogModal({
       await audioPlayerService.unlockAudio(roomId, targetLang);
       if (abortCtrl.signal.aborted) return;
 
-      const samplePhrases = {
-        es: 'Bienvenidos a LiftVoice. Esta es una demostración en vivo de mi voz para la cabina de traducción en español.',
-        en: 'Welcome to LiftVoice. This is a real-time speech demonstration of my voice for the English translation booth.',
-        it: 'Benvenuti a LiftVoice. Questa è una dimostrazione della mia voce per la cabina di traduzione in italiano.',
-        pt: 'Bem-vindos ao LiftVoice. Esta é uma demostração da minha voz para a cabine de tradução em português.'
+      const rawScenario = voice.scenario || 'panel';
+      const scenario = rawScenario === 'conversational' ? 'panel' : rawScenario;
+      const CONTEXTUAL_SCRIPTS = {
+        keynote: {
+          es: 'Damas y caballeros, bienvenidos a la sesión plenaria de LiftVoice. Hoy exploraremos el futuro de la interpretación simultánea con inteligencia artificial.',
+          en: 'Ladies and gentlemen, welcome to the LiftVoice keynote session. Today we explore the future of real-time simultaneous AI interpretation.',
+          it: "Signore e signori, benvenuti alla sessione plenaria di LiftVoice. Oggi esploriamo l'interpretazione simultanea con intelligenza artificiale.",
+          pt: 'Senhoras e senhores, bem-vindos à sessão plenária do LiftVoice. Hoje exploraremos a interpretação simultânea com inteligência artificial.'
+        },
+        medical: {
+          es: 'Protocolo clínico asistencial: la administración endovenosa requiere monitorización hemodinámica continua y control estricto de saturación de oxígeno.',
+          en: 'Clinical care protocol: intravenous administration requires continuous hemodynamic monitoring and strict arterial oxygen saturation control.',
+          it: 'Protocollo clinico: la somministrazione endovenosa richiede un monitoraggio emodinamico costante e saturazione arteriosa.',
+          pt: 'Protocolo clínico: a administração intravenosa requer monitoramento hemodinâmico contínuo e saturação de oxigênio.'
+        },
+        panel: {
+          es: 'Hola, esta es una demostración en vivo de mi voz neuronal para paneles de debate, fluidez conversacional y traducción simultánea.',
+          en: 'Hello, this is a live demonstration of my neural voice for conversational panels, debates and real-time translation.',
+          it: 'Ciao, questa è una dimostrazione in tempo reale della mia voce neurale per dibattiti dal vivo e traduzione simultanea.',
+          pt: 'Olá, esta é uma demostração em tempo real da minha voz neural para painéis de debate e tradução simultânea ao vivo.'
+        }
       };
 
-      const response = await fetch(`/api/rooms/${roomId}/preview-voice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: abortCtrl.signal,
-        body: JSON.stringify({
-          lang: targetLang,
-          sampleText: samplePhrases[targetLang] || samplePhrases.en,
-          voice: voice.id,
-          gender: voice.gender || 'female',
-          engine: voice.engine
-        })
-      });
-
-      if (abortCtrl.signal.aborted) return;
-      const data = await response.json();
-      if (abortCtrl.signal.aborted) return;
+      const scenarioScripts = CONTEXTUAL_SCRIPTS[scenario] || CONTEXTUAL_SCRIPTS.panel;
+      const sampleText = scenarioScripts[targetLang] || scenarioScripts.en || scenarioScripts.es;
 
       let serverAudio = null;
       let mimeType = 'audio/mp3';
-      if (data && data.audioBase64) {
-        serverAudio = data.audioBase64;
-        mimeType = data.mimeType || 'audio/mp3';
+
+      try {
+        const response = await fetch(`/api/rooms/${roomId}/preview-voice`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: abortCtrl.signal,
+          body: JSON.stringify({
+            lang: targetLang,
+            sampleText,
+            voice: voice.id,
+            gender: voice.gender || 'female',
+            engine: voice.engine
+          })
+        });
+
+        if (abortCtrl.signal.aborted) return;
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.audioBase64) {
+            serverAudio = data.audioBase64;
+            mimeType = data.mimeType || 'audio/mp3';
+          }
+        } else {
+          console.warn(`[VoiceCatalog] Preescucha remota devolvió status ${response.status}. Fallback a síntesis local de voz.`);
+        }
+      } catch (fetchErr) {
+        if (abortCtrl.signal.aborted || fetchErr.name === 'AbortError') return;
+        console.warn('[VoiceCatalog] Fallo en API remota, activando síntesis de voz local:', fetchErr.message);
       }
+
+      if (abortCtrl.signal.aborted) return;
 
       await audioPlayerService.playVoicePreview({
         voiceId: voice.id,
         voiceName: voice.name,
         lang: targetLang,
-        text: samplePhrases[targetLang] || samplePhrases.en,
+        text: sampleText,
         audioBase64: serverAudio,
         mimeType,
         gender: voice.gender || 'female'
@@ -366,31 +425,82 @@ export default function VoiceCatalogModal({
             </div>
           </div>
 
-          {/* Filtros de Motor Estilo Pills Limpias (Sin emojis invasivos) */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-0.5 text-xs">
-            {[
-              { id: 'all', label: `Todos los motores (${voices.length})` },
-              { id: 'google', label: 'Google Neural' },
-              { id: 'deepgram', label: 'Deepgram Aura' },
-              { id: 'openai', label: 'OpenAI TTS' },
-              { id: 'elevenlabs', label: 'ElevenLabs Turbo' }
-            ].map((eng) => {
-              const isSelected = selectedEngineFilter === eng.id;
-              return (
-                <button
-                  key={eng.id}
-                  type="button"
-                  onClick={() => setSelectedEngineFilter(eng.id)}
-                  className={`h-8 sm:h-8.5 px-4 rounded-full text-xs font-medium inline-flex items-center justify-center transition-all cursor-pointer border ${
-                    isSelected
-                      ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-2xs font-semibold'
-                      : 'bg-white dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 border-zinc-200/80 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/10'
-                  }`}
-                >
-                  {eng.label}
-                </button>
-              );
-            })}
+          {/* Filtros de Motor, Nivel y Género */}
+          <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar pt-0.5 text-xs flex-wrap sm:flex-nowrap">
+            {/* Engine Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {[
+                { id: 'all', label: `Todos` },
+                { id: 'edge', label: 'Edge Neural' },
+                { id: 'deepgram', label: 'Aura-2' },
+                { id: 'openai', label: 'OpenAI' },
+                { id: 'elevenlabs', label: 'ElevenLabs' },
+                { id: 'cartesia', label: 'Cartesia' }
+              ].map((eng) => {
+                const isSelected = selectedEngineFilter === eng.id;
+                return (
+                  <button
+                    key={eng.id}
+                    type="button"
+                    onClick={() => setSelectedEngineFilter(eng.id)}
+                    className={`h-7 sm:h-7.5 px-3 rounded-full text-xs font-medium inline-flex items-center justify-center transition-all cursor-pointer border whitespace-nowrap ${
+                      isSelected
+                        ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-2xs font-semibold'
+                        : 'bg-white dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 border-zinc-200/80 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {eng.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Tier & Gender micro-toggles */}
+            <div className="flex items-center gap-2 shrink-0 ml-auto">
+              {/* Tier Toggle */}
+              <div className="flex items-center bg-zinc-200/60 dark:bg-white/10 rounded-xl p-0.5 border border-zinc-200/80 dark:border-white/10">
+                {[
+                  { id: 'all', label: 'Todos' },
+                  { id: 'zero_cost', label: '⚡ Zero-Cost' },
+                  { id: 'premium_studio', label: '🌟 Pro' }
+                ].map(t => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelectedTierFilter(t.id)}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap ${
+                      selectedTierFilter === t.id
+                        ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 shadow-2xs font-semibold'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Gender Toggle */}
+              <div className="flex items-center bg-zinc-200/60 dark:bg-white/10 rounded-xl p-0.5 border border-zinc-200/80 dark:border-white/10">
+                {[
+                  { id: 'all', label: '⚤' },
+                  { id: 'female', label: '♀' },
+                  { id: 'male', label: '♂' }
+                ].map(g => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => setSelectedGenderFilter(g.id)}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap ${
+                      selectedGenderFilter === g.id
+                        ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 shadow-2xs font-semibold'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -428,25 +538,25 @@ export default function VoiceCatalogModal({
                 return (
                   <div
                     key={voice.id}
-                    role="radio"
-                    aria-checked={isSelected}
-                    tabIndex={0}
-                    onClick={() => handleSelectVoice(voice)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleSelectVoice(voice);
-                      }
-                    }}
-                    className={`group relative p-4 sm:p-5 rounded-3xl border-2 transition-all duration-200 cursor-pointer select-none text-left flex flex-col justify-between gap-3 ${
+                    className={`group relative p-4 sm:p-5 rounded-3xl border-2 transition-all duration-200 select-none text-left flex flex-col justify-between gap-3 ${
                       isSelected
                         ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-500/[0.03] dark:bg-emerald-500/[0.06] shadow-xs'
                         : 'border-zinc-200/80 dark:border-white/10 bg-white dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-white/20 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/70 shadow-2xs'
                     }`}
                   >
+                    {/* Botón de selección accesible que cubre la tarjeta */}
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => handleSelectVoice(voice)}
+                      className="absolute inset-0 w-full h-full rounded-3xl z-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                      aria-label={`Seleccionar voz ${voice.name} para cabina de ${CABIN_NAMES[targetLang] || targetLang}`}
+                    />
+
                     {/* Header de la tarjeta: Botón Play Directo + Nombres con Subtítulo (Tono • Motor) + Círculo con Check */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-start justify-between gap-3 relative z-10 pointer-events-none">
+                      <div className="flex items-center gap-3 min-w-0 pointer-events-auto">
                         {/* Botón Play Directo (con ecualizador de ondas animado durante la reproducción) */}
                         <button
                           type="button"
@@ -480,15 +590,24 @@ export default function VoiceCatalogModal({
                           )}
                         </button>
 
-                        {/* Textos: Nombre, Género y Subtítulo enriquecido (Tono • Proveedor) */}
+                        {/* Textos: Nombre, Género, Tier y Subtítulo enriquecido */}
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate tracking-tight">
                               {voice.name}
                             </h4>
                             <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 border border-zinc-200/70 dark:border-white/10 shrink-0">
-                              {voice.gender === 'male' ? 'Masc' : voice.gender === 'female' ? 'Fem' : 'Neutro'}
+                              {voice.gender === 'male' ? '♂ Masc' : voice.gender === 'female' ? '♀ Fem' : 'Neutro'}
                             </span>
+                            {voice.tier === 'zero_cost' || voice.isFree ? (
+                              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 shrink-0">
+                                ⚡ Zero-Cost
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60 shrink-0">
+                                🌟 Studio Pro
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-medium truncate mt-0.5">
                             <span>{voice.tone || 'Timbre natural'}</span>
@@ -496,6 +615,14 @@ export default function VoiceCatalogModal({
                             <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-400 font-normal">
                               {getEngineDisplayName(voice.engine)}
                             </span>
+                            {voice.latency && (
+                              <>
+                                <span className="text-zinc-300 dark:text-zinc-700 select-none">•</span>
+                                <span className="font-mono text-[10px] text-zinc-400 dark:text-zinc-500">
+                                  {voice.latency}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -515,7 +642,7 @@ export default function VoiceCatalogModal({
                     </div>
 
                     {/* Descripción concisa de la voz */}
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-2 min-h-[34px]">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-2 min-h-[34px] relative z-10 pointer-events-none">
                       {voice.desc}
                     </p>
                   </div>

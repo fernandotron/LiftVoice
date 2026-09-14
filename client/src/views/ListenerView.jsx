@@ -224,14 +224,19 @@ export default function ListenerView({
     const unsubTranscript = socketService.on('transcript_event', (item) => {
       if (!item) return;
       setTranscriptHistory(prev => {
+        let next;
         if (prev.some(p => p.id === item.id)) {
-          return prev.map(p => p.id === item.id ? { ...p, ...item, translations: { ...(p.translations || {}), ...(item.translations || {}) } } : p);
+          next = prev.map(p => p.id === item.id ? { ...p, ...item, translations: { ...(p.translations || {}), ...(item.translations || {}) } } : p);
+        } else {
+          const last = prev[prev.length - 1];
+          if (last && last.originalText === item.originalText && Math.abs((item.timestamp || 0) - (last.timestamp || 0)) < 4000) {
+            return prev;
+          }
+          next = [...prev, item];
         }
-        const last = prev[prev.length - 1];
-        if (last && last.originalText === item.originalText && Math.abs((item.timestamp || 0) - (last.timestamp || 0)) < 4000) {
-          return prev;
-        }
-        return [...prev, item];
+        // Rolling window defensivo: previene cierres por Jetsam/OOM en móviles en conferencias largas
+        const MAX_CLIENT_TRANSCRIPTS = 80;
+        return next.length > MAX_CLIENT_TRANSCRIPTS ? next.slice(-MAX_CLIENT_TRANSCRIPTS) : next;
       });
     });
 

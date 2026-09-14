@@ -183,6 +183,9 @@ class SocketService {
         if (this.currentRoomId) {
           if (this.currentRole === 'HOST') {
             this.joinAsHost(this.currentRoomId);
+            if (this.currentMonitoredBooth && this.currentMonitoredBooth !== 'none') {
+              this.setMonitoredBooth(this.currentRoomId, this.currentMonitoredBooth);
+            }
           } else if (this.currentRole === 'LISTENER') {
             this.joinAsListener(this.currentRoomId, this.currentLang || 'es', this.userProfile || {});
           }
@@ -388,6 +391,7 @@ class SocketService {
   }
 
   setMonitoredBooth(roomId, lang) {
+    this.currentMonitoredBooth = lang || 'none';
     return this.send({
       type: 'HOST_MONITOR_BOOTH',
       roomId: (roomId || this.currentRoomId || 'MAIN').toUpperCase(),

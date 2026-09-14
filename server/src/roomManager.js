@@ -28,12 +28,14 @@ class RoomManager {
       const now = Date.now();
       const reapedRooms = new Set();
       for (const [id, room] of this.rooms.entries()) {
-        if (!room || reapedRooms.has(room)) continue;
         const isAbandoned = !room.hostSocket && (!room.listeners || room.listeners.size === 0);
         const hasHistoryOrAttendees = (room.transcriptHistory && room.transcriptHistory.length > 0) || (room.registeredAttendees && room.registeredAttendees.size > 0);
         const maxIdleMs = hasHistoryOrAttendees ? 60 * 60 * 1000 : 20 * 60 * 1000;
         const isIdle = (now - (room.lastActivity || room.createdAt)) > maxIdleMs;
-        if (isAbandoned && isIdle) {
+        // Purga de salas fantasma: si el ponente se marchó y no hay actividad de voz durante > 35 min, cerrar sala aunque haya oyentes pasivos
+        const isHostGone = !room.hostSocket;
+        const isGhostRoom = isHostGone && ((now - (room.lastActivity || room.createdAt)) > 35 * 60 * 1000);
+        if ((isAbandoned && isIdle) || isGhostRoom) {
           reapedRooms.add(room);
           console.log(`[RoomManager] Reaped inactive room ${id}`);
 
@@ -900,7 +902,7 @@ class RoomManager {
 
     const payload = JSON.stringify(payloadData);
 
-    const MAX_BUFFERED_BYTES = 512 * 1024; // 512 KB backpressure threshold
+    const MAX_BUFFERED_BYTES = 128 * 1024; // 128 KB backpressure threshold (~2-3 chunks max to prevent 15s lag)
     let sentCount = 0;
     for (const listener of room.listeners.values()) {
       if (listener.lang === targetLang && listener.socket && listener.socket.readyState === 1) {

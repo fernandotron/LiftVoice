@@ -1,3 +1,5 @@
+import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
+
 /**
  * Text-to-Speech (TTS) Service for LiftVoice
  * Generates low-latency voice audio streams for [EN, ES, IT, PT]
@@ -8,16 +10,17 @@ export class TTSService {
     this.openaiApiKey = config.openaiApiKey || process.env.OPENAI_API_KEY || '';
     this.elevenLabsApiKey = config.elevenLabsApiKey || process.env.ELEVENLABS_API_KEY || '';
     this.deepgramApiKey = config.deepgramApiKey || process.env.DEEPGRAM_API_KEY || '';
+    this.cartesiaApiKey = config.cartesiaApiKey || process.env.CARTESIA_API_KEY || '';
     this.qwenApiKey = config.qwenApiKey || process.env.DASHSCOPE_API_KEY || '';
     this.qwenTtsEndpoint = config.qwenTtsEndpoint || process.env.QWEN_TTS_ENDPOINT || '';
-    this.preferredTtsEngine = config.preferredTtsEngine || 'auto'; // 'auto' | 'deepgram' | 'google' | 'qwen_tts' | 'elevenlabs' | 'openai'
+    this.preferredTtsEngine = config.preferredTtsEngine || 'auto'; // 'auto' | 'edge' | 'deepgram' | 'cartesia' | 'google' | 'qwen_tts' | 'elevenlabs' | 'openai'
     
     // Voice mapping for natural multilingual personas
     this.voiceMap = {
-      en: { openai: 'alloy', edge: 'en-US-JennyNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en', qwen_tts: 'qwen3-tts-en' },
-      es: { openai: 'nova', edge: 'es-ES-ElviraNeural', eleven: 'AZnzlk1XvdvUeBnXmlld', deepgram: 'aura-asteria-en', qwen_tts: 'qwen3-tts-es' },
-      it: { openai: 'shimmer', edge: 'it-IT-ElsaNeural', eleven: 'EXAVITQu4vr4xnSDxMaL', deepgram: 'aura-asteria-en', qwen_tts: 'qwen3-tts-it' },
-      pt: { openai: 'echo', edge: 'pt-BR-FranciscaNeural', eleven: 'ErXwobaYiN019PkySvjV', deepgram: 'aura-asteria-en', qwen_tts: 'qwen3-tts-pt' },
+      en: { openai: 'alloy', edge: 'en-US-JennyNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-2-thalia-en', cartesia: '794f9389-aac1-45b6-b726-9d9369183238', qwen_tts: 'qwen3-tts-en' },
+      es: { openai: 'nova', edge: 'es-ES-ElviraNeural', eleven: 'AZnzlk1XvdvUeBnXmlld', deepgram: 'aura-2-carina-es', cartesia: 'a0e99841-438c-4a64-b679-ae501e7d6091', qwen_tts: 'qwen3-tts-es' },
+      it: { openai: 'shimmer', edge: 'it-IT-ElsaNeural', eleven: 'EXAVITQu4vr4xnSDxMaL', deepgram: 'aura-2-diana-it', cartesia: '5345cf08-6fba-4089-a296-ee1a9673a726', qwen_tts: 'qwen3-tts-it' },
+      pt: { openai: 'echo', edge: 'pt-BR-FranciscaNeural', eleven: 'ErXwobaYiN019PkySvjV', deepgram: 'aura-asteria-en', cartesia: '4c65db53-8417-48f8-8422-af1f26ec5809', qwen_tts: 'qwen3-tts-pt' },
       fr: { openai: 'shimmer', edge: 'fr-FR-DeniseNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en' },
       de: { openai: 'alloy', edge: 'de-DE-KatjaNeural', eleven: 'pNInz6obpgDQGcFmaJgB', deepgram: 'aura-asteria-en' },
       zh: { openai: 'nova', edge: 'zh-CN-XiaoxiaoNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en' },
@@ -31,7 +34,7 @@ export class TTSService {
     // User-configured voice choices per language (Canonical Neural Defaults)
     this.voiceConfig = {
       es: 'es-ES-ElviraNeural',
-      en: 'aura-asteria-en',
+      en: 'aura-2-thalia-en',
       it: 'it-IT-ElsaNeural',
       pt: 'pt-BR-FranciscaNeural',
       fr: 'fr-FR-DeniseNeural',
@@ -89,7 +92,7 @@ export class TTSService {
     }
   }
 
-  setConfig({ openaiApiKey, elevenLabsApiKey, deepgramApiKey, qwenApiKey, preferredTtsEngine, voiceConfig, voiceGender, qwenTtsEndpoint }) {
+  setConfig({ openaiApiKey, elevenLabsApiKey, deepgramApiKey, cartesiaApiKey, qwenApiKey, preferredTtsEngine, voiceConfig, voiceGender, qwenTtsEndpoint }) {
     if (openaiApiKey !== undefined) {
       this.openaiApiKey = openaiApiKey;
       this.resetCircuit('openai');
@@ -98,13 +101,26 @@ export class TTSService {
       this.elevenLabsApiKey = elevenLabsApiKey;
       this.resetCircuit('elevenlabs');
     }
-    if (deepgramApiKey !== undefined) this.deepgramApiKey = deepgramApiKey;
-    if (qwenApiKey !== undefined) this.qwenApiKey = qwenApiKey;
-    if (qwenTtsEndpoint !== undefined) this.qwenTtsEndpoint = qwenTtsEndpoint;
+    if (deepgramApiKey !== undefined) {
+      this.deepgramApiKey = deepgramApiKey;
+      this.resetCircuit('deepgram');
+    }
+    if (cartesiaApiKey !== undefined) {
+      this.cartesiaApiKey = cartesiaApiKey;
+      this.resetCircuit('cartesia');
+    }
+    if (qwenApiKey !== undefined) {
+      this.qwenApiKey = qwenApiKey;
+      this.resetCircuit('qwen_tts');
+    }
+    if (qwenTtsEndpoint !== undefined) {
+      this.qwenTtsEndpoint = qwenTtsEndpoint;
+      this.resetCircuit('qwen_tts');
+    }
     if (preferredTtsEngine !== undefined) this.preferredTtsEngine = preferredTtsEngine;
     if (voiceConfig !== undefined) this.voiceConfig = { ...this.voiceConfig, ...voiceConfig };
     if (voiceGender !== undefined) this.voiceGender = { ...this.voiceGender, ...voiceGender };
-    console.log(`[TTSService] 🎙️ Config updated: Engine=${this.preferredTtsEngine}, Deepgram=${!!this.deepgramApiKey}, ElevenLabs=${!!this.elevenLabsApiKey}, OpenAI=${!!this.openaiApiKey}, QwenTTS=${!!this.qwenTtsEndpoint}`);
+    console.log(`[TTSService] 🎙️ Config updated: Engine=${this.preferredTtsEngine}, Deepgram=${!!this.deepgramApiKey}, Cartesia=${!!this.cartesiaApiKey}, ElevenLabs=${!!this.elevenLabsApiKey}, OpenAI=${!!this.openaiApiKey}, QwenTTS=${!!this.qwenTtsEndpoint}`);
   }
 
   setApiKey(openaiKey, elevenLabsKey = null) {
@@ -151,23 +167,40 @@ export class TTSService {
     if (!text || typeof text !== 'string') return '';
     let cleaned = text.trim();
 
-    // 1. Remove invisible zero-width and non-breaking space characters (\u200B-\u200D\uFEFF\u00A0)
-    cleaned = cleaned.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ');
+    // 1. Remove ANSI escape sequences (terminal control codes)
+    cleaned = cleaned.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, ' ');
 
-    // 2. Remove direct URLs
+    // 2. Remove XML 1.0 disallowed C0 and C1 control characters (0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F, 0x7F-0x9F)
+    cleaned = cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' ');
+
+    // 3. Remove invisible zero-width characters, Trojan Source and Bidi Overrides (\u200B-\u200F, \u202A-\u202E, \u2060-\u2069, etc.)
+    cleaned = cleaned.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF\u00A0\u180E\uFFF9-\uFFFB]/gu, ' ');
+
+    // 2. Unescape common HTML entities so engines don't read "&amp;" as "ampersand a m p punto y coma"
+    cleaned = cleaned
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;|&apos;/gi, "'");
+
+    // 3. Remove direct URLs
     cleaned = cleaned.replace(/https?:\/\/[^\s]+/gi, ' ');
 
-    // 3. Remove XML/HTML tags
+    // 4. Remove XML/HTML tags
     cleaned = cleaned.replace(/<[^>]+>/g, ' ');
 
-    // 4. Remove markdown links [text](url) -> text
+    // 5. Remove markdown links [text](url) -> text
     cleaned = cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
 
-    // 5. Remove bracketed speaker or meta tags like [Speaker]:, [Audience]:, [Nota: ...], (Pausa), etc.
-    cleaned = cleaned.replace(/\[[^\]]*\]/g, ' ');
+    // 6. Remove bracketed speaker or meta tags like [Speaker]:, [Audience]:, [Nota: ...], (Pausa), etc.
+    cleaned = cleaned.replace(/\[[^\]]*(?:speaker|audience|asistente|ponente|host|nota|pausa|silencio|risas|aplausos)[^\]]*\]/gi, ' ');
     cleaned = cleaned.replace(/\([^\)]*(?:pausa|silencio|nota|risas|aplausos)[^\)]*\)/gi, ' ');
 
-    // 6. Remove markdown syntax: asterisks (*bold*, **bold**), underscores (_italic_), hashtags (### header), backticks (`code`)
+    // 7. Strip isolated brackets leaving inner text intact
+    cleaned = cleaned.replace(/[\[\]]/g, ' ');
+
+    // 8. Remove markdown syntax: asterisks (*bold*, **bold**), underscores (_italic_), hashtags (### header), backticks (`code`)
     cleaned = cleaned.replace(/[*_#`~]/g, '');
 
     // 7. Strip emojis and non-standard symbols that TTS engines read out phonetically
@@ -220,12 +253,14 @@ export class TTSService {
     if ((engine === 'auto' || !options.engine) && voice) {
       if (typeof voice === 'string' && voice.startsWith('aura-')) {
         engine = 'deepgram';
-      } else if (['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer', 'sage', 'coral'].includes(voice)) {
+      } else if (['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer', 'sage', 'coral', 'ash'].includes(voice)) {
         engine = 'openai';
       } else if (typeof voice === 'string' && /^[a-zA-Z0-9]{20,22}$/.test(voice.trim())) {
         engine = 'elevenlabs';
-      } else if (typeof voice === 'string' && voice.includes('-') && /^[a-z]{2}-[A-Z]{2}-/.test(voice)) {
-        engine = 'google';
+      } else if (typeof voice === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(voice.trim())) {
+        engine = 'cartesia';
+      } else if (typeof voice === 'string' && (voice.includes('Neural') || /^[a-z]{2}-[A-Z]{2}-/.test(voice))) {
+        engine = 'edge';
       }
     }
 
@@ -239,23 +274,49 @@ export class TTSService {
       };
     }
 
-    // 1. Google Neural Universal (Selected directly by admin)
-    if (engine === 'google') {
+    // 1. Edge TTS / Azure Neural (Universal Zero-Cost Tier, also handles 'google' backward-compat)
+    if (engine === 'edge' || engine === 'google') {
       try {
-        const result = await this.synthesizeWithFastEngine(cleanText, lang);
+        const result = await this.synthesizeWithEdgeTTS(cleanText, lang, { voice, gender });
         if (result && result.audioBase64) {
           result.latencyMs = Date.now() - startTime;
-          result.provider = 'google';
+          result.provider = engine === 'edge' ? 'edge' : 'google';
           this.setCache(cacheKey, result);
           return result;
         }
       } catch (err) {
-        console.warn(`[TTSService] Google Neural TTS failed for ${lang}:`, err.message);
+        console.warn(`[TTSService] Edge TTS failed for ${lang} (${err.message}), falling back to public engine`);
+        try {
+          const result = await this.synthesizeWithFastEngine(cleanText, lang);
+          if (result && result.audioBase64) {
+            result.latencyMs = Date.now() - startTime;
+            result.provider = 'google';
+            this.setCache(cacheKey, result);
+            return result;
+          }
+        } catch (e2) {}
       }
     }
 
-    // 2. Qwen3-TTS / CosyVoice (Alibaba Speech API or OpenAI-compatible endpoint)
-    if (engine === 'qwen_tts') {
+    // 2. Cartesia Sonic (Ultra-Low Latency SSM <100ms)
+    if ((engine === 'cartesia' || (engine === 'auto' && this.cartesiaApiKey)) && this.cartesiaApiKey && !this.isCircuitOpen('cartesia')) {
+      try {
+        const result = await this.synthesizeWithCartesia(cleanText, lang, { voice, gender });
+        if (result && result.audioBase64) {
+          result.latencyMs = Date.now() - startTime;
+          this.setCache(cacheKey, result);
+          return result;
+        }
+      } catch (err) {
+        if (err.status === 401 || err.status === 402 || err.status === 429) {
+          this.tripCircuit('cartesia', err.status);
+        }
+        console.warn(`[TTSService] Cartesia Sonic failed for ${lang}:`, err.message);
+      }
+    }
+
+    // 3. Qwen3-TTS / CosyVoice (Alibaba Speech API or OpenAI-compatible endpoint)
+    if (engine === 'qwen_tts' && !this.isCircuitOpen('qwen_tts')) {
       try {
         const result = await this.synthesizeWithQwenTTS(cleanText, lang, { voice, gender });
         if (result && result.audioBase64) {
@@ -264,35 +325,36 @@ export class TTSService {
           return result;
         }
       } catch (err) {
+        if (err.status === 401 || err.status === 402 || err.status === 429 || (err.status && err.status >= 500)) {
+          this.tripCircuit('qwen_tts', err.status);
+        }
         console.warn(`[TTSService] Qwen3-TTS synthesis failed for ${lang}:`, err.message);
       }
     }
 
-    // 3. Deepgram Aura / Aura-2 TTS (Ultra-low latency <150ms, consumes user's $200 free credit)
-    if ((engine === 'deepgram' || (engine === 'auto' && this.deepgramApiKey)) && this.deepgramApiKey) {
-      if (lang !== 'en') {
-        // Deepgram Aura v1 models are native English. For non-English cabins (es, it, pt),
-        // synthesize instantly with Google Neural without 400 failure or penalty latency
+    // 4. Deepgram Aura / Aura-2 TTS (Native multilingual ES, EN, IT with ~120ms latency)
+    if ((engine === 'deepgram' || (engine === 'auto' && this.deepgramApiKey)) && this.deepgramApiKey && !this.isCircuitOpen('deepgram')) {
+      try {
+        const result = await this.synthesizeWithDeepgram(cleanText, lang, { voice, gender });
+        if (result && result.audioBase64) {
+          result.latencyMs = Date.now() - startTime;
+          this.setCache(cacheKey, result);
+          return result;
+        }
+      } catch (err) {
+        if (err.status === 401 || err.status === 402 || err.status === 429) {
+          this.tripCircuit('deepgram', err.status);
+        }
+        console.warn(`[TTSService] Deepgram Aura synthesis warning for ${lang} (${err.message}), falling back to Edge TTS`);
         try {
-          const result = await this.synthesizeWithFastEngine(cleanText, lang);
+          const result = await this.synthesizeWithEdgeTTS(cleanText, lang, { voice, gender });
           if (result && result.audioBase64) {
             result.latencyMs = Date.now() - startTime;
-            result.provider = 'deepgram-companion-google';
+            result.provider = 'deepgram-fallback-edge';
             this.setCache(cacheKey, result);
             return result;
           }
-        } catch (e) {}
-      } else {
-        try {
-          // Deepgram Aura has native high-fidelity English models (aura-asteria-en / aura-orion-en)
-          const result = await this.synthesizeWithDeepgram(cleanText, lang, { voice, gender });
-          if (result && result.audioBase64) {
-            result.latencyMs = Date.now() - startTime;
-            this.setCache(cacheKey, result);
-            return result;
-          }
-        } catch (err) {
-          console.warn(`[TTSService] Deepgram Aura synthesis warning for ${lang} (${err.message}), falling back to Google Neural`);
+        } catch (e2) {
           try {
             const result = await this.synthesizeWithFastEngine(cleanText, lang);
             if (result && result.audioBase64) {
@@ -301,12 +363,12 @@ export class TTSService {
               this.setCache(cacheKey, result);
               return result;
             }
-          } catch (e2) {}
+          } catch (e3) {}
         }
       }
     }
 
-    // 4. ElevenLabs TTS if API key is configured or requested and circuit is closed
+    // 5. ElevenLabs Flash v2.5 if API key is configured or requested and circuit is closed
     if ((engine === 'elevenlabs' || (engine === 'auto' && this.elevenLabsApiKey)) && this.elevenLabsApiKey && !this.isCircuitOpen('elevenlabs')) {
       try {
         const result = await this.synthesizeWithElevenLabs(cleanText, lang, { voice, gender });
@@ -323,7 +385,7 @@ export class TTSService {
       }
     }
 
-    // 5. OpenAI TTS if API key is provided or requested and circuit is closed
+    // 6. OpenAI TTS if API key is provided or requested and circuit is closed
     if ((engine === 'openai' || (engine === 'auto' && this.openaiApiKey)) && this.openaiApiKey && !this.isCircuitOpen('openai')) {
       try {
         const result = await this.synthesizeWithOpenAI(cleanText, lang, { voice, gender });
@@ -340,20 +402,28 @@ export class TTSService {
       }
     }
 
-    // 6. Fast engine fallback (Google Neural Universal)
+    // 7. Resilient Universal Zero-Cost Fallback (Edge TTS -> Fast Engine)
     try {
-      const result = await this.synthesizeWithFastEngine(cleanText, lang);
+      const result = await this.synthesizeWithEdgeTTS(cleanText, lang, { voice, gender });
       if (result && result.audioBase64) {
         result.latencyMs = Date.now() - startTime;
-        result.provider = 'google';
+        result.provider = 'edge';
         this.setCache(cacheKey, result);
         return result;
       }
     } catch (err) {
-      console.warn(`[TTSService] Fast engine TTS failed for lang ${lang}:`, err.message);
+      try {
+        const result = await this.synthesizeWithFastEngine(cleanText, lang);
+        if (result && result.audioBase64) {
+          result.latencyMs = Date.now() - startTime;
+          result.provider = 'google';
+          this.setCache(cacheKey, result);
+          return result;
+        }
+      } catch (e2) {}
     }
 
-    // 7. Fallback client-synthesized indicator packet
+    // 8. Fallback client-synthesized indicator packet
     const fallback = this.generateFallbackPayload(cleanText, lang);
     fallback.latencyMs = Date.now() - startTime;
     return fallback;
@@ -400,7 +470,9 @@ export class TTSService {
 
     if (!response.ok) {
       const err = await response.text();
-      throw new Error(`Qwen3-TTS error HTTP ${response.status}: ${err}`);
+      const error = new Error(`Qwen3-TTS error HTTP ${response.status}: ${err}`);
+      error.status = response.status;
+      throw error;
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -421,10 +493,17 @@ export class TTSService {
   async synthesizeWithDeepgram(text, lang, options = {}) {
     if (!this.deepgramApiKey) throw new Error('No Deepgram API key configured');
 
+    const auraModelMap = {
+      es: options.gender === 'male' ? 'aura-2-javier-es' : 'aura-2-carina-es',
+      en: options.gender === 'male' ? 'aura-orion-en' : 'aura-2-thalia-en',
+      it: options.gender === 'male' ? 'aura-2-marcos-it' : 'aura-2-diana-it',
+      fr: options.gender === 'male' ? 'aura-2-orion-fr' : 'aura-2-asteria-fr',
+      de: options.gender === 'male' ? 'aura-2-orion-de' : 'aura-2-asteria-de'
+    };
+
     let model = options.voice || this.voiceConfig[lang];
     if (!model || !model.startsWith('aura-')) {
-      const gender = options.gender || this.voiceGender[lang] || 'female';
-      model = gender === 'male' ? 'aura-orion-en' : 'aura-asteria-en';
+      model = auraModelMap[lang] || (options.gender === 'male' ? 'aura-orion-en' : 'aura-asteria-en');
     }
 
     const url = `https://api.deepgram.com/v1/speak?model=${model}&encoding=mp3`;
@@ -435,12 +514,14 @@ export class TTSService {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ text }),
-      signal: AbortSignal.timeout(2200)
+      signal: AbortSignal.timeout(2800)
     });
 
     if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`Deepgram Aura HTTP ${response.status}: ${err}`);
+      const errText = await response.text();
+      const err = new Error(`Deepgram Aura HTTP ${response.status}: ${errText}`);
+      err.status = response.status;
+      throw err;
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -475,7 +556,7 @@ export class TTSService {
       },
       body: JSON.stringify({
         text,
-        model_id: 'eleven_turbo_v2_5',
+        model_id: 'eleven_flash_v2_5',
         voice_settings: {
           stability: 0.5,
           similarity_boost: 0.8
@@ -511,12 +592,13 @@ export class TTSService {
 
   async synthesizeWithOpenAI(text, lang, options = {}) {
     let voice = options.voice || this.voiceConfig[lang];
-    if (!voice || !['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'].includes(voice)) {
+    const validOpenAIVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer', 'sage', 'coral', 'ash'];
+    if (!voice || !validOpenAIVoices.includes(voice)) {
       const gender = options.gender || this.voiceGender[lang] || 'female';
       if (gender === 'male') {
-        voice = lang === 'en' ? 'onyx' : 'echo';
+        voice = lang === 'en' ? 'ash' : (lang === 'es' ? 'echo' : 'onyx');
       } else {
-        voice = lang === 'es' ? 'nova' : (lang === 'it' ? 'shimmer' : 'alloy');
+        voice = lang === 'es' ? 'nova' : (lang === 'it' ? 'shimmer' : (lang === 'pt' ? 'coral' : 'sage'));
       }
     }
 
@@ -553,6 +635,211 @@ export class TTSService {
       text,
       lang,
       provider: 'openai',
+      durationMs: Math.round((text.length / 15) * 1000)
+    };
+  }
+
+  /**
+   * High-fidelity zero-cost synthesis using Microsoft Edge TTS (Azure Neural voices)
+   */
+  async synthesizeWithEdgeTTS(text, lang, options = {}) {
+    const startTime = Date.now();
+    const edgeVoiceMap = {
+      es: options.gender === 'male' ? 'es-ES-AlvaroNeural' : 'es-ES-ElviraNeural',
+      en: options.gender === 'male' ? 'en-US-GuyNeural' : 'en-US-JennyNeural',
+      it: options.gender === 'male' ? 'it-IT-DiegoNeural' : 'it-IT-ElsaNeural',
+      pt: options.gender === 'male' ? 'pt-BR-AntonioNeural' : 'pt-BR-FranciscaNeural',
+      fr: options.gender === 'male' ? 'fr-FR-HenriNeural' : 'fr-FR-DeniseNeural',
+      de: options.gender === 'male' ? 'de-DE-ConradNeural' : 'de-DE-KatjaNeural',
+      zh: 'zh-CN-XiaoxiaoNeural',
+      ja: 'ja-JP-NanamiNeural',
+      ar: 'ar-SA-ZariyahNeural',
+      ru: 'ru-RU-SvetlanaNeural',
+      ko: 'ko-KR-SunHiNeural',
+      hi: 'hi-IN-SwaraNeural'
+    };
+
+    let targetVoice = edgeVoiceMap[lang] || 'es-ES-ElviraNeural';
+    if (typeof options.voice === 'string') {
+      const candidate = options.voice.trim();
+      // Whitelist estricta: Previene inyección SSML en el atributo <voice name="...">
+      if (/^[a-z]{2,3}-[A-Z]{2,3}-[a-zA-Z0-9]+Neural$/.test(candidate)) {
+        targetVoice = candidate;
+      }
+    }
+
+    // 1. Strict XML escaping and control character purge to guarantee well-formed SSML in Azure/Bing Speech
+    const escapedText = String(text || '')
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' ')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
+    if (this.isCircuitOpen('edge')) {
+      throw new Error('Edge TTS circuit breaker is open (cooling down). Falling back to fast engine.');
+    }
+
+    const tts = new MsEdgeTTS();
+    let currentStream = null;
+    let timer = null;
+
+    const cleanup = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      if (currentStream) {
+        try {
+          currentStream.removeAllListeners('data');
+          currentStream.removeAllListeners('end');
+          // Attach no-op error handler to prevent Unhandled 'error' event when tts.close() destroys the stream
+          currentStream.on('error', () => {});
+        } catch (e) {}
+      }
+      try {
+        tts.close();
+      } catch (e) {}
+    };
+
+    const timeoutPromise = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        cleanup();
+        reject(new Error(`Edge TTS timed out after 3500ms for ${targetVoice}`));
+      }, 3500);
+    });
+
+    const synthesisPromise = (async () => {
+      // Both handshake and stream reception are covered within this promise
+      await tts.setMetadata(targetVoice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+
+      return new Promise((resolve, reject) => {
+        try {
+          const { audioStream } = tts.toStream(escapedText);
+          if (!audioStream) {
+            return reject(new Error('Edge TTS did not return an audio stream'));
+          }
+          currentStream = audioStream;
+
+          const audioChunks = [];
+
+          audioStream.on('data', (chunk) => {
+            audioChunks.push(chunk);
+          });
+
+          audioStream.on('end', () => {
+            currentStream = null;
+            try {
+              audioStream.removeAllListeners('data');
+              audioStream.removeAllListeners('end');
+              audioStream.on('error', () => {});
+            } catch (e) {}
+            const fullBuffer = Buffer.concat(audioChunks);
+            if (fullBuffer.length === 0) {
+              return reject(new Error('Edge TTS stream finished with empty buffer'));
+            }
+            resolve({
+              audioBase64: fullBuffer.toString('base64'),
+              mimeType: 'audio/mpeg',
+              text,
+              lang,
+              provider: 'edge',
+              voice: targetVoice,
+              latencyMs: Date.now() - startTime,
+              durationMs: Math.round((text.length / 15) * 1000)
+            });
+          });
+
+          audioStream.on('error', (err) => {
+            currentStream = null;
+            try {
+              audioStream.removeAllListeners('data');
+              audioStream.removeAllListeners('end');
+              audioStream.on('error', () => {});
+            } catch (e) {}
+            reject(err);
+          });
+        } catch (err) {
+          reject(err);
+        }
+      });
+    })();
+
+    try {
+      const result = await Promise.race([synthesisPromise, timeoutPromise]);
+      cleanup();
+      this.edgeConsecutiveFailures = 0;
+      return result;
+    } catch (err) {
+      cleanup();
+      this.edgeConsecutiveFailures = (this.edgeConsecutiveFailures || 0) + 1;
+      if (this.edgeConsecutiveFailures >= 3 || err?.message?.includes('429') || err?.message?.includes('timed out')) {
+        this.tripCircuit('edge', 429, 2 * 60 * 1000);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Ultra-low latency synthesis with Cartesia Sonic (SSM architecture)
+   */
+  async synthesizeWithCartesia(text, lang, options = {}) {
+    if (!this.cartesiaApiKey) throw new Error('No Cartesia API key configured');
+
+    const cartesiaVoiceMap = {
+      es: options.gender === 'male' ? '846d3575-01e4-4d89-94ae-34f3c7ae01d9' : 'a0e99841-438c-4a64-b679-ae501e7d6091',
+      en: options.gender === 'male' ? 'c45bc5ec-5968-4f0b-88b0-ae6d05910801' : '794f9389-aac1-45b6-b726-9d9369183238',
+      it: '5345cf08-6fba-4089-a296-ee1a9673a726',
+      pt: '4c65db53-8417-48f8-8422-af1f26ec5809',
+      fr: '638ef904-807d-419b-a05e-f9c3f3eb8644',
+      de: '156fb8d2-335b-4950-9cb3-a2d33befec77'
+    };
+
+    const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim());
+    const voiceId = (options.voice && isUUID(options.voice))
+      ? options.voice.trim()
+      : (cartesiaVoiceMap[lang] || 'a0e99841-438c-4a64-b679-ae501e7d6091');
+
+    const response = await fetch('https://api.cartesia.ai/tts/bytes', {
+      method: 'POST',
+      headers: {
+        'Cartesia-Version': '2024-06-10',
+        'X-API-Key': this.cartesiaApiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model_id: 'sonic-multilingual',
+        transcript: text,
+        voice: {
+          mode: 'id',
+          id: voiceId
+        },
+        output_format: {
+          container: 'mp3',
+          sample_rate: 44100,
+          bit_rate: 128000
+        }
+      }),
+      signal: AbortSignal.timeout(2400)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      const err = new Error(`Cartesia Sonic HTTP ${response.status}: ${errText}`);
+      err.status = response.status;
+      throw err;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    return {
+      audioBase64: buffer.toString('base64'),
+      mimeType: 'audio/mpeg',
+      text,
+      lang,
+      provider: 'cartesia',
+      voice: voiceId,
       durationMs: Math.round((text.length / 15) * 1000)
     };
   }
@@ -668,26 +955,616 @@ export class TTSService {
   }
 
   /**
-   * Get consolidated multi-engine voices catalog with active key status
+   * Get consolidated multi-engine voices catalog with active key status and tier classification
    */
   getAvailableVoicesCatalog() {
     const hasDeepgram = Boolean(this.deepgramApiKey);
     const hasEleven = Boolean(this.elevenLabsApiKey);
     const hasOpenAI = Boolean(this.openaiApiKey);
+    const hasCartesia = Boolean(this.cartesiaApiKey);
 
     return [
-      // --- DEEPGRAM AURA (Ultra-Low Latency ~170ms) ---
+      // =========================================================================
+      // --- 1. MICROSOFT EDGE TTS / AZURE NEURAL (Universal Zero-Cost Tier $0) ---
+      // =========================================================================
       {
-        id: 'aura-orion-en',
-        engine: 'deepgram',
-        name: 'Orion',
+        id: 'es-ES-ElviraNeural',
+        engine: 'edge',
+        name: 'Elvira Neural',
+        gender: 'female',
+        tone: 'Institucional, Fluido',
+        desc: 'Voz neuronal estándar de alta definición en español europeo e internacional.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~130ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'keynote',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'es-ES-AlvaroNeural',
+        engine: 'edge',
+        name: 'Álvaro Neural',
         gender: 'male',
-        tone: 'Resonante, Confiado',
-        desc: 'Barítono cálido con dicción clara para conferencias y ponencias.',
+        tone: 'Claro, Dinámico',
+        desc: 'Locución masculina clara y enérgica para conferencias técnicas y paneles.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~130ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'panel',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'es-MX-DaliaNeural',
+        engine: 'edge',
+        name: 'Dalia Neural (México)',
+        gender: 'female',
+        tone: 'Cálido, Suave',
+        desc: 'Acento neutro latinoamericano suave y fluido para foros panamericanos.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~135ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'conversational',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'es-MX-JorgeNeural',
+        engine: 'edge',
+        name: 'Jorge Neural (México)',
+        gender: 'male',
+        tone: 'Confiable, Cercano',
+        desc: 'Español neutro latinoamericano con dicción limpia y cadencia médica/corporativa.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~135ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'medical',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'en-US-JennyNeural',
+        engine: 'edge',
+        name: 'Jenny Neural',
+        gender: 'female',
+        tone: 'Crisp, Professional',
+        desc: 'Referente mundial de inteligibilidad y articulación en inglés americano.',
         lang: 'en',
         languages: ['en'],
-        latency: '~150ms',
-        badge: 'Deepgram Aura ⚡',
+        latency: '~125ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'keynote',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'en-US-GuyNeural',
+        engine: 'edge',
+        name: 'Guy Neural',
+        gender: 'male',
+        tone: 'Seguro, Cálido',
+        desc: 'Voz masculina estadounidense con gran naturalidad y dicción equilibrada.',
+        lang: 'en',
+        languages: ['en'],
+        latency: '~125ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'panel',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'en-US-AriaNeural',
+        engine: 'edge',
+        name: 'Aria Neural',
+        gender: 'female',
+        tone: 'Expresivo, Dinámico',
+        desc: 'Locución versátil con gran rango dinámico para auditorios amplios.',
+        lang: 'en',
+        languages: ['en'],
+        latency: '~130ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'panel',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'it-IT-ElsaNeural',
+        engine: 'edge',
+        name: 'Elsa Neural',
+        gender: 'female',
+        tone: 'Cálido, Expresivo',
+        desc: 'Voz italiana fluida con musicalidad natural para interpretación al italiano.',
+        lang: 'it',
+        languages: ['it'],
+        latency: '~130ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'keynote',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'it-IT-DiegoNeural',
+        engine: 'edge',
+        name: 'Diego Neural',
+        gender: 'male',
+        tone: 'Elegante, Sereno',
+        desc: 'Tono formal y refinado para la cabina de audio en italiano.',
+        lang: 'it',
+        languages: ['it'],
+        latency: '~130ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'medical',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'it-IT-CosimoNeural',
+        engine: 'edge',
+        name: 'Cosimo Neural',
+        gender: 'male',
+        tone: 'Pausado, Institucional',
+        desc: 'Dicción solemne y pausada para foros diplomáticos y debates.',
+        lang: 'it',
+        languages: ['it'],
+        latency: '~130ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'keynote',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'pt-BR-FranciscaNeural',
+        engine: 'edge',
+        name: 'Francisca Neural',
+        gender: 'female',
+        tone: 'Suave, Claro',
+        desc: 'Voz neuronal en portugués brasileño con apertura fonética natural.',
+        lang: 'pt',
+        languages: ['pt'],
+        latency: '~135ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'keynote',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'pt-BR-AntonioNeural',
+        engine: 'edge',
+        name: 'Antonio Neural',
+        gender: 'male',
+        tone: 'Enérgico, Amigable',
+        desc: 'Locución masculina clara y atractiva para la cabina de portugués.',
+        lang: 'pt',
+        languages: ['pt'],
+        latency: '~135ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'panel',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'es-CO-SalomeNeural',
+        engine: 'edge',
+        name: 'Salomé Neural (Colombia)',
+        gender: 'female',
+        tone: 'Cálido, Melódico',
+        desc: 'Acento andino muy claro y modulado para conferencias latinoamericanas.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~130ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'conversational',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'es-AR-ElenaNeural',
+        engine: 'edge',
+        name: 'Elena Neural (Argentina)',
+        gender: 'female',
+        tone: 'Enérgico, Cultivado',
+        desc: 'Cadencia rioplatense profesional para eventos del cono sur.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~135ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'panel',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'es-US-AlonsoNeural',
+        engine: 'edge',
+        name: 'Alonso Neural (EE.UU./Neutro)',
+        gender: 'male',
+        tone: 'Autoridad, Firme',
+        desc: 'Voz masculina hispana neutra de gran inteligibilidad internacional.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~130ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'keynote',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'en-US-ChristopherNeural',
+        engine: 'edge',
+        name: 'Christopher Neural',
+        gender: 'male',
+        tone: 'Autoridad, Solemne',
+        desc: 'Barítono institucional de gran peso para plenarias corporativas.',
+        lang: 'en',
+        languages: ['en'],
+        latency: '~130ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'keynote',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'en-GB-RyanNeural',
+        engine: 'edge',
+        name: 'Ryan Neural (UK)',
+        gender: 'male',
+        tone: 'Británico, Formal',
+        desc: 'Inglés británico Received Pronunciation para cumbres internacionales.',
+        lang: 'en',
+        languages: ['en'],
+        latency: '~135ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'medical',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'it-IT-IsabellaNeural',
+        engine: 'edge',
+        name: 'Isabella Neural',
+        gender: 'female',
+        tone: 'Articulada, Brillante',
+        desc: 'Dicción italiana nítida y ritmo constante para cabinas de traducción.',
+        lang: 'it',
+        languages: ['it'],
+        latency: '~130ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'conversational',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'pt-PT-RaquelNeural',
+        engine: 'edge',
+        name: 'Raquel Neural (Portugal)',
+        gender: 'female',
+        tone: 'Europeo, Claro',
+        desc: 'Portugués europeo institucional para eventos transatlánticos.',
+        lang: 'pt',
+        languages: ['pt'],
+        latency: '~135ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'keynote',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+      {
+        id: 'pt-PT-DuarteNeural',
+        engine: 'edge',
+        name: 'Duarte Neural (Portugal)',
+        gender: 'male',
+        tone: 'Sobrio, Directo',
+        desc: 'Locución masculina en portugués europeo para ponencias técnicas.',
+        lang: 'pt',
+        languages: ['pt'],
+        latency: '~135ms',
+        badge: 'Azure Neural • Gratuito ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Universal Gratuito',
+        scenario: 'panel',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: true
+      },
+
+      // =========================================================================
+      // --- 2. CARTESIA SONIC (Ultra-Low Latency State Space Model <100ms) ---
+      // =========================================================================
+      {
+        id: 'a0e99841-438c-4a64-b679-ae501e7d6091',
+        engine: 'cartesia',
+        name: 'Sonic Carla (Español)',
+        gender: 'female',
+        tone: 'Expresivo, Fluido',
+        desc: 'Síntesis SSM en streaming con TTFB <100ms para traducción simultánea inmediata.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~85ms',
+        badge: 'Cartesia Sonic ⚡⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasCartesia
+      },
+      {
+        id: '846d3575-01e4-4d89-94ae-34f3c7ae01d9',
+        engine: 'cartesia',
+        name: 'Sonic Diego (Español)',
+        gender: 'male',
+        tone: 'Seguro, Dinámico',
+        desc: 'Acento neutro hispanoamericano de respuesta ultra-rápida.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~85ms',
+        badge: 'Cartesia Sonic ⚡⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasCartesia
+      },
+      {
+        id: '794f9389-aac1-45b6-b726-9d9369183238',
+        engine: 'cartesia',
+        name: 'Sonic Sarah (Inglés)',
+        gender: 'female',
+        tone: 'Cálido, Rápido',
+        desc: 'Inglés americano con entonación natural y latencia récord.',
+        lang: 'en',
+        languages: ['en'],
+        latency: '~80ms',
+        badge: 'Cartesia Sonic ⚡⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasCartesia
+      },
+      {
+        id: 'c45bc5ec-5968-4f0b-88b0-ae6d05910801',
+        engine: 'cartesia',
+        name: 'Sonic Marcus (Inglés)',
+        gender: 'male',
+        tone: 'Resonante, Directo',
+        desc: 'Locución masculina ágil para conferencias técnicas y debates.',
+        lang: 'en',
+        languages: ['en'],
+        latency: '~80ms',
+        badge: 'Cartesia Sonic ⚡⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasCartesia
+      },
+      {
+        id: '5345cf08-6fba-4089-a296-ee1a9673a726',
+        engine: 'cartesia',
+        name: 'Sonic Chiara (Italiano)',
+        gender: 'female',
+        tone: 'Melódico, Expresivo',
+        desc: 'Modelo Sonic nativo en italiano con modulación natural y latencia récord <90ms.',
+        lang: 'it',
+        languages: ['it'],
+        latency: '~85ms',
+        badge: 'Cartesia Sonic ⚡⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasCartesia
+      },
+      {
+        id: '4c65db53-8417-48f8-8422-af1f26ec5809',
+        engine: 'cartesia',
+        name: 'Sonic Beatriz (Portugués)',
+        gender: 'female',
+        tone: 'Cálido, Dinámico',
+        desc: 'Pronunciación fluida en portugués con procesamiento SSM de ultra-baja latencia.',
+        lang: 'pt',
+        languages: ['pt'],
+        latency: '~85ms',
+        badge: 'Cartesia Sonic ⚡⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasCartesia
+      },
+
+      // =========================================================================
+      // --- 3. DEEPGRAM AURA-2 & AURA (Ultra-Low Latency ~110-150ms) ---
+      // =========================================================================
+      {
+        id: 'aura-2-thalia-en',
+        engine: 'deepgram',
+        name: 'Thalia (Aura-2)',
+        gender: 'female',
+        tone: 'Natural, Articulado',
+        desc: 'Nueva generación Aura-2 con prosodia humana avanzada y menor respiración sintética.',
+        lang: 'en',
+        languages: ['en'],
+        latency: '~115ms',
+        badge: 'Deepgram Aura-2 ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasDeepgram
+      },
+      {
+        id: 'aura-2-zeus-en',
+        engine: 'deepgram',
+        name: 'Zeus (Aura-2)',
+        gender: 'male',
+        tone: 'Autoritario, Claro',
+        desc: 'Locutor masculino para conferencias magistrales con máxima inteligibilidad.',
+        lang: 'en',
+        languages: ['en'],
+        latency: '~115ms',
+        badge: 'Deepgram Aura-2 ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasDeepgram
+      },
+      {
+        id: 'aura-2-carina-es',
+        engine: 'deepgram',
+        name: 'Carina (Aura-2 Español)',
+        gender: 'female',
+        tone: 'Cálido, Expresivo',
+        desc: 'Modelo nativo en español con ritmo fluido para conferencias e interpretación.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~115ms',
+        badge: 'Deepgram Aura-2 ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasDeepgram
+      },
+      {
+        id: 'aura-2-javier-es',
+        engine: 'deepgram',
+        name: 'Javier (Aura-2 Español)',
+        gender: 'male',
+        tone: 'Seguro, Dinámico',
+        desc: 'Voz masculina hispana moderna ideal para paneles y eventos en vivo.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~115ms',
+        badge: 'Deepgram Aura-2 ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasDeepgram
+      },
+      {
+        id: 'aura-2-celeste-es',
+        engine: 'deepgram',
+        name: 'Celeste (Aura-2 Español)',
+        gender: 'female',
+        tone: 'Sereno, Académico',
+        desc: 'Entonación pausada para congresos científicos y médicos en español.',
+        lang: 'es',
+        languages: ['es'],
+        latency: '~120ms',
+        badge: 'Deepgram Aura-2 ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'medical',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasDeepgram
+      },
+      {
+        id: 'aura-2-diana-it',
+        engine: 'deepgram',
+        name: 'Diana (Aura-2 Italiano)',
+        gender: 'female',
+        tone: 'Melódico, Expresivo',
+        desc: 'Modelo nativo en italiano con entonación natural para cabinas de interpretación.',
+        lang: 'it',
+        languages: ['it'],
+        latency: '~120ms',
+        badge: 'Deepgram Aura-2 ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasDeepgram
+      },
+      {
+        id: 'aura-2-marcos-it',
+        engine: 'deepgram',
+        name: 'Marcos (Aura-2 Italiano)',
+        gender: 'male',
+        tone: 'Cálido, Directo',
+        desc: 'Locución masculina italiana para conferencias y debates dinámicos.',
+        lang: 'it',
+        languages: ['it'],
+        latency: '~120ms',
+        badge: 'Deepgram Aura-2 ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
         isFree: false,
         requiresKey: true,
         isConfigured: hasDeepgram
@@ -698,11 +1575,32 @@ export class TTSService {
         name: 'Asteria',
         gender: 'female',
         tone: 'Expresivo, Cálido',
-        desc: 'Voz ejecutiva institucional ideal para presentaciones corporativas.',
+        desc: 'Voz ejecutiva institucional con alta inteligibilidad en 2–4 kHz.',
         lang: 'en',
         languages: ['en'],
-        latency: '~150ms',
+        latency: '~140ms',
         badge: 'Deepgram Aura ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasDeepgram
+      },
+      {
+        id: 'aura-orion-en',
+        engine: 'deepgram',
+        name: 'Orion',
+        gender: 'male',
+        tone: 'Resonante, Confiado',
+        desc: 'Barítono cálido con dicción clara para conferencias y ponencias.',
+        lang: 'en',
+        languages: ['en'],
+        latency: '~140ms',
+        badge: 'Deepgram Aura ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
         isFree: false,
         requiresKey: true,
         isConfigured: hasDeepgram
@@ -716,8 +1614,11 @@ export class TTSService {
         desc: 'Prosodia relajada y narrativa perfecta para oratoria prolongada.',
         lang: 'en',
         languages: ['en'],
-        latency: '~160ms',
+        latency: '~150ms',
         badge: 'Deepgram Aura ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'medical',
         isFree: false,
         requiresKey: true,
         isConfigured: hasDeepgram
@@ -731,38 +1632,11 @@ export class TTSService {
         desc: 'Modulación ágil y contemporánea para eventos en vivo.',
         lang: 'en',
         languages: ['en'],
-        latency: '~150ms',
+        latency: '~140ms',
         badge: 'Deepgram Aura ⚡',
-        isFree: false,
-        requiresKey: true,
-        isConfigured: hasDeepgram
-      },
-      {
-        id: 'aura-athena-en',
-        engine: 'deepgram',
-        name: 'Athena',
-        gender: 'female',
-        tone: 'Autoritario, Elegante',
-        desc: 'Tono solemne y formal para ceremonias y eventos académicos.',
-        lang: 'en',
-        languages: ['en'],
-        latency: '~160ms',
-        badge: 'Deepgram Aura ⚡',
-        isFree: false,
-        requiresKey: true,
-        isConfigured: hasDeepgram
-      },
-      {
-        id: 'aura-arcas-en',
-        engine: 'deepgram',
-        name: 'Arcas',
-        gender: 'male',
-        tone: 'Amigable, Cercano',
-        desc: 'Locución cálida y natural para talleres y sesiones de networking.',
-        lang: 'en',
-        languages: ['en'],
-        latency: '~155ms',
-        badge: 'Deepgram Aura ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
         isFree: false,
         requiresKey: true,
         isConfigured: hasDeepgram
@@ -776,177 +1650,69 @@ export class TTSService {
         desc: 'Voz madura y docta para ponencias médicas y científicas.',
         lang: 'en',
         languages: ['en'],
-        latency: '~165ms',
+        latency: '~155ms',
         badge: 'Deepgram Aura ⚡',
-        isFree: false,
-        requiresKey: true,
-        isConfigured: hasDeepgram
-      },
-      {
-        id: 'aura-perseus-en',
-        engine: 'deepgram',
-        name: 'Perseus',
-        gender: 'male',
-        tone: 'Casual, Ágil',
-        desc: 'Estilo fresco y juvenil para startups y debates dinámicos.',
-        lang: 'en',
-        languages: ['en'],
-        latency: '~150ms',
-        badge: 'Deepgram Aura ⚡',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'medical',
         isFree: false,
         requiresKey: true,
         isConfigured: hasDeepgram
       },
 
-      // --- GOOGLE NEURAL UNIVERSAL (100% Gratuito & Ilimitado) ---
-      {
-        id: 'es-ES-ElviraNeural',
-        engine: 'google',
-        name: 'Google Elvira',
-        gender: 'female',
-        tone: 'Natural, Fluido',
-        desc: 'Voz neuronal estándar de alta velocidad en español europeo/neutro.',
-        lang: 'es',
-        languages: ['es'],
-        latency: '~90ms',
-        badge: 'Universal Gratuito 🌐',
-        isFree: true,
-        requiresKey: false,
-        isConfigured: true
-      },
-      {
-        id: 'es-ES-AlvaroNeural',
-        engine: 'google',
-        name: 'Google Álvaro',
-        gender: 'male',
-        tone: 'Claro, Dinámico',
-        desc: 'Locución masculina clara y neutra sin coste ni límite de API.',
-        lang: 'es',
-        languages: ['es'],
-        latency: '~90ms',
-        badge: 'Universal Gratuito 🌐',
-        isFree: true,
-        requiresKey: false,
-        isConfigured: true
-      },
-      {
-        id: 'en-US-JennyNeural',
-        engine: 'google',
-        name: 'Google Jenny',
-        gender: 'female',
-        tone: 'Crisp, Professional',
-        desc: 'Excelente inteligibilidad y articulación en inglés americano.',
-        lang: 'en',
-        languages: ['en'],
-        latency: '~85ms',
-        badge: 'Universal Gratuito 🌐',
-        isFree: true,
-        requiresKey: false,
-        isConfigured: true
-      },
-      {
-        id: 'en-US-GuyNeural',
-        engine: 'google',
-        name: 'Google Guy',
-        gender: 'male',
-        tone: 'Seguro, Cálido',
-        desc: 'Voz masculina estadounidense con gran naturalidad y dicción.',
-        lang: 'en',
-        languages: ['en'],
-        latency: '~85ms',
-        badge: 'Universal Gratuito 🌐',
-        isFree: true,
-        requiresKey: false,
-        isConfigured: true
-      },
-      {
-        id: 'it-IT-ElsaNeural',
-        engine: 'google',
-        name: 'Google Elsa',
-        gender: 'female',
-        tone: 'Cálido, Expresivo',
-        desc: 'Voz italiana fluida ideal para traducción simultánea al italiano.',
-        lang: 'it',
-        languages: ['it'],
-        latency: '~90ms',
-        badge: 'Universal Gratuito 🌐',
-        isFree: true,
-        requiresKey: false,
-        isConfigured: true
-      },
-      {
-        id: 'it-IT-CosimoNeural',
-        engine: 'google',
-        name: 'Google Cosimo',
-        gender: 'male',
-        tone: 'Elegante, Sereno',
-        desc: 'Tono pausado y refinado para la cabina de audio en italiano.',
-        lang: 'it',
-        languages: ['it'],
-        latency: '~90ms',
-        badge: 'Universal Gratuito 🌐',
-        isFree: true,
-        requiresKey: false,
-        isConfigured: true
-      },
-      {
-        id: 'pt-BR-FranciscaNeural',
-        engine: 'google',
-        name: 'Google Francisca',
-        gender: 'female',
-        tone: 'Suave, Claro',
-        desc: 'Voz neuronal en portugués brasileño con acento natural.',
-        lang: 'pt',
-        languages: ['pt'],
-        latency: '~95ms',
-        badge: 'Universal Gratuito 🌐',
-        isFree: true,
-        requiresKey: false,
-        isConfigured: true
-      },
-      {
-        id: 'pt-BR-AntonioNeural',
-        engine: 'google',
-        name: 'Google Antonio',
-        gender: 'male',
-        tone: 'Enérgico, Amigable',
-        desc: 'Locución masculina clara y atractiva para la cabina de portugués.',
-        lang: 'pt',
-        languages: ['pt'],
-        latency: '~95ms',
-        badge: 'Universal Gratuito 🌐',
-        isFree: true,
-        requiresKey: false,
-        isConfigured: true
-      },
-
-      // --- OPENAI TTS-1 ---
+      // =========================================================================
+      // --- 4. OPENAI TTS-1 & REALTIME VOICES (Studio Standard 🤖) ---
+      // =========================================================================
       {
         id: 'nova',
         engine: 'openai',
         name: 'Nova',
         gender: 'female',
         tone: 'Enérgico, Cálido',
-        desc: 'Modulación natural con gran expresividad para todo tipo de eventos.',
+        desc: 'Modulación vibrante y gran expresividad para auditorios amplios y eventos.',
         lang: 'all',
         languages: ['es', 'en', 'it', 'pt'],
-        latency: '~250ms',
+        latency: '~220ms',
         badge: 'OpenAI TTS 🤖',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
         isFree: false,
         requiresKey: true,
         isConfigured: hasOpenAI
       },
       {
-        id: 'alloy',
+        id: 'sage',
         engine: 'openai',
-        name: 'Alloy',
-        gender: 'neutral',
-        tone: 'Equilibrado, Neutro',
-        desc: 'Voz corporativa y contemporánea altamente versátil.',
+        name: 'Sage',
+        gender: 'female',
+        tone: 'Sereno, Articulado',
+        desc: 'Tono reflexivo y pausado; máxima reducción de fatiga auditiva en sesiones largas.',
         lang: 'all',
         languages: ['es', 'en', 'it', 'pt'],
-        latency: '~250ms',
+        latency: '~220ms',
         badge: 'OpenAI TTS 🤖',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'medical',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasOpenAI
+      },
+      {
+        id: 'coral',
+        engine: 'openai',
+        name: 'Coral',
+        gender: 'female',
+        tone: 'Cálido, Melódico',
+        desc: 'Locución contemporánea fluida, excelente en español y portugués.',
+        lang: 'all',
+        languages: ['es', 'en', 'it', 'pt'],
+        latency: '~220ms',
+        badge: 'OpenAI TTS 🤖',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
         isFree: false,
         requiresKey: true,
         isConfigured: hasOpenAI
@@ -956,12 +1722,33 @@ export class TTSService {
         engine: 'openai',
         name: 'Echo',
         gender: 'male',
-        tone: 'Suave, Redondo',
-        desc: 'Barítono sereno sin estridencias para audición confortable.',
+        tone: 'Suave, Aterciopelado',
+        desc: 'Barítono relajado sin estridencias para audición confortable en auriculares.',
         lang: 'all',
         languages: ['es', 'en', 'it', 'pt'],
-        latency: '~260ms',
+        latency: '~230ms',
         badge: 'OpenAI TTS 🤖',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasOpenAI
+      },
+      {
+        id: 'ash',
+        engine: 'openai',
+        name: 'Ash',
+        gender: 'male',
+        tone: 'Ágil, Dinámico',
+        desc: 'Estilo fresco y reactivo ideal para mesas redondas y debates.',
+        lang: 'all',
+        languages: ['es', 'en', 'it', 'pt'],
+        latency: '~220ms',
+        badge: 'OpenAI TTS 🤖',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
         isFree: false,
         requiresKey: true,
         isConfigured: hasOpenAI
@@ -975,8 +1762,29 @@ export class TTSService {
         desc: 'Voz grave de gran presencia escénica y peso argumental.',
         lang: 'all',
         languages: ['es', 'en', 'it', 'pt'],
-        latency: '~260ms',
+        latency: '~240ms',
         badge: 'OpenAI TTS 🤖',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasOpenAI
+      },
+      {
+        id: 'alloy',
+        engine: 'openai',
+        name: 'Alloy',
+        gender: 'neutral',
+        tone: 'Equilibrado, Neutro',
+        desc: 'Voz corporativa y contemporánea altamente versátil.',
+        lang: 'all',
+        languages: ['es', 'en', 'it', 'pt'],
+        latency: '~220ms',
+        badge: 'OpenAI TTS 🤖',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
         isFree: false,
         requiresKey: true,
         isConfigured: hasOpenAI
@@ -987,28 +1795,54 @@ export class TTSService {
         name: 'Shimmer',
         gender: 'female',
         tone: 'Claro, Brillante',
-        desc: 'Articulación nítida y timbre luminoso para auditorios amplios.',
+        desc: 'Articulación nítida y timbre luminoso para cabinas italiana y portuguesa.',
         lang: 'all',
         languages: ['es', 'en', 'it', 'pt'],
-        latency: '~250ms',
+        latency: '~220ms',
         badge: 'OpenAI TTS 🤖',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
         isFree: false,
         requiresKey: true,
         isConfigured: hasOpenAI
       },
 
-      // --- ELEVENLABS TURBO V2.5 ---
+      // =========================================================================
+      // --- 5. ELEVENLABS FLASH V2.5 (High-Fidelity Studio 🌟) ---
+      // =========================================================================
       {
         id: '21m00Tcm4TlvDq8ikWAM',
         engine: 'elevenlabs',
         name: 'Rachel',
         gender: 'female',
-        tone: 'Calmo, Profesional',
-        desc: 'Fotorrealismo insignia de ElevenLabs con micro-expresión humana.',
+        tone: 'Fotorrealista, Cálido',
+        desc: 'Micro-expresión humana y naturalidad insignia de ElevenLabs.',
         lang: 'all',
         languages: ['es', 'en', 'it', 'pt'],
-        latency: '~300ms',
-        badge: 'ElevenLabs 🌟',
+        latency: '~100ms',
+        badge: 'ElevenLabs Flash 🌟',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasEleven
+      },
+      {
+        id: 'nPczCjzI2devNBz1zQrb',
+        engine: 'elevenlabs',
+        name: 'Brian',
+        gender: 'male',
+        tone: 'Profundo, Narrativo',
+        desc: 'Barítono magistral para cumbres diplomáticas y plenarias de alto nivel.',
+        lang: 'all',
+        languages: ['es', 'en', 'it', 'pt'],
+        latency: '~100ms',
+        badge: 'ElevenLabs Flash 🌟',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
         isFree: false,
         requiresKey: true,
         isConfigured: hasEleven
@@ -1022,8 +1856,47 @@ export class TTSService {
         desc: 'Locución profunda y enérgica para keynotes magistrales.',
         lang: 'all',
         languages: ['es', 'en', 'it', 'pt'],
-        latency: '~310ms',
-        badge: 'ElevenLabs 🌟',
+        latency: '~110ms',
+        badge: 'ElevenLabs Flash 🌟',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasEleven
+      },
+      {
+        id: 'Xb7hH8MSUJpSbSDYk0k2',
+        engine: 'elevenlabs',
+        name: 'Alice',
+        gender: 'female',
+        tone: 'Clara, Confiable',
+        desc: 'Dicción ejecutiva impecable para eventos corporativos y médicos.',
+        lang: 'all',
+        languages: ['es', 'en', 'it', 'pt'],
+        latency: '~100ms',
+        badge: 'ElevenLabs Flash 🌟',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'medical',
+        isFree: false,
+        requiresKey: true,
+        isConfigured: hasEleven
+      },
+      {
+        id: 'JBFqnCBsd6RMkjVDRZzb',
+        engine: 'elevenlabs',
+        name: 'George',
+        gender: 'male',
+        tone: 'Refinado, Británico',
+        desc: 'Acento internacional cultivado para foros globales.',
+        lang: 'all',
+        languages: ['es', 'en', 'it', 'pt'],
+        latency: '~110ms',
+        badge: 'ElevenLabs Flash 🌟',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
         isFree: false,
         requiresKey: true,
         isConfigured: hasEleven
@@ -1034,11 +1907,14 @@ export class TTSService {
         name: 'Domi',
         gender: 'female',
         tone: 'Fuerte, Directo',
-        desc: 'Voz asertiva y dinámica para paneles de discusión.',
+        desc: 'Voz asertiva y dinámica para paneles de discusión interactivos.',
         lang: 'all',
         languages: ['es', 'en', 'it', 'pt'],
-        latency: '~300ms',
-        badge: 'ElevenLabs 🌟',
+        latency: '~100ms',
+        badge: 'ElevenLabs Flash 🌟',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'panel',
         isFree: false,
         requiresKey: true,
         isConfigured: hasEleven
@@ -1052,8 +1928,11 @@ export class TTSService {
         desc: 'Modulación cinematográfica con ritmo oratorio pausado.',
         lang: 'all',
         languages: ['es', 'en', 'it', 'pt'],
-        latency: '~310ms',
-        badge: 'ElevenLabs 🌟',
+        latency: '~110ms',
+        badge: 'ElevenLabs Flash 🌟',
+        tier: 'premium_studio',
+        tierLabel: 'Studio Pro',
+        scenario: 'keynote',
         isFree: false,
         requiresKey: true,
         isConfigured: hasEleven

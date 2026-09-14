@@ -35,7 +35,7 @@ export const ALL_CABINS = [
 
 export const DEFAULT_VOICES = {
   es: 'es-ES-ElviraNeural',
-  en: 'aura-asteria-en',
+  en: 'aura-2-thalia-en',
   it: 'it-IT-ElsaNeural',
   pt: 'pt-BR-FranciscaNeural'
 };
@@ -66,11 +66,37 @@ export default function HostView({
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [isTogglingBroadcast, setIsTogglingBroadcast] = useState(false);
   const [broadcastError, setBroadcastError] = useState(null);
-  const [sourceLanguage, setSourceLanguage] = useState('auto');
+  const [sourceLanguage, setSourceLanguage] = useState(() => {
+    try {
+      return localStorage.getItem('lv_stt_lang') || 'auto';
+    } catch (e) {
+      return 'auto';
+    }
+  });
+  const lastExplicitSpeakerLangRef = useRef((() => {
+    try {
+      const saved = localStorage.getItem('lv_stt_lang');
+      if (saved && saved !== 'auto') return saved;
+    } catch (e) {}
+    return 'es-ES';
+  })());
   const sourceLanguageRef = useRef(sourceLanguage);
   useEffect(() => {
     sourceLanguageRef.current = sourceLanguage;
+    if (sourceLanguage && sourceLanguage !== 'auto') {
+      lastExplicitSpeakerLangRef.current = sourceLanguage;
+    }
+    try {
+      localStorage.setItem('lv_stt_lang', sourceLanguage);
+    } catch (e) {}
   }, [sourceLanguage]);
+
+  const isBroadcastingRef = useRef(isBroadcasting);
+  useEffect(() => {
+    isBroadcastingRef.current = isBroadcasting;
+  }, [isBroadcasting]);
+
+  const isSwitchingDeviceRef = useRef(false);
   const [targetLanguages, setTargetLanguages] = useState(['es', 'en', 'it', 'pt']);
   const [transcriptHistory, setTranscriptHistory] = useState([]);
   const [liveInterimSpeech, setLiveInterimSpeech] = useState('');
@@ -259,7 +285,6 @@ export default function HostView({
   const dockMeterTextRef = useRef(null);
   const lastSentSpeechRef = useRef({ text: '', time: 0 });
   const lastCumulativeSpeechRef = useRef({ text: '', time: 0 });
-  const recentEmissionsHistoryRef = useRef([]);
   const [hasCopiedLink, setHasCopiedLink] = useState(false);
 
   const monitoredLangRef = useRef(monitoredLang);
@@ -440,19 +465,31 @@ export default function HostView({
       if (msg?.stats) {
         applyStatsUpdate(msg.stats);
       }
+      // Re-sincronizar cabina de auriculares monitorizada y estado de emisión tras reconexión
+      if (monitoredLangRef.current && monitoredLangRef.current !== 'none') {
+        socketService.setMonitoredBooth(roomId, monitoredLangRef.current);
+      }
+      if (isBroadcastingRef.current) {
+        socketService.send({ type: 'host_broadcast_state', roomId, isBroadcasting: true });
+      }
     });
 
     const unsubTranscript = socketService.on('transcript_event', (item) => {
       if (!isMounted || !item) return;
       setTranscriptHistory(prev => {
+        let next;
         if (prev.some(p => p.id === item.id)) {
-          return prev.map(p => p.id === item.id ? { ...p, ...item, translations: { ...(p.translations || {}), ...(item.translations || {}) } } : p);
+          next = prev.map(p => p.id === item.id ? { ...p, ...item, translations: { ...(p.translations || {}), ...(item.translations || {}) } } : p);
+        } else {
+          const last = prev[prev.length - 1];
+          if (last && last.originalText === item.originalText && Math.abs((item.timestamp || 0) - (last.timestamp || 0)) < 4000) {
+            return prev;
+          }
+          next = [...prev, item];
         }
-        const last = prev[prev.length - 1];
-        if (last && last.originalText === item.originalText && Math.abs((item.timestamp || 0) - (last.timestamp || 0)) < 4000) {
-          return prev;
-        }
-        return [...prev, item];
+        // Rolling window defensivo: evita acumular miles de nodos DOM en conferencias largas (>2 horas)
+        const MAX_CLIENT_TRANSCRIPTS = 80;
+        return next.length > MAX_CLIENT_TRANSCRIPTS ? next.slice(-MAX_CLIENT_TRANSCRIPTS) : next;
       });
     });
 
@@ -624,24 +661,21 @@ export default function HostView({
     }
 
     lastSentSpeechRef.current = { text: cleanText, time: now };
-    recentEmissionsHistoryRef.current.push({
-      text: cleanText,
-      norm: normEmit,
-      time: now
-    });
 
     setLiveInterimSpeech('');
 
     const currentSrc = sourceLanguageRef.current;
-    let sendLang = (!currentSrc || currentSrc === 'auto') ? 'auto' : currentSrc;
+    let sendLang = (!currentSrc || currentSrc === 'auto' || currentSrc === 'multi') ? 'auto' : currentSrc;
     if (sendLang === 'auto' && detectedLang && detectedLang !== 'auto' && detectedLang !== 'multi') {
       sendLang = detectedLang;
     }
     if (sendLang !== 'auto') {
       const srcLower = sendLang.toLowerCase();
-      sendLang = (srcLower.startsWith('pt') && srcLower.includes('br'))
-        ? 'pt-BR'
-        : (sendLang.length > 2 ? sendLang.slice(0, 2) : sendLang);
+      if (srcLower.startsWith('es')) sendLang = 'es';
+      else if (srcLower.startsWith('en')) sendLang = 'en';
+      else if (srcLower.startsWith('it')) sendLang = 'it';
+      else if (srcLower.startsWith('pt')) sendLang = 'pt';
+      else sendLang = sendLang.length > 2 ? sendLang.slice(0, 2) : sendLang;
     }
 
     // Transmit strictly ONE single socket event to server AI pipeline for translation and multi-booth TTS
@@ -688,6 +722,30 @@ export default function HostView({
         setLiveInterimSpeech('');
         socketService.send({ type: 'host_broadcast_state', roomId, isBroadcasting: false });
       } else {
+        // Pre-flight de compatibilidad para evitar silent failure loops en Firefox/Safari sin claves
+        const hasNativeSTT = typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+        const hasConfiguredKeys = typeof localStorage !== 'undefined' && Boolean(
+          localStorage.getItem('lv_deepgram_key') ||
+          localStorage.getItem('deepgram_api_key') ||
+          localStorage.getItem('lv_openai_key') ||
+          localStorage.getItem('lv_gemini_key')
+        );
+
+        if (!hasNativeSTT && !hasConfiguredKeys) {
+          const isFirefoxOrSafari = typeof navigator !== 'undefined' && (
+            /firefox/i.test(navigator.userAgent) ||
+            (/safari/i.test(navigator.userAgent) && !/chrome|chromium/i.test(navigator.userAgent))
+          );
+          if (isFirefoxOrSafari) {
+            setBroadcastError(
+              'Tu navegador (Firefox / Safari) no admite transcripción de voz local gratuita. ' +
+              'Para emitir gratis en modo Zero-Cost, utiliza Google Chrome o Microsoft Edge, o bien añade una clave de Deepgram en Ajustes (icono de engranaje).'
+            );
+            setIsTogglingBroadcast(false);
+            return;
+          }
+        }
+
         await audioPlayerService.unlockAudio(roomId, 'es');
         const activeStt = localStorage.getItem('lv_stt_engine') || sttEngine || 'deepgram';
         const currentSrcLang = sourceLanguageRef.current;
@@ -706,12 +764,22 @@ export default function HostView({
             // When Deepgram / server STT is selected, send audio to server AI pipeline
             const activeLang = sourceLanguageRef.current;
             const srcLower = (activeLang || '').toLowerCase();
-            const resolvedActive = (srcLower.startsWith('pt') && srcLower.includes('br'))
-              ? 'pt-BR'
-              : (activeLang === 'auto' ? 'auto' : (activeLang ? activeLang.slice(0, 2) : 'auto'));
-            const targetLang = (lang && lang !== 'auto') 
-              ? (lang.toLowerCase().includes('br') ? 'pt-BR' : (lang.length > 2 ? lang.slice(0, 2) : lang))
-              : resolvedActive;
+            let resolvedActive = 'auto';
+            if (srcLower.startsWith('es')) resolvedActive = 'es';
+            else if (srcLower.startsWith('en')) resolvedActive = 'en';
+            else if (srcLower.startsWith('it')) resolvedActive = 'it';
+            else if (srcLower.startsWith('pt')) resolvedActive = 'pt';
+            else if (activeLang && activeLang !== 'auto' && activeLang !== 'multi') resolvedActive = activeLang.slice(0, 2);
+
+            let targetLang = resolvedActive;
+            if (lang && lang !== 'auto' && lang !== 'multi') {
+              const lLower = lang.toLowerCase();
+              if (lLower.startsWith('es')) targetLang = 'es';
+              else if (lLower.startsWith('en')) targetLang = 'en';
+              else if (lLower.startsWith('it')) targetLang = 'it';
+              else if (lLower.startsWith('pt')) targetLang = 'pt';
+              else targetLang = lang.slice(0, 2);
+            }
             socketService.sendSpeechAudio(audioBase64, mimeType, targetLang, {
               medicalMode: medicalConfigRef.current.medicalMode,
               medicalSpecialty: medicalConfigRef.current.medicalSpecialty,
@@ -988,6 +1056,21 @@ export default function HostView({
                 ? `Monitoreando retorno en directo en ${monitoredLang.toUpperCase()}. Silencia cuando hables al micrófono para evitar eco.`
                 : 'Silenciado para no escuchar eco mientras hablas. Selecciona una cabina para audicionar su locución.'}
             </p>
+
+            {monitoredLang !== 'none' && (
+              <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium leading-tight ${
+                isBroadcasting
+                  ? 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
+                  : 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400'
+              }`}>
+                <span className="flex-shrink-0 text-xs">🎧</span>
+                <span>
+                  {isBroadcasting
+                    ? 'Usa auriculares obligatoriamente para evitar que el sonido de los altavoces entre por tu micrófono.'
+                    : 'Recomendación: Usa auriculares al activar el retorno para evitar acople acústico cuando hables.'}
+                </span>
+              </div>
+            )}
 
             <div className="pt-0.5 flex gap-2">
               {monitoredLang !== 'none' ? (
@@ -1634,11 +1717,15 @@ export default function HostView({
                       const newDev = val || 'default';
                       setSelectedDevice(newDev);
                       if (isBroadcasting) {
+                        if (isSwitchingDeviceRef.current) return;
+                        isSwitchingDeviceRef.current = true;
                         try {
                           await audioRecorderService.switchDevice(newDev);
                         } catch (err) {
                           console.error('[HostView] Error en conmutación en caliente de micrófono:', err);
                           setBroadcastError('No se pudo conmutar al nuevo micrófono. Se mantiene el dispositivo previo.');
+                        } finally {
+                          isSwitchingDeviceRef.current = false;
                         }
                       } else {
                         audioRecorderService.setDevice(newDev);
@@ -1653,22 +1740,42 @@ export default function HostView({
                     <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
                       Idioma del Ponente
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSourceLanguage('auto');
-                        audioRecorderService.setLanguage('auto');
-                      }}
-                      className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1.5 border select-none ${
-                        sourceLanguage === 'auto'
-                          ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-2xs font-semibold'
-                          : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
-                      }`}
-                      title="Detección Automática Multilingüe"
+                    <label
+                      className="inline-flex items-center gap-2 cursor-pointer select-none group py-0.5 rounded focus-within:ring-2 focus-within:ring-zinc-900 dark:focus-within:ring-white focus-within:ring-offset-2 dark:focus-within:ring-offset-zinc-950"
+                      title="Detección automática del idioma del ponente"
                     >
-                      <Sparkles className="w-3 h-3" />
-                      <span>Auto</span>
-                    </button>
+                      <input
+                        type="checkbox"
+                        checked={sourceLanguage === 'auto'}
+                        onChange={() => {
+                          const next = sourceLanguage === 'auto'
+                            ? (lastExplicitSpeakerLangRef.current || 'es-ES')
+                            : 'auto';
+                          setSourceLanguage(next);
+                          try { localStorage.setItem('lv_stt_lang', next); } catch (e) {}
+                          audioRecorderService.setLanguage(next);
+                        }}
+                        className="sr-only"
+                      />
+                      <div
+                        className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
+                          sourceLanguage === 'auto'
+                            ? 'bg-zinc-900 dark:bg-white border-zinc-900 dark:border-white text-white dark:text-zinc-900 shadow-2xs'
+                            : 'bg-transparent border-zinc-300 dark:border-zinc-700 group-hover:border-zinc-400 dark:group-hover:border-zinc-500'
+                        }`}
+                      >
+                        {sourceLanguage === 'auto' && (
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        )}
+                      </div>
+                      <span className={`text-xs transition-colors ${
+                        sourceLanguage === 'auto'
+                          ? 'text-zinc-900 dark:text-zinc-100 font-semibold'
+                          : 'text-zinc-500 dark:text-zinc-400 font-medium group-hover:text-zinc-700 dark:group-hover:text-zinc-300'
+                      }`}>
+                        Auto
+                      </span>
+                    </label>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2.5">
@@ -1684,6 +1791,8 @@ export default function HostView({
                           type="button"
                           onClick={() => {
                             setSourceLanguage(lang.langCode);
+                            lastExplicitSpeakerLangRef.current = lang.langCode;
+                            try { localStorage.setItem('lv_stt_lang', lang.langCode); } catch (e) {}
                             audioRecorderService.setLanguage(lang.langCode);
                           }}
                           className={`p-3 min-w-[44px] min-h-[44px] rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between select-none ${

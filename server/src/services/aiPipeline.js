@@ -5,6 +5,19 @@ import { ttsService } from './ttsService.js';
 import { sttService } from './sttService.js';
 
 /**
+ * Canonical ISO-639-1 language normalizer for LiftVoice AI Pipeline
+ */
+export function normalizePipelineLang(lang) {
+  if (!lang || lang === 'auto' || lang === 'multi') return 'auto';
+  const l = String(lang).toLowerCase().trim();
+  if (l.startsWith('es')) return 'es';
+  if (l.startsWith('en')) return 'en';
+  if (l.startsWith('it')) return 'it';
+  if (l.startsWith('pt')) return 'pt';
+  return l.slice(0, 2);
+}
+
+/**
  * AI Pipeline Orchestrator for LiftVoice (2026 Edition)
  * Mic / Speech -> STT -> Multi-target Translation -> Parallel TTS -> Monotonic Serialized Broadcast
  */
@@ -12,6 +25,7 @@ export class AIPipeline {
   constructor() {
     this.activePipelines = new Set();
     this.roomQueues = new Map(); // roomId -> Promise chain
+    this.roomQueueDepths = new Map(); // roomId -> count of pending chunks in flight (shed-load defense)
     this.roomSeqCounters = new Map(); // roomId -> integer
     this.roomContexts = new Map(); // roomId -> string of recent spoken words
     this.roomRecentEmissions = new Map(); // roomId -> Array of { text, norm, time }
@@ -24,6 +38,7 @@ export class AIPipeline {
     openaiTemp,
     deepgramApiKey,
     elevenLabsApiKey,
+    cartesiaApiKey,
     deeplApiKey,
     geminiApiKey,
     geminiModel,
@@ -83,6 +98,7 @@ export class AIPipeline {
       openaiApiKey,
       elevenLabsApiKey,
       deepgramApiKey,
+      cartesiaApiKey,
       qwenApiKey,
       qwenTtsEndpoint,
       preferredTtsEngine,
@@ -107,6 +123,7 @@ export class AIPipeline {
   cleanupRoom(roomId) {
     const key = (roomId || 'MAIN').toUpperCase();
     this.roomQueues.delete(key);
+    this.roomQueueDepths.delete(key);
     this.roomSeqCounters.delete(key);
     this.roomContexts.delete(key);
     this.roomRecentEmissions.delete(key);
@@ -138,6 +155,15 @@ export class AIPipeline {
     const seqId = this.getNextSeqId(roomId);
     roomManager.touchRoomActivity(roomId);
 
+    // Backpressure & Load-Shedding defense: drop intermediate stale chunks if queue depth >= 3
+    const currentDepth = this.roomQueueDepths.get(roomId) || 0;
+    if (currentDepth >= 3) {
+      console.warn(`[AIPipeline] ⚠️ Backpressure in room ${roomId} (queue depth: ${currentDepth}). Dropping stale audio chunk to protect heap and prevent cascading lag.`);
+      return { dropped: true, reason: 'BACKPRESSURE_LOAD_SHEDDING', seqId };
+    }
+
+    this.roomQueueDepths.set(roomId, currentDepth + 1);
+
     // Chain to ensure FIFO sequential completion per room
     const currentQueue = this.roomQueues.get(roomId) || Promise.resolve();
 
@@ -149,6 +175,8 @@ export class AIPipeline {
         return this.executeSpeechPipeline({ ...params, roomId, seqId });
       })
       .finally(() => {
+        const nextDepth = Math.max(0, (this.roomQueueDepths.get(roomId) || 1) - 1);
+        this.roomQueueDepths.set(roomId, nextDepth);
         if (this.roomQueues.get(roomId) === taskPromise) {
           this.roomQueues.set(roomId, Promise.resolve());
         }
@@ -170,6 +198,7 @@ export class AIPipeline {
       };
     }
     let { roomId, text, audioBuffer, mimeType, sourceLanguage = 'auto', seqId = 1, forceLanguages = [], medicalMode, medicalSpecialty, customGlossary } = opts;
+    sourceLanguage = normalizePipelineLang(sourceLanguage);
     const pipelineStart = Date.now();
     const packetId = `pkt_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     let spokenText = (text || '').trim();
@@ -189,7 +218,7 @@ export class AIPipeline {
       if (sttResult && sttResult.text) {
         spokenText = sttResult.text;
         if (sttResult.detectedLanguage && sttResult.detectedLanguage !== 'auto') {
-          sourceLanguage = sttResult.detectedLanguage;
+          sourceLanguage = normalizePipelineLang(sttResult.detectedLanguage);
         }
       }
     }
@@ -254,9 +283,12 @@ export class AIPipeline {
     // FIN-01: Cost Protection / Lazy Cabins
     // Obtain active listening languages BEFORE LLM translation to avoid wasting tokens/quota
     const activeLangs = this.getActiveLanguages(roomId);
-    const targetLangs = (forceLanguages && forceLanguages.length > 0)
+    const rawTargetLangs = (forceLanguages && forceLanguages.length > 0)
       ? Array.from(new Set(forceLanguages))
       : activeLangs;
+    const targetLangs = Array.from(new Set(
+      rawTargetLangs.map(normalizePipelineLang).filter(l => l && l !== 'auto')
+    ));
 
     // If 0 active listeners and host is not monitoring any booth: skip LLM translation & TTS completely
     if (targetLangs.length === 0) {
@@ -336,7 +368,7 @@ export class AIPipeline {
       };
     }
     const transLatency = Date.now() - transStart;
-    const detectedLang = transResult.detectedSource || sourceLanguage || 'auto';
+    const detectedLang = transResult.detectedSource ? normalizePipelineLang(transResult.detectedSource) : (sourceLanguage !== 'auto' ? sourceLanguage : 'es');
 
     const transcriptItem = {
       id: packetId,
@@ -359,7 +391,7 @@ export class AIPipeline {
     // Step 3: Bulkhead Orchestration: Fast Lane for healthy cabins + Healing Lane for omitted cabins
     const ttsStart = Date.now();
     const cleanSpoken = spokenText.trim().toLowerCase();
-    const sourceShort = (detectedLang || sourceLanguage || 'es').slice(0, 2).toLowerCase();
+    const sourceShort = normalizePipelineLang(detectedLang || sourceLanguage || 'es');
     const reportedOmitted = new Set(transResult.omittedKeys || []);
 
     const isUniversalCognate = (txt) => {
@@ -375,9 +407,10 @@ export class AIPipeline {
       if (reportedOmitted.has(lang)) return true;
       const tVal = (transResult.translations[lang] || '').trim();
       if (!tVal) return true;
-      // Si el texto es idéntico palabra por palabra al texto de origen en idioma distinto, es un fallback no traducido
-      // salvo que se trate de un término médico internacional o acrónimo universal
-      if (tVal.toLowerCase() === cleanSpoken && cleanSpoken.length > 5 && !isUniversalCognate(cleanSpoken)) return true;
+      // Normalizar quitando signos de puntuación y símbolos Unicode (comillas curvas, guiones, etc.) para evitar falsos negativos
+      const normTVal = tVal.toLowerCase().replace(/[\p{P}\p{S}]/gu, ' ').replace(/\s+/g, ' ').trim();
+      const normSpoken = cleanSpoken.replace(/[\p{P}\p{S}]/gu, ' ').replace(/\s+/g, ' ').trim();
+      if (normTVal === normSpoken && normSpoken.length > 5 && !isUniversalCognate(normSpoken)) return true;
       return false;
     };
 
@@ -449,15 +482,16 @@ export class AIPipeline {
       }
     }
 
-    // Esperar síntesis de la vía rápida para mantener métricas de latencia de ultra-baja demora
+    // Esperar síntesis de la vía rápida para mantener métricas de latencia de ultra-baja demora.
+    // Usamos Promise.allSettled con ventana reducida a 2200ms para que una cabina lenta nunca bloquee el pipeline de la sala.
     try {
       await Promise.race([
-        Promise.all(fastLanePromises),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('TTS_TIMEOUT')), 4500))
+        Promise.allSettled(fastLanePromises),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TTS_TIMEOUT')), 2200))
       ]);
     } catch (ttsErr) {
       if (ttsErr?.message === 'TTS_TIMEOUT') {
-        console.warn(`[AIPipeline] ⏱️ Síntesis TTS de vía rápida excedió tiempo límite para paquete ${packetId} (seq ${seqId})`);
+        console.warn(`[AIPipeline] ⏱️ Síntesis TTS de vía rápida continuó en segundo plano para paquete ${packetId} (seq ${seqId})`);
       } else {
         console.warn('[AIPipeline] Error en TTS de vía rápida:', ttsErr);
       }

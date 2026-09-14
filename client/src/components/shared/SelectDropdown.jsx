@@ -215,10 +215,7 @@ export default function SelectDropdown({
             : 'bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 border-zinc-200/80 dark:border-white/10'
         } focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-blue-500 dark:focus-visible:ring-white/40 ${className}`}
       >
-        <span className="truncate text-left flex items-center gap-1.5">
-          {isFilterActive && (
-            <span className="w-1.5 h-1.5 rounded-full bg-zinc-700 dark:bg-zinc-300 shrink-0" />
-          )}
+        <span className="truncate text-left">
           {displayLabel}
         </span>
         <ChevronDown

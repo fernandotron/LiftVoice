@@ -330,6 +330,13 @@ class AudioRecorderService {
             this.recognition.abort();
           } catch (e) {}
           this.recognition = null;
+          this.clearSilenceTimer();
+          this.committedResultIndex = 0;
+          this.latestResultCount = 0;
+          this.committedSessionTranscript = '';
+          this.currentRawSessionText = '';
+          this.currentPendingText = '';
+          this.notifyInterim('');
         }
         if (this.mediaStream && (!this.deepgramStreamingService.active || !this.deepgramStreamingService.ws)) {
           const opts = this.recordingOptions || {};
@@ -339,7 +346,8 @@ class AudioRecorderService {
           else if (srcLower.startsWith('pt')) langCode = srcLower.includes('br') ? 'pt-BR' : 'pt';
           else if (srcLower.startsWith('it')) langCode = 'it';
           else if (srcLower.startsWith('es')) langCode = 'es';
-          else if (this.sourceLanguage && this.sourceLanguage !== 'auto' && this.sourceLanguage !== 'multi') {
+          else if (srcLower === 'auto' || srcLower === 'multi') langCode = 'multi';
+          else if (this.sourceLanguage) {
             langCode = this.sourceLanguage.length > 2 ? this.sourceLanguage.slice(0, 2) : this.sourceLanguage;
           }
 
@@ -373,6 +381,8 @@ class AudioRecorderService {
                   this.notifyInterim(clean);
                 }
               },
+              onFirstPartialLatency: opts.onFirstPartialLatency,
+              onFirstPartialTimeout: opts.onFirstPartialTimeout,
               onError: (err) => {
                 console.warn('[AudioRecorder] Fallo Deepgram tras conmutación de motor, cayendo a WebSpeech:', err);
                 this.deepgramStreamingService.stop().catch(() => {});
@@ -386,6 +396,13 @@ class AudioRecorderService {
         if (this.deepgramStreamingService.active) {
           this.deepgramStreamingService.stop().catch(() => {});
         }
+        this.clearSilenceTimer();
+        this.committedResultIndex = 0;
+        this.latestResultCount = 0;
+        this.committedSessionTranscript = '';
+        this.currentRawSessionText = '';
+        this.currentPendingText = '';
+        this.notifyInterim('');
         if (!this.recognition) {
           this.initSpeechRecognition();
         }
@@ -443,23 +460,28 @@ class AudioRecorderService {
    * la sesión de grabación ni reiniciar el WebSocket a Deepgram.
    */
   async switchDevice(newDeviceId) {
-    this.selectedDeviceId = newDeviceId || 'default';
-    if (!this.isRecording) {
+    if (this.isSwitchingDevice) {
+      console.warn('[AudioRecorder] Conmutación de dispositivo ya en curso, ignorando llamada simultánea');
       return;
     }
-
-    console.log(`[AudioRecorder] 🔄 Iniciando conmutación en caliente de micrófono hacia: ${this.selectedDeviceId}`);
-    const oldStream = this.mediaStream;
-
-    const constraints = {
-      audio: {
-        deviceId: this.selectedDeviceId !== 'default' ? { exact: this.selectedDeviceId } : undefined,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 44100
+    this.isSwitchingDevice = true;
+    try {
+      this.selectedDeviceId = newDeviceId || 'default';
+      if (!this.isRecording) {
+        return;
       }
-    };
+
+      console.log(`[AudioRecorder] 🔄 Iniciando conmutación en caliente de micrófono hacia: ${this.selectedDeviceId}`);
+      const oldStream = this.mediaStream;
+
+      const constraints = {
+        audio: {
+          deviceId: this.selectedDeviceId !== 'default' ? { exact: this.selectedDeviceId } : undefined,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      };
 
     let newStream;
     try {
@@ -515,6 +537,9 @@ class AudioRecorderService {
     this.mediaStream = newStream;
     this.attachTrackEndedListener(newStream);
     console.log('[AudioRecorder] ✅ Conmutación de micrófono completada con éxito.');
+    } finally {
+      this.isSwitchingDevice = false;
+    }
   }
 
   /**
@@ -661,12 +686,18 @@ class AudioRecorderService {
     const targetLang = lang || 'es-ES';
     if (this.sourceLanguage === targetLang) return;
     this.sourceLanguage = targetLang;
+    this.currentPendingText = '';
+    this.notifyInterim('');
 
     if (this.sttEngine === 'deepgram' && this.isRecording && this.deepgramStreamingService.active) {
       const targetLower = (targetLang || '').toLowerCase();
-      const langCode = (targetLang && targetLang !== 'auto')
-        ? (targetLower.startsWith('pt') && targetLower.includes('br') ? 'pt-BR' : (targetLang.length > 2 ? targetLang.slice(0, 2) : targetLang))
-        : 'multi';
+      let langCode = 'multi';
+      if (targetLower.startsWith('en')) langCode = 'en';
+      else if (targetLower.startsWith('pt')) langCode = targetLower.includes('br') ? 'pt-BR' : 'pt';
+      else if (targetLower.startsWith('it')) langCode = 'it';
+      else if (targetLower.startsWith('es')) langCode = 'es';
+      else if (targetLower === 'auto' || targetLower === 'multi') langCode = 'multi';
+      else if (targetLang) langCode = targetLang.length > 2 ? targetLang.slice(0, 2) : targetLang;
       const opts = this.recordingOptions || {};
       
       let keyterms = [];
@@ -737,11 +768,26 @@ class AudioRecorderService {
       try {
         this.recognition.onend = null;
         this.recognition.onerror = null;
+        this.recognition.onresult = null;
         this.recognition.abort();
       } catch (e) {}
       this.recognition = null;
 
-      setTimeout(() => {
+      // Saneamiento de índices de WebSpeech para evitar omitir las primeras intervenciones del nuevo idioma
+      this.clearSilenceTimer();
+      this.committedResultIndex = 0;
+      this.latestResultCount = 0;
+      this.committedSessionTranscript = '';
+      this.currentRawSessionText = '';
+      this.currentPendingText = '';
+      this.notifyInterim('');
+
+      if (this.langSwitchTimer) {
+        clearTimeout(this.langSwitchTimer);
+        this.langSwitchTimer = null;
+      }
+      this.langSwitchTimer = setTimeout(() => {
+        this.langSwitchTimer = null;
         if (this.isRecording) {
           this.initSpeechRecognition();
         }
@@ -787,8 +833,7 @@ class AudioRecorderService {
           deviceId: this.selectedDeviceId && this.selectedDeviceId !== 'default' ? { exact: this.selectedDeviceId } : undefined,
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100
+          autoGainControl: true
         }
       };
 
@@ -844,7 +889,9 @@ class AudioRecorderService {
           langCode = 'it';
         } else if (srcLower.startsWith('es')) {
           langCode = 'es';
-        } else if (this.sourceLanguage && this.sourceLanguage !== 'auto' && this.sourceLanguage !== 'multi') {
+        } else if (srcLower === 'auto' || srcLower === 'multi') {
+          langCode = 'multi';
+        } else if (this.sourceLanguage) {
           langCode = this.sourceLanguage.length > 2 ? this.sourceLanguage.slice(0, 2) : this.sourceLanguage;
         } else {
           langCode = 'es';
@@ -898,6 +945,8 @@ class AudioRecorderService {
                   this.notifyInterim(clean);
                 }
               },
+              onFirstPartialLatency: options.onFirstPartialLatency,
+              onFirstPartialTimeout: options.onFirstPartialTimeout,
               onError: (err) => {
                 console.warn('[AudioRecorder] Deepgram streaming error, falling back to WebSpeech:', err);
                 this.deepgramStreamingService.stop().catch(() => {});

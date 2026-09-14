@@ -333,9 +333,8 @@ export default function UsersSection({
               </span>
             ) : (
               <div className="flex items-center gap-2 truncate">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
                 <span className="font-medium text-zinc-700 dark:text-zinc-300">LiftVoice Studio</span>
-                <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline">•</span>
+                <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline">/</span>
                 <span className="hidden sm:inline">Edición de usuario</span>
               </div>
             )}

@@ -45,6 +45,11 @@ class AudioPlayerService {
     this.audioCtx = null;
     this.gainNode = null;
     this.analyserNode = null;
+    this.lowCutFilter = null;
+    this.deEsserFilter = null;
+    this.limiterNode = null;
+    this.playbackEpoch = 0;
+    this.comfortAudioEnabled = true;
     this.bgAudioElement = null; // Background HTML5 Audio keeper
     this.htmlAudioTag = null; // Dedicated HTML5 Audio element for screen-lock mobile playback
     this.mobileAudioQueue = [];
@@ -91,6 +96,55 @@ class AudioPlayerService {
     this.handleUserGestureResume = null;
 
     this._bindGlobalListeners();
+  }
+
+  /**
+   * Idempotently constructs and connects the complete Web Audio DSP graph.
+   * Signal chain: source -> chunkGain -> lowCutFilter -> deEsserFilter -> gainNode -> limiterNode -> analyserNode -> destination
+   */
+  _ensureAudioGraph() {
+    if (!this.audioCtx || this.audioCtx.state === 'closed') {
+      const AudioContextClass = typeof window !== 'undefined' ? (window.AudioContext || window.webkitAudioContext) : null;
+      if (!AudioContextClass) return null;
+      this.audioCtx = new AudioContextClass();
+
+      // 1. High-pass filter at 85 Hz (12 dB/oct Butterworth) to eliminate rumble, handling noise and sub-bass pops
+      this.lowCutFilter = this.audioCtx.createBiquadFilter();
+      this.lowCutFilter.type = 'highpass';
+      this.lowCutFilter.frequency.setValueAtTime(85, this.audioCtx.currentTime);
+      this.lowCutFilter.Q.setValueAtTime(0.707, this.audioCtx.currentTime);
+
+      // 2. High-shelf de-esser at 6.5 kHz (-2.0 dB) to prevent cochlear fatigue from harsh sibilants in long sessions
+      this.deEsserFilter = this.audioCtx.createBiquadFilter();
+      this.deEsserFilter.type = 'highshelf';
+      this.deEsserFilter.frequency.setValueAtTime(6500, this.audioCtx.currentTime);
+      this.deEsserFilter.gain.setValueAtTime(this.comfortAudioEnabled ? -2.0 : 0.0, this.audioCtx.currentTime);
+
+      // 3. Master gain node (supports up to 2.0x boost)
+      this.gainNode = this.audioCtx.createGain();
+      this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : this.volume, this.audioCtx.currentTime);
+
+      // 4. Brickwall Peak Limiter (EBU R128 broadcast calibrated: -1.0 dBTP ceiling, soft-knee 3dB, 120ms release to prevent inter-sample peaks and pumping)
+      this.limiterNode = this.audioCtx.createDynamicsCompressor();
+      this.limiterNode.threshold.setValueAtTime(-1.0, this.audioCtx.currentTime);
+      this.limiterNode.knee.setValueAtTime(3.0, this.audioCtx.currentTime);
+      this.limiterNode.ratio.setValueAtTime(16.0, this.audioCtx.currentTime);
+      this.limiterNode.attack.setValueAtTime(0.003, this.audioCtx.currentTime);
+      this.limiterNode.release.setValueAtTime(0.120, this.audioCtx.currentTime);
+
+      // 5. Analyser node for visualizer & waveforms
+      this.analyserNode = this.audioCtx.createAnalyser();
+      this.analyserNode.fftSize = 64;
+      this.analyserNode.smoothingTimeConstant = 0.8;
+
+      // Connect complete DSP chain
+      this.lowCutFilter.connect(this.deEsserFilter);
+      this.deEsserFilter.connect(this.gainNode);
+      this.gainNode.connect(this.limiterNode);
+      this.limiterNode.connect(this.analyserNode);
+      this.analyserNode.connect(this.audioCtx.destination);
+    }
+    return this.audioCtx;
   }
 
   _bindGlobalListeners() {
@@ -175,6 +229,14 @@ class AudioPlayerService {
     }
   }
 
+  setComfortAudio(enabled) {
+    this.comfortAudioEnabled = Boolean(enabled);
+    if (this.deEsserFilter && this.audioCtx) {
+      const gainVal = this.comfortAudioEnabled ? -2.0 : 0.0;
+      this.deEsserFilter.gain.setTargetAtTime(gainVal, this.audioCtx.currentTime, 0.05);
+    }
+  }
+
   /**
    * Universal Web Audio decoder supporting legacy and modern Safari / WebKit and Android
    */
@@ -216,11 +278,9 @@ class AudioPlayerService {
    * Plays a pleasant brief chime to test audio output on headphones/speakers
    */
   playAudioTestTone() {
-    if (!this.audioCtx) {
-      this.unlockAudio(this.currentRoomId, this.currentLanguage);
-    }
+    this._ensureAudioGraph();
     if (this.audioCtx) {
-      if (this.audioCtx.state === 'suspended') {
+      if (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted') {
         this.audioCtx.resume().catch(() => {});
       }
       const now = this.audioCtx.currentTime;
@@ -233,7 +293,13 @@ class AudioPlayerService {
       testGain.gain.linearRampToValueAtTime(0.12, now + 0.03);
       testGain.gain.linearRampToValueAtTime(0.001, now + 0.38);
       osc.connect(testGain);
-      testGain.connect(this.gainNode || this.audioCtx.destination);
+      testGain.connect(this.lowCutFilter || this.gainNode || this.audioCtx.destination);
+      osc.onended = () => {
+        try {
+          osc.disconnect();
+          testGain.disconnect();
+        } catch (e) {}
+      };
       osc.start(now);
       osc.stop(now + 0.38);
     }
@@ -251,23 +317,10 @@ class AudioPlayerService {
     this.currentLanguage = lang;
 
     try {
-      // 1. Initialize Web Audio Context
-      if (!this.audioCtx || this.audioCtx.state === 'closed') {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        this.audioCtx = new AudioContextClass();
+      // 1. Initialize Web Audio Context & DSP graph
+      this._ensureAudioGraph();
 
-        this.gainNode = this.audioCtx.createGain();
-        this.gainNode.gain.setValueAtTime(this.volume, this.audioCtx.currentTime);
-
-        this.analyserNode = this.audioCtx.createAnalyser();
-        this.analyserNode.fftSize = 64;
-        this.analyserNode.smoothingTimeConstant = 0.8;
-
-        this.gainNode.connect(this.analyserNode);
-        this.analyserNode.connect(this.audioCtx.destination);
-      }
-
-      if (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted') {
+      if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted')) {
         await this.audioCtx.resume();
       }
 
@@ -370,7 +423,12 @@ class AudioPlayerService {
   setVolume(val) {
     this.volume = Math.max(0, Math.min(2.0, val));
     if (this.gainNode && this.audioCtx) {
-      this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : this.volume, this.audioCtx.currentTime);
+      const targetGain = this.isMuted ? 0 : this.volume;
+      try {
+        this.gainNode.gain.setTargetAtTime(targetGain, this.audioCtx.currentTime, 0.015);
+      } catch (e) {
+        this.gainNode.gain.setValueAtTime(targetGain, this.audioCtx.currentTime);
+      }
     }
     if (this.htmlAudioTag) {
       this.htmlAudioTag.volume = this.isMuted ? 0 : Math.min(1.0, this.volume);
@@ -385,7 +443,12 @@ class AudioPlayerService {
   setMuted(muted) {
     this.isMuted = !!muted;
     if (this.gainNode && this.audioCtx) {
-      this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : this.volume, this.audioCtx.currentTime);
+      const targetGain = this.isMuted ? 0 : this.volume;
+      try {
+        this.gainNode.gain.setTargetAtTime(targetGain, this.audioCtx.currentTime, 0.015);
+      } catch (e) {
+        this.gainNode.gain.setValueAtTime(targetGain, this.audioCtx.currentTime);
+      }
     }
     if (this.htmlAudioTag) {
       this.htmlAudioTag.volume = this.isMuted ? 0 : Math.min(1.0, this.volume);
@@ -432,6 +495,7 @@ class AudioPlayerService {
   }
 
   stopAll() {
+    this.playbackEpoch++;
     if (this.htmlAudioTag) {
       try {
         this.htmlAudioTag.pause();
@@ -446,14 +510,27 @@ class AudioPlayerService {
     }
     this.isMobilePlaying = false;
 
+    const now = this.audioCtx ? this.audioCtx.currentTime : 0;
     for (const item of this.activeSources) {
       try {
         const src = item.sourceNode || item;
         const gain = item.chunkGain;
         if (src) src.onended = null;
-        if (typeof src.stop === 'function') src.stop();
-        if (typeof src.disconnect === 'function') src.disconnect();
-        if (gain && typeof gain.disconnect === 'function') gain.disconnect();
+        if (gain && this.audioCtx) {
+          try {
+            gain.gain.cancelScheduledValues(now);
+            gain.gain.setValueAtTime(gain.gain.value, now);
+            gain.gain.linearRampToValueAtTime(0.0001, now + 0.008); // 8ms micro-fade to prevent DC pop
+          } catch (e) {}
+        }
+        setTimeout(() => {
+          try {
+            if (typeof src.stop === 'function') src.stop();
+            if (typeof src.disconnect === 'function') src.disconnect();
+            if (src) src.buffer = null;
+            if (gain && typeof gain.disconnect === 'function') gain.disconnect();
+          } catch (e) {}
+        }, 10);
       } catch (e) {
       } finally {
         if (typeof item.resolvePromise === 'function') {
@@ -508,20 +585,7 @@ class AudioPlayerService {
   }
 
   async processAndScheduleBase64Chunk(packet) {
-    if (!this.audioCtx || this.audioCtx.state === 'closed') {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextClass) {
-        this.audioCtx = new AudioContextClass();
-        this.gainNode = this.audioCtx.createGain();
-        this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : this.volume, this.audioCtx.currentTime);
-        this.analyserNode = this.audioCtx.createAnalyser();
-        this.analyserNode.fftSize = 64;
-        this.analyserNode.smoothingTimeConstant = 0.8;
-        this.gainNode.connect(this.analyserNode);
-        this.analyserNode.connect(this.audioCtx.destination);
-      }
-      await this.unlockAudio(this.currentRoomId, this.currentLanguage);
-    }
+    this._ensureAudioGraph();
 
     if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted')) {
       try {
@@ -533,7 +597,7 @@ class AudioPlayerService {
     if (this.isContextSuspended()) {
       if (!this.suspendedChunks) this.suspendedChunks = [];
       this.suspendedChunks.push(packet);
-      if (this.suspendedChunks.length > 2) this.suspendedChunks.shift();
+      if (this.suspendedChunks.length > 10) this.suspendedChunks.shift();
       return;
     }
 
@@ -545,9 +609,10 @@ class AudioPlayerService {
       bytes[i] = binaryStr.charCodeAt(i);
     }
 
+    const currentEpoch = this.playbackEpoch;
     // Decode audio data safely across all browsers
     const audioBuffer = await this.decodeAudioDataSafe(bytes.buffer);
-    if (!audioBuffer) return;
+    if (!audioBuffer || currentEpoch !== this.playbackEpoch) return;
 
     // Discard chunk if language changed while decoding was asynchronously running
     if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && packet.lang !== this.currentLanguage) {
@@ -565,13 +630,23 @@ class AudioPlayerService {
     const queueLeadTime = Math.max(0, this.nextStartTime - now);
     let effectiveRate = baseRate;
     if (queueLeadTime > 4.8) {
-      // Hard Resync: latency is excessive (network stutter/tab sleep); snap to live stream
+      // Hard Resync: latency is excessive (network stutter/tab sleep); purge stale active sources and snap to live stream
+      for (const item of this.activeSources) {
+        try {
+          const src = item.sourceNode || item;
+          if (src) src.onended = null;
+          if (typeof src.stop === 'function') src.stop();
+          if (typeof src.disconnect === 'function') src.disconnect();
+          if (item.chunkGain && typeof item.chunkGain.disconnect === 'function') item.chunkGain.disconnect();
+        } catch (e) {}
+      }
+      this.activeSources.clear();
       this.nextStartTime = now;
       effectiveRate = baseRate;
     } else if (queueLeadTime > 3.2) {
-      effectiveRate = Math.min(1.2, baseRate * 1.07); // controlled catch-up (+117 cents, clean speech)
+      effectiveRate = Math.min(1.025, baseRate * 1.025); // Cap at +42 cents max to eliminate chipmunk effect
     } else if (queueLeadTime > 1.8) {
-      effectiveRate = Math.min(1.15, baseRate * 1.04); // subtle imperceptible recovery (+68 cents)
+      effectiveRate = Math.min(1.015, baseRate * 1.015); // Smooth imperceptible drift recovery
     }
 
     const sourceNode = this.audioCtx.createBufferSource();
@@ -581,7 +656,7 @@ class AudioPlayerService {
     // Micro cross-fade gain node to eliminate clicks at chunk boundaries
     const chunkGain = this.audioCtx.createGain();
     sourceNode.connect(chunkGain);
-    chunkGain.connect(this.gainNode);
+    chunkGain.connect(this.lowCutFilter || this.gainNode);
 
     // If chaining onto an existing active stream, start precisely at nextStartTime; otherwise give 60ms lead time
     const isChaining = this.activeSources.size > 0 && this.nextStartTime > now;
@@ -614,10 +689,14 @@ class AudioPlayerService {
       try {
         sourceNode.disconnect();
         chunkGain.disconnect();
+        sourceNode.buffer = null; // Free decompressed PCM audio buffer immediately for V8 GC
       } catch (e) {}
-      if (this.activeSources.size === 0 && this.audioCtx && this.audioCtx.currentTime >= this.nextStartTime) {
-        this.isPlaying = false;
-        this.notifyState();
+      if (this.activeSources.size === 0) {
+        this.decodeQueue = Promise.resolve(); // Break indefinite promise chaining during pauses
+        if (this.audioCtx && this.audioCtx.currentTime >= this.nextStartTime) {
+          this.isPlaying = false;
+          this.notifyState();
+        }
       }
     };
   }
@@ -652,20 +731,7 @@ class AudioPlayerService {
   }
 
   async playDetunedAudioBase64(audioBase64, detuneCents = 0) {
-    if (!this.audioCtx || this.audioCtx.state === 'closed') {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextClass) {
-        this.audioCtx = new AudioContextClass();
-        this.gainNode = this.audioCtx.createGain();
-        this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : this.volume, this.audioCtx.currentTime);
-        this.analyserNode = this.audioCtx.createAnalyser();
-        this.analyserNode.fftSize = 64;
-        this.analyserNode.smoothingTimeConstant = 0.8;
-        this.gainNode.connect(this.analyserNode);
-        this.analyserNode.connect(this.audioCtx.destination);
-      }
-      await this.unlockAudio(this.currentRoomId, this.currentLanguage);
-    }
+    this._ensureAudioGraph();
     if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted')) {
       await this.audioCtx.resume();
     }
@@ -677,8 +743,9 @@ class AudioPlayerService {
       bytes[i] = binaryStr.charCodeAt(i);
     }
 
+    const currentEpoch = this.playbackEpoch;
     const audioBuffer = await this.decodeAudioDataSafe(bytes.buffer);
-    if (!audioBuffer) return;
+    if (!audioBuffer || currentEpoch !== this.playbackEpoch) return;
     const sourceNode = this.audioCtx.createBufferSource();
     sourceNode.buffer = audioBuffer;
     
@@ -690,7 +757,7 @@ class AudioPlayerService {
 
     const chunkGain = this.audioCtx.createGain();
     sourceNode.connect(chunkGain);
-    chunkGain.connect(this.gainNode);
+    chunkGain.connect(this.lowCutFilter || this.gainNode);
 
     const now = this.audioCtx.currentTime;
     const duration = Math.max(0.01, audioBuffer.duration / this.playbackRate);
@@ -751,7 +818,7 @@ class AudioPlayerService {
         utterance.lang = this.speechLangs[lang] || lang;
         utterance.pitch = profile.pitch || 1.0;
         utterance.rate = (profile.rate || 1.0) * this.playbackRate;
-        utterance.volume = this.isMuted ? 0 : Math.min(1.0, this.volume);
+        utterance.volume = this.isMuted ? 0 : Math.min(1.0, (this.volume || 1.0) * 0.55); // Normalización (-6 dB) para igualar sonoridad EBU R128 de TTS neuronales
 
         const voices = window.speechSynthesis.getVoices();
         const langLower = (lang || 'es').toLowerCase();

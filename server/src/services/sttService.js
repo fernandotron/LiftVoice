@@ -57,22 +57,32 @@ export class STTService {
     if (!key) throw new Error('No Deepgram API key configured');
 
     const effectiveLang = (language && language !== 'auto') ? language : (this.sttLanguage && this.sttLanguage !== 'auto' ? this.sttLanguage : null);
-    const cleanLang = effectiveLang ? effectiveLang.slice(0, 2).toLowerCase() : null;
-    // Nova-2 is Deepgram's multi-lingual model supporting auto-detection across 30+ languages
-    const model = (cleanLang === 'en') ? 'nova-3' : 'nova-2';
+    let cleanLang = null;
+    if (effectiveLang) {
+      const lower = effectiveLang.toLowerCase();
+      if (lower.startsWith('pt')) {
+        cleanLang = lower.includes('br') ? 'pt-BR' : 'pt';
+      } else if (lower.startsWith('es')) {
+        cleanLang = 'es';
+      } else if (lower.startsWith('en')) {
+        cleanLang = 'en';
+      } else if (lower.startsWith('it')) {
+        cleanLang = 'it';
+      } else if (lower !== 'auto' && lower !== 'multi') {
+        cleanLang = lower.slice(0, 2);
+      }
+    }
+    // Nova-3 is Deepgram's flagship multilingual model (2026) supporting multi/es/en/it/pt natively
+    const model = 'nova-3';
     let url = `https://api.deepgram.com/v1/listen?model=${model}&smart_format=true&punctuate=true`;
     if (cleanLang) {
       url += `&language=${cleanLang}`;
     } else {
-      url += '&detect_language=true';
+      url += '&language=multi';
     }
 
     if (options.medicalMode) {
-      if (model === 'nova-3') {
-        url += '&keyterm=ECG&keyterm=arritmia&keyterm=infarto&keyterm=fentanilo';
-      } else {
-        url += '&keywords=ECG:2&keywords=arritmia:2&keywords=infarto:2&keywords=fentanilo:2';
-      }
+      url += '&keyterm=ECG&keyterm=arritmia&keyterm=infarto&keyterm=fentanilo';
     }
 
     const cleanMime = mimeType ? mimeType.split(';')[0].trim() : 'audio/webm';
@@ -86,19 +96,6 @@ export class STTService {
       body: audioBuffer,
       signal: AbortSignal.timeout(8000)
     });
-
-    if (!res.ok && url.includes('nova-3')) {
-      const fallbackUrl = url.replace('nova-3', 'nova-2');
-      res = await fetch(fallbackUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${key}`,
-          'Content-Type': cleanMime
-        },
-        body: audioBuffer,
-        signal: AbortSignal.timeout(8000)
-      });
-    }
 
     if (!res.ok) {
       const errText = await res.text();

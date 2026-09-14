@@ -153,7 +153,7 @@ export default function AdminSidebarRail({
                 </button>
                 {uptime && (
                   <>
-                    <span className="text-zinc-300 dark:text-zinc-700 select-none">•</span>
+                    <span className="text-zinc-300 dark:text-zinc-700 select-none">/</span>
                     <span className="flex items-center gap-1 shrink-0 text-zinc-400">
                       <Clock className="w-3 h-3" />
                       <span>{uptime}</span>

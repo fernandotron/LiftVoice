@@ -52,7 +52,7 @@ export default function AdminStickyFooter({
               <span>Modificaciones sin guardar</span>
               {isPage && (
                 <>
-                  <span className="hidden md:inline text-zinc-300 dark:text-zinc-700 select-none">•</span>
+                  <span className="hidden md:inline text-zinc-300 dark:text-zinc-700 select-none">/</span>
                   <span className="hidden md:inline text-xs text-zinc-500 dark:text-zinc-400 font-normal">
                     Aplica los cambios para sincronizarlos en vivo
                   </span>
@@ -66,9 +66,8 @@ export default function AdminStickyFooter({
             </div>
           ) : (
             <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 truncate">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
               <span className="font-medium text-zinc-700 dark:text-zinc-300">LiftVoice Studio</span>
-              <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline">•</span>
+              <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline">/</span>
               <span className="hidden sm:inline">Configuración sincronizada</span>
             </div>
           )}

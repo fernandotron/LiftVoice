@@ -1328,7 +1328,7 @@ export default function AdminSettingsShell({
             </span>
           </button>
 
-          <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline-block">•</span>
+          <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline-block">/</span>
 
           <span className="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 truncate">
             Configuración del sistema
@@ -1336,9 +1336,8 @@ export default function AdminSettingsShell({
 
           {effectiveRoomId && (
             <>
-              <span className="text-zinc-300 dark:text-zinc-700 select-none hidden md:inline-block">•</span>
+              <span className="text-zinc-300 dark:text-zinc-700 select-none hidden md:inline-block">/</span>
               <div className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 font-mono text-[11px] text-zinc-600 dark:text-zinc-400 select-none">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 <span>Sala {effectiveRoomId}</span>
               </div>
             </>
@@ -2275,8 +2274,8 @@ export default function AdminSettingsShell({
                       <ItemIcon className="w-4.5 h-4.5" />
                     </div>
                     {isSelected && (
-                      <div
-                        className="w-2.5 h-2.5 rounded-full bg-zinc-950 dark:bg-white mt-1 shrink-0"
+                      <Check
+                        className="w-4 h-4 text-zinc-950 dark:text-white mt-1 shrink-0 stroke-[2.5]"
                         aria-hidden="true"
                       />
                     )}

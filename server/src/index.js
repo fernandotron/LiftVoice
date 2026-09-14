@@ -406,6 +406,7 @@ app.get('/api/config', async (req, res) => {
       hasQwenKey: Boolean(translationService.qwenApiKey || process.env.DASHSCOPE_API_KEY || process.env.OPENROUTER_API_KEY),
       hasDeepgramKey: Boolean(sttService.deepgramApiKey || ttsService.deepgramApiKey || process.env.DEEPGRAM_API_KEY),
       hasElevenLabsKey: Boolean(ttsService.elevenLabsApiKey || process.env.ELEVENLABS_API_KEY),
+      hasCartesiaKey: Boolean(ttsService.cartesiaApiKey || process.env.CARTESIA_API_KEY),
       hasOpenAiKey: Boolean(sttService.openaiApiKey || ttsService.openaiApiKey || process.env.OPENAI_API_KEY)
     });
   } catch (err) {
@@ -470,6 +471,7 @@ app.post('/api/config', requireAdminAuth, (req, res) => {
   const openaiApiKey = resolveKey(req.body.openaiApiKey, req.body.openaiKey, 'openai');
   const deepgramApiKey = resolveKey(req.body.deepgramApiKey, req.body.deepgramKey, 'deepgram');
   const elevenLabsApiKey = resolveKey(req.body.elevenLabsApiKey, req.body.elevenLabsKey, 'elevenlabs');
+  const cartesiaApiKey = resolveKey(req.body.cartesiaApiKey, req.body.cartesiaKey, 'cartesia');
   const deeplApiKey = resolveKey(req.body.deeplApiKey, req.body.deeplKey, 'deepl');
   const geminiApiKey = resolveKey(req.body.geminiApiKey, req.body.geminiKey, 'gemini');
   const qwenApiKey = resolveKey(req.body.qwenApiKey, req.body.qwenKey, 'qwen');
@@ -506,6 +508,7 @@ app.post('/api/config', requireAdminAuth, (req, res) => {
     openaiTemp,
     deepgramApiKey,
     elevenLabsApiKey,
+    cartesiaApiKey,
     deeplApiKey,
     geminiApiKey,
     geminiModel,
@@ -529,28 +532,52 @@ app.post('/api/config', requireAdminAuth, (req, res) => {
     voiceConfig,
     voiceGender
   });
-  cachedGrantToken = null;
+  cachedGrantTokens.clear();
   res.json({ success: true, message: 'API keys, STT, TTS and Translation settings updated successfully' });
 });
 
-// In-memory token cache for Deepgram Grant tokens (avoids roundtrips on rapid client reconnections)
-let cachedGrantToken = null; // { token, expiresAt }
-let grantTokenPromiseInFlight = null; // Single-flight mutex to coalesce concurrent token requests
+// In-memory multi-tenant token cache for Deepgram Grant tokens (indexed by apiKey with LRU & TTL sweep)
+const cachedGrantTokens = new Map(); // apiKey -> { token, expiresAt }
+const grantTokenPromisesInFlight = new Map(); // apiKey -> Promise
+const MAX_GRANT_CACHE_ENTRIES = 500;
+
+function storeGrantTokenInCache(key, tokenData) {
+  if (cachedGrantTokens.size >= MAX_GRANT_CACHE_ENTRIES) {
+    const oldestKey = cachedGrantTokens.keys().next().value;
+    if (oldestKey) cachedGrantTokens.delete(oldestKey);
+  }
+  cachedGrantTokens.set(key, tokenData);
+}
+
+// Barrido periódico cada 60s para purgar tokens caducados y evitar fugas de memoria
+const grantTokenSweepInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of cachedGrantTokens.entries()) {
+    if (!record || now >= record.expiresAt) {
+      cachedGrantTokens.delete(key);
+    }
+  }
+}, 60000);
+if (grantTokenSweepInterval.unref) grantTokenSweepInterval.unref();
 
 // Ephemeral ASR Token for Direct Deepgram Streaming WebSocket (Nova-3) (#ISSUE-01)
 app.post('/api/asr-token', async (req, res) => {
   try {
     const { sttService } = await import('./services/sttService.js');
-    const apiKey = sttService.deepgramApiKey || process.env.DEEPGRAM_API_KEY;
+    const body = req.body || {};
+    const apiKey = (body.deepgramApiKey && typeof body.deepgramApiKey === 'string' && body.deepgramApiKey.trim())
+      || (body.apiKey && typeof body.apiKey === 'string' && body.apiKey.trim())
+      || sttService.deepgramApiKey
+      || process.env.DEEPGRAM_API_KEY;
+
     if (!apiKey) {
       return res.status(500).json({ error: 'Deepgram API key not configured on server' });
     }
 
-    const body = req.body || {};
     const rawLang = (typeof body.language === 'string' && body.language) || (typeof body.lang === 'string' && body.lang) || 'auto';
     const langLower = rawLang.trim().toLowerCase();
 
-    // Normalización de idioma para Deepgram
+    // Normalización de idioma para Deepgram Nova-3 (Soporte multilingüe nativo a septiembre 2026)
     let deepgramLang = 'es'; // Por defecto español en LiftVoice
     if (langLower.startsWith('en')) {
       deepgramLang = 'en';
@@ -561,8 +588,8 @@ app.post('/api/asr-token', async (req, res) => {
     } else if (langLower.startsWith('es')) {
       deepgramLang = 'es';
     } else if (langLower === 'auto' || langLower === 'multi') {
-      // Para Deepgram streaming, 'auto' o 'multi' debe mapear a 'es' como idioma principal de la sala
-      deepgramLang = 'es';
+      // Nova-3 admite 'multi' para code-switching dinámico y autodetección en vivo
+      deepgramLang = 'multi';
     } else if (langLower.length >= 2) {
       deepgramLang = langLower.slice(0, 2);
     }
@@ -573,26 +600,30 @@ app.post('/api/asr-token', async (req, res) => {
     }
     const keyterms = rawTerms
       .map(t => (typeof t === 'object' && t ? (t.term || t.text || t.word || String(t)) : String(t)))
-      .map(s => s.trim())
-      .filter(Boolean);
+      .map(s => String(s).replace(/[^a-zA-Z0-9\sáéíóúÁÉÍÓÚñÑüÜ.,/_-]/g, '').trim().slice(0, 50))
+      .filter(s => s.length >= 2)
+      .slice(0, 50);
 
     const forceRefresh = Boolean(body.forceRefresh);
     let token = null;
     let expiresIn = 60;
     const now = Date.now();
+    const cacheKey = apiKey.trim();
+    const cachedToken = cachedGrantTokens.get(cacheKey);
 
     // Reutilizar token en caché si no se fuerza refresco y aún restan al menos 15 segundos de validez
-    if (!forceRefresh && cachedGrantToken && now < cachedGrantToken.expiresAt - 15000) {
-      token = cachedGrantToken.token;
-      expiresIn = Math.max(10, Math.round((cachedGrantToken.expiresAt - now) / 1000));
+    if (!forceRefresh && cachedToken && now < cachedToken.expiresAt - 15000) {
+      token = cachedToken.token;
+      expiresIn = Math.max(10, Math.round((cachedToken.expiresAt - now) / 1000));
     } else {
       if (forceRefresh) {
-        cachedGrantToken = null;
+        cachedGrantTokens.delete(cacheKey);
       }
 
-      // Single-flight mutex pattern: compartir petición en vuelo con peticiones concurrentes
-      if (!grantTokenPromiseInFlight) {
-        grantTokenPromiseInFlight = (async () => {
+      // Single-flight mutex pattern por clave: compartir petición en vuelo con peticiones concurrentes de la misma clave
+      let grantPromise = grantTokenPromisesInFlight.get(cacheKey);
+      if (!grantPromise) {
+        grantPromise = (async () => {
           try {
             const grantRes = await fetch('https://api.deepgram.com/v1/auth/grant', {
               method: 'POST',
@@ -607,10 +638,10 @@ app.post('/api/asr-token', async (req, res) => {
               const grantData = await grantRes.json();
               const newToken = grantData.access_token || grantData.key;
               const newExpiresIn = grantData.expires_in || 60;
-              cachedGrantToken = {
+              storeGrantTokenInCache(cacheKey, {
                 token: newToken,
                 expiresAt: Date.now() + (newExpiresIn * 1000)
-              };
+              });
               return { success: true, token: newToken, expiresIn: newExpiresIn };
             } else {
               const errText = await grantRes.text().catch(() => '');
@@ -631,12 +662,13 @@ app.post('/api/asr-token', async (req, res) => {
               code: 'GRANT_API_NETWORK_ERROR'
             };
           } finally {
-            grantTokenPromiseInFlight = null;
+            grantTokenPromisesInFlight.delete(cacheKey);
           }
         })();
+        grantTokenPromisesInFlight.set(cacheKey, grantPromise);
       }
 
-      const grantResult = await grantTokenPromiseInFlight;
+      const grantResult = await grantPromise;
       if (!grantResult || !grantResult.success) {
         return res.status((grantResult && grantResult.status) || 502).json(grantResult || { error: 'Unknown grant error' });
       }
@@ -644,8 +676,9 @@ app.post('/api/asr-token', async (req, res) => {
       expiresIn = grantResult.expiresIn;
     }
 
-    const sttModel = (deepgramLang === 'en') ? 'nova-3' : 'nova-2';
-    // El cliente mapea keyterms a 'keyterm' (Nova-3) o 'keywords' (Nova-2) para boost léxico
+    // Unificación de modelo a Nova-3: soporta de forma nativa español, inglés, italiano, portugués y multi
+    const sttModel = 'nova-3';
+    // El cliente mapea keyterms a 'keyterm' (Nova-3) para boost léxico en todos los idiomas
     const validKeyterms = Array.isArray(keyterms) ? [...new Set(keyterms)].slice(0, 50) : [];
 
     return res.json({
@@ -674,18 +707,57 @@ app.post('/api/rooms/:roomId/summary', async (req, res) => {
   }
 });
 
+// Rate limiter in memory for voice previews (prevents abuse and upstream quota exhaustion)
+const previewRateLimitMap = new Map();
+const PREVIEW_LIMIT_WINDOW_MS = 60 * 1000;
+const PREVIEW_MAX_REQUESTS = 12; // 12 previews per minute per IP
+
+function checkPreviewRateLimit(clientIp) {
+  const now = Date.now();
+  const key = String(clientIp || 'unknown').trim();
+  const record = previewRateLimitMap.get(key) || [];
+  const recent = record.filter(time => now - time < PREVIEW_LIMIT_WINDOW_MS);
+  if (recent.length >= PREVIEW_MAX_REQUESTS) {
+    return false;
+  }
+  recent.push(now);
+  previewRateLimitMap.set(key, recent);
+
+  // Periodic bounded cleanup (capped at 500 entries)
+  if (previewRateLimitMap.size > 500) {
+    for (const [k, timestamps] of previewRateLimitMap.entries()) {
+      if (timestamps.length === 0 || now - timestamps[timestamps.length - 1] >= PREVIEW_LIMIT_WINDOW_MS) {
+        previewRateLimitMap.delete(k);
+      }
+    }
+  }
+  return true;
+}
+
 // Consolidated Multi-Engine Voices Catalog
 app.get('/api/voices', async (req, res) => {
   try {
     const { ttsService } = await import('./services/ttsService.js');
-    const { lang, engine, configuredOnly } = req.query;
+    const { lang, engine, tier, gender, configuredOnly } = req.query;
     let catalog = ttsService.getAvailableVoicesCatalog();
 
     if (lang) {
-      catalog = catalog.filter(v => v.lang === 'all' || v.lang === lang.toLowerCase());
+      const targetLang = lang.toLowerCase();
+      catalog = catalog.filter(v =>
+        v.lang === 'all' ||
+        v.lang === targetLang ||
+        (Array.isArray(v.languages) && v.languages.some(l => l.toLowerCase() === targetLang))
+      );
     }
     if (engine) {
-      catalog = catalog.filter(v => v.engine === engine.toLowerCase());
+      const eng = engine.toLowerCase();
+      catalog = catalog.filter(v => v.engine === eng || (eng === 'google' && v.engine === 'edge'));
+    }
+    if (tier) {
+      catalog = catalog.filter(v => v.tier === tier.toLowerCase());
+    }
+    if (gender) {
+      catalog = catalog.filter(v => v.gender === gender.toLowerCase());
     }
     if (configuredOnly === 'true') {
       catalog = catalog.filter(v => v.isConfigured);
@@ -700,6 +772,8 @@ app.get('/api/voices', async (req, res) => {
         total: catalog.length,
         configured: catalog.filter(v => v.isConfigured).length,
         free: catalog.filter(v => v.isFree).length,
+        zeroCostCount: catalog.filter(v => v.tier === 'zero_cost').length,
+        premiumCount: catalog.filter(v => v.tier === 'premium_studio').length,
         activeEngines
       },
       voices: catalog
@@ -711,18 +785,34 @@ app.get('/api/voices', async (req, res) => {
 
 // Quick Voice Preview Sampler (for UI voice selector & demo)
 app.post('/api/rooms/:roomId/preview-voice', async (req, res) => {
+  const clientIp = getClientIp(req);
+
+  if (!checkPreviewRateLimit(clientIp)) {
+    return res.status(429).json({
+      error: 'Límite de preescuchas alcanzado (máx. 12/min). Por favor espera un momento antes de generar más muestras.'
+    });
+  }
+
   const { lang, sampleText, voice, gender, engine } = req.body;
   const targetLang = (lang || 'en').toLowerCase().slice(0, 5);
-  const text = String(sampleText || req.body.text || 'Hello, this is a real-time simultaneous voice preview from LiftVoice.').slice(0, 300);
+  const text = String(sampleText || req.body.text || 'Hello, this is a real-time simultaneous voice preview from LiftVoice.').trim().slice(0, 200);
+
   try {
     const { ttsService } = await import('./services/ttsService.js');
-    const result = await ttsService.synthesize(text, targetLang, { voice, gender, engine });
+    let result = null;
+    try {
+      result = await ttsService.synthesize(text, targetLang, { voice, gender, engine });
+    } catch (synthErr) {
+      console.warn(`[Preview-Voice Engine Warning]: ${synthErr.message}, falling back to Edge TTS`);
+      result = await ttsService.synthesize(text, targetLang, { voice, gender, engine: 'edge' });
+    }
+
     res.json({
       success: true,
       audioBase64: result?.audioBase64,
       mimeType: result?.mimeType || 'audio/mpeg',
       lang: targetLang,
-      provider: result?.provider || 'google'
+      provider: result?.provider || 'edge'
     });
   } catch (err) {
     console.warn(`[Preview-Voice Error]: ${err.message}`);
@@ -797,24 +887,39 @@ wss.on('connection', (ws, req) => {
 
   console.log(`[WS] New connection: ${socketId} from ${clientIp}`);
 
-  ws.on('message', async (rawMessage) => {
+  ws.on('message', async (rawMessage, isBinary) => {
     try {
-      if (typeof rawMessage !== 'string' && !(rawMessage instanceof String) && !Buffer.isBuffer(rawMessage)) {
+      // 1. Direct handling of binary audio buffers (avoids rawMessage.toString() overhead and SyntaxError exceptions)
+      if (isBinary || (Buffer.isBuffer(rawMessage) && rawMessage.length > 0 && rawMessage[0] !== 0x7B /* '{' */)) {
+        if (clientRole === 'HOST' && currentRoomId) {
+          if (rawMessage.length > 2.5 * 1024 * 1024) {
+            console.warn(`[WS] ⚠️ Audio chunk exceeds 2.5MB from host in room ${currentRoomId}`);
+            return;
+          }
+          await aiPipeline.processSpeech({
+            roomId: currentRoomId,
+            audioBuffer: rawMessage,
+            mimeType: 'audio/webm'
+          });
+        }
+        return;
+      }
+
+      // 2. Control message size check (max 64 KB for JSON to prevent event loop blocking)
+      const textLen = Buffer.byteLength(rawMessage);
+      if (textLen > 64 * 1024) {
+        console.warn(`[WS] 🚨 Dropped oversized JSON payload (${textLen} bytes) from ${socketId}`);
         return;
       }
 
       let msg;
       try {
-        msg = JSON.parse(rawMessage.toString());
+        msg = JSON.parse(rawMessage.toString('utf8'));
       } catch (jsonErr) {
-        if (clientRole === 'HOST' && currentRoomId) {
-          const buffer = Buffer.from(rawMessage);
-          await aiPipeline.processSpeech({
-            roomId: currentRoomId,
-            audioBuffer: buffer,
-            mimeType: 'audio/webm'
-          });
-        }
+        return;
+      }
+
+      if (!msg || typeof msg !== 'object' || Array.isArray(msg)) {
         return;
       }
 
@@ -829,7 +934,7 @@ wss.on('connection', (ws, req) => {
             }));
             break;
           }
-          const targetRoom = (msg.roomId || 'MAIN').toUpperCase();
+          const targetRoom = typeof msg.roomId === 'string' ? msg.roomId.trim().toUpperCase().slice(0, 30) : (currentRoomId || 'MAIN');
           const hostKey = msg.hostKey || msg.token || null;
           const result = roomManager.setHost(targetRoom, ws, socketId, hostKey);
           if (!result.success) {
