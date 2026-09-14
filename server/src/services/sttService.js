@@ -72,17 +72,24 @@ export class STTService {
         cleanLang = lower.slice(0, 2);
       }
     }
-    // Nova-3 is Deepgram's flagship multilingual model (2026) supporting multi/es/en/it/pt natively
-    const model = 'nova-3';
-    let url = `https://api.deepgram.com/v1/listen?model=${model}&smart_format=true&punctuate=true`;
-    if (cleanLang) {
-      url += `&language=${cleanLang}`;
+    // Nova-3 is Deepgram's flagship multilingual model (2026): non-English routes to 'multi', English to 'en'.
+    // Nova-2 requires explicit language codes ('es', 'en', 'pt', 'it') and does not support 'multi'.
+    const model = options.model || 'nova-3';
+    let resolvedLang = 'multi';
+    if (model === 'nova-3') {
+      resolvedLang = (cleanLang === 'en') ? 'en' : 'multi';
     } else {
-      url += '&language=multi';
+      // For nova-2 or legacy models, default to 'es' when cleanLang is null/auto
+      resolvedLang = cleanLang || 'es';
     }
+    let url = `https://api.deepgram.com/v1/listen?model=${model}&smart_format=true&punctuate=true&language=${resolvedLang}`;
 
     if (options.medicalMode) {
-      url += '&keyterm=ECG&keyterm=arritmia&keyterm=infarto&keyterm=fentanilo';
+      if (model === 'nova-3') {
+        url += '&keyterm=ECG&keyterm=arritmia&keyterm=infarto&keyterm=fentanilo';
+      } else {
+        url += '&keywords=ECG:2&keywords=arritmia:2&keywords=infarto:2&keywords=fentanilo:2';
+      }
     }
 
     const cleanMime = mimeType ? mimeType.split(';')[0].trim() : 'audio/webm';
@@ -151,7 +158,7 @@ export class STTService {
         'Authorization': `Bearer ${key}`,
         ...formData.getHeaders()
       },
-      body: formData,
+      body: formData.getBuffer(),
       signal: AbortSignal.timeout(8000)
     });
 
@@ -163,9 +170,10 @@ export class STTService {
     const data = await response.json();
     return {
       text: (data.text || '').trim(),
-      detectedLanguage: language !== 'auto' ? language : 'auto',
+      detectedLanguage: effectiveLang ? effectiveLang.slice(0, 2).toLowerCase() : 'es',
+      confidence: 0.96,
       latencyMs: Date.now() - startTime,
-      engine: 'OpenAI Whisper'
+      engine: 'OpenAI Whisper-1'
     };
   }
 
@@ -181,10 +189,13 @@ export class STTService {
       ? `${CLINICAL_INITIAL_PROMPT}\nTranscribe exactly what was spoken in this audio in real time. Return only verbatim transcribed text.`
       : 'Transcribe verbatim what is spoken in this audio. Return only the transcription without any introductory or concluding remarks.';
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': key
+      },
       body: JSON.stringify({
         contents: [
           {

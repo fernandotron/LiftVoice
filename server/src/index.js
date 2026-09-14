@@ -541,6 +541,13 @@ const cachedGrantTokens = new Map(); // apiKey -> { token, expiresAt }
 const grantTokenPromisesInFlight = new Map(); // apiKey -> Promise
 const MAX_GRANT_CACHE_ENTRIES = 500;
 
+// ASR Keyterm & Gateway Handshake Constraints (parity with App Salud ASR_KEYTERM_MAX_URL_CHARS)
+// Deepgram and reverse proxies (ALB/Cloudflare/Envoy) reject or drop HTTP Upgrade requests with URL >2150 chars.
+const ASR_KEYTERM_MAX_URL_CHARS = 1600;
+const ASR_MAX_KEYTERMS_COUNT = 40;
+const ASR_MAX_TERM_LENGTH = 50;
+const ASR_TOKEN_CACHE_MIN_MARGIN_MS = 20000; // Require >=20s validity before reusing cached token
+
 function storeGrantTokenInCache(key, tokenData) {
   if (cachedGrantTokens.size >= MAX_GRANT_CACHE_ENTRIES) {
     const oldestKey = cachedGrantTokens.keys().next().value;
@@ -574,47 +581,89 @@ app.post('/api/asr-token', async (req, res) => {
       return res.status(500).json({ error: 'Deepgram API key not configured on server' });
     }
 
+    // Model selection: Default to nova-3, allow configurable fallback to nova-2
+    const requestedModel = String(body.model || body.sttModel || process.env.DEEPGRAM_STT_MODEL || '').toLowerCase().trim();
+    const forceNova2 = Boolean(body.forceNova2 || body.preferNova2 || process.env.DEEPGRAM_FORCE_NOVA2 === 'true' || requestedModel.includes('nova-2'));
+    const effectiveModel = forceNova2 ? 'nova-2' : 'nova-3';
+
     const rawLang = (typeof body.language === 'string' && body.language) || (typeof body.lang === 'string' && body.lang) || 'auto';
     const langLower = rawLang.trim().toLowerCase();
 
-    // Normalización de idioma para Deepgram Nova-3 (Soporte multilingüe nativo a septiembre 2026)
-    let deepgramLang = 'es'; // Por defecto español en LiftVoice
-    if (langLower.startsWith('en')) {
-      deepgramLang = 'en';
-    } else if (langLower.startsWith('pt')) {
-      deepgramLang = langLower.includes('br') ? 'pt-BR' : 'pt';
-    } else if (langLower.startsWith('it')) {
-      deepgramLang = 'it';
-    } else if (langLower.startsWith('es')) {
-      deepgramLang = 'es';
-    } else if (langLower === 'auto' || langLower === 'multi') {
-      // Nova-3 admite 'multi' para code-switching dinámico y autodetección en vivo
-      deepgramLang = 'multi';
-    } else if (langLower.length >= 2) {
-      deepgramLang = langLower.slice(0, 2);
+    // Language resolution logic:
+    // Under Nova-3 streaming, non-English languages MUST route to 'multi' for native live code-switching and dynamic detection.
+    // English routes strictly to 'en'.
+    // Under Nova-2 fallback, monolingual codes are used ('es', 'en', 'it', 'pt-BR').
+    let deepgramLang;
+    if (effectiveModel === 'nova-3') {
+      if (langLower.startsWith('en')) {
+        deepgramLang = 'en';
+      } else {
+        // es, pt, it, auto, multi, etc. all route to 'multi' in Nova-3 streaming
+        deepgramLang = 'multi';
+      }
+    } else {
+      // Nova-2 Monolingual fallback
+      if (langLower.startsWith('en')) {
+        deepgramLang = 'en';
+      } else if (langLower.startsWith('pt')) {
+        deepgramLang = langLower.includes('br') ? 'pt-BR' : 'pt';
+      } else if (langLower.startsWith('it')) {
+        deepgramLang = 'it';
+      } else {
+        deepgramLang = 'es'; // default to Spanish for LiftVoice
+      }
     }
 
     const rawTerms = Array.isArray(req.body.keyterms) ? [...req.body.keyterms] : [];
     if (req.body.medicalMode && req.body.customGlossary && Array.isArray(req.body.customGlossary)) {
       rawTerms.push(...req.body.customGlossary);
     }
-    const keyterms = rawTerms
-      .map(t => (typeof t === 'object' && t ? (t.term || t.text || t.word || String(t)) : String(t)))
-      .map(s => String(s).replace(/[^a-zA-Z0-9\sáéíóúÁÉÍÓÚñÑüÜ.,/_-]/g, '').trim().slice(0, 50))
-      .filter(s => s.length >= 2)
-      .slice(0, 50);
+
+    // Sanitize and case-insensitively deduplicate keyterms while preserving original casing
+    const seenTermKeys = new Set();
+    const cleanTerms = [];
+    for (const t of rawTerms) {
+      const termStr = typeof t === 'object' && t ? (t.term || t.text || t.word || String(t)) : String(t);
+      const sanitized = termStr
+        .replace(/[^a-zA-Z0-9\sáéíóúÁÉÍÓÚñÑüÜ.,/_-]/g, '')
+        .trim()
+        .slice(0, ASR_MAX_TERM_LENGTH);
+      if (sanitized.length < 2) continue;
+      const termKey = sanitized.toLowerCase();
+      if (!seenTermKeys.has(termKey)) {
+        seenTermKeys.add(termKey);
+        cleanTerms.push(sanitized);
+      }
+    }
+
+    // Budget guard: Prevent WebSocket handshake hang / HTTP 414 / HTTP 431 on gateways with >2150 chars URL
+    let totalKeytermsCharBudget = 0;
+    const validKeyterms = [];
+    for (const term of cleanTerms) {
+      if (validKeyterms.length >= ASR_MAX_KEYTERMS_COUNT) break;
+      const termEncodedLen = encodeURIComponent(term).length;
+      const termUrlLen = (effectiveModel === 'nova-3' ? 9 : 13) + termEncodedLen;
+      if (totalKeytermsCharBudget + termUrlLen > ASR_KEYTERM_MAX_URL_CHARS) {
+        console.warn(`[ASR Token] ⚠️ Keyterms truncated by URL budget (${validKeyterms.length} retained, budget: ${totalKeytermsCharBudget}/${ASR_KEYTERM_MAX_URL_CHARS} chars)`);
+        break;
+      }
+      validKeyterms.push(term);
+      totalKeytermsCharBudget += termUrlLen;
+    }
 
     const forceRefresh = Boolean(body.forceRefresh);
+    const parsedTtl = Number(body.ttl || body.ttl_seconds || process.env.DEEPGRAM_GRANT_TTL || 60);
+    const requestedTtl = Number.isFinite(parsedTtl) ? Math.min(Math.max(parsedTtl, 30), 600) : 60;
     let token = null;
-    let expiresIn = 60;
+    let expiresIn = requestedTtl;
     const now = Date.now();
     const cacheKey = apiKey.trim();
     const cachedToken = cachedGrantTokens.get(cacheKey);
 
-    // Reutilizar token en caché si no se fuerza refresco y aún restan al menos 15 segundos de validez
-    if (!forceRefresh && cachedToken && now < cachedToken.expiresAt - 15000) {
+    // Reuse cached token if not forced and at least ASR_TOKEN_CACHE_MIN_MARGIN_MS (20s) remain
+    if (!forceRefresh && cachedToken && now < cachedToken.expiresAt - ASR_TOKEN_CACHE_MIN_MARGIN_MS) {
       token = cachedToken.token;
-      expiresIn = Math.max(10, Math.round((cachedToken.expiresAt - now) / 1000));
+      expiresIn = Math.max(5, Math.round((cachedToken.expiresAt - now) / 1000));
     } else {
       if (forceRefresh) {
         cachedGrantTokens.delete(cacheKey);
@@ -631,13 +680,13 @@ app.post('/api/asr-token', async (req, res) => {
                 'Authorization': `Token ${apiKey}`,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({ ttl_seconds: 60 }),
+              body: JSON.stringify({ ttl_seconds: requestedTtl }),
               signal: AbortSignal.timeout(5000)
             });
             if (grantRes.ok) {
               const grantData = await grantRes.json();
               const newToken = grantData.access_token || grantData.key;
-              const newExpiresIn = grantData.expires_in || 60;
+              const newExpiresIn = Number(grantData.expires_in) || requestedTtl;
               storeGrantTokenInCache(cacheKey, {
                 token: newToken,
                 expiresAt: Date.now() + (newExpiresIn * 1000)
@@ -645,21 +694,46 @@ app.post('/api/asr-token', async (req, res) => {
               return { success: true, token: newToken, expiresIn: newExpiresIn };
             } else {
               const errText = await grantRes.text().catch(() => '');
-              console.warn(`[ASR Token] Deepgram grant failed (${grantRes.status}): ${errText.slice(0, 300)}`);
+              let parsedErr = null;
+              try { parsedErr = JSON.parse(errText); } catch (_) {}
+              const deepgramMsg = parsedErr?.err_msg || parsedErr?.message || parsedErr?.error || errText.slice(0, 300);
+
+              let userMsg = 'Deepgram Grant API authentication failed.';
+              let errCode = 'GRANT_API_UNAVAILABLE';
+
+              if (grantRes.status === 401) {
+                userMsg = 'Invalid Deepgram API key. Please check your credentials in Settings.';
+                errCode = 'DEEPGRAM_AUTH_INVALID';
+              } else if (grantRes.status === 403) {
+                userMsg = 'Deepgram API key lacks permissions to mint ephemeral tokens. A Project Admin or Member role with auth scope is required.';
+                errCode = 'DEEPGRAM_GRANT_FORBIDDEN';
+              } else if (grantRes.status === 429) {
+                userMsg = 'Deepgram API rate limit exceeded. Please wait a moment before retrying.';
+                errCode = 'DEEPGRAM_RATE_LIMITED';
+              } else if (grantRes.status >= 500) {
+                userMsg = `Deepgram Grant API upstream server error (${grantRes.status}).`;
+                errCode = 'DEEPGRAM_UPSTREAM_ERROR';
+              }
+
+              console.warn(`[ASR Token] Deepgram grant failed (${grantRes.status}) [${errCode}]: ${deepgramMsg}`);
               return {
                 success: false,
                 status: grantRes.status,
-                error: 'Deepgram Grant API error or insufficient permissions on configured key. Please check Deepgram project permissions.',
-                code: 'GRANT_API_UNAVAILABLE'
+                error: userMsg,
+                code: errCode,
+                details: deepgramMsg || undefined
               };
             }
           } catch (gErr) {
+            const isTimeout = gErr.name === 'TimeoutError' || gErr.name === 'AbortError';
             console.warn('[ASR Token] Grant fetch exception:', gErr.message);
             return {
               success: false,
-              status: 502,
-              error: 'Failed to connect to Deepgram Grant API: ' + gErr.message,
-              code: 'GRANT_API_NETWORK_ERROR'
+              status: isTimeout ? 504 : 502,
+              error: isTimeout
+                ? 'Timeout connecting to Deepgram Grant API (5000ms limit reached).'
+                : `Failed to connect to Deepgram Grant API: ${gErr.message}`,
+              code: isTimeout ? 'GRANT_API_TIMEOUT' : 'GRANT_API_NETWORK_ERROR'
             };
           } finally {
             grantTokenPromisesInFlight.delete(cacheKey);
@@ -676,17 +750,12 @@ app.post('/api/asr-token', async (req, res) => {
       expiresIn = grantResult.expiresIn;
     }
 
-    // Unificación de modelo a Nova-3: soporta de forma nativa español, inglés, italiano, portugués y multi
-    const sttModel = 'nova-3';
-    // El cliente mapea keyterms a 'keyterm' (Nova-3) para boost léxico en todos los idiomas
-    const validKeyterms = Array.isArray(keyterms) ? [...new Set(keyterms)].slice(0, 50) : [];
-
     return res.json({
       success: true,
       token,
       expiresIn,
       listenUrl: 'wss://api.deepgram.com/v1/listen',
-      model: sttModel,
+      model: effectiveModel,
       language: deepgramLang,
       keyterms: validKeyterms,
       mipOptOut: Boolean(req.body.medicalMode)

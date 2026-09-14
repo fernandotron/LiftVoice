@@ -281,8 +281,6 @@ export default function HostView({
 
   const sidebarMeterBarRef = useRef(null);
   const sidebarMeterTextRef = useRef(null);
-  const dockMeterBarRef = useRef(null);
-  const dockMeterTextRef = useRef(null);
   const lastSentSpeechRef = useRef({ text: '', time: 0 });
   const lastCumulativeSpeechRef = useRef({ text: '', time: 0 });
   const [hasCopiedLink, setHasCopiedLink] = useState(false);
@@ -615,17 +613,15 @@ export default function HostView({
       if (sidebarMeterTextRef.current) {
         sidebarMeterTextRef.current.textContent = `${pct}%`;
       }
-      if (dockMeterBarRef.current) {
-        dockMeterBarRef.current.style.transform = `scaleX(${norm})`;
-      }
-      if (dockMeterTextRef.current) {
-        dockMeterTextRef.current.textContent = `${pct}%`;
-      }
     });
 
     const unsubStreamingStatus = audioRecorderService.onStreamingStatus
       ? audioRecorderService.onStreamingStatus((status) => {
           setAsrStatus(status);
+          if (status === 'fallback_webspeech') {
+            setSttEngine('webspeech');
+            try { localStorage.setItem('lv_stt_engine', 'webspeech'); } catch (e) {}
+          }
         })
       : () => {};
 
@@ -747,7 +743,7 @@ export default function HostView({
         }
 
         await audioPlayerService.unlockAudio(roomId, 'es');
-        const activeStt = localStorage.getItem('lv_stt_engine') || sttEngine || 'deepgram';
+        const activeStt = sttEngine || localStorage.getItem('lv_stt_engine') || 'deepgram';
         const currentSrcLang = sourceLanguageRef.current;
         await audioRecorderService.startRecording({
           deviceId: selectedDevice === 'default' ? null : selectedDevice,
@@ -1058,12 +1054,11 @@ export default function HostView({
             </p>
 
             {monitoredLang !== 'none' && (
-              <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium leading-tight ${
+              <div className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-medium leading-tight ${
                 isBroadcasting
                   ? 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
                   : 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400'
               }`}>
-                <span className="flex-shrink-0 text-xs">🎧</span>
                 <span>
                   {isBroadcasting
                     ? 'Usa auriculares obligatoriamente para evitar que el sonido de los altavoces entre por tu micrófono.'
@@ -1741,21 +1736,22 @@ export default function HostView({
                       Idioma del Ponente
                     </label>
                     <label
-                      className="inline-flex items-center gap-2 cursor-pointer select-none group py-0.5 rounded focus-within:ring-2 focus-within:ring-zinc-900 dark:focus-within:ring-white focus-within:ring-offset-2 dark:focus-within:ring-offset-zinc-950"
+                      className="inline-flex items-center gap-2 cursor-pointer select-none group py-0.5 rounded outline-none focus:outline-none focus-within:outline-none"
                       title="Detección automática del idioma del ponente"
                     >
                       <input
                         type="checkbox"
                         checked={sourceLanguage === 'auto'}
-                        onChange={() => {
+                        onChange={(e) => {
+                          try { e.target.blur(); } catch (err) {}
                           const next = sourceLanguage === 'auto'
                             ? (lastExplicitSpeakerLangRef.current || 'es-ES')
                             : 'auto';
                           setSourceLanguage(next);
-                          try { localStorage.setItem('lv_stt_lang', next); } catch (e) {}
+                          try { localStorage.setItem('lv_stt_lang', next); } catch (err) {}
                           audioRecorderService.setLanguage(next);
                         }}
-                        className="sr-only"
+                        className="sr-only outline-none focus:outline-none"
                       />
                       <div
                         className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${

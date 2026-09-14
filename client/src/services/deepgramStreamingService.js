@@ -62,6 +62,7 @@ export class DeepgramStreamingService {
     this.onFirstPartialTimeout = null;
     this.onVisibilityChange = null;
     this.onOnlineHandler = null;
+    this.lastServerError = null;
 
     this.status = 'idle'; // 'idle' | 'connecting' | 'listening' | 'reconnecting' | 'degraded' | 'error'
     this.statusListeners = new Set();
@@ -113,6 +114,7 @@ export class DeepgramStreamingService {
     this.lastConfig = config;
     this.lastCallbacks = callbacks;
     this.reconnectAttempts = 0;
+    this.lastServerError = null;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -146,6 +148,7 @@ export class DeepgramStreamingService {
       if (!transportConfig.token || !transportConfig.listenUrl) {
         const tokenRes = await this.mintToken(config);
         transportConfig = { ...transportConfig, ...tokenRes };
+        this.lastConfig = { ...this.lastConfig, ...tokenRes };
       }
 
       // 2. Montar grafo de audio con AudioWorklet
@@ -208,6 +211,7 @@ export class DeepgramStreamingService {
       transportConfig.token = this.tokenMetadata.token;
       transportConfig.listenUrl = this.tokenMetadata.listenUrl || transportConfig.listenUrl;
       transportConfig.model = this.tokenMetadata.model || transportConfig.model;
+      transportConfig.language = this.tokenMetadata.language || transportConfig.language;
     }
 
     if (seq !== this.startSeq || !this.isActive) return;
@@ -228,7 +232,7 @@ export class DeepgramStreamingService {
         this.drainBacklog(this.ws);
       } catch (e) {}
     }
-    this.closeSocketOnly();
+    await this.closeSocketOnly();
     this.backlog.clear();
     this.clearFirstPartialTimer();
     this.setStatus('idle');
@@ -323,7 +327,8 @@ export class DeepgramStreamingService {
       token: data.token,
       expiresAt: Date.now() + ((data.expiresIn || 60) * 1000),
       listenUrl: data.listenUrl,
-      model: data.model
+      model: data.model,
+      language: data.language
     };
     return data;
   }
@@ -440,13 +445,19 @@ export class DeepgramStreamingService {
     this.firstByteSentAt = null;
     this.firstPartialSeen = false;
     this.clearFirstPartialTimer();
+    this.lastServerError = null;
     this.onFirstPartialLatency = callbacks.onFirstPartialLatency;
     const chosenModel = config.model || 'nova-3';
-    const isNova3 = chosenModel.includes('nova-3');
+    const isNova3 = chosenModel.toLowerCase().includes('nova-3');
+    let resolvedLanguage = config.language || 'multi';
+    if (isNova3) {
+      const lLower = (resolvedLanguage || '').toLowerCase();
+      resolvedLanguage = (lLower === 'en' || lLower.startsWith('en-')) ? 'en' : 'multi';
+    }
 
     const params = new URLSearchParams({
       model: chosenModel,
-      language: config.language || 'multi',
+      language: resolvedLanguage,
       encoding: 'linear16',
       sample_rate: String(config.sampleRate || ASR_SAMPLE_RATE),
       channels: '1',
@@ -496,13 +507,17 @@ export class DeepgramStreamingService {
         this.connectTimer = null;
       }
       this.setStatus('listening');
-      this.reconnectAttempts = 0;
       if (callbacks.onOpen) callbacks.onOpen();
       this.drainBacklog(ws);
 
+      this.clearKeepAlive();
       this.keepAliveTimer = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'KeepAlive' }));
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({ type: 'KeepAlive' }));
+          } catch (e) {
+            console.warn('[DeepgramStreaming] Error al enviar KeepAlive:', e);
+          }
         }
       }, ASR_KEEPALIVE_INTERVAL_MS);
     };
@@ -519,12 +534,23 @@ export class DeepgramStreamingService {
         return;
       }
 
+      if (data.type === 'Error') {
+        const errMsg = data.message || data.description || 'Deepgram ASR server error';
+        console.error('[DeepgramStreaming] 🚨 Mensaje de error de Deepgram recibido:', errMsg, data);
+        this.lastServerError = errMsg;
+        if (callbacks.onError) {
+          callbacks.onError(new Error(`Deepgram Error: ${errMsg}`));
+        }
+        return;
+      }
+
       if (data.type && data.type !== 'Results') return;
       const transcript = data.channel?.alternatives?.[0]?.transcript ?? '';
       if (!transcript) return;
 
       if (!this.firstPartialSeen && this.firstByteSentAt !== null) {
         this.firstPartialSeen = true;
+        this.reconnectAttempts = 0;
         this.clearFirstPartialTimer();
         const latency = performance.now() - this.firstByteSentAt;
         if (this.onFirstPartialLatency) this.onFirstPartialLatency(latency);
@@ -550,7 +576,7 @@ export class DeepgramStreamingService {
       // NOTE: Do NOT call callbacks.onError here.
       // Browsers fire onerror immediately before onclose on any transport drop.
       // Invoking callbacks.onError here would prematurely trigger stop() in audioRecorder,
-      // destroying the 15-retry exponential backoff and PcmBacklog drain in ws.onclose.
+      // destroying the exponential backoff and PcmBacklog drain in ws.onclose.
     };
 
     ws.onclose = (event) => {
@@ -562,7 +588,9 @@ export class DeepgramStreamingService {
       this.clearFirstPartialTimer();
       const isAuthFailure = event.code === 1008 || event.code === 4401 || event.code === 4403 ||
         (typeof event.reason === 'string' && /auth|token|unauthorized|expired/i.test(event.reason));
-      const isHandshakeFailure = event.code === 1002 || event.code === 1003 || event.code === 4400;
+      const isHandshakeFailure = event.code === 1002 || event.code === 1003 || event.code === 4400 ||
+        (event.code === 1006 && !this.firstPartialSeen && this.reconnectAttempts >= 1) ||
+        Boolean(this.lastServerError);
 
       // Fail-Fast: Si hay rechazo en handshake o auth antes de ver ningún parcial tras al menos 1 intento,
       // cortar bucle zombi e invocar inmediatamente el fallback a WebSpeech
@@ -570,14 +598,14 @@ export class DeepgramStreamingService {
 
       if (this.isActive) {
         if (isFatalRejection) {
-          console.error(`[DeepgramStreaming] 🚨 Rechazo fatal de WebSocket (${event.code}: ${event.reason || 'rechazado'}). Activando fallback a WebSpeech de inmediato.`);
+          console.error(`[DeepgramStreaming] 🚨 Rechazo fatal de WebSocket (${event.code}: ${this.lastServerError || event.reason || 'rechazado'}). Activando fallback a WebSpeech de inmediato.`);
           this.isActive = false;
           if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
           }
           this.setStatus('error');
-          if (callbacks.onError) callbacks.onError(new Error(`Deepgram fatal rejection (${event.code})`));
+          if (callbacks.onError) callbacks.onError(new Error(`Deepgram fatal rejection (${event.code}: ${this.lastServerError || event.reason || 'handshake failure'})`));
           if (callbacks.onClose) callbacks.onClose({ code: event.code, wasClean: event.wasClean });
           return;
         }
@@ -651,7 +679,7 @@ export class DeepgramStreamingService {
     this.clearKeepAlive();
     this.clearFirstPartialTimer();
     const ws = this.ws;
-    if (!ws) return;
+    if (!ws) return Promise.resolve();
 
     this.ws = null;
     this.drainingWs = ws;
@@ -665,35 +693,38 @@ export class DeepgramStreamingService {
       try {
         ws.close();
       } catch (e) {}
-      return;
+      return Promise.resolve();
     }
 
     // Grace de drenaje (#852): enviar CloseStream y esperar recepción de últimos finales
-    let drainTimer = null;
-    let finalized = false;
+    return new Promise((resolve) => {
+      let drainTimer = null;
+      let finalized = false;
 
-    const finalize = () => {
-      if (finalized) return;
-      finalized = true;
-      if (this.drainingWs === ws) this.drainingWs = null;
-      if (drainTimer) {
-        clearTimeout(drainTimer);
-        drainTimer = null;
-      }
-      ws.onmessage = null;
-      ws.onclose = null;
+      const finalize = () => {
+        if (finalized) return;
+        finalized = true;
+        if (this.drainingWs === ws) this.drainingWs = null;
+        if (drainTimer) {
+          clearTimeout(drainTimer);
+          drainTimer = null;
+        }
+        ws.onmessage = null;
+        ws.onclose = null;
+        try {
+          ws.close();
+        } catch (e) {}
+        resolve();
+      };
+
       try {
-        ws.close();
-      } catch (e) {}
-    };
-
-    try {
-      ws.send(JSON.stringify({ type: 'CloseStream' }));
-      ws.onclose = () => finalize();
-      drainTimer = setTimeout(finalize, ASR_CLOSE_DRAIN_TIMEOUT_MS);
-    } catch (e) {
-      finalize();
-    }
+        ws.send(JSON.stringify({ type: 'CloseStream' }));
+        ws.onclose = () => finalize();
+        drainTimer = setTimeout(finalize, ASR_CLOSE_DRAIN_TIMEOUT_MS);
+      } catch (e) {
+        finalize();
+      }
+    });
   }
 
   clearKeepAlive() {

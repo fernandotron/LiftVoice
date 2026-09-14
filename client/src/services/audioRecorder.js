@@ -283,6 +283,12 @@ class AudioRecorderService {
     return () => this.onStreamingStatusCallbacks.delete(cb);
   }
 
+  notifyStreamingStatus(status) {
+    for (const cb of this.onStreamingStatusCallbacks) {
+      try { cb(status); } catch (e) {}
+    }
+  }
+
   getStreamingStatus() {
     return this.deepgramStreamingService.status;
   }
@@ -384,10 +390,7 @@ class AudioRecorderService {
               onFirstPartialLatency: opts.onFirstPartialLatency,
               onFirstPartialTimeout: opts.onFirstPartialTimeout,
               onError: (err) => {
-                console.warn('[AudioRecorder] Fallo Deepgram tras conmutación de motor, cayendo a WebSpeech:', err);
-                this.deepgramStreamingService.stop().catch(() => {});
-                this.sttEngine = 'webspeech';
-                if (this.isRecording && !this.recognition) this.initSpeechRecognition();
+                this.fallbackToWebSpeech('es-ES');
               }
             }
           ).catch(() => {});
@@ -743,22 +746,13 @@ class AudioRecorderService {
           }
         },
         onError: (err) => {
-          console.warn('[AudioRecorder] Deepgram reconnect error, falling back to WebSpeech:', err);
-          this.deepgramStreamingService.stop().catch(() => {});
-          this.sttEngine = 'webspeech';
-          if (this.isRecording && !this.recognition) {
-            this.initSpeechRecognition();
-          }
+          this.fallbackToWebSpeech('es-ES');
         },
         onClose: ({ code, wasClean }) => {
           console.log('[AudioRecorder] Deepgram reconnect stream closed:', code, wasClean);
         }
       }).catch(e => {
-        console.warn('[AudioRecorder] Error reconnecting Deepgram on language change, falling back to WebSpeech:', e);
-        this.sttEngine = 'webspeech';
-        if (this.isRecording && !this.recognition) {
-          this.initSpeechRecognition();
-        }
+        this.fallbackToWebSpeech('es-ES');
       });
       return;
     }
@@ -948,12 +942,7 @@ class AudioRecorderService {
               onFirstPartialLatency: options.onFirstPartialLatency,
               onFirstPartialTimeout: options.onFirstPartialTimeout,
               onError: (err) => {
-                console.warn('[AudioRecorder] Deepgram streaming error, falling back to WebSpeech:', err);
-                this.deepgramStreamingService.stop().catch(() => {});
-                this.sttEngine = 'webspeech';
-                if (this.isRecording && !this.recognition) {
-                  this.initSpeechRecognition();
-                }
+                this.fallbackToWebSpeech('es-ES');
               },
               onClose: ({ code, wasClean }) => {
                 console.log('[AudioRecorder] Deepgram streaming closed:', code, wasClean);
@@ -961,10 +950,7 @@ class AudioRecorderService {
             }
           );
         } catch (dgErr) {
-          console.warn('[AudioRecorder] Failed to start Deepgram streaming, falling back to WebSpeech:', dgErr);
-          this.deepgramStreamingService.stop().catch(() => {});
-          this.sttEngine = 'webspeech';
-          this.initSpeechRecognition();
+          this.fallbackToWebSpeech('es-ES');
         }
       } else {
         // Fallback for Whisper / WebSpeech
@@ -1008,7 +994,31 @@ class AudioRecorderService {
     }
   }
 
-  initSpeechRecognition(retryCount = 0) {
+  fallbackToWebSpeech(preferredLang = 'es-ES') {
+    console.warn(`[AudioRecorder] 🔄 Activando fallback limpio a WebSpeech (idioma: ${preferredLang})`);
+    this.clearSilenceTimer();
+    this.committedResultIndex = 0;
+    this.latestResultCount = 0;
+    this.committedSessionTranscript = '';
+    this.currentRawSessionText = '';
+    this.currentPendingText = '';
+    this.notifyInterim('');
+    this.deepgramStreamingService.stop().catch(() => {});
+    this.sttEngine = 'webspeech';
+    this.notifyStreamingStatus('fallback_webspeech');
+    if (this.isRecording) {
+      const srcLower = (this.sourceLanguage || '').toLowerCase();
+      let targetLang = preferredLang || 'es-ES';
+      if (srcLower.startsWith('en')) targetLang = 'en-US';
+      else if (srcLower.startsWith('it')) targetLang = 'it-IT';
+      else if (srcLower.startsWith('pt')) targetLang = srcLower.includes('pt-pt') ? 'pt-PT' : 'pt-BR';
+      else targetLang = 'es-ES';
+
+      this.initSpeechRecognition(0, targetLang);
+    }
+  }
+
+  initSpeechRecognition(retryCount = 0, overrideLang = null) {
     const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionClass) {
       console.warn('[AudioRecorder] Web Speech Recognition API no soportada en este navegador (Firefox/Safari). Activando Red de Seguridad de Transcripción por Chunks en Servidor.');
@@ -1043,7 +1053,7 @@ class AudioRecorderService {
     } else if (this.sourceLanguage && this.sourceLanguage !== 'auto' && this.sourceLanguage !== 'multi') {
       speechLang = this.sourceLanguage;
     }
-    rec.lang = speechLang;
+    rec.lang = overrideLang || speechLang || 'es-ES';
 
     rec.onresult = (event) => {
       if (this.recognition !== rec || !this.isRecording) return;
