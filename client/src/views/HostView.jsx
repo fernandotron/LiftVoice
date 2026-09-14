@@ -68,9 +68,11 @@ export default function HostView({
   const [broadcastError, setBroadcastError] = useState(null);
   const [sourceLanguage, setSourceLanguage] = useState(() => {
     try {
-      return localStorage.getItem('lv_stt_lang') || 'auto';
+      const saved = localStorage.getItem('lv_stt_lang');
+      if (saved && saved !== 'auto') return saved;
+      return 'es-ES';
     } catch (e) {
-      return 'auto';
+      return 'es-ES';
     }
   });
   const lastExplicitSpeakerLangRef = useRef((() => {

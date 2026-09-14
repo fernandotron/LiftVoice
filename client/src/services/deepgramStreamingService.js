@@ -499,7 +499,8 @@ export class DeepgramStreamingService {
       smart_format: 'true'
     });
 
-    params.append('endpointing', String(ASR_ENDPOINTING_MS));
+    const resolvedEndpointing = resolvedLanguage === 'multi' ? 500 : ASR_ENDPOINTING_MS;
+    params.append('endpointing', String(resolvedEndpointing));
     params.append('utterance_end_ms', String(ASR_UTTERANCE_END_MS));
 
     if (Array.isArray(config.keyterms) && config.keyterms.length > 0) {
