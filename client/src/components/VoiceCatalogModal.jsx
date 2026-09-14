@@ -32,6 +32,214 @@ function getEngineDisplayName(engine) {
   }
 }
 
+function normalizeLangCode(lang) {
+  if (!lang) return 'es';
+  const clean = String(lang).toLowerCase().trim();
+  if (clean.startsWith('pt')) return 'pt';
+  return clean.length > 2 ? clean.slice(0, 2) : clean;
+}
+
+const FALLBACK_VOICES = [
+  {
+    id: 'es-ES-ElviraNeural',
+    engine: 'edge',
+    name: 'Elvira Neural',
+    gender: 'female',
+    tone: 'Institucional, Fluido',
+    desc: 'Voz neuronal estándar de alta definición en español europeo e internacional.',
+    lang: 'es',
+    languages: ['es'],
+    latency: '~130ms',
+    badge: 'Azure Neural • Gratuito ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Universal Gratuito',
+    scenario: 'keynote',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'es-ES-AlvaroNeural',
+    engine: 'edge',
+    name: 'Álvaro Neural',
+    gender: 'male',
+    tone: 'Claro, Dinámico',
+    desc: 'Locución masculina clara y enérgica para conferencias técnicas y paneles.',
+    lang: 'es',
+    languages: ['es'],
+    latency: '~130ms',
+    badge: 'Azure Neural • Gratuito ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Universal Gratuito',
+    scenario: 'panel',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'es-MX-DaliaNeural',
+    engine: 'edge',
+    name: 'Dalia Neural (México)',
+    gender: 'female',
+    tone: 'Cálido, Suave',
+    desc: 'Acento neutro latinoamericano suave y fluido para foros panamericanos.',
+    lang: 'es',
+    languages: ['es'],
+    latency: '~135ms',
+    badge: 'Azure Neural • Gratuito ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Universal Gratuito',
+    scenario: 'conversational',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'aura-2-carina-es',
+    engine: 'deepgram',
+    name: 'Carina (Aura-2)',
+    gender: 'female',
+    tone: 'Natural, Fluida',
+    desc: 'Deepgram Aura-2 nativa en español de latencia mínima para interpretación simultánea.',
+    lang: 'es',
+    languages: ['es'],
+    latency: '~95ms',
+    badge: 'Deepgram Aura-2 ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Universal Gratuito',
+    scenario: 'conversational',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'en-US-JennyNeural',
+    engine: 'edge',
+    name: 'Jenny Neural',
+    gender: 'female',
+    tone: 'Natural, Expressive',
+    desc: 'Voz institucional en inglés americano de alta naturalidad y entonación limpia.',
+    lang: 'en',
+    languages: ['en'],
+    latency: '~130ms',
+    badge: 'Azure Neural • Gratuito ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Universal Gratuito',
+    scenario: 'keynote',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'en-US-GuyNeural',
+    engine: 'edge',
+    name: 'Guy Neural',
+    gender: 'male',
+    tone: 'Profundo, Autoridad',
+    desc: 'Tono masculino firme y seguro para discursos ejecutivos y plenarias.',
+    lang: 'en',
+    languages: ['en'],
+    latency: '~130ms',
+    badge: 'Azure Neural • Gratuito ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Universal Gratuito',
+    scenario: 'keynote',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'aura-2-thalia-en',
+    engine: 'deepgram',
+    name: 'Thalia (Aura-2)',
+    gender: 'female',
+    tone: 'Conversacional, Ultrarrápida',
+    desc: 'Nueva generación Deepgram Aura-2 optimizada para latencia extrema (<120ms).',
+    lang: 'en',
+    languages: ['en'],
+    latency: '~90ms',
+    badge: 'Deepgram Aura-2 ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Universal Gratuito',
+    scenario: 'conversational',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'it-IT-ElsaNeural',
+    engine: 'edge',
+    name: 'Elsa Neural',
+    gender: 'female',
+    tone: 'Melódica, Profesional',
+    desc: 'Pronunciación italiana impecable y modulada para eventos internacionales.',
+    lang: 'it',
+    languages: ['it'],
+    latency: '~130ms',
+    badge: 'Azure Neural • Gratuito ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Universal Gratuito',
+    scenario: 'keynote',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'it-IT-DiegoNeural',
+    engine: 'edge',
+    name: 'Diego Neural',
+    gender: 'male',
+    tone: 'Cálido, Directo',
+    desc: 'Locución masculina italiana elegante para conferencias y seminarios.',
+    lang: 'it',
+    languages: ['it'],
+    latency: '~130ms',
+    badge: 'Azure Neural • Gratuito ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Universal Gratuito',
+    scenario: 'panel',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'pt-BR-FranciscaNeural',
+    engine: 'edge',
+    name: 'Francisca Neural',
+    gender: 'female',
+    tone: 'Acogedora, Articulada',
+    desc: 'Portugués brasileño estándar suave y perfectamente comprensible.',
+    lang: 'pt',
+    languages: ['pt'],
+    latency: '~130ms',
+    badge: 'Azure Neural • Gratuito ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Universal Gratuito',
+    scenario: 'keynote',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'pt-BR-AntonioNeural',
+    engine: 'edge',
+    name: 'Antônio Neural',
+    gender: 'male',
+    tone: 'Enérgico, Convincente',
+    desc: 'Voz masculina brasileña versátil para ponencias dinámicas y rondas de preguntas.',
+    lang: 'pt',
+    languages: ['pt'],
+    latency: '~130ms',
+    badge: 'Azure Neural • Gratuito ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Universal Gratuito',
+    scenario: 'panel',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  }
+];
+
 export default function VoiceCatalogModal({
   isOpen = false,
   onClose = () => {},
@@ -41,13 +249,13 @@ export default function VoiceCatalogModal({
   onSelectVoice = () => {},
   configuredEngines = { deepgram: true, google: true, openai: false, elevenlabs: false, cartesia: false }
 }) {
-  const [voices, setVoices] = useState([]);
+  const [voices, setVoices] = useState(FALLBACK_VOICES);
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedEngineFilter, setSelectedEngineFilter] = useState('all');
   const [selectedGenderFilter, setSelectedGenderFilter] = useState('all');
   const [selectedTierFilter, setSelectedTierFilter] = useState('all');
-  const [targetLang, setTargetLang] = useState(currentLanguage || 'es');
+  const [targetLang, setTargetLang] = useState(() => normalizeLangCode(currentLanguage));
   const [playingVoiceId, setPlayingVoiceId] = useState(null);
 
   const auditionAbortRef = useRef(null);
@@ -61,7 +269,7 @@ export default function VoiceCatalogModal({
   // Inicializar estado borrador cuando se abre el modal o cambian las voces asignadas
   useEffect(() => {
     if (isOpen) {
-      setTargetLang(currentLanguage || 'es');
+      setTargetLang(normalizeLangCode(currentLanguage));
       setDraftVoices({ ...(selectedVoices || {}) });
       setDraftGenders({});
       setSearch('');
@@ -118,14 +326,17 @@ export default function VoiceCatalogModal({
     if (isOpen) {
       setIsLoadingVoices(true);
       fetch('/api/voices')
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
         .then((data) => {
-          if (data.success && Array.isArray(data.voices)) {
+          if (data && data.success && Array.isArray(data.voices) && data.voices.length > 0) {
             setVoices(data.voices);
           }
         })
         .catch((err) => {
-          console.warn('[VoiceCatalog] Error al cargar voces:', err);
+          console.warn('[VoiceCatalog] Error al cargar voces remotas, manteniendo catálogo base:', err);
         })
         .finally(() => {
           setIsLoadingVoices(false);
@@ -144,6 +355,7 @@ export default function VoiceCatalogModal({
     (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
   const filteredVoices = useMemo(() => {
+    const normTarget = normalizeLangCode(targetLang);
     return voices.filter((v) => {
       const q = normalize(search);
       const matchesSearch = !q ||
@@ -159,7 +371,7 @@ export default function VoiceCatalogModal({
       const voiceLangs = (v.languages && v.languages.length > 0)
         ? v.languages
         : (v.lang === 'all' ? ['es', 'en', 'it', 'pt'] : [v.lang]);
-      const matchesLang = v.lang === 'all' || voiceLangs.includes(targetLang);
+      const matchesLang = v.lang === 'all' || voiceLangs.includes(normTarget) || voiceLangs.includes(targetLang);
 
       const matchesGender =
         selectedGenderFilter === 'all' || v.gender === selectedGenderFilter;
