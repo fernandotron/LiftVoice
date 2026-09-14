@@ -307,7 +307,11 @@ export class DeepgramStreamingService {
   }
 
   async mintToken(config = {}) {
-    const res = await fetch('/api/asr-token', {
+    let localKey = config.deepgramApiKey || '';
+    if (!localKey && typeof localStorage !== 'undefined') {
+      localKey = (localStorage.getItem('lv_deepgram_key') || localStorage.getItem('deepgram_api_key') || '').trim();
+    }
+    let res = await fetch('/api/asr-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -316,9 +320,28 @@ export class DeepgramStreamingService {
         customGlossary: config.customGlossary || [],
         keyterms: config.keyterms || [],
         forceRefresh: Boolean(config.forceRefresh),
-        deepgramApiKey: config.deepgramApiKey || (typeof localStorage !== 'undefined' ? (localStorage.getItem('lv_deepgram_key') || localStorage.getItem('deepgram_api_key') || '') : '')
+        deepgramApiKey: localKey
       })
     });
+    // If client-provided localKey caused auth failure (401/403), purge it and fallback to server's configured key
+    if (!res.ok && (res.status === 401 || res.status === 403) && localKey) {
+      console.warn('[DeepgramStreaming] Local API key was rejected. Purging local key and falling back to server default...');
+      try {
+        localStorage.removeItem('lv_deepgram_key');
+        localStorage.removeItem('deepgram_api_key');
+      } catch (e) {}
+      res = await fetch('/api/asr-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          language: config.language || config.lang || 'es',
+          medicalMode: Boolean(config.medicalMode),
+          customGlossary: config.customGlossary || [],
+          keyterms: config.keyterms || [],
+          forceRefresh: true
+        })
+      });
+    }
     if (!res.ok) {
       const errText = await res.text();
       throw new Error(`Token minting failed (${res.status}): ${errText}`);
@@ -555,9 +578,19 @@ export class DeepgramStreamingService {
         return;
       }
 
+      if (data.type === 'UtteranceEnd') {
+        if (callbacks.onUtteranceEnd) callbacks.onUtteranceEnd();
+        return;
+      }
+
       if (data.type && data.type !== 'Results') return;
       const transcript = data.channel?.alternatives?.[0]?.transcript ?? '';
-      if (!transcript) return;
+      if (!transcript) {
+        if (data.speech_final && callbacks.onUtteranceEnd) {
+          callbacks.onUtteranceEnd();
+        }
+        return;
+      }
 
       if (!this.firstPartialSeen && this.firstByteSentAt !== null) {
         this.firstPartialSeen = true;
@@ -568,7 +601,7 @@ export class DeepgramStreamingService {
         this.setStatus('listening');
       }
 
-      const isFinal = Boolean(data.is_final);
+      const isFinal = Boolean(data.is_final || data.speech_final);
       if (callbacks.onTranscript) {
         callbacks.onTranscript({
           transcript: transcript.trim(),

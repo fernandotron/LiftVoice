@@ -255,7 +255,12 @@ export default function HostView({
   });
 
   const [sttEngine, setSttEngine] = useState(() => {
-    return localStorage.getItem('lv_stt_engine') || 'deepgram';
+    const saved = localStorage.getItem('lv_stt_engine');
+    if (saved === 'webspeech') {
+      try { localStorage.removeItem('lv_stt_engine'); } catch (e) {}
+      return 'deepgram';
+    }
+    return saved || 'deepgram';
   });
 
   const [asrStatus, setAsrStatus] = useState(() => {
@@ -620,7 +625,6 @@ export default function HostView({
           setAsrStatus(status);
           if (status === 'fallback_webspeech') {
             setSttEngine('webspeech');
-            try { localStorage.setItem('lv_stt_engine', 'webspeech'); } catch (e) {}
           }
         })
       : () => {};

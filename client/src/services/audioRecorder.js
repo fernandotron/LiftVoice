@@ -805,7 +805,8 @@ class AudioRecorderService {
     const lang = options.language || options.lang || 'es-ES';
     if (options.deviceId) this.selectedDeviceId = options.deviceId;
 
-    this.sttEngine = options.sttEngine || localStorage.getItem('lv_stt_engine') || 'deepgram';
+    const savedStt = localStorage.getItem('lv_stt_engine');
+    this.sttEngine = options.sttEngine || (savedStt && savedStt !== 'webspeech' ? savedStt : 'deepgram');
     this.onSpeechTextCallback = onSpeech;
     this.onSpeechAudioCallback = onAudio;
     if (onInterim) this.onInterim(onInterim);
@@ -937,6 +938,17 @@ class AudioRecorderService {
                 } else {
                   this.currentPendingText = clean;
                   this.notifyInterim(clean);
+                }
+              },
+              onUtteranceEnd: () => {
+                const pending = (this.currentPendingText || '').trim();
+                if (pending && this.isRecording) {
+                  console.log(`[AudioRecorder] ⚡ Deepgram UtteranceEnd flushing pending speech: "${pending}"`);
+                  this.currentPendingText = '';
+                  this.notifyInterim('');
+                  if (this.onSpeechTextCallback) {
+                    this.onSpeechTextCallback(pending, langCode);
+                  }
                 }
               },
               onFirstPartialLatency: options.onFirstPartialLatency,
@@ -1118,6 +1130,9 @@ class AudioRecorderService {
 
     rec.onend = () => {
       if (this.recognition !== rec) return;
+      if (this.currentPendingText && this.currentPendingText.trim()) {
+        this.commitDictation();
+      }
       this.committedSessionTranscript = '';
       this.currentPendingText = '';
       this.currentRawSessionText = '';
