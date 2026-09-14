@@ -10,6 +10,7 @@ import CountryFlag from '../components/shared/CountryFlag.jsx';
 import LiveCaptions from '../components/LiveCaptions.jsx';
 import ElevenSlider from '../components/ElevenSlider.jsx';
 import VoiceCatalogModal from '../components/VoiceCatalogModal.jsx';
+import ErrorBoundary from '../components/shared/ErrorBoundary.jsx';
 import QRCodeModal from '../components/QRCodeModal.jsx';
 import AttendeesModal from '../components/AttendeesModal.jsx';
 import SessionSummaryModal from '../components/SessionSummaryModal.jsx';
@@ -229,13 +230,15 @@ export default function HostView({
       const saved = localStorage.getItem('lv_voice_config');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Sanitize: ensure non-English languages never retain legacy aura-*-en voices
-        Object.keys(DEFAULT_VOICES).forEach(lang => {
-          if (!parsed[lang] || (lang !== 'en' && typeof parsed[lang] === 'string' && parsed[lang].startsWith('aura-'))) {
-            parsed[lang] = DEFAULT_VOICES[lang];
-          }
-        });
-        return parsed;
+        if (parsed && typeof parsed === 'object') {
+          // Sanitize: ensure non-English languages never retain legacy aura-*-en voices
+          Object.keys(DEFAULT_VOICES).forEach(lang => {
+            if (!parsed[lang] || (lang !== 'en' && typeof parsed[lang] === 'string' && parsed[lang].startsWith('aura-'))) {
+              parsed[lang] = DEFAULT_VOICES[lang];
+            }
+          });
+          return parsed;
+        }
       }
       return DEFAULT_VOICES;
     } catch (e) {
@@ -2214,23 +2217,25 @@ export default function HostView({
       />
 
       {/* Global Modals */}
-      <VoiceCatalogModal
-        isOpen={isVoiceCatalogOpen}
-        onClose={() => {
-          setIsVoiceCatalogOpen(false);
-          try { audioPlayerService.stopAll(); } catch (e) {}
-        }}
-        currentLanguage={selectedCatalogLang}
-        selectedVoices={selectedVoices}
-        onSelectVoice={handleSelectVoiceFromCatalog}
-        roomId={roomId}
-        configuredEngines={{
-          deepgram: true,
-          google: true,
-          openai: Boolean(localStorage.getItem('lv_openai_key')),
-          elevenlabs: Boolean(localStorage.getItem('lv_eleven_key'))
-        }}
-      />
+      <ErrorBoundary onClose={() => setIsVoiceCatalogOpen(false)}>
+        <VoiceCatalogModal
+          isOpen={isVoiceCatalogOpen}
+          onClose={() => {
+            setIsVoiceCatalogOpen(false);
+            try { audioPlayerService.stopAll(); } catch (e) {}
+          }}
+          currentLanguage={selectedCatalogLang}
+          selectedVoices={selectedVoices}
+          onSelectVoice={handleSelectVoiceFromCatalog}
+          roomId={roomId}
+          configuredEngines={{
+            deepgram: true,
+            google: true,
+            openai: Boolean(localStorage.getItem('lv_openai_key')),
+            elevenlabs: Boolean(localStorage.getItem('lv_eleven_key'))
+          }}
+        />
+      </ErrorBoundary>
 
       <QRCodeModal
         roomId={roomId}

@@ -260,6 +260,18 @@ export default function VoiceCatalogModal({
 
   const auditionAbortRef = useRef(null);
 
+  const safeSelectedVoices = useMemo(() => {
+    if (selectedVoices && typeof selectedVoices === 'object' && !Array.isArray(selectedVoices)) {
+      return selectedVoices;
+    }
+    return {
+      es: 'es-ES-ElviraNeural',
+      en: 'aura-2-thalia-en',
+      it: 'it-IT-ElsaNeural',
+      pt: 'pt-BR-FranciscaNeural'
+    };
+  }, [selectedVoices]);
+
   // Estado borrador (draft) para permitir seleccionar sin cerrar inmediatamente
   const [draftVoices, setDraftVoices] = useState({});
   const [draftGenders, setDraftGenders] = useState({});
@@ -270,7 +282,7 @@ export default function VoiceCatalogModal({
   useEffect(() => {
     if (isOpen) {
       setTargetLang(normalizeLangCode(currentLanguage));
-      setDraftVoices({ ...(selectedVoices || {}) });
+      setDraftVoices({ ...safeSelectedVoices });
       setDraftGenders({});
       setSearch('');
       setSelectedEngineFilter('all');
@@ -283,7 +295,7 @@ export default function VoiceCatalogModal({
       try { audioPlayerService.stopAll(); } catch (e) {}
       setPlayingVoiceId(null);
     }
-  }, [isOpen, currentLanguage, selectedVoices]);
+  }, [isOpen, currentLanguage, safeSelectedVoices]);
 
   // Bloqueo de desplazamiento del fondo mientras el modal está abierto
   useEffect(() => {
@@ -344,11 +356,9 @@ export default function VoiceCatalogModal({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   // Comprobar si hay modificaciones pendientes de guardar respecto a selectedVoices
   const isDirty = Object.keys(draftVoices).some(
-    (lang) => Boolean(draftVoices[lang]) && draftVoices[lang] !== (selectedVoices[lang] || '')
+    (lang) => Boolean(draftVoices[lang]) && draftVoices[lang] !== (safeSelectedVoices[lang] || '')
   );
 
   const normalize = (str) =>
@@ -521,11 +531,13 @@ export default function VoiceCatalogModal({
 
   // Descartar cambios pendientes
   const handleDiscard = () => {
-    setDraftVoices({ ...(selectedVoices || {}) });
+    setDraftVoices({ ...safeSelectedVoices });
     setDraftGenders({});
   };
 
-  const activeDraftVoiceForLang = draftVoices[targetLang] || selectedVoices[targetLang] || '';
+  const activeDraftVoiceForLang = draftVoices[targetLang] || safeSelectedVoices[targetLang] || '';
+
+  if (!isOpen) return null;
 
   return (
     <div 
@@ -610,8 +622,8 @@ export default function VoiceCatalogModal({
             <div className="flex items-center bg-zinc-200/60 dark:bg-white/10 rounded-2xl p-1 border border-zinc-200/80 dark:border-white/10 overflow-x-auto no-scrollbar shrink-0">
               {CABINS.map((lang) => {
                 const isActive = targetLang === lang.code;
-                const isModified = draftVoices[lang.code] && draftVoices[lang.code] !== (selectedVoices[lang.code] || '');
-                const hasAssigned = Boolean(draftVoices[lang.code] || selectedVoices[lang.code]);
+                const isModified = draftVoices[lang.code] && draftVoices[lang.code] !== (safeSelectedVoices[lang.code] || '');
+                const hasAssigned = Boolean(draftVoices[lang.code] || safeSelectedVoices[lang.code]);
 
                 return (
                   <button
