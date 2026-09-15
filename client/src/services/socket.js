@@ -269,12 +269,17 @@ class SocketService {
     }
   }
 
-  joinAsHost(roomId) {
+  joinAsHost(roomId, token = null) {
     this.currentRoomId = roomId;
     this.currentRole = 'HOST';
+    let adminToken = token;
+    if (!adminToken && typeof localStorage !== 'undefined') {
+      adminToken = localStorage.getItem('liftvoice_admin_token') || localStorage.getItem('lv_admin_token') || localStorage.getItem('adminToken') || null;
+    }
     return this.send({
       type: 'HOST_JOIN',
-      roomId
+      roomId,
+      token: adminToken
     });
   }
 
@@ -424,7 +429,10 @@ class SocketService {
       forceLanguages,
       medicalMode: options.medicalMode,
       medicalSpecialty: options.medicalSpecialty,
-      customGlossary: options.customGlossary
+      customGlossary: options.customGlossary,
+      sttEngine: options.sttEngine,
+      sttModel: options.sttModel,
+      inputSource: options.inputSource || 'voice'
     });
   }
 
@@ -436,7 +444,9 @@ class SocketService {
       sourceLanguage,
       medicalMode: options.medicalMode,
       medicalSpecialty: options.medicalSpecialty,
-      customGlossary: options.customGlossary
+      customGlossary: options.customGlossary,
+      sttEngine: options.sttEngine,
+      sttModel: options.sttModel
     });
   }
 

@@ -1060,11 +1060,24 @@ wss.on('connection', (ws, req) => {
           }
           currentRoomId = targetRoom;
           clientRole = 'HOST';
+
+          const adminToken = msg.token || msg.adminToken || null;
+          if (adminToken) {
+            try {
+              const { getAdminSession } = await import('./services/adminAuth.js');
+              ws.isAdminSession = Boolean(getAdminSession(adminToken));
+            } catch (e) {
+              ws.isAdminSession = false;
+            }
+          } else {
+            ws.isAdminSession = false;
+          }
           
           ws.send(JSON.stringify({
             type: 'HOST_JOINED_SUCCESS',
             roomId: currentRoomId,
             socketId,
+            isAdmin: Boolean(ws.isAdminSession),
             stats: roomManager.getHostStats(currentRoomId)
           }));
           break;
@@ -1516,7 +1529,9 @@ wss.on('connection', (ws, req) => {
               forceLanguages: (Array.isArray(msg.forceLanguages) && msg.forceLanguages.length > 0) ? msg.forceLanguages : [],
               medicalMode: msg.medicalMode,
               medicalSpecialty: msg.medicalSpecialty,
-              customGlossary: msg.customGlossary
+              customGlossary: msg.customGlossary,
+              sttEngine: msg.sttEngine,
+              sttModel: msg.sttModel
             });
           }
           break;
@@ -1548,7 +1563,9 @@ wss.on('connection', (ws, req) => {
               forceLanguages: (Array.isArray(msg.forceLanguages) && msg.forceLanguages.length > 0) ? msg.forceLanguages : [],
               medicalMode: msg.medicalMode,
               medicalSpecialty: msg.medicalSpecialty,
-              customGlossary: msg.customGlossary
+              customGlossary: msg.customGlossary,
+              sttEngine: msg.sttEngine,
+              sttModel: msg.sttModel
             });
           }
           break;

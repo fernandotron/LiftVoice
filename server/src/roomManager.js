@@ -218,6 +218,110 @@ class RoomManager {
     if (room) room.lastActivity = Date.now();
   }
 
+  addTranscriptItem(roomId, transcriptItem) {
+    const room = this.getRoom(roomId);
+    if (!room) return;
+
+    room.transcriptHistory.push(transcriptItem);
+    if (room.transcriptHistory.length > 100) {
+      room.transcriptHistory.shift();
+    }
+    room.metrics.sentencesProcessed++;
+
+    const MAX_BUFFERED_BYTES = 512 * 1024;
+
+    // Sanitized item for non-admin viewers (zero telemetry/model leakage - CWE-200)
+    const publicItem = {
+      id: transcriptItem.id,
+      seqId: transcriptItem.seqId,
+      timestamp: transcriptItem.timestamp,
+      originalText: transcriptItem.originalText,
+      detectedLanguage: transcriptItem.detectedLanguage,
+      translations: transcriptItem.translations
+    };
+
+    // 1. Send to host: complete telemetry if admin session, sanitized if standard host
+    if (room.hostSocket && room.hostSocket.readyState === 1) {
+      if (room.hostSocket.bufferedAmount <= MAX_BUFFERED_BYTES) {
+        try {
+          const itemToSend = room.hostSocket.isAdminSession ? transcriptItem : publicItem;
+          room.hostSocket.send(JSON.stringify({
+            type: 'TRANSCRIPT_EVENT',
+            item: itemToSend
+          }));
+        } catch (e) {}
+      }
+    }
+
+    // 2. Send sanitized transcript to listeners (zero telemetry/model leakage - CWE-200)
+    const publicPayload = JSON.stringify({
+      type: 'TRANSCRIPT_EVENT',
+      item: publicItem
+    });
+
+    for (const listener of room.listeners.values()) {
+      if (listener.socket && listener.socket.readyState === 1) {
+        if (listener.socket.bufferedAmount <= MAX_BUFFERED_BYTES) {
+          try { listener.socket.send(publicPayload); } catch (e) {}
+        }
+      }
+    }
+  }
+
+  updateTranscriptItem(roomId, transcriptItem) {
+    const room = this.getRoom(roomId);
+    if (!room || !transcriptItem) return;
+
+    const idx = room.transcriptHistory.findIndex(i => i.id === transcriptItem.id);
+    if (idx !== -1) {
+      room.transcriptHistory[idx] = {
+        ...room.transcriptHistory[idx],
+        ...transcriptItem,
+        translations: {
+          ...(room.transcriptHistory[idx].translations || {}),
+          ...(transcriptItem.translations || {})
+        }
+      };
+    }
+
+    const MAX_BUFFERED_BYTES = 512 * 1024;
+    const fullItem = idx !== -1 ? room.transcriptHistory[idx] : transcriptItem;
+
+    const publicItem = {
+      id: fullItem.id,
+      seqId: fullItem.seqId,
+      timestamp: fullItem.timestamp,
+      originalText: fullItem.originalText,
+      detectedLanguage: fullItem.detectedLanguage,
+      translations: fullItem.translations
+    };
+
+    if (room.hostSocket && room.hostSocket.readyState === 1) {
+      if (room.hostSocket.bufferedAmount <= MAX_BUFFERED_BYTES) {
+        try {
+          const itemToSend = room.hostSocket.isAdminSession ? fullItem : publicItem;
+          room.hostSocket.send(JSON.stringify({
+            type: 'TRANSCRIPT_EVENT',
+            item: itemToSend
+          }));
+        } catch (e) {}
+      }
+    }
+
+    const publicPayload = JSON.stringify({
+      type: 'TRANSCRIPT_EVENT',
+      item: publicItem
+    });
+
+    for (const listener of room.listeners.values()) {
+      if (listener.socket && listener.socket.readyState === 1) {
+        if (listener.socket.bufferedAmount <= MAX_BUFFERED_BYTES) {
+          try { listener.socket.send(publicPayload); } catch (e) {}
+        }
+      }
+    }
+  }
+
   getActiveLanguages(roomId) {
     const room = this.getRoom(roomId);
     if (!room || !room.listeners) return [];
@@ -958,44 +1062,6 @@ class RoomManager {
       return packet;
     }
     return null;
-  }
-
-  addTranscriptItem(roomId, transcriptItem) {
-    const room = this.getRoom(roomId);
-    if (!room) return;
-
-    room.transcriptHistory.push(transcriptItem);
-    if (room.transcriptHistory.length > 100) {
-      room.transcriptHistory.shift();
-    }
-    room.metrics.sentencesProcessed++;
-
-    this.broadcastToRoom(roomId, {
-      type: 'TRANSCRIPT_EVENT',
-      item: transcriptItem
-    });
-  }
-
-  updateTranscriptItem(roomId, transcriptItem) {
-    const room = this.getRoom(roomId);
-    if (!room || !transcriptItem) return;
-
-    const idx = room.transcriptHistory.findIndex(i => i.id === transcriptItem.id);
-    if (idx !== -1) {
-      room.transcriptHistory[idx] = {
-        ...room.transcriptHistory[idx],
-        ...transcriptItem,
-        translations: {
-          ...(room.transcriptHistory[idx].translations || {}),
-          ...(transcriptItem.translations || {})
-        }
-      };
-    }
-
-    this.broadcastToRoom(roomId, {
-      type: 'TRANSCRIPT_EVENT',
-      item: transcriptItem
-    });
   }
 }
 

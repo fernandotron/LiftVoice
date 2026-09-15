@@ -197,12 +197,14 @@ export class AIPipeline {
         sourceLanguage: arg3 || 'auto'
       };
     }
-    let { roomId, text, audioBuffer, mimeType, sourceLanguage = 'auto', seqId = 1, forceLanguages = [], medicalMode, medicalSpecialty, customGlossary } = opts;
+    let { roomId, text, audioBuffer, mimeType, sourceLanguage = 'auto', seqId = 1, forceLanguages = [], medicalMode, medicalSpecialty, customGlossary, sttEngine, sttModel } = opts;
     sourceLanguage = normalizePipelineLang(sourceLanguage);
     const pipelineStart = Date.now();
     const packetId = `pkt_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     let spokenText = (text || '').trim();
     let sttLatency = 0;
+    let sttEngineUsed = sttEngine || null;
+    let sttModelUsed = sttModel || null;
 
     const room = roomManager.getRoom(roomId);
     if (!room) {
@@ -217,10 +219,15 @@ export class AIPipeline {
       sttLatency = Date.now() - sttStart;
       if (sttResult && sttResult.text) {
         spokenText = sttResult.text;
+        sttEngineUsed = sttResult.engine || 'Server STT';
+        sttModelUsed = sttService.preferredSttEngine || 'whisper-1';
         if (sttResult.detectedLanguage && sttResult.detectedLanguage !== 'auto') {
           sourceLanguage = normalizePipelineLang(sttResult.detectedLanguage);
         }
       }
+    } else if (spokenText && !sttEngineUsed) {
+      sttEngineUsed = 'Deepgram Nova-3';
+      sttModelUsed = 'nova-3';
     }
 
     if (!spokenText) {
@@ -301,6 +308,8 @@ export class AIPipeline {
         originalText: spokenText,
         detectedLanguage: detectedLang,
         engineUsed: 'Native Only (Lazy)',
+        sttEngineUsed: sttEngineUsed || 'Deepgram Nova-3',
+        sttModel: sttModelUsed || 'nova-3',
         translations: {
           [detectedLang !== 'auto' ? detectedLang : 'es']: spokenText
         },
@@ -317,6 +326,7 @@ export class AIPipeline {
 
       if (room.hostSocket && room.hostSocket.readyState === 1) {
         try {
+          const isAdmin = Boolean(room.hostSocket.isAdminSession);
           room.hostSocket.send(JSON.stringify({
             type: 'PIPELINE_METRIC',
             metric: {
@@ -324,8 +334,10 @@ export class AIPipeline {
               seqId,
               text: spokenText,
               detectedSource: detectedLang,
-              engineUsed: 'Native Only (Lazy)',
-              sttMs: sttLatency,
+              engineUsed: isAdmin ? 'Native Only (Lazy)' : undefined,
+              sttEngine: isAdmin ? (sttEngineUsed || 'Deepgram Nova-3') : undefined,
+              sttModel: isAdmin ? (sttModelUsed || 'nova-3') : undefined,
+              sttMs: isAdmin ? sttLatency : undefined,
               transMs: 0,
               ttsMs: 0,
               activeChannels: [],
@@ -377,6 +389,8 @@ export class AIPipeline {
       originalText: spokenText,
       detectedLanguage: detectedLang,
       engineUsed: transResult.engineUsed || 'Google Neural',
+      sttEngineUsed: sttEngineUsed || 'Deepgram Nova-3',
+      sttModel: sttModelUsed || 'nova-3',
       translations: transResult.translations,
       metrics: {
         sttMs: sttLatency,
@@ -503,6 +517,7 @@ export class AIPipeline {
     // Send pipeline telemetry event to host
     if (room.hostSocket && room.hostSocket.readyState === 1) {
       try {
+        const isAdmin = Boolean(room.hostSocket.isAdminSession);
         room.hostSocket.send(JSON.stringify({
           type: 'PIPELINE_METRIC',
           metric: {
@@ -510,10 +525,12 @@ export class AIPipeline {
             seqId,
             text: spokenText,
             detectedSource: detectedLang,
-            engineUsed: transResult.engineUsed || 'Google Neural',
-            sttMs: sttLatency,
-            transMs: transLatency,
-            ttsMs: Date.now() - ttsStart,
+            engineUsed: isAdmin ? (transResult.engineUsed || 'Google Neural') : undefined,
+            sttEngine: isAdmin ? (sttEngineUsed || 'Deepgram Nova-3') : undefined,
+            sttModel: isAdmin ? (sttModelUsed || 'nova-3') : undefined,
+            sttMs: isAdmin ? sttLatency : undefined,
+            transMs: isAdmin ? transLatency : undefined,
+            ttsMs: isAdmin ? (Date.now() - ttsStart) : undefined,
             activeChannels: targetLangs,
             totalLatencyMs: totalPipelineLatency,
             timestamp: Date.now()

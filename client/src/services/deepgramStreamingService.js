@@ -94,6 +94,13 @@ export class DeepgramStreamingService {
     return () => this.statusListeners.delete(cb);
   }
 
+  getActiveModel() {
+    return {
+      model: this.tokenMetadata?.model || (this.lastConfig?.model) || 'nova-3',
+      language: this.tokenMetadata?.language || (this.lastConfig?.language) || 'es'
+    };
+  }
+
   /**
    * Inicia el pipeline completo: obtiene token efímero, monta el grafo de audio y abre el WebSocket
    */

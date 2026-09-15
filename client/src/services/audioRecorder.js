@@ -274,10 +274,12 @@ class AudioRecorderService {
     // Deepgram Ultra-Low Latency Streaming Service Integration
     this.deepgramStreamingService = deepgramStreamingService;
     this.onStreamingStatusCallbacks = new Set();
+    this.onSttInfoCallbacks = new Set();
     deepgramStreamingService.onStatus((status) => {
       for (const cb of this.onStreamingStatusCallbacks) {
         try { cb(status); } catch (e) {}
       }
+      this.notifySttInfoChange();
     });
   }
 
@@ -290,10 +292,96 @@ class AudioRecorderService {
     for (const cb of this.onStreamingStatusCallbacks) {
       try { cb(status); } catch (e) {}
     }
+    this.notifySttInfoChange();
   }
 
   getStreamingStatus() {
     return this.deepgramStreamingService.status;
+  }
+
+  onSttInfoChange(cb) {
+    if (!this.onSttInfoCallbacks) this.onSttInfoCallbacks = new Set();
+    this.onSttInfoCallbacks.add(cb);
+    return () => this.onSttInfoCallbacks.delete(cb);
+  }
+
+  notifySttInfoChange() {
+    if (!this.onSttInfoCallbacks) return;
+    const info = this.getActiveSttInfo();
+    for (const cb of this.onSttInfoCallbacks) {
+      try { cb(info); } catch (e) {}
+    }
+  }
+
+  getActiveSttInfo() {
+    const engine = this.sttEngine || 'deepgram';
+    if (engine === 'deepgram') {
+      const activeDg = this.deepgramStreamingService?.getActiveModel?.() || {};
+      const model = activeDg.model || 'nova-3';
+      const labelModel = model === 'nova-2' ? 'Nova-2' : 'Nova-3';
+      return {
+        engine: 'deepgram',
+        model: model,
+        label: `Deepgram ${labelModel}`,
+        provider: 'Deepgram WebSocket Streaming',
+        mode: 'streaming',
+        modeLabel: 'AudioWorklet 16kHz Streaming',
+        status: this.deepgramStreamingService?.status || 'idle'
+      };
+    }
+    if (engine === 'webspeech') {
+      return {
+        engine: 'webspeech',
+        model: 'webkitSpeechRecognition',
+        label: 'WebSpeech API (Local)',
+        provider: 'Navegador WebSpeech',
+        mode: 'local',
+        modeLabel: 'Navegador Local (Zero-Cost)',
+        status: this.isRecording ? 'listening' : 'idle'
+      };
+    }
+    if (engine === 'whisper') {
+      return {
+        engine: 'whisper',
+        model: 'whisper-1',
+        label: 'OpenAI Whisper-1',
+        provider: 'OpenAI Audio API',
+        mode: 'server_chunks',
+        modeLabel: 'Chunks Servidor (MediaRecorder)',
+        status: this.isRecording ? 'listening' : 'idle'
+      };
+    }
+    if (engine === 'gemini_live') {
+      return {
+        engine: 'gemini_live',
+        model: 'gemini-2.0-flash',
+        label: 'Google Gemini Live',
+        provider: 'Google Gemini Audio API',
+        mode: 'server_chunks',
+        modeLabel: 'Chunks Servidor (MediaRecorder)',
+        status: this.isRecording ? 'listening' : 'idle'
+      };
+    }
+    if (engine === 'server_chunk' || engine === 'server_chunks') {
+      return {
+        engine: 'server_chunk',
+        model: 'server-side-hybrid',
+        label: 'Servidor Chunks (MediaRecorder)',
+        provider: 'Servidor LiftVoice Audio API',
+        mode: 'server_chunks',
+        modeLabel: 'Chunks Servidor (MediaRecorder Fallback)',
+        status: this.isRecording ? 'listening' : 'idle'
+      };
+    }
+    return {
+      engine,
+      model: engine,
+      label: engine,
+      provider: 'Servicio STT',
+      mode: 'streaming',
+      modeLabel: 'Audio Stream',
+      status: this.isRecording ? 'listening' : 'idle'
+    };
   }
 
   setDecalageMode(modeOrVal) {
@@ -328,6 +416,7 @@ class AudioRecorderService {
     const prevEngine = this.sttEngine;
     this.sttEngine = engine;
     console.log(`[AudioRecorder] 🎙️ STT Engine establecido: "${engine}" (anterior: "${prevEngine}")`);
+    this.notifySttInfoChange();
 
     if (this.isRecording && prevEngine !== engine) {
       if (engine === 'deepgram') {
@@ -1536,6 +1625,7 @@ class AudioRecorderService {
 
     this.audioLevel = 0;
     this.notifyLevel(0);
+    this.notifySttInfoChange();
   }
 
   startLevelMeter() {

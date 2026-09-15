@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Copy, Check, ArrowDown, Mic } from 'lucide-react';
 
-export default function LiveCaptions({
+function LiveCaptions({
   transcriptHistory = [],
   interimText = '',
   currentLanguage = 'en',
@@ -10,7 +10,9 @@ export default function LiveCaptions({
   maxHeightClass = 'min-h-[220px] max-h-[500px]',
   medicalMode = false,
   medicalSpecialty = 'general',
-  captionSize = 'md'
+  captionSize = 'md',
+  isAdmin = false,
+  activeSttInfo = null
 }) {
   const fontClassMap = {
     sm: 'text-xs sm:text-sm leading-relaxed',
@@ -140,6 +142,12 @@ export default function LiveCaptions({
             <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 max-w-xs">
               La transcripción y subtítulos aparecerán aquí en cuanto el orador comience a hablar.
             </p>
+            {isAdmin && activeSttInfo?.label && (
+              <div className="mt-3 px-3 py-1.5 rounded-xl bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-[11px] font-mono text-purple-700 dark:text-purple-300 flex items-center gap-1.5 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                <span>Admin: Motor STT listo ({activeSttInfo.label})</span>
+              </div>
+            )}
           </div>
         ) : (
           transcriptHistory.map((item, index) => {
@@ -157,18 +165,27 @@ export default function LiveCaptions({
               >
                 {/* Meta Header */}
                 <div className="flex items-center justify-between text-xs text-zinc-400 dark:text-zinc-500 font-mono mb-2">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span>
                       {new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>
                     {item.detectedLanguage && (
-                      <span className="px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[9px] font-mono border border-zinc-200 dark:border-zinc-700">
+                      <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[9px] font-mono border border-zinc-200 dark:border-zinc-700">
                         {item.detectedLanguage}
                       </span>
                     )}
                     {(item.engineUsed?.includes('Clinical') || medicalMode) && (
-                      <span className="px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-mono text-[9px] border border-emerald-200 dark:border-emerald-800">
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-mono text-[9px] border border-emerald-200 dark:border-emerald-800">
                         Clínico
+                      </span>
+                    )}
+                    {isAdmin && item.sttEngineUsed && (
+                      <span
+                        className="px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-mono text-[9px] border border-purple-200 dark:border-purple-800 flex items-center gap-1"
+                        title={`Motor de transcripción: ${item.sttEngineUsed}${item.sttModel ? ` (${item.sttModel})` : ''}`}
+                      >
+                        <span className="w-1 h-1 rounded-full bg-purple-500" />
+                        <span>STT: {item.sttEngineUsed}</span>
                       </span>
                     )}
                   </div>
@@ -212,15 +229,27 @@ export default function LiveCaptions({
               ? 'border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/30 opacity-85'
               : 'border-cyan-400/50 dark:border-cyan-500/40 bg-gradient-to-r from-cyan-50/40 via-blue-50/20 to-purple-50/40 dark:from-cyan-950/20 dark:via-blue-950/15 dark:to-purple-950/20 ring-1 ring-cyan-400/30 shadow-xs animate-fadeIn'
           }`}>
-            <div className="flex items-center gap-2 text-[10px] font-mono mb-1.5">
-              <div className="flex items-center gap-0.5 h-3">
-                <span className={`w-1 h-2 rounded-full ${isConsolidating ? 'bg-amber-500 animate-pulse' : 'bg-cyan-400 animate-gemini-wave'}`} />
-                <span className={`w-1 h-3 rounded-full ${isConsolidating ? 'bg-amber-500 animate-pulse' : 'bg-blue-500 animate-gemini-wave delay-1'}`} />
-                <span className={`w-1 h-2 rounded-full ${isConsolidating ? 'bg-amber-500 animate-pulse' : 'bg-purple-500 animate-gemini-wave delay-2'}`} />
+            <div className="flex items-center justify-between text-[10px] font-mono mb-1.5 flex-wrap gap-1.5">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-0.5 h-3">
+                  <span className={`w-1 h-2 rounded-full ${isConsolidating ? 'bg-amber-500 animate-pulse' : 'bg-cyan-400 animate-gemini-wave'}`} />
+                  <span className={`w-1 h-3 rounded-full ${isConsolidating ? 'bg-amber-500 animate-pulse' : 'bg-blue-500 animate-gemini-wave delay-1'}`} />
+                  <span className={`w-1 h-2 rounded-full ${isConsolidating ? 'bg-amber-500 animate-pulse' : 'bg-purple-500 animate-gemini-wave delay-2'}`} />
+                </div>
+                <span className={isConsolidating ? 'text-amber-700 dark:text-amber-400 font-medium' : 'text-cyan-700 dark:text-cyan-300 font-semibold'}>
+                  {isConsolidating
+                    ? 'Consolidando traducción...'
+                    : isAdmin && activeSttInfo?.label
+                    ? `Transcripción: ${activeSttInfo.label}`
+                    : 'Transcripción y dictado IA en vivo...'}
+                </span>
               </div>
-              <span className={isConsolidating ? 'text-amber-700 dark:text-amber-400 font-medium' : 'text-cyan-700 dark:text-cyan-300 font-semibold'}>
-                {isConsolidating ? 'Consolidando traducción...' : 'Transcripción y dictado IA en vivo...'}
-              </span>
+              {isAdmin && activeSttInfo?.label && (
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-100/90 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 text-[9px] font-mono shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                  <span>Modelo STT: <strong>{activeSttInfo.label}</strong> ({activeSttInfo.mode === 'streaming' ? 'Streaming' : 'Chunks'})</span>
+                </div>
+              )}
             </div>
             <p className={`${activeFontClass} ${
               isConsolidating 
@@ -254,3 +283,5 @@ export default function LiveCaptions({
     </div>
   );
 }
+
+export default React.memo(LiveCaptions);

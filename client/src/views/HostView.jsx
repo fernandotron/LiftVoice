@@ -28,6 +28,8 @@ import { useTheme } from '../contexts/ThemeContext.jsx';
 import { audioRecorderService } from '../services/audioRecorder.js';
 import { audioPlayerService } from '../services/audioPlayer.js';
 import { socketService } from '../services/socket.js';
+import { usePermissions, ROLES } from '../hooks/usePermissions.js';
+import { adminAuthService } from '../services/adminAuthService.js';
 
 export const ALL_CABINS = [
   { code: 'es', name: 'Español', flag: '🇪🇸' },
@@ -72,6 +74,35 @@ export default function HostView({
   const isTogglingRef = useRef(false);
   const toggleCooldownTimerRef = useRef(null);
   const [broadcastError, setBroadcastError] = useState(null);
+
+  // Admin Verification & Real-time Diagnostic Telemetry (Default Deny)
+  const { role } = usePermissions();
+  const [isAdminVerified, setIsAdminVerified] = useState(false);
+  const [activeSttInfo, setActiveSttInfo] = useState(() => {
+    return audioRecorderService.getActiveSttInfo ? audioRecorderService.getActiveSttInfo() : null;
+  });
+  const [activeTelemetry, setActiveTelemetry] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (role === ROLES.ADMIN_MASTER || adminAuthService.getToken()) {
+      adminAuthService.verify().then(valid => {
+        if (isMounted) setIsAdminVerified(valid);
+      });
+    } else {
+      setIsAdminVerified(false);
+    }
+    return () => { isMounted = false; };
+  }, [role]);
+
+  useEffect(() => {
+    if (!audioRecorderService.onSttInfoChange) return;
+    const unsub = audioRecorderService.onSttInfoChange((info) => {
+      setActiveSttInfo(info);
+    });
+    setActiveSttInfo(audioRecorderService.getActiveSttInfo?.() || null);
+    return () => unsub();
+  }, []);
   const [sourceLanguage, setSourceLanguage] = useState(() => {
     try {
       const saved = localStorage.getItem('lv_stt_lang');
@@ -526,6 +557,11 @@ export default function HostView({
       setSocketLatency(lat);
     });
 
+    const unsubTelemetry = socketService.on('pipeline_metric', (metric) => {
+      if (!isMounted || !metric) return;
+      setActiveTelemetry(metric);
+    });
+
     const unsubAudio = socketService.on('audio_chunk', (packet) => {
       if (!isMounted) return;
       if (packet.isHostPreview) {
@@ -621,6 +657,7 @@ export default function HostView({
       unsubJoined();
       unsubTranscript();
       unsubLatency();
+      unsubTelemetry();
       unsubAudio();
       unsubQaRequested();
       unsubQaRaised();
@@ -660,7 +697,7 @@ export default function HostView({
     };
   }, []);
 
-  const sendSpeechToEngines = (finalText, detectedLang) => {
+  const sendSpeechToEngines = (finalText, detectedLang, overrides = {}) => {
     if (!finalText || !finalText.trim()) return;
     const cleanText = finalText.trim();
     const now = Date.now();
@@ -706,10 +743,14 @@ export default function HostView({
     // Transmit strictly ONE single socket event to server AI pipeline for translation and multi-booth TTS
     // Pass empty array [] so Lazy Cabins only synthesizes audio for active listeners or host-monitored booth
     const currentMedConfig = medicalConfigRef.current || {};
+    const currentStt = audioRecorderService.getActiveSttInfo ? audioRecorderService.getActiveSttInfo() : null;
     socketService.sendSpeechText(cleanText, sendLang, [], {
       medicalMode: currentMedConfig.medicalMode,
       medicalSpecialty: currentMedConfig.medicalSpecialty,
-      customGlossary: currentMedConfig.customGlossary
+      customGlossary: currentMedConfig.customGlossary,
+      sttEngine: overrides.sttEngine || currentStt?.label,
+      sttModel: overrides.sttModel || currentStt?.model,
+      inputSource: overrides.inputSource || 'voice'
     });
   };
 
@@ -746,6 +787,7 @@ export default function HostView({
         audioRecorderService.stopRecording();
         setIsBroadcasting(false);
         setLiveInterimSpeech('');
+        setActiveSttInfo(audioRecorderService.getActiveSttInfo?.() || null);
         socketService.send({ type: 'host_broadcast_state', roomId, isBroadcasting: false });
       } else {
         // Pre-flight de compatibilidad para evitar silent failure loops en Firefox/Safari sin claves
@@ -814,10 +856,13 @@ export default function HostView({
               else if (lLower.startsWith('pt')) targetLang = 'pt';
               else targetLang = lang.slice(0, 2);
             }
+            const currentStt = audioRecorderService.getActiveSttInfo ? audioRecorderService.getActiveSttInfo() : null;
             socketService.sendSpeechAudio(audioBase64, mimeType, targetLang, {
               medicalMode: medicalConfigRef.current.medicalMode,
               medicalSpecialty: medicalConfigRef.current.medicalSpecialty,
-              customGlossary: medicalConfigRef.current.customGlossary
+              customGlossary: medicalConfigRef.current.customGlossary,
+              sttEngine: currentStt?.label,
+              sttModel: currentStt?.model
             });
           },
           onSpeechText: (finalText, detectedLang) => {
@@ -825,6 +870,7 @@ export default function HostView({
           }
         });
         setIsBroadcasting(true);
+        setActiveSttInfo(audioRecorderService.getActiveSttInfo?.() || null);
         socketService.send({ type: 'host_broadcast_state', roomId, isBroadcasting: true });
       }
     } catch (err) {
@@ -850,7 +896,11 @@ export default function HostView({
     if (promptTextareaRef.current) {
       promptTextareaRef.current.style.height = 'auto';
     }
-    sendSpeechToEngines(textToSend);
+    sendSpeechToEngines(textToSend, null, {
+      sttEngine: 'Entrada Manual',
+      sttModel: 'keyboard',
+      inputSource: 'manual_text'
+    });
   };
 
   const handleSelectVoiceFromCatalog = (langOrConfig, maybeVoiceId, engine, gender) => {
@@ -1386,6 +1436,63 @@ export default function HostView({
                 <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{socketLatency}ms</span>
               </div>
             </div>
+
+            {/* Auditoría Técnica Exclusiva para Administrador */}
+            {isAdminVerified && (
+              <div className="p-3.5 rounded-2xl border border-purple-200 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-950/30 space-y-2.5 text-xs shadow-2xs">
+                <div className="flex items-center justify-between border-b border-purple-200/60 dark:border-purple-800/40 pb-2">
+                  <span className="font-semibold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                    Telemetría Admin (STT & IA)
+                  </span>
+                  <span className="px-1.5 py-0.2 rounded bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-[9px] font-mono">
+                    ADMIN
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-500 dark:text-zinc-400">Motor STT Activo:</span>
+                  <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+                    {activeSttInfo?.label || 'Deepgram Nova-3'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-500 dark:text-zinc-400">Modelo STT:</span>
+                  <span className="font-mono text-zinc-700 dark:text-zinc-300">
+                    {activeSttInfo?.model || 'nova-3'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-500 dark:text-zinc-400">Modo Captura:</span>
+                  <span className="font-mono text-[11px] text-zinc-600 dark:text-zinc-400">
+                    {activeSttInfo?.modeLabel || 'AudioWorklet 16kHz'}
+                  </span>
+                </div>
+                {activeTelemetry && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-500 dark:text-zinc-400">Motor LLM:</span>
+                      <span className="font-mono text-zinc-700 dark:text-zinc-300">
+                        {activeTelemetry.engineUsed || 'Google Gemini 3.1'}
+                      </span>
+                    </div>
+                    <div className="pt-1 border-t border-purple-100 dark:border-purple-900/40 grid grid-cols-3 gap-1 text-center font-mono text-[10px]">
+                      <div className="p-1 rounded bg-white/60 dark:bg-zinc-900/60">
+                        <div className="text-zinc-400">STT</div>
+                        <div className="font-bold text-zinc-800 dark:text-zinc-200">{activeTelemetry.sttMs || 0}ms</div>
+                      </div>
+                      <div className="p-1 rounded bg-white/60 dark:bg-zinc-900/60">
+                        <div className="text-zinc-400">LLM</div>
+                        <div className="font-bold text-zinc-800 dark:text-zinc-200">{activeTelemetry.transMs || 0}ms</div>
+                      </div>
+                      <div className="p-1 rounded bg-white/60 dark:bg-zinc-900/60">
+                        <div className="text-zinc-400">Total</div>
+                        <div className="font-bold text-emerald-600 dark:text-emerald-400">{activeTelemetry.totalLatencyMs || 0}ms</div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Sección de Participantes Directa (sin contenedor envolvente) */}
             <div className="space-y-2.5">
@@ -1944,8 +2051,8 @@ export default function HostView({
                   <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div
                       ref={sidebarMeterBarRef}
-                      className="h-full w-full bg-emerald-500 rounded-full origin-left will-change-transform"
-                      style={{ transform: 'scaleX(0)', transition: 'transform 0.05s linear' }}
+                      className="h-full w-full bg-emerald-500 rounded-full origin-left will-change-transform scale-x-0"
+                      style={{ transition: 'transform 0.05s linear' }}
                     />
                   </div>
                 </div>
@@ -2017,14 +2124,33 @@ export default function HostView({
           {/* Canvas Header (Alineado con datum line h-14 de las columnas laterales, 100% de ancho) */}
           <div className="h-14 border-b border-zinc-200 dark:border-zinc-800/80 px-5 sm:px-6 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0 w-full">
             <div className="w-full flex items-center justify-between">
-              <div>
-                <h1 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
-                  <span>{stageTitle}</span>
-                  <span className={`w-1.5 h-1.5 rounded-full ${isBroadcasting ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
-                </h1>
-                <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                  {effectiveTotalListeners} oyente{effectiveTotalListeners === 1 ? '' : 's'} conectado{effectiveTotalListeners === 1 ? '' : 's'} · Emisión neuronal en 4 cabinas
-                </p>
+              <div className="flex items-center gap-3">
+                <div>
+                  <h1 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
+                    <span>{stageTitle}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${isBroadcasting ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+                  </h1>
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                    {effectiveTotalListeners} oyente{effectiveTotalListeners === 1 ? '' : 's'} conectado{effectiveTotalListeners === 1 ? '' : 's'} · Emisión neuronal en 4 cabinas
+                  </p>
+                </div>
+                {isAdminVerified && (
+                  <div
+                    className="hidden md:inline-flex items-center gap-2 px-2.5 py-1 rounded-xl bg-purple-50/90 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800 text-[11px] font-mono text-purple-700 dark:text-purple-300 shadow-2xs animate-fadeIn"
+                    title="Información técnica de transcripción exclusiva para Administrador"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                    <span className="font-semibold">STT: {activeSttInfo?.label || 'Deepgram Nova-3'}</span>
+                    <span className="text-purple-300 dark:text-purple-700">|</span>
+                    <span className="text-[10px] opacity-80">{activeSttInfo?.mode === 'streaming' ? 'Streaming' : 'Chunks'}</span>
+                    {typeof activeTelemetry?.totalLatencyMs === 'number' && activeTelemetry.totalLatencyMs > 0 && (
+                      <>
+                        <span className="text-purple-300 dark:text-purple-700">|</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{activeTelemetry.totalLatencyMs}ms</span>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2.5">
@@ -2101,6 +2227,8 @@ export default function HostView({
                   className="flex-1 flex flex-col h-full min-h-0 w-full"
                   maxHeightClass="flex-1 h-full min-h-0"
                   captionSize={captionSize}
+                  isAdmin={isAdminVerified}
+                  activeSttInfo={activeSttInfo}
                 />
               </div>
             </div>
