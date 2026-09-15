@@ -223,13 +223,13 @@ const TAB_METADATA = {
 // Opciones enriquecidas de dos niveles: Título nítido + Subtítulo técnico
 const STT_ENGINE_OPTIONS = [
   { value: 'deepgram', label: 'Deepgram Nova-3 Streaming', description: 'Saldo $200 disponible • Latencia ultra-baja ~150ms' },
-  { value: 'gemini_live', label: 'Google Gemini 3.5 Live', description: 'Multimodal Cloud • Alta fidelidad acústica en salas' },
+  { value: 'gemini_live', label: 'Google Gemini 3.8 Live', description: 'Multimodal Cloud • Alta fidelidad acústica en salas' },
   { value: 'whisper', label: 'OpenAI Whisper-1', description: 'Máxima precisión técnica y fidelidad léxica' },
   { value: 'webspeech', label: 'Web Speech API', description: 'Navegador local nativo • 100% gratuito sin cuota' }
 ];
 
 const STT_STRATEGY_OPTIONS = [
-  { value: 'deepgram_balance', label: 'Modo Saldo Deepgram', description: 'Nova-3 + Gemini 3.1 + Aura TTS (Balance óptimo)' },
+  { value: 'deepgram_balance', label: 'Modo Saldo Deepgram', description: 'Nova-3 + Gemini 3.8 + Aura TTS (Balance óptimo)' },
   { value: 'google_free', label: 'Modo 100% Gratuito', description: 'WebSpeech + Gemini + Google Neural (Cero costes)' },
   { value: 'max_quality', label: 'Máxima Calidad VIP', description: 'Nova-3 + GPT-4o + ElevenLabs (Hiper-realismo)' },
   { value: 'custom', label: 'Configuración Personalizada', description: 'Ajuste manual modular de cada componente' }

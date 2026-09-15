@@ -277,7 +277,7 @@ export class STTService {
       ? `${CLINICAL_INITIAL_PROMPT}\n\n${strictSpanishPrompt}`
       : strictSpanishPrompt;
 
-    const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-live:generateContent';
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -321,7 +321,7 @@ export class STTService {
       detectedLanguage: effectiveLang,
       confidence: 0.98,
       latencyMs: Date.now() - startTime,
-      engine: 'Google Gemini 3.5 Transcribe Live'
+      engine: 'Google Gemini 3.8 Transcribe Live'
     };
   }
 
