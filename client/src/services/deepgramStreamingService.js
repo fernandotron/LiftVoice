@@ -39,6 +39,7 @@ export class DeepgramStreamingService {
     this.keepAliveTimer = null;
     this.isActive = false;
     this.startSeq = 0;
+    this.sessionSeq = 0;
     this.backlog = new PcmBacklog(ASR_MAX_BACKLOG_BYTES);
 
     this.tokenMetadata = {
@@ -100,7 +101,9 @@ export class DeepgramStreamingService {
     if (this.isActive) {
       await this.stop();
     }
-    const seq = ++this.startSeq;
+    const currentSession = ++this.sessionSeq;
+    this.startSeq = currentSession;
+    const seq = currentSession;
     this.isActive = true;
     this.setStatus('connecting');
 
@@ -223,6 +226,7 @@ export class DeepgramStreamingService {
   async stop() {
     this.isActive = false;
     this.startSeq++;
+    const currentSession = ++this.sessionSeq;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -234,6 +238,14 @@ export class DeepgramStreamingService {
       } catch (e) {}
     }
     await this.closeSocketOnly();
+
+    // Guardián contra carrera asíncrona: Si una nueva sesión start() fue invocada durante
+    // los 1500ms de drenaje, abortar la destrucción del nuevo AudioContext y su estado.
+    if (this.sessionSeq !== currentSession) {
+      console.log(`[DeepgramStreaming] 🛑 stop() ignorando limpieza tardía de sesión #${currentSession} (sesión actual: #${this.sessionSeq})`);
+      return;
+    }
+
     this.backlog.clear();
     this.clearFirstPartialTimer();
     this.setStatus('idle');
@@ -633,12 +645,14 @@ export class DeepgramStreamingService {
       this.clearFirstPartialTimer();
       const isAuthFailure = event.code === 1008 || event.code === 4401 || event.code === 4403 ||
         (typeof event.reason === 'string' && /auth|token|unauthorized|expired/i.test(event.reason));
+      // Tolerar código 1006 durante microcortes móviles: permitir que scheduleReconnect agote la Fase 1
+      // de reintentos rápidos (reconnectAttempts >= 4) antes de catalogarlo como handshake fatal.
       const isHandshakeFailure = event.code === 1002 || event.code === 1003 || event.code === 4400 ||
-        (event.code === 1006 && !this.firstPartialSeen && this.reconnectAttempts >= 1) ||
+        (event.code === 1006 && !this.firstPartialSeen && this.reconnectAttempts >= 4) ||
         Boolean(this.lastServerError);
 
-      // Fail-Fast: Si hay rechazo en handshake o auth antes de ver ningún parcial tras al menos 1 intento,
-      // cortar bucle zombi e invocar inmediatamente el fallback a WebSpeech
+      // Fail-Fast: Si hay rechazo explícito en handshake o auth tras superar los reintentos permitidos,
+      // invocar inmediatamente el fallback a WebSpeech
       const isFatalRejection = (isHandshakeFailure || (isAuthFailure && this.reconnectAttempts >= 1)) && !this.firstPartialSeen;
 
       if (this.isActive) {

@@ -21,16 +21,22 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3001
-ENV DEEPGRAM_API_KEY=1f057415ec50bb496a86ec8d8bc9e4f627a57f7d
+ENV DEEPGRAM_API_KEY=""
 ENV PREFERRED_ENGINE=auto
 
 # Copy built frontend assets
-COPY --from=builder /app/client/dist ./client/dist
+COPY --chown=node:node --from=builder /app/client/dist ./client/dist
 
 # Copy server modules and source code
-COPY --from=builder /app/server/node_modules ./server/node_modules
-COPY server ./server
-COPY package.json ./
+COPY --chown=node:node --from=builder /app/server/node_modules ./server/node_modules
+COPY --chown=node:node server ./server
+COPY --chown=node:node package.json ./
+
+# Pre-crear directorio de persistencia para userManager.js y asignar permisos a node
+RUN mkdir -p /app/server/data && chown -R node:node /app/server/data
+
+# Cambiar a usuario no privilegiado antes de ejecutar el servidor
+USER node
 
 EXPOSE 3001
 

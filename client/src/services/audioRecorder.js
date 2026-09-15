@@ -267,6 +267,9 @@ class AudioRecorderService {
     this.sourceNode = null;
     this.onDeviceAutoSwitched = null;
     this.vadInterval = null;
+    this.recordSeq = 0;
+    this.isStarting = false;
+    this.onVisibilityChange = null;
 
     // Deepgram Ultra-Low Latency Streaming Service Integration
     this.deepgramStreamingService = deepgramStreamingService;
@@ -496,6 +499,20 @@ class AudioRecorderService {
       });
     }
 
+    // Guardián contra streams huérfanos: Si la grabación se detuvo mientras getUserMedia resolvía
+    if (!this.isRecording) {
+      console.warn('[AudioRecorder] switchDevice resolvió después de detener la grabación. Deteniendo pistas huérfanas.');
+      if (newStream) {
+        newStream.getTracks().forEach(track => {
+          try {
+            track.onended = null;
+            track.stop();
+          } catch (e) {}
+        });
+      }
+      return;
+    }
+
     // 1. Conmutar en el AudioContext del analizador (VU meter)
     if (this.audioCtx && this.analyserNode) {
       try {
@@ -569,10 +586,34 @@ class AudioRecorderService {
 
   /**
    * Red de Seguridad para navegadores sin Web Speech API (Firefox / Safari sin dictado nativo)
-   * o cuando los servicios de streaming primarios se degradan.
+   * o cuando los servicios de streaming primarios se degradan o fallan en Chrome/Android.
    */
   startServerChunkPipeline() {
+    if (this.sttEngine === 'server_chunk') return;
+    this.clearSilenceTimer();
+    if (this.restartTimeout) {
+      clearTimeout(this.restartTimeout);
+      this.restartTimeout = null;
+    }
+    if (this.acousticResetTimer) {
+      clearTimeout(this.acousticResetTimer);
+      this.acousticResetTimer = null;
+    }
+    if (this.langSwitchTimer) {
+      clearTimeout(this.langSwitchTimer);
+      this.langSwitchTimer = null;
+    }
+    if (this.recognition) {
+      try {
+        this.recognition.onend = null;
+        this.recognition.onerror = null;
+        this.recognition.onresult = null;
+        this.recognition.abort();
+      } catch (e) {}
+      this.recognition = null;
+    }
     this.sttEngine = 'server_chunk';
+    this.notifyStreamingStatus('server_chunk');
     console.log('[AudioRecorder] 🛡️ Activando Red de Seguridad de Transcripción por Chunks en Servidor (Server-Side ASR).');
     this.initMediaRecorderForChunks(this.mediaStream);
     this.setupVadChunkTrigger();
@@ -580,6 +621,13 @@ class AudioRecorderService {
 
   initMediaRecorderForChunks(stream) {
     if (typeof MediaRecorder === 'undefined' || !stream) return;
+    if (this.mediaRecorder) {
+      this.mediaRecorder.onstop = null;
+      this.mediaRecorder.ondataavailable = null;
+      if (this.mediaRecorder.state !== 'inactive') {
+        try { this.mediaRecorder.stop(); } catch (e) {}
+      }
+    }
 
     let mimeType = 'audio/webm;codecs=opus';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
@@ -798,6 +846,8 @@ class AudioRecorderService {
     }
 
     this.stopRecording();
+    const currentSeq = ++this.recordSeq;
+    this.isStarting = true;
 
     const onSpeech = options.onSpeechText || options.onSentenceFinalized;
     const onAudio = options.onSpeechAudio;
@@ -832,8 +882,9 @@ class AudioRecorderService {
         }
       };
 
+      let acquiredStream;
       try {
-        this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        acquiredStream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (deviceErr) {
         if (
           (deviceErr.name === 'OverconstrainedError' || deviceErr.name === 'NotFoundError') &&
@@ -842,7 +893,7 @@ class AudioRecorderService {
         ) {
           console.warn(`[AudioRecorder] Dispositivo "${this.selectedDeviceId}" no disponible (${deviceErr.name}). Reintentando con default:`, deviceErr);
           this.selectedDeviceId = 'default';
-          this.mediaStream = await navigator.mediaDevices.getUserMedia({
+          acquiredStream = await navigator.mediaDevices.getUserMedia({
             audio: {
               echoCancellation: true,
               noiseSuppression: true,
@@ -850,9 +901,24 @@ class AudioRecorderService {
             }
           });
         } else {
+          this.isStarting = false;
           throw deviceErr;
         }
       }
+
+      // Guardián contra streams huérfanos: Si el usuario canceló o detuvo la grabación durante getUserMedia
+      if (!this.isStarting || this.recordSeq !== currentSeq) {
+        console.warn('[AudioRecorder] getUserMedia resolvió después de detener la grabación. Liberando pistas huérfanas.');
+        if (acquiredStream) {
+          acquiredStream.getTracks().forEach(track => {
+            try { track.stop(); } catch (e) {}
+          });
+        }
+        return false;
+      }
+
+      this.mediaStream = acquiredStream;
+      this.isStarting = false;
 
       // Web Audio Analyser for VU meter
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -868,6 +934,22 @@ class AudioRecorderService {
       source.connect(this.analyserNode);
 
       this.attachTrackEndedListener(this.mediaStream);
+
+      // Reanudación reactiva de audioCtx al desbloquear pantalla del móvil para reactivar VAD y medidor de nivel
+      if (typeof document !== 'undefined' && !this.onVisibilityChange) {
+        this.onVisibilityChange = () => {
+          if (document.visibilityState === 'visible' && this.isRecording) {
+            if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted')) {
+              this.audioCtx.resume().then(() => {
+                console.log('[AudioRecorder] 🔊 audioCtx reanudado con éxito tras desbloqueo de pantalla');
+              }).catch((err) => {
+                console.warn('[AudioRecorder] Fallo al reanudar audioCtx tras visibilitychange:', err);
+              });
+            }
+          }
+        };
+        document.addEventListener('visibilitychange', this.onVisibilityChange);
+      }
 
       this.isRecording = true;
       this.startLevelMeter();
@@ -1061,7 +1143,16 @@ class AudioRecorderService {
     } else if (srcLower.startsWith('pt')) {
       speechLang = srcLower.includes('pt-pt') ? 'pt-PT' : 'pt-BR';
     } else if (srcLower.startsWith('es')) {
-      speechLang = 'es-ES';
+      // 1. If user explicitly provided a regional dialect (e.g. 'es-MX', 'es-419', 'es_AR'), honor it
+      const cleanSrc = (this.sourceLanguage || '').trim().replace('_', '-');
+      if (/^es[-][a-zA-Z0-9]+$/i.test(cleanSrc)) {
+        speechLang = cleanSrc;
+      } else {
+        // 2. Otherwise detect device Spanish dialect on Android/Windows, normalizing '_' to '-'
+        const rawNav = (typeof navigator !== 'undefined' && (navigator.language || (navigator.languages && navigator.languages[0]))) || '';
+        const cleanNav = rawNav.trim().replace('_', '-');
+        speechLang = (cleanNav && cleanNav.toLowerCase().startsWith('es')) ? cleanNav : 'es-ES';
+      }
     } else if (this.sourceLanguage && this.sourceLanguage !== 'auto' && this.sourceLanguage !== 'multi') {
       speechLang = this.sourceLanguage;
     }
@@ -1069,6 +1160,7 @@ class AudioRecorderService {
 
     rec.onresult = (event) => {
       if (this.recognition !== rec || !this.isRecording) return;
+      this.restartCount = 0; // Reset circuit breaker counter on successful recognition event
       this.lastSpeechActivityTime = Date.now();
 
       // Collect transcript ONLY for uncommitted results in the current recognition session
@@ -1122,6 +1214,19 @@ class AudioRecorderService {
     rec.onerror = (err) => {
       if (this.recognition !== rec) return;
       console.warn('[AudioRecorder] Speech recognition notice:', err.error);
+      const fatalErrors = ['not-allowed', 'service-not-allowed', 'language-not-supported', 'bad-grammar'];
+      if (fatalErrors.includes(err.error) || (err.error === 'network' && retryCount >= 1)) {
+        console.warn(`[AudioRecorder] 🚨 Error crítico o persistente en WebSpeech (${err.error}). Conmutando automáticamente a Red de Seguridad en Servidor.`);
+        try {
+          rec.onend = null;
+          rec.onerror = null;
+          rec.onresult = null;
+          rec.abort();
+        } catch (e) {}
+        this.recognition = null;
+        this.startServerChunkPipeline();
+        return;
+      }
       if (this.isRecording && err.error !== 'not-allowed' && err.error !== 'aborted') {
         const backoff = err.error === 'no-speech' ? 600 : 400;
         this.scheduleRestart(backoff);
@@ -1147,18 +1252,22 @@ class AudioRecorderService {
       rec.start();
     } catch (e) {
       console.warn(`[AudioRecorder] Could not start speech recognition (attempt ${retryCount}):`, e);
-      if (this.isRecording && retryCount < 3) {
+      if (this.isRecording && retryCount < 2) {
         setTimeout(() => {
           if (this.isRecording) {
             this.initSpeechRecognition(retryCount + 1);
           }
         }, 350 * (retryCount + 1));
+      } else if (this.isRecording) {
+        console.warn('[AudioRecorder] Fallo reiterado al arrancar WebSpeech. Activando Red de Seguridad en Servidor.');
+        this.startServerChunkPipeline();
       }
     }
   }
 
   commitDictation() {
     this.clearSilenceTimer();
+    this.restartCount = 0; // Reset circuit breaker counter on successful commit
     if (this.isCommitting) {
       return;
     }
@@ -1290,11 +1399,25 @@ class AudioRecorderService {
       this.lastRestartTime = now;
     }
     this.restartCount = (this.restartCount || 0) + 1;
-    const safeDelay = this.restartCount > 3 ? Math.max(delayMs, 1000) : Math.max(delayMs, 350);
+    if (this.restartCount >= 3) {
+      console.warn('[AudioRecorder] 🚨 WebSpeech ha reiniciado repetidamente sin estabilidad en Chrome/Android. Conmutando a Red de Seguridad de Servidor.');
+      if (this.recognition) {
+        try {
+          this.recognition.onend = null;
+          this.recognition.onerror = null;
+          this.recognition.onresult = null;
+          this.recognition.abort();
+        } catch (e) {}
+        this.recognition = null;
+      }
+      this.startServerChunkPipeline();
+      return;
+    }
+    const safeDelay = this.restartCount > 2 ? Math.max(delayMs, 800) : Math.max(delayMs, 350);
 
     this.restartTimeout = setTimeout(() => {
       this.restartTimeout = null;
-      if (!this.isRecording) return;
+      if (!this.isRecording || this.sttEngine !== 'webspeech') return;
       try {
         if (this.recognition) {
           try {
@@ -1312,8 +1435,15 @@ class AudioRecorderService {
   }
 
   stopRecording() {
+    this.recordSeq++;
+    this.isStarting = false;
     this.isRecording = false;
     this.clearSilenceTimer();
+
+    if (this.onVisibilityChange && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.onVisibilityChange);
+      this.onVisibilityChange = null;
+    }
 
     if (this.acousticResetTimer) {
       clearTimeout(this.acousticResetTimer);

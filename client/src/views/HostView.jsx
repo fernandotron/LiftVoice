@@ -69,6 +69,8 @@ export default function HostView({
   const { resolvedTheme, toggleTheme } = useTheme();
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [isTogglingBroadcast, setIsTogglingBroadcast] = useState(false);
+  const isTogglingRef = useRef(false);
+  const toggleCooldownTimerRef = useRef(null);
   const [broadcastError, setBroadcastError] = useState(null);
   const [sourceLanguage, setSourceLanguage] = useState(() => {
     try {
@@ -102,7 +104,17 @@ export default function HostView({
     isBroadcastingRef.current = isBroadcasting;
   }, [isBroadcasting]);
 
+  useEffect(() => {
+    return () => {
+      if (toggleCooldownTimerRef.current) {
+        clearTimeout(toggleCooldownTimerRef.current);
+      }
+    };
+  }, []);
+
   const isSwitchingDeviceRef = useRef(false);
+  const hasServerKeysRef = useRef(false);
+  const serverConfigPromiseRef = useRef(null);
   const [targetLanguages, setTargetLanguages] = useState(['es', 'en', 'it', 'pt']);
   const [transcriptHistory, setTranscriptHistory] = useState([]);
   const [liveInterimSpeech, setLiveInterimSpeech] = useState('');
@@ -324,10 +336,13 @@ export default function HostView({
     } catch (e) {}
 
     // Sincronizar proactivamente con la configuración global del servidor
-    fetch('/api/config')
+    serverConfigPromiseRef.current = fetch('/api/config')
       .then(res => (res.ok ? res.json() : null))
       .then(cfg => {
         if (!isSubscribed || !cfg) return;
+        if (cfg.hasDeepgramKey || cfg.hasOpenAiKey || cfg.hasGeminiKey) {
+          hasServerKeysRef.current = true;
+        }
         if (cfg.preferredSttEngine) {
           setSttEngine(cfg.preferredSttEngine);
           audioRecorderService.setSttEngine?.(cfg.preferredSttEngine);
@@ -356,6 +371,9 @@ export default function HostView({
     const handleConfigSaved = (e) => {
       const cfg = e.detail;
       if (!cfg) return;
+      if (cfg.hasDeepgramKey || cfg.hasOpenAiKey || cfg.hasGeminiKey || cfg.deepgramApiKey) {
+        hasServerKeysRef.current = true;
+      }
       if (cfg.sttLang) {
         setSourceLanguage(cfg.sttLang);
         audioRecorderService.setLanguage?.(cfg.sttLang);
@@ -718,7 +736,8 @@ export default function HostView({
   };
 
   const handleToggleBroadcast = async () => {
-    if (isTogglingBroadcast) return;
+    if (isTogglingRef.current) return;
+    isTogglingRef.current = true;
     setIsTogglingBroadcast(true);
     setBroadcastError(null);
 
@@ -731,12 +750,20 @@ export default function HostView({
       } else {
         // Pre-flight de compatibilidad para evitar silent failure loops en Firefox/Safari sin claves
         const hasNativeSTT = typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
-        const hasConfiguredKeys = typeof localStorage !== 'undefined' && Boolean(
+        let hasConfiguredKeys = Boolean(hasServerKeysRef.current) || (typeof localStorage !== 'undefined' && Boolean(
           localStorage.getItem('lv_deepgram_key') ||
           localStorage.getItem('deepgram_api_key') ||
           localStorage.getItem('lv_openai_key') ||
           localStorage.getItem('lv_gemini_key')
-        );
+        ));
+
+        // Si no hay STT nativo ni claves locales, esperar a que /api/config resuelva si está en vuelo
+        if (!hasNativeSTT && !hasConfiguredKeys && serverConfigPromiseRef.current) {
+          try {
+            await serverConfigPromiseRef.current;
+          } catch (e) {}
+          hasConfiguredKeys = Boolean(hasServerKeysRef.current);
+        }
 
         if (!hasNativeSTT && !hasConfiguredKeys) {
           const isFirefoxOrSafari = typeof navigator !== 'undefined' && (
@@ -805,6 +832,13 @@ export default function HostView({
       setBroadcastError(err?.message || 'No se pudo acceder al micrófono o iniciar la emisión.');
     } finally {
       setIsTogglingBroadcast(false);
+      if (toggleCooldownTimerRef.current) {
+        clearTimeout(toggleCooldownTimerRef.current);
+      }
+      toggleCooldownTimerRef.current = setTimeout(() => {
+        isTogglingRef.current = false;
+        toggleCooldownTimerRef.current = null;
+      }, 400);
     }
   };
 

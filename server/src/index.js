@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import { roomManager } from './roomManager.js';
 import { aiPipeline } from './services/aiPipeline.js';
 import { userManager } from './services/userManager.js';
+import { detectAudioMimeType } from './services/sttService.js';
 import { 
   createAdminSession, 
   invalidateAdminSession, 
@@ -590,10 +591,14 @@ app.post('/api/asr-token', async (req, res) => {
       || (body.apiKey && typeof body.apiKey === 'string' && body.apiKey.trim())
       || sttService.deepgramApiKey
       || process.env.DEEPGRAM_API_KEY
-      || '1f057415ec50bb496a86ec8d8bc9e4f627a57f7d';
+      || '';
 
     if (!apiKey) {
-      return res.status(500).json({ error: 'Deepgram API key not configured on server' });
+      return res.status(503).json({
+        success: false,
+        code: 'DEEPGRAM_NOT_CONFIGURED',
+        error: 'Deepgram API key not configured on server'
+      });
     }
 
     // Model selection: Default to nova-3, allow configurable fallback to nova-2
@@ -1003,18 +1008,20 @@ wss.on('connection', (ws, req) => {
             console.warn(`[WS] ⚠️ Audio chunk exceeds 2.5MB from host in room ${currentRoomId}`);
             return;
           }
+          const audioBuffer = Buffer.isBuffer(rawMessage) ? rawMessage : Buffer.from(rawMessage);
+          const detectedMime = detectAudioMimeType(audioBuffer, 'audio/webm');
           await aiPipeline.processSpeech({
             roomId: currentRoomId,
-            audioBuffer: rawMessage,
-            mimeType: 'audio/webm'
+            audioBuffer,
+            mimeType: detectedMime
           });
         }
         return;
       }
 
-      // 2. Control message size check (max 64 KB for JSON to prevent event loop blocking)
+      // 2. Control and audio chunk payload message size check (up to 2.5 MB to accommodate SPEECH_CHUNK_AUDIO Base64)
       const textLen = Buffer.byteLength(rawMessage);
-      if (textLen > 64 * 1024) {
+      if (textLen > 2.5 * 1024 * 1024) {
         console.warn(`[WS] 🚨 Dropped oversized JSON payload (${textLen} bytes) from ${socketId}`);
         return;
       }
