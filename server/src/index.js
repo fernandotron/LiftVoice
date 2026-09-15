@@ -1048,6 +1048,10 @@ wss.on('connection', (ws, req) => {
       // 1. Direct handling of binary audio buffers (avoids rawMessage.toString() overhead and SyntaxError exceptions)
       if (isBinary || (Buffer.isBuffer(rawMessage) && rawMessage.length > 0 && rawMessage[0] !== 0x7B /* '{' */)) {
         if (clientRole === 'HOST' && currentRoomId) {
+          if (rawMessage.length < 64) {
+            console.warn(`[WS] ⚠️ Dropped undersized audio chunk (${rawMessage.length} bytes)`);
+            return;
+          }
           if (rawMessage.length > 2.5 * 1024 * 1024) {
             console.warn(`[WS] ⚠️ Audio chunk exceeds 2.5MB from host in room ${currentRoomId}`);
             return;
@@ -1104,6 +1108,7 @@ wss.on('connection', (ws, req) => {
           }
           currentRoomId = targetRoom;
           clientRole = 'HOST';
+          ws.supportsBinary = Boolean(msg.supportsBinary);
 
           const adminToken = msg.token || msg.adminToken || null;
           if (adminToken) {
@@ -1163,7 +1168,8 @@ wss.on('connection', (ws, req) => {
             email: msg.email,
             phone: msg.phone,
             ip: clientIp,
-            userAgent: msg.userAgent
+            userAgent: msg.userAgent,
+            supportsBinary: Boolean(msg.supportsBinary)
           });
 
           if (joinResult && joinResult.isKicked) {
@@ -1421,15 +1427,26 @@ wss.on('connection', (ws, req) => {
         }
 
         case 'CHANGE_LANGUAGE': {
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
-          if (targetRoom && msg.lang) {
-            roomManager.updateListenerLanguage(targetRoom, socketId, msg.lang);
+          // IDOR Defense: Listener can only switch language in their currently active room
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'No estás unido a ninguna sala activa' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Listener ${socketId} attempted to access room ${msg.roomId} while in ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only switch languages in your active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
+          if (targetRoom && msg.lang && typeof msg.lang === 'string') {
+            const updated = roomManager.updateListenerLanguage(targetRoom, socketId, msg.lang);
+            if (!updated) break;
             ws.send(JSON.stringify({
               type: 'LANGUAGE_CHANGED',
               lang: msg.lang
             }));
 
-            // Hot Channel Switch: Send active audio of the new language immediately so listener doesn't hear silence!
+            // Hot Channel Switch seguro: garantizado que el socket pertenece a targetRoom
             const recentAudio = roomManager.getRecentAudioForLang(targetRoom, msg.lang);
             if (recentAudio && recentAudio.audioBase64) {
               console.log(`[WS] ⚡ Hot-switching listener ${socketId} to active ${msg.lang} audio stream`);

@@ -1490,14 +1490,9 @@ export default function HostView({
             {/* Sección de Participantes Directa (sin contenedor envolvente) */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between px-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                    Participantes en Sala
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-zinc-800/70 text-[10px] font-mono font-semibold text-zinc-700 dark:text-zinc-300">
-                    {rawParticipants.length + 1}
-                  </span>
-                </div>
+                <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                  Participantes en Sala
+                </span>
                 <button
                   type="button"
                   onClick={() => setIsAttendeesModalOpen(true)}

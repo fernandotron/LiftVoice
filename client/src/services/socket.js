@@ -93,22 +93,32 @@ class SocketService {
 
         try {
           this.ws = new WebSocket(url);
+          this.ws.binaryType = 'arraybuffer';
         } catch (err) {
           console.warn(`[Socket] Instantiation error for ${url}:`, err);
           return tryNextUrl();
         }
 
         let isOpened = false;
+        let stepHandled = false;
+        const advanceOnce = () => {
+          if (stepHandled || isOpened) return;
+          stepHandled = true;
+          clearTimeout(connectTimeout);
+          tryNextUrl();
+        };
+
         const connectTimeout = setTimeout(() => {
           if (!isOpened && this.ws && this.ws.readyState !== WebSocket.OPEN) {
             console.warn(`[Socket] Timeout connecting to ${url}, trying fallback...`);
             try { this.ws.close(); } catch (e) {}
-            tryNextUrl();
+            advanceOnce();
           }
         }, 2500);
 
         this.ws.onopen = () => {
           isOpened = true;
+          stepHandled = true;
           clearTimeout(connectTimeout);
           console.log(`[Socket] Connected successfully via ${url}`);
           this.isConnected = true;
@@ -119,6 +129,14 @@ class SocketService {
         };
 
         this.ws.onmessage = (event) => {
+          if (event.data instanceof ArrayBuffer) {
+            try {
+              this.handleBinaryMessage(event.data);
+            } catch (binErr) {
+              console.warn('[Socket] Corrupted binary packet dropped:', binErr);
+            }
+            return;
+          }
           try {
             const msg = JSON.parse(event.data);
             this.handleMessage(msg);
@@ -130,7 +148,7 @@ class SocketService {
         this.ws.onclose = (event) => {
           clearTimeout(connectTimeout);
           if (!isOpened) {
-            tryNextUrl();
+            advanceOnce();
             return;
           }
           console.warn('[Socket] Connection closed.', event?.code);
@@ -147,7 +165,7 @@ class SocketService {
         this.ws.onerror = (err) => {
           if (!isOpened) {
             clearTimeout(connectTimeout);
-            tryNextUrl();
+            advanceOnce();
           } else {
             console.error('[Socket] Error:', err);
           }
@@ -269,6 +287,71 @@ class SocketService {
     }
   }
 
+  handleBinaryMessage(buffer) {
+    if (!buffer || !(buffer instanceof ArrayBuffer) || buffer.byteLength < 12) return;
+    const view = new DataView(buffer);
+    const magic = view.getUint16(0);
+    if (magic !== 0x4C56) {
+      console.warn('[Socket] LVBP magic mismatch: 0x' + magic.toString(16));
+      return; // Descartar si no coincide con 'LV'
+    }
+
+    const type = view.getUint8(2);
+    if (type !== 0x01) {
+      console.warn('[Socket] Unknown or unsupported LVBP frame type:', type);
+      return; // Descartar tipos desconocidos (solo 0x01 AUDIO_FRAME soportado)
+    }
+
+    const langCodeNum = view.getUint8(3);
+    const seqId = view.getUint16(4);
+    const timestamp = view.getUint32(6);
+
+    let headerSize = 14;
+    let payloadLen = 0;
+
+    // Detectar LVBP v1.1 (cabecera de 14 bytes con longitud UInt32BE) vs v1.0 legado (12 bytes)
+    if (buffer.byteLength >= 14) {
+      const v11Len = view.getUint32(10);
+      if (14 + v11Len === buffer.byteLength && v11Len > 0) {
+        headerSize = 14;
+        payloadLen = v11Len;
+      } else {
+        const v10Len = view.getUint16(10);
+        if (12 + v10Len === buffer.byteLength && v10Len > 0) {
+          headerSize = 12;
+          payloadLen = v10Len;
+        } else {
+          console.warn(`[Socket] Malformed LVBP packet: length mismatch (byteLength: ${buffer.byteLength}, v11Len: ${v11Len})`);
+          return; // Descartar paquete truncado o corrupto
+        }
+      }
+    } else {
+      headerSize = 12;
+      payloadLen = view.getUint16(10);
+      if (12 + payloadLen !== buffer.byteLength || payloadLen <= 0) {
+        return; // Descartar paquete corrupto
+      }
+    }
+
+    const CODE_TO_LANG = { 1: 'es', 2: 'en', 3: 'it', 4: 'pt', 5: 'fr', 6: 'de', 7: 'zh', 8: 'ja', 9: 'ru' };
+    const lang = CODE_TO_LANG[langCodeNum];
+    if (!lang) {
+      console.warn('[Socket] Invalid LVBP langCode received:', langCodeNum);
+      return; // Descartar para evitar contaminación cruzada
+    }
+
+    const binaryPayload = buffer.slice(headerSize, headerSize + payloadLen);
+
+    this.emit('audio_chunk', {
+      type: 'AUDIO_CHUNK',
+      lang,
+      seqId,
+      timestamp,
+      binaryPayload,
+      isBinary: true
+    });
+  }
+
   joinAsHost(roomId, token = null) {
     this.currentRoomId = roomId;
     this.currentRole = 'HOST';
@@ -279,7 +362,8 @@ class SocketService {
     return this.send({
       type: 'HOST_JOIN',
       roomId,
-      token: adminToken
+      token: adminToken,
+      supportsBinary: true
     });
   }
 
@@ -297,7 +381,8 @@ class SocketService {
       name: userProfile.name || 'Asistente',
       email: userProfile.email || '',
       phone: userProfile.phone || '',
-      userAgent: navigator.userAgent
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      supportsBinary: true
     });
   }
 

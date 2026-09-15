@@ -570,7 +570,8 @@ class RoomManager {
       lang: targetLang,
       joinedAt: Date.now(),
       ip,
-      userAgent: metadata.userAgent || ''
+      userAgent: metadata.userAgent || '',
+      supportsBinary: Boolean(metadata.supportsBinary || safeMetadata.supportsBinary)
     };
 
     room.listeners.set(socketId, listenerObj);
@@ -985,12 +986,19 @@ class RoomManager {
     const targetLang = lang.toLowerCase();
     const currentSeq = audioPacket.seqId || 0;
 
-    // Defense against out-of-order playback: drop audio packets older than the latest broadcasted sequence
+    // Defense against out-of-order playback: RFC-1982 modular sequence arithmetic
     if (!room.lastBroadcastSeqByLang) room.lastBroadcastSeqByLang = new Map();
     const lastSeq = room.lastBroadcastSeqByLang.get(targetLang) || 0;
-    if (currentSeq > 0 && currentSeq < lastSeq) {
-      console.warn(`[RoomManager] ⚠️ Dropping out-of-order audio packet for lang ${targetLang}: seq ${currentSeq} < lastSeq ${lastSeq}`);
-      return;
+    if (lastSeq > 0 && currentSeq > 0) {
+      const diff = (currentSeq - lastSeq) & 0xFFFF;
+      const isOlder = diff > 0x8000;
+      const stepBack = (lastSeq - currentSeq) & 0xFFFF;
+      // Drop only if genuinely older within a reasonable window (< 250 packets)
+      // If stepBack is large, it indicates a sequence restart/new session
+      if (isOlder && stepBack < 250) {
+        console.warn(`[RoomManager] ⚠️ Dropping out-of-order audio packet for lang ${targetLang}: seq ${currentSeq} < lastSeq ${lastSeq}`);
+        return;
+      }
     }
     if (currentSeq > 0) {
       room.lastBroadcastSeqByLang.set(targetLang, currentSeq);
@@ -1010,27 +1018,84 @@ class RoomManager {
       latencyMs: audioPacket.latencyMs || 0
     };
 
-    // Cache latest audio packet per language booth for Hot Channel Switching
+    // Cache latest audio packet per language booth for Hot Channel Switching with auto-expiration
     if (!room.lastAudioByLang) room.lastAudioByLang = new Map();
     room.lastAudioByLang.set(targetLang, {
       ...payloadData,
       broadcastAt: Date.now()
     });
 
-    const payload = JSON.stringify(payloadData);
+    // Purgar entradas antiguas en lastAudioByLang (>12s) para no retener Base64 en memoria
+    const nowTs = Date.now();
+    for (const [lKey, entry] of room.lastAudioByLang.entries()) {
+      if (nowTs - (entry.broadcastAt || 0) > 12000) {
+        room.lastAudioByLang.delete(lKey);
+      }
+    }
 
-    const MAX_BUFFERED_BYTES = 128 * 1024; // 128 KB backpressure threshold (~2-3 chunks max to prevent 15s lag)
+    // Lazy JSON stringification to save Node.js CPU when all clients use binary
+    let cachedJsonPayload = null;
+    const getJsonPayload = () => {
+      if (!cachedJsonPayload) {
+        cachedJsonPayload = JSON.stringify(payloadData);
+      }
+      return cachedJsonPayload;
+    };
+
+    // LVBP v1.1 (LiftVoice Binary Protocol v1.1 - 2026 Edition)
+    // Packaging 14-byte fixed header: [0x4C56, 0x01, langCode, seqId, timestamp, payloadLen(UInt32), audioBytes]
+    const LANG_CODES = { es: 1, en: 2, it: 3, pt: 4, fr: 5, de: 6, zh: 7, ja: 8, ru: 9 };
+    const langCodeNum = LANG_CODES[targetLang] || 1;
+
+    let binaryPayloadBuf = null;
+    if (audioPacket.audioBuffer && Buffer.isBuffer(audioPacket.audioBuffer)) {
+      binaryPayloadBuf = audioPacket.audioBuffer;
+    } else if (audioPacket.audioBase64) {
+      try {
+        binaryPayloadBuf = Buffer.from(audioPacket.audioBase64, 'base64');
+      } catch (e) {}
+    }
+
+    let binaryPacket = null;
+    if (binaryPayloadBuf && binaryPayloadBuf.length > 0) {
+      const header = Buffer.alloc(14); // Memoria limpia garantizada
+      header.writeUInt16BE(0x4C56, 0);                                      // Magic 'LV'
+      header.writeUInt8(0x01, 2);                                            // Type: AUDIO_FRAME
+      header.writeUInt8(langCodeNum, 3);                                     // Lang ID
+      header.writeUInt16BE(currentSeq & 0xFFFF, 4);                          // Sequence ID (16-bit)
+      header.writeUInt32BE((audioPacket.timestamp || Date.now()) >>> 0, 6);  // Timestamp (ms)
+      header.writeUInt32BE(binaryPayloadBuf.length >>> 0, 10);               // Payload Length (UInt32BE: eliminates 64KB limit)
+
+      binaryPacket = Buffer.concat([header, binaryPayloadBuf]);
+    }
+
+    const MAX_BUFFERED_BYTES = 256 * 1024; // 256 KB backpressure threshold
+    const KILL_BUFFERED_BYTES = 1024 * 1024; // 1 MB: zombie connection, terminate to protect server heap
     let sentCount = 0;
-    for (const listener of room.listeners.values()) {
+    for (const [socketId, listener] of room.listeners.entries()) {
       if (listener.lang === targetLang && listener.socket && listener.socket.readyState === 1) {
-        // Backpressure defense against slow mobile clients
+        if (listener.socket.bufferedAmount > KILL_BUFFERED_BYTES) {
+          console.warn(`[RoomManager] 🛑 Saturated zombie socket (${listener.socket.bufferedAmount} bytes). Terminating.`);
+          try {
+            listener.socket.close(4008, 'Buffer overflow: connection too slow');
+            setTimeout(() => {
+              try { listener.socket.terminate(); } catch (e) {}
+            }, 500);
+          } catch (e) {}
+          room.listeners.delete(socketId);
+          continue;
+        }
         if (listener.socket.bufferedAmount > MAX_BUFFERED_BYTES) {
-          console.warn(`[RoomManager] ⚠️ Client buffer saturated (${listener.socket.bufferedAmount} bytes). Skipping chunk to prevent buffer bloat.`);
+          console.warn(`[RoomManager] ⚠️ Client buffer congested (${listener.socket.bufferedAmount} bytes). Skipping chunk.`);
           continue;
         }
 
         try {
-          listener.socket.send(payload);
+          if (binaryPacket && listener.supportsBinary) {
+            listener.socket.send(binaryPacket, { binary: true });
+          } else {
+            listener.socket.send(getJsonPayload());
+          }
           sentCount++;
         } catch (err) {
           console.error(`Error sending audio to listener:`, err);
@@ -1044,10 +1109,14 @@ class RoomManager {
       if (isMonitoredByHost || audioPacket.isHostPreview) {
         if (room.hostSocket.bufferedAmount <= MAX_BUFFERED_BYTES) {
           try {
-            room.hostSocket.send(JSON.stringify({
-              ...payloadData,
-              isBoothAudio: true
-            }));
+            if (binaryPacket && room.hostSocket.supportsBinary) {
+              room.hostSocket.send(binaryPacket, { binary: true });
+            } else {
+              room.hostSocket.send(JSON.stringify({
+                ...payloadData,
+                isBoothAudio: true
+              }));
+            }
           } catch (err) {}
         }
       }

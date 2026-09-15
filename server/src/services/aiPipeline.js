@@ -285,14 +285,15 @@ export class AIPipeline {
       return;
     }
 
-    // --- DÉCALAGE / CLAUSE ACCUMULATION ENGINE ---
-    const decalageMode = room?.config?.decalageMode || this.decalageMode || 'natural';
+    // --- DÉCALAGE / CLAUSE ACCUMULATION ENGINE (2026 Streaming Chaining) ---
+    const decalageMode = room?.config?.decalageMode || this.decalageMode || 'streaming';
     const isTerminal = /[.!?…]\s*$/.test(cleanUtterance);
     const wordCount = cleanUtterance.split(/\s+/).length;
-    const minWords = decalageMode === 'paused' ? 14 : 7;
+    const isStreaming = decalageMode === 'streaming' || decalageMode === 'fast';
+    const minWords = decalageMode === 'paused' ? 14 : (isStreaming ? 3 : 7);
     const existingBuffer = this.roomDecalageBuffers.get(roomId);
 
-    if (decalageMode === 'fast' || isTerminal || wordCount >= minWords) {
+    if (isStreaming || isTerminal || wordCount >= minWords) {
       if (existingBuffer) {
         if (existingBuffer.timer) clearTimeout(existingBuffer.timer);
         this.roomDecalageBuffers.delete(roomId);
@@ -305,7 +306,7 @@ export class AIPipeline {
       const combinedText = existingBuffer ? `${existingBuffer.text} ${cleanUtterance}` : cleanUtterance;
       if (existingBuffer?.timer) clearTimeout(existingBuffer.timer);
 
-      const waitMs = decalageMode === 'paused' ? 2200 : 1200;
+      const waitMs = decalageMode === 'paused' ? 2200 : 800;
       const timer = setTimeout(() => {
         this.flushDecalageBuffer(roomId);
       }, waitMs);
@@ -496,12 +497,17 @@ export class AIPipeline {
         };
         const audioResult = await ttsService.synthesize(translatedText, lang, voiceOpt);
         if (audioResult) {
+          let audioBuffer = audioResult.audioBuffer;
+          if (!audioBuffer && audioResult.audioBase64) {
+            try { audioBuffer = Buffer.from(audioResult.audioBase64, 'base64'); } catch (e) {}
+          }
           roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
             id: `${packetId}_${lang}`,
             seqId,
             lang,
             text: translatedText,
             audioBase64: audioResult.audioBase64,
+            audioBuffer,
             useClientWebSpeech: audioResult.useClientWebSpeech,
             mimeType: audioResult.mimeType || 'audio/mpeg',
             duration: audioResult.durationMs,
@@ -537,12 +543,17 @@ export class AIPipeline {
             };
             const audioResult = await ttsService.synthesize(healedText, lang, voiceOpt);
             if (audioResult) {
+              let audioBuffer = audioResult.audioBuffer;
+              if (!audioBuffer && audioResult.audioBase64) {
+                try { audioBuffer = Buffer.from(audioResult.audioBase64, 'base64'); } catch (e) {}
+              }
               roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
                 id: `${packetId}_${lang}_healed`,
                 seqId,
                 lang,
                 text: healedText,
                 audioBase64: audioResult.audioBase64,
+                audioBuffer,
                 useClientWebSpeech: audioResult.useClientWebSpeech,
                 mimeType: audioResult.mimeType || 'audio/mpeg',
                 duration: audioResult.durationMs,
