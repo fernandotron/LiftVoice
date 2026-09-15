@@ -176,7 +176,7 @@ export function AdminLoginCard({
         <button
           type="submit"
           disabled={!password.trim() || loading || lockoutSeconds > 0}
-          className={`w-full h-12 rounded-2xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 mt-5 cursor-pointer ${
+          className={`w-full h-12 rounded-full sm:rounded-2xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 mt-5 cursor-pointer ${
             password.trim() && !loading && lockoutSeconds === 0
               ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-md hover:bg-zinc-800 dark:hover:bg-zinc-100 active:scale-[0.99]'
               : 'bg-zinc-100 dark:bg-[#141416] text-zinc-400 dark:text-zinc-600 cursor-not-allowed border border-zinc-200 dark:border-zinc-800/60'
@@ -212,7 +212,7 @@ export function AdminLoginCard({
           <button
             type="button"
             onClick={onCancel}
-            className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            className="absolute top-4 right-4 w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation"
             aria-label="Cerrar modal"
           >
             <X className="w-4 h-4" />

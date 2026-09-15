@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Headphones, Play, Square, Sparkles, Globe, Bell, ChevronRight } from 'lucide-react';
+import { X, Headphones, Play, Square, Sparkles, Bell, ChevronRight } from 'lucide-react';
 import ElevenSlider from '../ElevenSlider.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
 
@@ -60,27 +60,24 @@ export default function CabinsBottomSheet({
         aria-label="Cerrar panel de cabinas" 
       />
 
-      {/* Sheet / Modal Container estilo Reness */}
-      <div className="relative w-full sm:max-w-md rounded-[28px] bg-white dark:bg-[#1f1f1f] border border-zinc-200/80 dark:border-white/10 shadow-2xl overflow-hidden animate-sheet-up flex flex-col max-h-[88dvh]">
-        {/* Header sin línea divisoria rígida */}
+      {/* Sheet / Modal Container estilo Studio oscuro (zinc-950 acorde a la app) */}
+      <div className="relative w-full sm:max-w-md rounded-[28px] bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xl overflow-hidden animate-sheet-up flex flex-col max-h-[88dvh]">
+        {/* Header sin línea divisoria rígida y sin icono */}
         <div className="px-5 pt-4 pb-2 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-zinc-900 dark:text-white" />
-            <div>
-              <h3 id="cabins-sheet-title" className="font-bold text-sm text-zinc-900 dark:text-white">
-                Cabinas de Traducción
-              </h3>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
-                Control de canales simultáneos y décalage
-              </p>
-            </div>
+          <div>
+            <h3 id="cabins-sheet-title" className="font-bold text-sm text-zinc-900 dark:text-white">
+              Cabinas de Traducción
+            </h3>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+              Control de canales simultáneos y décalage
+            </p>
           </div>
 
           <button 
             type="button"
             onClick={onClose}
             aria-label="Cerrar panel de cabinas"
-            className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation"
           >
             <X className="w-4 h-4" />
           </button>
@@ -90,39 +87,26 @@ export default function CabinsBottomSheet({
         <div className="p-5 space-y-4 overflow-y-auto overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] no-scrollbar">
           
           {/* Barra de Monitoreo Rápido de Auricular */}
-          <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40 flex items-center justify-between shadow-2xs">
-            <div className="flex items-center gap-2.5">
-              <Headphones className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
-              <div>
-                <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
-                  Retorno por Auricular
-                </span>
-                <span className="text-[10px] text-zinc-500 font-mono">
-                  {monitoredLang !== 'none' ? `Canal ${monitoredLang} activo` : 'Silenciado'}
-                </span>
-              </div>
+          <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/60 dark:bg-zinc-900/60 flex items-center justify-between shadow-2xs">
+            <div>
+              <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
+                Retorno por Auricular
+              </span>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                {monitoredLang !== 'none' ? `Canal ${monitoredLang} activo` : 'Silenciado'}
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onTestAudio}
-                className="px-2.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 text-[11px] font-mono font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                className="px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-750 bg-white dark:bg-zinc-850 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[11px] font-mono font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95 touch-manipulation"
                 title="Emitir tono de prueba 440Hz"
               >
                 <Bell className="w-3 h-3 text-zinc-600 dark:text-zinc-300" />
                 <span>Tono Test</span>
               </button>
-
-              {monitoredLang !== 'none' && (
-                <button
-                  type="button"
-                  onClick={onStopMonitoring}
-                  className="px-2.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-[11px] font-bold transition-colors cursor-pointer"
-                >
-                  Silenciar
-                </button>
-              )}
             </div>
           </div>
 
@@ -142,8 +126,8 @@ export default function CabinsBottomSheet({
                   key={cab.code}
                   className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
                     isMonitored
-                      ? 'border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/80 ring-1 ring-zinc-400/20 dark:ring-zinc-700/50 shadow-xs'
-                      : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-800/30'
+                      ? 'border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900 ring-1 ring-zinc-400/20 dark:ring-zinc-700/50 shadow-xs'
+                      : 'border-zinc-200 dark:border-zinc-800/70 bg-zinc-50/40 dark:bg-zinc-900/40'
                   }`}
                 >
                   <div
@@ -171,7 +155,7 @@ export default function CabinsBottomSheet({
                       className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-95 ${
                         isMonitored
                           ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 ring-2 ring-zinc-950/20 dark:ring-white/20 shadow-xs'
-                          : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-200'
+                          : 'bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200'
                       }`}
                     >
                       <Headphones className="w-4 h-4" />
@@ -183,7 +167,7 @@ export default function CabinsBottomSheet({
                       className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
                         isAuditioning 
                           ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 ring-2 ring-zinc-900/20 dark:ring-white/20' 
-                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200'
+                          : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-750'
                       }`}
                       title={isAuditioning ? 'Detener reproducción de voz' : 'Audicionar muestra de voz'}
                       aria-label={isAuditioning ? `Detener voz para ${cab.name}` : `Audicionar voz para ${cab.name}`}

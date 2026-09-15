@@ -81,7 +81,7 @@ export default function AdminStickyFooter({
               onClick={onResetDefaults}
               disabled={isSaving || isResetting}
               title={resetLabel ? `Restablecer ${resetLabel} a los valores recomendados por defecto` : "Restablecer a los valores recomendados por defecto"}
-              className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-amber-500/10 hover:border-amber-500/30 hover:text-amber-600 dark:hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none text-zinc-600 dark:text-zinc-400 text-xs sm:text-sm font-medium flex items-center justify-center transition-all cursor-pointer active:scale-95 shadow-2xs shrink-0"
+              className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-amber-500/10 hover:border-amber-500/30 hover:text-amber-600 dark:hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none text-zinc-600 dark:text-zinc-400 text-xs sm:text-sm font-medium flex items-center justify-center transition-all cursor-pointer active:scale-95 shadow-2xs shrink-0"
             >
               {isResetting ? (
                 <span>Restableciendo...</span>
@@ -95,7 +95,7 @@ export default function AdminStickyFooter({
             <button
               type="button"
               onClick={onCancel}
-              className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-95 shadow-2xs"
+              className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-95 shadow-2xs"
             >
               Descartar
             </button>
@@ -105,7 +105,7 @@ export default function AdminStickyFooter({
             type="button"
             onClick={onSave}
             disabled={!isDirty || isSaving}
-            className={`h-9 sm:h-10 px-5 sm:px-6 rounded-2xl text-xs sm:text-sm font-medium flex items-center gap-2 transition-all shadow-xs ${
+            className={`h-9 sm:h-10 px-5 sm:px-6 rounded-full sm:rounded-2xl text-xs sm:text-sm font-medium flex items-center gap-2 transition-all shadow-xs ${
               isSaved
                 ? 'bg-emerald-600 text-white shadow-emerald-500/20'
                 : isDirty

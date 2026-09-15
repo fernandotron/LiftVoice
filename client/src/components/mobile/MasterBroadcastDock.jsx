@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Mic, Headphones, SlidersHorizontal, QrCode, Hand, Square } from 'lucide-react';
+import { Mic, Users, SlidersHorizontal, Settings2, Hand, Square } from 'lucide-react';
 
 /**
  * MasterBroadcastDock — LiftVoice Studio 2026
@@ -13,10 +13,10 @@ export default function MasterBroadcastDock({
   isBroadcasting = false,
   onToggleBroadcast = () => {},
   isToggling = false,
-  monitoredLang = 'none',
-  onToggleMonitoring = () => {},
+  onOpenAttendees = () => {},
+  attendeesCount = 0,
+  onOpenStudioSettings = () => {},
   onOpenCabinsSheet = () => {},
-  onOpenQR = () => {},
   onOpenQA = () => {},
   audioRecorderService = null,
   pendingQACount = 0
@@ -55,31 +55,31 @@ export default function MasterBroadcastDock({
     >
       <div className="flex items-center justify-center gap-2.5 sm:gap-3 pointer-events-auto max-w-md mx-auto">
         
-        {/* Satélite 1: Monitor Auricular Rápido (48px circular neutro) */}
+        {/* Satélite 1: Participantes en Sala (48px circular neutro con badge de asistentes) */}
         <button
           type="button"
-          onClick={() => onToggleMonitoring(monitoredLang === 'none' ? 'es' : 'none')}
-          aria-pressed={monitoredLang !== 'none'}
-          className={`w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 ${
-            monitoredLang !== 'none'
-              ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-transparent font-bold'
-              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-          }`}
-          title="Alternar retorno por auriculares"
-          aria-label={monitoredLang !== 'none' ? `Auriculares activos en ${monitoredLang}` : 'Auriculares silenciados'}
+          onClick={onOpenAttendees}
+          className="relative w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          title="Participantes en sala"
+          aria-label={attendeesCount > 0 ? `Participantes en sala, ${attendeesCount} conectados` : 'Participantes en sala'}
         >
-          <Headphones className="w-5 h-5" />
+          <Users className="w-5 h-5" strokeWidth={1.7} />
+          {attendeesCount > 0 && (
+            <span className="absolute -top-1 -right-1 px-1.5 h-4.5 min-w-[18px] rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-[10px] font-mono font-bold flex items-center justify-center shadow-xs">
+              {attendeesCount}
+            </span>
+          )}
         </button>
 
-        {/* Satélite 2: QR Rápido para Sala en Vivo (48px circular neutro) */}
+        {/* Satélite 2: Ajustes de Estudio (Micrófono, Idioma del Ponente, Locución) */}
         <button
           type="button"
-          onClick={onOpenQR}
+          onClick={onOpenStudioSettings}
           className="w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-          title="Proyectar código QR para oyentes"
-          aria-label="Proyectar código QR de la sala"
+          title="Ajustes de estudio (Micrófono e idioma del ponente)"
+          aria-label="Ajustes de estudio"
         >
-          <QrCode className="w-5 h-5" />
+          <Settings2 className="w-5 h-5" strokeWidth={1.6} />
         </button>
 
         {/* Centro: Master Broadcast Button con estado activo en Rose 600 Pulse */}

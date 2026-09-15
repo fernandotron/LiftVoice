@@ -19,8 +19,8 @@ export class TTSService {
     this.voiceMap = {
       en: { openai: 'alloy', edge: 'en-US-JennyNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-2-thalia-en', cartesia: '794f9389-aac1-45b6-b726-9d9369183238', qwen_tts: 'qwen3-tts-en' },
       es: { openai: 'nova', edge: 'es-ES-ElviraNeural', eleven: 'AZnzlk1XvdvUeBnXmlld', deepgram: 'aura-2-carina-es', cartesia: 'a0e99841-438c-4a64-b679-ae501e7d6091', qwen_tts: 'qwen3-tts-es' },
-      it: { openai: 'shimmer', edge: 'it-IT-ElsaNeural', eleven: 'EXAVITQu4vr4xnSDxMaL', deepgram: 'aura-2-diana-it', cartesia: '5345cf08-6fba-4089-a296-ee1a9673a726', qwen_tts: 'qwen3-tts-it' },
-      pt: { openai: 'echo', edge: 'pt-BR-FranciscaNeural', eleven: 'pNInz6obpgDQGcFmaJgB', deepgram: 'aura-asteria-en', cartesia: '4c65db53-8417-48f8-8422-af1f26ec5809', qwen_tts: 'qwen3-tts-pt' },
+      it: { openai: 'shimmer', edge: 'it-IT-ElsaNeural', eleven: 'EXAVITQu4vr4xnSDxMaL', deepgram: 'it-IT-ElsaNeural', cartesia: '5345cf08-6fba-4089-a296-ee1a9673a726', qwen_tts: 'qwen3-tts-it' },
+      pt: { openai: 'echo', edge: 'pt-BR-FranciscaNeural', eleven: 'pNInz6obpgDQGcFmaJgB', deepgram: 'pt-BR-FranciscaNeural', cartesia: '4c65db53-8417-48f8-8422-af1f26ec5809', qwen_tts: 'qwen3-tts-pt' },
       fr: { openai: 'shimmer', edge: 'fr-FR-DeniseNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en' },
       de: { openai: 'alloy', edge: 'de-DE-KatjaNeural', eleven: 'pNInz6obpgDQGcFmaJgB', deepgram: 'aura-asteria-en' },
       zh: { openai: 'nova', edge: 'zh-CN-XiaoxiaoNeural', eleven: '21m00Tcm4TlvDq8ikWAM', deepgram: 'aura-asteria-en' },
@@ -317,13 +317,13 @@ export class TTSService {
       };
     }
 
-    // 1. Edge TTS / Azure Neural (Universal Zero-Cost Tier, also handles 'google' backward-compat)
-    if (engine === 'edge' || engine === 'google') {
+    // 1. Edge TTS / Azure Neural (Universal Zero-Cost Tier, also handles 'azure' and 'google' backward-compat)
+    if (engine === 'edge' || engine === 'azure' || engine === 'google') {
       try {
         const result = await this.synthesizeWithEdgeTTS(cleanText, lang, { voice, gender });
         if (result && result.audioBase64) {
           result.latencyMs = Date.now() - startTime;
-          result.provider = engine === 'edge' ? 'edge' : 'google';
+          result.provider = engine === 'google' ? 'google' : (engine === 'azure' ? 'azure' : 'edge');
           this.setCache(cacheKey, result);
           return result;
         }
@@ -385,7 +385,7 @@ export class TTSService {
           return result;
         }
       } catch (err) {
-        if (err.status === 401 || err.status === 402 || err.status === 429) {
+        if ((err.status === 401 || err.status === 402 || err.status === 429) && lang !== 'pt' && lang !== 'it') {
           this.tripCircuit('deepgram', err.status);
         }
         console.warn(`[TTSService] Deepgram Aura synthesis warning for ${lang} (${err.message}), falling back to Edge TTS`);
@@ -534,12 +534,26 @@ export class TTSService {
   }
 
   async synthesizeWithDeepgram(text, lang, options = {}) {
+    // Deepgram Aura does not currently support Portuguese or Italian.
+    // Cleanly route to Azure Neural without triggering error warnings or English fallback.
+    if (lang === 'pt' || lang === 'it') {
+      console.log(`[TTSService] 🎙️ Routing ${lang === 'pt' ? 'Portuguese' : 'Italian'} to Azure Neural (Deepgram Aura has no ${lang.toUpperCase()} model)`);
+      let fallbackVoice;
+      if (options.voice && options.voice.includes('Neural')) {
+        fallbackVoice = options.voice;
+      } else if (lang === 'pt') {
+        fallbackVoice = options.gender === 'male' ? 'pt-BR-AntonioNeural' : 'pt-BR-FranciscaNeural';
+      } else {
+        fallbackVoice = options.gender === 'male' ? 'it-IT-GiuseppeNeural' : 'it-IT-ElsaNeural';
+      }
+      return this.synthesizeWithEdgeTTS(text, lang, { ...options, voice: fallbackVoice });
+    }
+
     if (!this.deepgramApiKey) throw new Error('No Deepgram API key configured');
 
     const auraModelMap = {
       es: options.gender === 'male' ? 'aura-2-javier-es' : 'aura-2-carina-es',
       en: options.gender === 'male' ? 'aura-orion-en' : 'aura-2-thalia-en',
-      it: options.gender === 'male' ? 'aura-2-marcos-it' : 'aura-2-diana-it',
       fr: options.gender === 'male' ? 'aura-2-orion-fr' : 'aura-2-asteria-fr',
       de: options.gender === 'male' ? 'aura-2-orion-de' : 'aura-2-asteria-de'
     };

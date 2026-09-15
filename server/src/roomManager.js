@@ -124,6 +124,19 @@ class RoomManager {
         targetLanguages: ['es', 'en', 'it', 'pt'],
         autoDetectSource: true,
         defaultLanguage: 'es',
+        preferredTtsEngine: 'deepgram',
+        voiceConfig: {
+          es: 'aura-2-carina-es',
+          en: 'aura-2-thalia-en',
+          it: 'aura-2-diana-it',
+          pt: 'pt-BR-FranciscaNeural'
+        },
+        voiceGender: {
+          es: 'female',
+          en: 'female',
+          it: 'female',
+          pt: 'female'
+        },
         decalageMode: 'natural',
         decalageValue: 50,
         vadSensitivity: 'standard',

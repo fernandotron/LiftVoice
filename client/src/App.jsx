@@ -421,6 +421,7 @@ export default function App() {
 
   useEffect(() => {
     if (isRoomView) {
+      window.scrollTo(0, 0);
       document.documentElement.classList.add('overflow-hidden');
       document.body.classList.add('overflow-hidden');
       return () => {

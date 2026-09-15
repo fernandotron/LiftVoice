@@ -344,7 +344,7 @@ export default function UsersSection({
             <button
               type="button"
               onClick={() => setEditingUser(null)}
-              className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-95 shadow-2xs"
+              className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-95 shadow-2xs"
             >
               Cancelar
             </button>
@@ -354,7 +354,7 @@ export default function UsersSection({
               form="admin-user-edit-form"
               onClick={handleSaveUserDetail}
               disabled={isSavingUser}
-              className="h-9 sm:h-10 px-5 sm:px-6 rounded-2xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs sm:text-sm font-medium transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-98"
+              className="h-9 sm:h-10 px-5 sm:px-6 rounded-full sm:rounded-2xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs sm:text-sm font-medium transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-98"
             >
               {isSavingUser && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>Guardar cambios</span>
@@ -550,7 +550,7 @@ export default function UsersSection({
             adminAuthService.clearToken();
             window.dispatchEvent(new CustomEvent('liftvoice_admin_unauthorized'));
           }}
-          className="h-10 px-5 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs sm:text-sm font-semibold hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors shadow-sm cursor-pointer"
+          className="h-10 px-5 rounded-full sm:rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs sm:text-sm font-semibold hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors shadow-sm cursor-pointer"
         >
           Iniciar Sesión de Administrador
         </button>
@@ -563,64 +563,53 @@ export default function UsersSection({
   // ══════════════════════════════════════════════════════════════════════════════
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Controls Bar — Executive Single-Strip Toolbar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      {/* Barra de Filtros & Búsqueda estilo Apple HIG / Linear */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         {/* Search Input — Altura original h-11 rounded-2xl */}
         <div className="relative flex-1">
+          <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
+            placeholder="Buscar por nombre, correo electrónico o rol..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar por nombre, correo o ID..."
             className="w-full h-11 pl-10 pr-9 text-xs sm:text-sm border border-zinc-200/80 dark:border-white/10 rounded-2xl bg-zinc-100/70 dark:bg-white/5 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-white/20 transition-all placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
           />
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer p-0.5"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
+              title="Borrar búsqueda"
+              aria-label="Borrar búsqueda"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Filters & CSV Export Toolbar */}
-        <div className="flex items-center gap-2.5">
-          {/* Micro-filter Rol */}
-          <div className="w-36 sm:w-40">
-            <SelectDropdown
-              value={filterRole}
-              onChange={(val) => setFilterRole(val)}
-              options={FILTER_ROLE_OPTIONS}
-              aria-label="Filtrar por rol"
-              className="w-full"
-            />
-          </div>
+        {/* Acciones de Filtro y Exportación */}
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          {/* Selector de Rol */}
+          <SelectDropdown
+            value={roleFilter}
+            options={[
+              { value: 'all', label: 'Todos los roles' },
+              { value: 'admin', label: 'Administradores' },
+              { value: 'speaker', label: 'Ponentes' },
+              { value: 'translator', label: 'Intérpretes' },
+              { value: 'listener', label: 'Oyentes' }
+            ]}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="w-40 sm:w-44 h-11 px-3 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 transition-colors"
+          />
 
-          {/* Micro-filter Estado */}
-          <div className="w-36 sm:w-40">
-            <SelectDropdown
-              value={filterStatus}
-              onChange={(val) => setFilterStatus(val)}
-              options={FILTER_STATUS_OPTIONS}
-              aria-label="Filtrar por estado"
-              className="w-full"
-            />
-          </div>
-
-          {/* Limpiar filtros si hay alguno activo */}
-          {(filterRole !== 'ALL' || filterStatus !== 'ALL' || searchQuery) && (
+          {/* Botón Limpiar Filtros */}
+          {(searchQuery || roleFilter !== 'all') && (
             <button
               type="button"
-              onClick={() => {
-                setFilterRole('ALL');
-                setFilterStatus('ALL');
-                setSearchQuery('');
-              }}
-              className="h-11 px-3 text-xs sm:text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors cursor-pointer shrink-0"
-              title="Restablecer todos los filtros"
+              onClick={handleResetFilters}
+              className="h-11 px-3 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/60 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400 text-xs font-medium transition-colors cursor-pointer"
             >
               Limpiar
             </button>
@@ -630,7 +619,7 @@ export default function UsersSection({
           <button
             type="button"
             onClick={handleExportCSV}
-            className="h-11 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/60 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
+            className="h-11 px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/60 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
             title="Descargar reporte en formato CSV"
           >
             <Download className="w-4 h-4" />

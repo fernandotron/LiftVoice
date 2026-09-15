@@ -617,7 +617,7 @@ export default function VoiceCatalogModal({
                 setPlayingVoiceId(null);
                 onClose();
               }}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation shrink-0"
               title="Cerrar catálogo (Esc)"
               aria-label="Cerrar catálogo"
             >
@@ -939,7 +939,7 @@ export default function VoiceCatalogModal({
                 type="button"
                 onClick={handleDiscard}
                 disabled={isSaving}
-                className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-95 shadow-2xs disabled:opacity-50"
+                className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-95 shadow-2xs disabled:opacity-50"
               >
                 Descartar
               </button>
@@ -952,7 +952,7 @@ export default function VoiceCatalogModal({
                 onClose();
               }}
               disabled={isSaving}
-              className={`h-9 sm:h-10 px-5 sm:px-6 rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all shadow-xs cursor-pointer active:scale-98 ${
+              className={`h-9 sm:h-10 px-5 sm:px-6 rounded-full sm:rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all shadow-xs cursor-pointer active:scale-98 ${
                 isSaved
                   ? 'bg-emerald-600 text-white shadow-emerald-500/20'
                   : isDirty

@@ -29,6 +29,7 @@ export class AIPipeline {
     this.roomSeqCounters = new Map(); // roomId -> integer
     this.roomContexts = new Map(); // roomId -> string of recent spoken words
     this.roomRecentEmissions = new Map(); // roomId -> Array of { text, norm, time }
+    this.roomDecalageBuffers = new Map(); // roomId -> { text, timer, opts, seqId }
     this.openaiApiKey = process.env.OPENAI_API_KEY || '';
   }
 
@@ -127,6 +128,23 @@ export class AIPipeline {
     this.roomSeqCounters.delete(key);
     this.roomContexts.delete(key);
     this.roomRecentEmissions.delete(key);
+    const buf = this.roomDecalageBuffers.get(key);
+    if (buf?.timer) clearTimeout(buf.timer);
+    this.roomDecalageBuffers.delete(key);
+  }
+
+  flushDecalageBuffer(roomId) {
+    const key = (roomId || 'MAIN').toUpperCase();
+    const entry = this.roomDecalageBuffers.get(key);
+    if (!entry) return;
+    if (entry.timer) clearTimeout(entry.timer);
+    this.roomDecalageBuffers.delete(key);
+    if (entry.text && entry.text.trim()) {
+      console.log(`[AIPipeline] 🚀 [Room: ${key}] Décalage window elapsed. Flushing accumulated clause: "${entry.text}"`);
+      this.processSpeech({ ...entry.opts, roomId: key, text: entry.text.trim(), audioBuffer: null }).catch((err) => {
+        console.warn(`[AIPipeline] Error executing flushed décalage clause in room ${key}:`, err);
+      });
+    }
   }
 
   getNextSeqId(roomId) {
@@ -264,6 +282,40 @@ export class AIPipeline {
     }
 
     if (!cleanUtterance || cleanUtterance.length < 2) {
+      return;
+    }
+
+    // --- DÉCALAGE / CLAUSE ACCUMULATION ENGINE ---
+    const decalageMode = room?.config?.decalageMode || this.decalageMode || 'natural';
+    const isTerminal = /[.!?…]\s*$/.test(cleanUtterance);
+    const wordCount = cleanUtterance.split(/\s+/).length;
+    const minWords = decalageMode === 'paused' ? 14 : 7;
+    const existingBuffer = this.roomDecalageBuffers.get(roomId);
+
+    if (decalageMode === 'fast' || isTerminal || wordCount >= minWords) {
+      if (existingBuffer) {
+        if (existingBuffer.timer) clearTimeout(existingBuffer.timer);
+        this.roomDecalageBuffers.delete(roomId);
+        cleanUtterance = `${existingBuffer.text} ${cleanUtterance}`.trim();
+        spokenText = cleanUtterance;
+        normUtterance = normalizePipelineSpeech(cleanUtterance);
+      }
+    } else {
+      // Accumulate in buffer and schedule flush
+      const combinedText = existingBuffer ? `${existingBuffer.text} ${cleanUtterance}` : cleanUtterance;
+      if (existingBuffer?.timer) clearTimeout(existingBuffer.timer);
+
+      const waitMs = decalageMode === 'paused' ? 2200 : 1200;
+      const timer = setTimeout(() => {
+        this.flushDecalageBuffer(roomId);
+      }, waitMs);
+
+      this.roomDecalageBuffers.set(roomId, {
+        text: combinedText,
+        timer,
+        opts: { ...opts, audioBuffer: null, text: combinedText, seqId, sttEngineUsed, sttModelUsed, sttLatency }
+      });
+      console.log(`[AIPipeline] ⏳ [Room: ${roomId}] Décalage buffering clause (${combinedText.split(/\s+/).length} words, mode: ${decalageMode}): "${combinedText}"`);
       return;
     }
 
@@ -437,7 +489,12 @@ export class AIPipeline {
       if (!translatedText) return;
 
       try {
-        const audioResult = await ttsService.synthesize(translatedText, lang);
+        const voiceOpt = {
+          voice: room?.config?.voiceConfig?.[lang],
+          gender: room?.config?.voiceGender?.[lang],
+          engine: room?.config?.preferredTtsEngine
+        };
+        const audioResult = await ttsService.synthesize(translatedText, lang, voiceOpt);
         if (audioResult) {
           roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
             id: `${packetId}_${lang}`,
@@ -472,8 +529,13 @@ export class AIPipeline {
             // Actualizar el historial de la sala y notificar a los oyentes de esa cabina
             roomManager.updateTranscriptItem(roomId, transcriptItem);
 
-            // Sintetizar y difundir audio TTS para la cabina sanada
-            const audioResult = await ttsService.synthesize(healedText, lang);
+            // Sintetizar y difundir audio TTS para la cabina sanada con configuración de la sala
+            const voiceOpt = {
+              voice: room?.config?.voiceConfig?.[lang],
+              gender: room?.config?.voiceGender?.[lang],
+              engine: room?.config?.preferredTtsEngine
+            };
+            const audioResult = await ttsService.synthesize(healedText, lang, voiceOpt);
             if (audioResult) {
               roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
                 id: `${packetId}_${lang}_healed`,

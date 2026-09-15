@@ -79,7 +79,7 @@ export default function AttendeesModal({
               type="button"
               onClick={handleDownloadCsv}
               disabled={attendees.length === 0}
-              className="h-9 px-3.5 sm:px-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 font-medium text-xs sm:text-sm transition-colors cursor-pointer shrink-0 shadow-2xs flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="h-9 px-3.5 sm:px-4 rounded-full sm:rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 font-medium text-xs sm:text-sm transition-colors cursor-pointer shrink-0 shadow-2xs flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               title="Descargar reporte en formato CSV"
             >
               <Download className="w-4 h-4" />
@@ -91,7 +91,7 @@ export default function AttendeesModal({
               type="button"
               onClick={onClose}
               aria-label="Cerrar modal de asistentes"
-              className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -287,7 +287,7 @@ export default function AttendeesModal({
                           <button
                             type="button"
                             onClick={() => onUnbanAttendee(att.id || att.attendeeId)}
-                            className="h-7 px-2.5 rounded-lg border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium inline-flex items-center gap-1 cursor-pointer"
+                            className="h-7 px-3 rounded-full border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium inline-flex items-center gap-1 cursor-pointer active:scale-95 touch-manipulation"
                           >
                             <RotateCcw className="w-3 h-3" />
                             <span>Readmitir</span>
@@ -296,7 +296,7 @@ export default function AttendeesModal({
                           <button
                             type="button"
                             onClick={() => onKickAttendee(att.id || att.attendeeId, att.name)}
-                            className="h-7 px-2.5 rounded-lg border border-zinc-200/80 dark:border-white/10 text-zinc-500 hover:text-red-600 text-[11px] font-medium inline-flex items-center gap-1 cursor-pointer"
+                            className="h-7 px-3 rounded-full border border-zinc-200/80 dark:border-white/10 text-zinc-500 hover:text-red-600 text-[11px] font-medium inline-flex items-center gap-1 cursor-pointer active:scale-95 touch-manipulation"
                           >
                             <UserX className="w-3 h-3" />
                             <span>Expulsar</span>

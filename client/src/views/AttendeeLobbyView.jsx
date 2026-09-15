@@ -219,7 +219,7 @@ export default function AttendeeLobbyView({
           <button
             type="submit"
             disabled={!isFormValid || isSubmitting}
-            className={`w-full h-12 rounded-2xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 mt-5 cursor-pointer ${
+            className={`w-full h-12 rounded-full sm:rounded-2xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 mt-5 cursor-pointer ${
               isFormValid
                 ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-md hover:bg-zinc-800 dark:hover:bg-zinc-100 active:scale-[0.99]'
                 : 'bg-zinc-100 dark:bg-[#141416] text-zinc-400 dark:text-zinc-600 cursor-not-allowed border border-zinc-200 dark:border-zinc-800/60'

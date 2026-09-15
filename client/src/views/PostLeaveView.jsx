@@ -66,7 +66,7 @@ export default function PostLeaveView({
           <button
             type="button"
             onClick={onNavigateHome}
-            className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center justify-center cursor-pointer transition-colors shrink-0 -mr-1 mt-0.5"
+            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation shrink-0"
             aria-label="Cerrar y volver al inicio"
           >
             <X className="w-4 h-4" />
@@ -80,14 +80,14 @@ export default function PostLeaveView({
               <button
                 type="button"
                 onClick={onNavigateHome}
-                className="h-12 rounded-2xl bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors cursor-pointer"
+                className="h-12 rounded-full sm:rounded-2xl bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors cursor-pointer"
               >
                 Entendido
               </button>
               <button
                 type="button"
                 onClick={() => onRejoin(roomId, selectedLanguage)}
-                className="h-12 rounded-2xl text-xs sm:text-sm font-semibold flex items-center justify-center shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 active:scale-[0.99]"
+                className="h-12 rounded-full sm:rounded-2xl text-xs sm:text-sm font-semibold flex items-center justify-center shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 active:scale-[0.99]"
               >
                 Volver a unirse
               </button>
@@ -96,7 +96,7 @@ export default function PostLeaveView({
             <button
               type="button"
               onClick={onNavigateHome}
-              className="w-full h-12 rounded-2xl bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors cursor-pointer"
+              className="w-full h-12 rounded-full sm:rounded-2xl bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors cursor-pointer"
             >
               Entendido
             </button>

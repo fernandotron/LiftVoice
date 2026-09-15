@@ -158,7 +158,7 @@ export default function HomeView({
                 />
                 <button
                   type="submit"
-                  className="w-full h-12 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm cursor-pointer transition-all active:scale-[0.99]"
+                  className="w-full h-12 rounded-full sm:rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm cursor-pointer transition-all active:scale-[0.99]"
                 >
                   <span>{customRoomName.trim() ? 'Crear sala con código' : 'Crear sala instantánea'}</span>
                 </button>
@@ -207,7 +207,7 @@ export default function HomeView({
                 <button
                   type="submit"
                   disabled={!joinPin.trim()}
-                  className="w-full h-12 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm disabled:opacity-40 cursor-pointer transition-all active:scale-[0.99]"
+                  className="w-full h-12 rounded-full sm:rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm disabled:opacity-40 cursor-pointer transition-all active:scale-[0.99]"
                 >
                   <span>Entrar a la sala</span>
                 </button>

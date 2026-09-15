@@ -143,8 +143,8 @@ function LiveCaptions({
               La transcripción y subtítulos aparecerán aquí en cuanto el orador comience a hablar.
             </p>
             {isAdmin && activeSttInfo?.label && (
-              <div className="mt-3 px-3 py-1.5 rounded-xl bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-[11px] font-mono text-purple-700 dark:text-purple-300 flex items-center gap-1.5 shadow-2xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+              <div className="mt-3 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500" />
                 <span>Admin: Motor STT listo ({activeSttInfo.label})</span>
               </div>
             )}
@@ -181,10 +181,10 @@ function LiveCaptions({
                     )}
                     {isAdmin && item.sttEngineUsed && (
                       <span
-                        className="px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-mono text-[9px] border border-purple-200 dark:border-purple-800 flex items-center gap-1"
+                        className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono text-[9px] border border-zinc-200 dark:border-zinc-700 flex items-center gap-1"
                         title={`Motor de transcripción: ${item.sttEngineUsed}${item.sttModel ? ` (${item.sttModel})` : ''}`}
                       >
-                        <span className="w-1 h-1 rounded-full bg-purple-500" />
+                        <span className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-500" />
                         <span>STT: {item.sttEngineUsed}</span>
                       </span>
                     )}
@@ -245,8 +245,8 @@ function LiveCaptions({
                 </span>
               </div>
               {isAdmin && activeSttInfo?.label && (
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-100/90 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 text-[9px] font-mono shadow-2xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 text-[9px] font-mono shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500" />
                   <span>Modelo STT: <strong>{activeSttInfo.label}</strong> ({activeSttInfo.mode === 'streaming' ? 'Streaming' : 'Chunks'})</span>
                 </div>
               )}

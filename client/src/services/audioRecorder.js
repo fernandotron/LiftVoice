@@ -385,6 +385,7 @@ class AudioRecorderService {
   }
 
   setDecalageMode(modeOrVal) {
+    this.decalageMode = typeof modeOrVal === 'string' ? modeOrVal : (modeOrVal < 40 ? 'fast' : 'natural');
     if (typeof modeOrVal === 'number') {
       // 650ms (quick) to 1400ms (natural keynote)
       this.silenceThresholdMs = Math.round(650 + (modeOrVal / 100) * 750);
@@ -399,15 +400,16 @@ class AudioRecorderService {
 
   setVadSensitivity(level) {
     this.vadSensitivity = level || 'standard';
+    // Only adjust RMS energy threshold; preserve silenceThresholdMs managed by decalageMode
     if (level === 'high') {
-      this.silenceThresholdMs = 600;
       this.vadThreshold = 0.012;
+      if (!this.decalageMode) this.silenceThresholdMs = 600;
     } else if (level === 'aggressive') {
-      this.silenceThresholdMs = 1300;
       this.vadThreshold = 0.035;
+      if (!this.decalageMode) this.silenceThresholdMs = 1300;
     } else {
-      this.silenceThresholdMs = 950;
       this.vadThreshold = 0.02;
+      if (!this.decalageMode) this.silenceThresholdMs = 950;
     }
   }
 

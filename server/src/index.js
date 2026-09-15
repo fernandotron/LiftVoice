@@ -334,19 +334,7 @@ app.get('/api/rooms/:roomId', (req, res) => {
   res.json(stats);
 });
 
-// Décalage / Pacing Configuration endpoint
-app.post('/api/rooms/:roomId/decalage', (req, res) => {
-  const { decalageMode, decalageValue } = req.body;
-  const room = roomManager.getRoom(req.params.roomId);
-  if (room) {
-    if (decalageMode) room.config.decalageMode = decalageMode;
-    if (decalageValue !== undefined) room.config.decalageValue = decalageValue;
-    return res.json({ success: true, decalageMode, decalageValue });
-  }
-  res.json({ success: true });
-});
-
-// CRIT-03: Middleware to protect host PII data (attendees and CSV export)
+// CRIT-03: Middleware to protect host PII data and room configuration
 export function requireHostAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   const bearerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
@@ -368,6 +356,83 @@ export function requireHostAuth(req, res, next) {
   }
   next();
 }
+
+const ALLOWED_TTS_ENGINES = new Set(['auto', 'edge', 'azure', 'deepgram', 'cartesia', 'google', 'elevenlabs', 'openai', 'qwen_tts']);
+const ALLOWED_DECALAGE_MODES = new Set(['fast', 'quick', 'natural', 'paused']);
+const ALLOWED_GENDERS = new Set(['female', 'male', 'neutral']);
+
+// Décalage / Pacing Configuration endpoint
+app.post('/api/rooms/:roomId/decalage', requireHostAuth, (req, res) => {
+  const { decalageMode, decalageValue } = req.body;
+  const room = roomManager.getRoom(req.params.roomId);
+  if (room) {
+    if (decalageMode && ALLOWED_DECALAGE_MODES.has(decalageMode)) {
+      room.config.decalageMode = decalageMode;
+    }
+    if (typeof decalageValue === 'number' && decalageValue >= 0 && decalageValue <= 100) {
+      room.config.decalageValue = decalageValue;
+    }
+    return res.json({ success: true, decalageMode: room.config.decalageMode, decalageValue: room.config.decalageValue });
+  }
+  res.status(404).json({ error: 'Room not found' });
+});
+
+// Room-specific Voice Configuration endpoint
+app.post('/api/rooms/:roomId/voices', requireHostAuth, (req, res) => {
+  const { voiceConfig, voiceGender, preferredTtsEngine, decalageMode } = req.body;
+  const room = roomManager.getRoom(req.params.roomId);
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  // Input validation and sanitization
+  if (voiceConfig && typeof voiceConfig === 'object') {
+    const sanitizedVoices = {};
+    for (const [lang, voice] of Object.entries(voiceConfig)) {
+      if (typeof lang === 'string' && /^[a-z]{2}(-[A-Z]{2})?$/.test(lang) && typeof voice === 'string' && /^[a-zA-Z0-9_\-\.]{1,64}$/.test(voice)) {
+        sanitizedVoices[lang] = voice;
+      }
+    }
+    room.config.voiceConfig = { ...(room.config.voiceConfig || {}), ...sanitizedVoices };
+  }
+
+  if (voiceGender && typeof voiceGender === 'object') {
+    const sanitizedGenders = {};
+    for (const [lang, gender] of Object.entries(voiceGender)) {
+      if (typeof lang === 'string' && typeof gender === 'string' && ALLOWED_GENDERS.has(gender)) {
+        sanitizedGenders[lang] = gender;
+      }
+    }
+    room.config.voiceGender = { ...(room.config.voiceGender || {}), ...sanitizedGenders };
+  }
+
+  if (preferredTtsEngine && typeof preferredTtsEngine === 'string' && ALLOWED_TTS_ENGINES.has(preferredTtsEngine)) {
+    room.config.preferredTtsEngine = preferredTtsEngine;
+  }
+
+  if (decalageMode && typeof decalageMode === 'string' && ALLOWED_DECALAGE_MODES.has(decalageMode)) {
+    room.config.decalageMode = decalageMode;
+  }
+
+  console.log(`[RoomManager] 🎙️ Updated booth voices for room ${room.id}:`, room.config.voiceConfig);
+
+  // Broadcast voices update to all connected clients in the room
+  roomManager.broadcastToRoom(room.id, {
+    type: 'ROOM_VOICES_UPDATED',
+    voiceConfig: room.config.voiceConfig,
+    voiceGender: room.config.voiceGender,
+    preferredTtsEngine: room.config.preferredTtsEngine,
+    decalageMode: room.config.decalageMode
+  });
+
+  return res.json({
+    success: true,
+    voiceConfig: room.config.voiceConfig,
+    voiceGender: room.config.voiceGender,
+    preferredTtsEngine: room.config.preferredTtsEngine,
+    decalageMode: room.config.decalageMode
+  });
+});
 
 // Attendee Leads endpoints (CRIT-03)
 app.get('/api/rooms/:roomId/attendees', requireHostAuth, (req, res) => {
@@ -932,27 +997,6 @@ app.post('/api/rooms/:roomId/preview-voice', async (req, res) => {
   }
 });
 
-// Update Room Voice Configuration
-app.post('/api/rooms/:roomId/voices', async (req, res) => {
-  const { voiceConfig, voiceGender } = req.body;
-  try {
-    const { ttsService } = await import('./services/ttsService.js');
-    if (voiceConfig || voiceGender) {
-      ttsService.setConfig({ voiceConfig, voiceGender });
-    }
-    if (req.params.roomId && roomManager) {
-      roomManager.broadcastToRoom(req.params.roomId, {
-        type: 'ROOM_VOICES_UPDATED',
-        voiceConfig,
-        voiceGender
-      });
-    }
-    res.json({ success: true, voiceConfig, voiceGender });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // SPA Fallback: for any non-API GET request, serve client index.html when built
 if (fs.existsSync(clientDistPath)) {
   app.get('*', (req, res, next) => {
@@ -1314,7 +1358,12 @@ wss.on('connection', (ws, req) => {
             const translatedToHost = trans.translations[hostTargetLang] || trans.translations['en'] || spokenText;
 
             const { ttsService } = await import('./services/ttsService.js');
-            const audioRes = await ttsService.synthesize(translatedToHost, hostTargetLang);
+            const voiceOpt = {
+              voice: room?.config?.voiceConfig?.[hostTargetLang],
+              gender: room?.config?.voiceGender?.[hostTargetLang],
+              engine: room?.config?.preferredTtsEngine
+            };
+            const audioRes = await ttsService.synthesize(translatedToHost, hostTargetLang, voiceOpt);
 
             if (room.hostSocket && room.hostSocket.readyState === 1) {
               room.hostSocket.send(JSON.stringify({
@@ -1413,7 +1462,9 @@ wss.on('connection', (ws, req) => {
           const targetRoom = currentRoomId;
           if (targetRoom && msg.lang && msg.text) {
             const { ttsService } = await import('./services/ttsService.js');
-            const result = await ttsService.synthesize(msg.text, msg.lang);
+            const room = roomManager.getRoom(targetRoom);
+            const voiceOpt = room?.config?.voices?.[msg.lang];
+            const result = await ttsService.synthesize(msg.text, msg.lang, voiceOpt);
             if (result && result.audioBase64) {
               ws.send(JSON.stringify({
                 type: 'AUDIO_CHUNK',

@@ -38,7 +38,7 @@ const safeSetItem = (key, val) => {
 
 const DEFAULT_VOICES = {
   es: 'es-ES-ElviraNeural',
-  en: 'aura-asteria-en',
+  en: 'aura-2-thalia-en',
   it: 'it-IT-ElsaNeural',
   pt: 'pt-BR-FranciscaNeural'
 };
@@ -158,8 +158,10 @@ export const buildSettingsSnapshot = (data = {}) => ({
 
 const BOOTH_VOICE_OPTIONS = {
   es: [
-    { id: 'es-ES-ElviraNeural', name: 'Google Elvira', gender: 'female', engine: 'google', desc: 'Fluida y natural • Universal' },
-    { id: 'es-ES-AlvaroNeural', name: 'Google Álvaro', gender: 'male', engine: 'google', desc: 'Claro y profesional • Universal' },
+    { id: 'aura-2-carina-es', name: 'Deepgram Carina (Aura-2)', gender: 'female', engine: 'deepgram', desc: 'Natural y fluida • Deepgram Aura-2' },
+    { id: 'aura-2-javier-es', name: 'Deepgram Javier (Aura-2)', gender: 'male', engine: 'deepgram', desc: 'Profesional y nítido • Deepgram Aura-2' },
+    { id: 'es-ES-ElviraNeural', name: 'Azure Elvira', gender: 'female', engine: 'google', desc: 'Fluida y natural • Universal Azure $0' },
+    { id: 'es-ES-AlvaroNeural', name: 'Azure Álvaro', gender: 'male', engine: 'google', desc: 'Claro y profesional • Universal Azure $0' },
     { id: 'qwen3-tts-es', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
     { id: 'nova', name: 'OpenAI Nova', gender: 'female', engine: 'openai', desc: 'Expresiva y cálida • OpenAI' },
     { id: 'alloy', name: 'OpenAI Alloy', gender: 'neutral', engine: 'openai', desc: 'Neutra y corporativa • OpenAI' },
@@ -168,29 +170,31 @@ const BOOTH_VOICE_OPTIONS = {
     { id: 'pNInz6obpgDQGcFmaJgB', name: 'ElevenLabs Adam', gender: 'male', engine: 'elevenlabs', desc: 'Keynote magistral • 11Labs' }
   ],
   en: [
-    { id: 'aura-asteria-en', name: 'Deepgram Asteria', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
+    { id: 'aura-2-thalia-en', name: 'Deepgram Thalia (Aura-2)', gender: 'female', engine: 'deepgram', desc: 'Limpia y expresiva • Deepgram Aura-2' },
     { id: 'aura-orion-en', name: 'Deepgram Orion', gender: 'male', engine: 'deepgram', desc: 'Barítono confiado ~140ms • Saldo $200' },
+    { id: 'aura-asteria-en', name: 'Deepgram Asteria', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
     { id: 'aura-luna-en', name: 'Deepgram Luna', gender: 'female', engine: 'deepgram', desc: 'Serena y pausada • Saldo $200' },
     { id: 'aura-stella-en', name: 'Deepgram Stella', gender: 'female', engine: 'deepgram', desc: 'Directa e institucional • Saldo $200' },
     { id: 'aura-arcas-en', name: 'Deepgram Arcas', gender: 'male', engine: 'deepgram', desc: 'Amigable y cercano • Saldo $200' },
     { id: 'qwen3-tts-en', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
-    { id: 'en-US-JennyNeural', name: 'Google Jenny', gender: 'female', engine: 'google', desc: 'Articulación nítida • Universal' },
-    { id: 'en-US-GuyNeural', name: 'Google Guy', gender: 'male', engine: 'google', desc: 'Seguro y cálido • Universal' },
+    { id: 'en-US-JennyNeural', name: 'Azure Jenny', gender: 'female', engine: 'google', desc: 'Articulación nítida • Universal Azure $0' },
+    { id: 'en-US-GuyNeural', name: 'Azure Guy', gender: 'male', engine: 'google', desc: 'Seguro y cálido • Universal Azure $0' },
     { id: 'alloy', name: 'OpenAI Alloy', gender: 'neutral', engine: 'openai', desc: 'Neutra y dinámica • OpenAI' },
     { id: 'nova', name: 'OpenAI Nova', gender: 'female', engine: 'openai', desc: 'Modulación viva • OpenAI' },
     { id: 'pNInz6obpgDQGcFmaJgB', name: 'ElevenLabs Adam', gender: 'male', engine: 'elevenlabs', desc: 'Keynote magistral • 11Labs' }
   ],
   it: [
-    { id: 'it-IT-ElsaNeural', name: 'Google Elsa', gender: 'female', engine: 'google', desc: 'Italiano fluido y expresivo • Universal' },
-    { id: 'it-IT-CosimoNeural', name: 'Google Cosimo', gender: 'male', engine: 'google', desc: 'Sereno y refinado • Universal' },
+    { id: 'it-IT-ElsaNeural', name: 'Azure Elsa', gender: 'female', engine: 'google', desc: 'Italiano fluido y expresivo • Universal Azure $0' },
+    { id: 'it-IT-GiuseppeNeural', name: 'Azure Giuseppe', gender: 'male', engine: 'google', desc: 'Cálido y natural • Universal Azure $0' },
+    { id: 'it-IT-CosimoNeural', name: 'Azure Cosimo', gender: 'male', engine: 'google', desc: 'Sereno y refinado • Universal Azure $0' },
     { id: 'qwen3-tts-it', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
     { id: 'shimmer', name: 'OpenAI Shimmer', gender: 'female', engine: 'openai', desc: 'Luminosa y clara • OpenAI' },
     { id: 'alloy', name: 'OpenAI Alloy', gender: 'neutral', engine: 'openai', desc: 'Versátil • OpenAI' },
     { id: 'AZnzlk1XvdvUeBnXmlld', name: 'ElevenLabs Domi', gender: 'female', engine: 'elevenlabs', desc: 'Asertiva y dinámica • 11Labs' }
   ],
   pt: [
-    { id: 'pt-BR-FranciscaNeural', name: 'Google Francisca', gender: 'female', engine: 'google', desc: 'Portugués brasileño suave • Universal' },
-    { id: 'pt-BR-AntonioNeural', name: 'Google Antonio', gender: 'male', engine: 'google', desc: 'Enérgico y amigable • Universal' },
+    { id: 'pt-BR-FranciscaNeural', name: 'Azure Francisca', gender: 'female', engine: 'google', desc: 'Portugués brasileño suave • Universal Azure $0' },
+    { id: 'pt-BR-AntonioNeural', name: 'Azure Antonio', gender: 'male', engine: 'google', desc: 'Enérgico y amigable • Universal Azure $0' },
     { id: 'qwen3-tts-pt', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
     { id: 'echo', name: 'OpenAI Echo', gender: 'male', engine: 'openai', desc: 'Voz pausada y clara • OpenAI' },
     { id: 'nova', name: 'OpenAI Nova', gender: 'female', engine: 'openai', desc: 'Expresiva • OpenAI' },
@@ -246,8 +250,8 @@ const STT_VAD_OPTIONS = [
 ];
 
 const TTS_GLOBAL_ENGINE_OPTIONS = [
-  { value: 'deepgram', label: 'Deepgram Aura / Aura-2', description: 'Latencia ~140ms • Saldo $200' },
-  { value: 'google', label: 'Google Neural Universal', description: '100% Gratuito & Ilimitado' },
+  { value: 'deepgram', label: 'Deepgram Aura / Aura-2', description: 'Latencia ~120ms • Multilingüe ES/EN/IT' },
+  { value: 'google', label: 'Azure / Edge Neural Universal', description: '100% Gratuito & Ilimitado • Microsoft Azure $0' },
   { value: 'cartesia', label: 'Cartesia Sonic (SSM)', description: 'Ultra-baja latencia <100ms • Voces Sonic' },
   { value: 'qwen_tts', label: 'Alibaba Qwen3-TTS', description: 'Ultra-rápido 97ms • CosyVoice' },
   { value: 'elevenlabs', label: 'ElevenLabs Turbo v2.5', description: 'Hiper-realismo VIP • Latencia optimizada' },
@@ -256,9 +260,9 @@ const TTS_GLOBAL_ENGINE_OPTIONS = [
 ];
 
 const TTS_DECALAGE_OPTIONS = [
-  { value: 'natural', label: 'Natural con buffer', description: '~1.5s • Oraciones completas y fluidas' },
-  { value: 'fast', label: 'Streaming inmediato', description: '~800ms • Prioridad a la ultra-baja latencia' },
-  { value: 'paused', label: 'Pausado simultáneo', description: '~2.5s • Máxima coherencia de interpretación' }
+  { value: 'natural', label: 'Natural con buffer', description: '~1.5s • Acumulación de cláusulas y fluidez semántica' },
+  { value: 'fast', label: 'Streaming inmediato', description: '<600ms • Prioridad a la ultra-baja latencia sin espera' },
+  { value: 'paused', label: 'Pausado simultáneo', description: '~2.5s • Acumula oraciones completas para máxima coherencia' }
 ];
 
 const AI_PROVIDER_OPTIONS = [
@@ -754,12 +758,14 @@ export default function AdminSettingsShell({
 
   const handlePreferredTtsEngineChange = (newEngine) => {
     setPreferredTtsEngine(newEngine);
+    setIsDirty(true);
     const newVoices = { ...voiceConfig };
     BOOTHS.forEach(b => {
       const currentGender = voiceGender[b.lang] || 'female';
       const options = BOOTH_VOICE_OPTIONS[b.lang] || [];
       const best = options.find(v => v.engine === newEngine && v.gender === currentGender)
         || options.find(v => v.engine === newEngine)
+        || options.find(v => v.gender === currentGender)
         || options[0];
       if (best) newVoices[b.lang] = best.id;
     });
@@ -768,6 +774,7 @@ export default function AdminSettingsShell({
 
   const handleVoiceChange = (lang, newVoiceId) => {
     setVoiceConfig(prev => ({ ...prev, [lang]: newVoiceId }));
+    setIsDirty(true);
     const found = (BOOTH_VOICE_OPTIONS[lang] || []).find(v => v.id === newVoiceId);
     if (found && (found.gender === 'male' || found.gender === 'female')) {
       setVoiceGender(prev => ({ ...prev, [lang]: found.gender }));
@@ -776,6 +783,7 @@ export default function AdminSettingsShell({
 
   const handleGenderChange = (lang, newGender) => {
     setVoiceGender(prev => ({ ...prev, [lang]: newGender }));
+    setIsDirty(true);
     const candidates = (BOOTH_VOICE_OPTIONS[lang] || []).filter(v => v.gender === newGender);
     const currentEngine = preferredTtsEngine;
     const matched = candidates.find(v => v.engine === currentEngine) || candidates[0];
@@ -908,6 +916,7 @@ export default function AdminSettingsShell({
       // Propagar al grabador de audio en vivo del cliente
       try {
         if (typeof audioRecorderService !== 'undefined') {
+          if (sttEngine) audioRecorderService.setSttEngine?.(sttEngine);
           if (sttLang) audioRecorderService.setLanguage?.(sttLang);
           if (sttVad) audioRecorderService.setVadSensitivity?.(sttVad);
           if (decalageMode) audioRecorderService.setDecalageMode?.(decalageMode);
@@ -919,7 +928,7 @@ export default function AdminSettingsShell({
       if (effectiveRoomId) {
         fetch(`/api/rooms/${effectiveRoomId}/voices`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ voiceConfig, voiceGender })
+          body: JSON.stringify({ voiceConfig, voiceGender, preferredTtsEngine, decalageMode })
         }).catch(() => {});
       }
 
@@ -1638,6 +1647,11 @@ export default function AdminSettingsShell({
                           <span className="font-semibold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100">
                             {b.label}
                           </span>
+                          {(b.lang === 'pt' || b.lang === 'it') && preferredTtsEngine === 'deepgram' && (
+                            <span className="ml-2 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md font-medium">
+                              Azure Neural (Deepgram sin {b.lang.toUpperCase()})
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -1689,7 +1703,7 @@ export default function AdminSettingsShell({
                     <button
                       type="button"
                       onClick={() => handlePreviewVoice(b.lang)}
-                      className={`w-full h-11 px-4 rounded-2xl text-xs sm:text-sm font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      className={`w-full h-11 px-4 rounded-full sm:rounded-2xl text-xs sm:text-sm font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
                         isPreviewing
                           ? 'bg-zinc-100 hover:bg-zinc-200/90 text-zinc-900 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white border border-zinc-300 dark:border-white/20 shadow-2xs'
                           : 'bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-white/10 shadow-2xs'
@@ -2321,7 +2335,7 @@ export default function AdminSettingsShell({
     if (variant === 'modal') {
       return (
         <div className="w-full max-w-5xl h-[92vh] sm:h-[680px] max-h-[92vh] rounded-[28px] sm:rounded-[30px] bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xl flex items-center justify-center relative">
-          <button onClick={handleCloseAttempt} className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 z-10 cursor-pointer rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><X className="w-5 h-5"/></button>
+          <button onClick={handleCloseAttempt} className="absolute top-4 right-4 w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation z-10" title="Cerrar panel" aria-label="Cerrar panel"><X className="w-4 h-4"/></button>
           <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
         </div>
       );
@@ -2436,7 +2450,7 @@ export default function AdminSettingsShell({
               <button
                 type="button"
                 onClick={handleCloseAttempt}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation"
                 title="Cerrar panel de administración"
                 aria-label="Cerrar panel"
               >

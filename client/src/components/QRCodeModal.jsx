@@ -268,9 +268,6 @@ export default function QRCodeModal({
           {/* Columna Derecha: Título de Conferencia y Pasos para la Audiencia */}
           <div className="flex flex-col justify-center space-y-5 sm:space-y-8 text-left max-w-xl">
             <div>
-              <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" title="Sintonización en vivo abierta" />
-              </div>
               <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
                 {modalDisplayTitle}
               </h1>
@@ -373,9 +370,9 @@ export default function QRCodeModal({
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-blue-500/20 dark:via-blue-400/20 to-transparent pointer-events-none" />
 
         {/* ── 1. CABECERA DEL MODAL ─────────────────────────────────── */}
-        <header className="flex items-center justify-between px-4 sm:px-8 py-3.5 sm:py-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shrink-0">
+        <header className="flex items-center justify-between px-4 sm:px-8 pt-[max(0.875rem,env(safe-area-inset-top,0px))] pb-3.5 sm:py-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs shrink-0">
+            <div className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs shrink-0">
               <QrCode className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
@@ -401,7 +398,7 @@ export default function QRCodeModal({
             <button
               type="button"
               onClick={handleClose}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation"
               title="Cerrar modal"
               aria-label="Cerrar"
             >
@@ -430,7 +427,7 @@ export default function QRCodeModal({
             </div>
 
             {/* Píldora destacada del Código de Sala con copia en 1 clic */}
-            <div className="flex items-center justify-between gap-3 px-4 py-2 bg-zinc-100/90 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl w-full max-w-[280px]">
+            <div className="flex items-center justify-between gap-3 px-4 py-2 bg-zinc-100/90 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-full w-full max-w-[280px]">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500">
                   Sala:
@@ -442,7 +439,7 @@ export default function QRCodeModal({
               <button
                 type="button"
                 onClick={handleCopyRoomCode}
-                className="p-1.5 rounded-xl hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer flex-shrink-0"
+                className="p-1.5 rounded-full hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer flex-shrink-0"
                 title="Copiar código de sala"
                 aria-label="Copiar código de sala"
               >
@@ -453,14 +450,14 @@ export default function QRCodeModal({
             {/* Selector de Red Segmentado (Wi-Fi vs 4G en local, o Universal en Cloud) */}
             {isLoopback ? (
               <div className="w-full max-w-[280px] space-y-2">
-                <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-100/80 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl shadow-2xs">
+                <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-100/80 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-full shadow-2xs">
                   <button
                     type="button"
                     onClick={() => {
                       setNetworkMode('local');
                       setTunnelError(null);
                     }}
-                    className={`h-9 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none ${
+                    className={`h-9 flex items-center justify-center gap-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer select-none ${
                       networkMode === 'local'
                         ? 'bg-white dark:bg-white/10 text-zinc-900 dark:text-white shadow-2xs border border-zinc-200/60 dark:border-white/10'
                         : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-transparent'
@@ -476,7 +473,7 @@ export default function QRCodeModal({
                       if (!publicUrl) handleStartTunnel();
                       else setNetworkMode('public');
                     }}
-                    className={`h-9 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none ${
+                    className={`h-9 flex items-center justify-center gap-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer select-none ${
                       networkMode === 'public'
                         ? 'bg-white dark:bg-white/10 text-zinc-900 dark:text-white shadow-2xs border border-zinc-200/60 dark:border-white/10'
                         : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-transparent'
@@ -538,11 +535,8 @@ export default function QRCodeModal({
 
           {/* COLUMNA DERECHA: Instrucciones para la audiencia y diagnóstico */}
           <div className="flex flex-col space-y-6 text-left">
-            {/* Título de sala y punto de emisión en vivo */}
+            {/* Título de sala */}
             <div>
-              <div className="flex items-center gap-2 mb-2 sm:mb-2.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Audio simultáneo en vivo" />
-              </div>
               <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight leading-snug">
                 {modalDisplayTitle}
               </h3>
@@ -659,7 +653,7 @@ export default function QRCodeModal({
 
         {/* ── 3. PIE DE ACCIONES (ESTILO STUDIO 2026) ────────────────── */}
         <footer className="px-4 sm:px-8 py-3.5 sm:py-4 bg-zinc-50/95 dark:bg-zinc-900/90 backdrop-blur-md border-t border-zinc-200/80 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-          <div className="w-full sm:w-auto flex-1 min-w-0 text-left">
+          <div className="hidden sm:block w-full sm:w-auto flex-1 min-w-0 text-left">
             <div className="text-[10px] sm:text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
               Vínculo directo de oyente
             </div>
@@ -672,7 +666,7 @@ export default function QRCodeModal({
             <button
               type="button"
               onClick={handleCopyLink}
-              className="flex-1 sm:flex-none h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 hover:bg-zinc-200/80 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-200 font-medium text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
+              className="flex-1 sm:flex-none h-10 px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 hover:bg-zinc-200/80 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-200 font-medium text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95 touch-manipulation"
             >
               {copied ? (
                 <>
@@ -690,7 +684,7 @@ export default function QRCodeModal({
             <button
               type="button"
               onClick={handleDownloadQR}
-              className="flex-1 sm:flex-none h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 hover:bg-zinc-200/80 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-200 font-medium text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95"
+              className="flex-1 sm:flex-none h-10 px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 hover:bg-zinc-200/80 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-200 font-medium text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95 touch-manipulation"
               title="Descargar código QR"
             >
               <Download className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />

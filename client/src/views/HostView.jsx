@@ -4,7 +4,7 @@ import {
   RefreshCw, Check, Globe, ChevronRight, Activity, Users, QrCode, Play, Square,
   Send, Layers, ArrowRight, ArrowLeft, ArrowUp, Type, Shield, Download, FileText, Stethoscope, Home,
   Search, ExternalLink, Headphones, Hand, HelpCircle, CheckCircle2, XCircle, MessageSquare,
-  Menu, X, SlidersHorizontal, Copy, ChevronDown, PanelRight, Zap, Bell
+  Menu, X, SlidersHorizontal, Copy, ChevronDown, PanelRight, Zap, Bell, Loader2
 } from 'lucide-react';
 import CountryFlag from '../components/shared/CountryFlag.jsx';
 import LiveCaptions from '../components/LiveCaptions.jsx';
@@ -15,6 +15,9 @@ import AttendeesModal from '../components/AttendeesModal.jsx';
 import SessionSummaryModal from '../components/SessionSummaryModal.jsx';
 import MasterBroadcastDock from '../components/mobile/MasterBroadcastDock.jsx';
 import CabinsBottomSheet from '../components/mobile/CabinsBottomSheet.jsx';
+import QABottomSheet from '../components/mobile/QABottomSheet.jsx';
+import AttendeesBottomSheet from '../components/mobile/AttendeesBottomSheet.jsx';
+import StudioSettingsBottomSheet from '../components/mobile/StudioSettingsBottomSheet.jsx';
 import QABannerAlert from '../components/mobile/QABannerAlert.jsx';
 import MobileHeaderMenu from '../components/mobile/MobileHeaderMenu.jsx';
 import Banner from '../components/shared/Banner.jsx';
@@ -179,9 +182,11 @@ export default function HostView({
   const [monitoredLang, setMonitoredLang] = useState('none');
   const [previewingLang, setPreviewingLang] = useState(null);
   const previewAbortRef = useRef(null);
-  const [isMobileInspectorOpen, setIsMobileInspectorOpen] = useState(false);
   const [isDesktopInspectorOpen, setIsDesktopInspectorOpen] = useState(true);
   const [isCabinsSheetOpen, setIsCabinsSheetOpen] = useState(false);
+  const [isQASheetOpen, setIsQASheetOpen] = useState(false);
+  const [isAttendeesSheetOpen, setIsAttendeesSheetOpen] = useState(false);
+  const [isStudioSettingsOpen, setIsStudioSettingsOpen] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [participantSearch, setParticipantSearch] = useState('');
   const [broadcastSeconds, setBroadcastSeconds] = useState(0);
@@ -266,7 +271,6 @@ export default function HostView({
   // ElevenLabs Precision Sliders State
   const [speechRate, setSpeechRate] = useState(1.0);
   const [decalageValue, setDecalageValue] = useState(50);
-  const [vadSensitivity, setVadSensitivity] = useState(65);
   const [boothVolume, setBoothVolume] = useState(85);
 
   // Active Voices Configuration
@@ -939,9 +943,12 @@ export default function HostView({
       localStorage.setItem('lv_voice_gender', JSON.stringify(updatedGenders));
 
       if (roomId) {
+        const token = adminAuthService.getToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         fetch(`/api/rooms/${roomId}/voices`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             voiceConfig: updatedVoices,
             voiceGender: updatedGenders
@@ -965,6 +972,26 @@ export default function HostView({
       setTimeout(() => setVoiceToast(null), 3000);
     } catch (e) {
       console.warn('[HostView] Error al persistir voces:', e);
+    }
+  };
+
+  const handleDecalageChange = (v) => {
+    setDecalageValue(v);
+    audioRecorderService.setDecalageMode?.(v);
+    const token = adminAuthService.getToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (roomId) {
+      fetch(`/api/rooms/${roomId}/decalage`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          decalageMode: v < 40 ? 'quick' : 'natural',
+          decalageValue: v
+        })
+      }).catch((err) => {
+        console.warn('[HostView] Error al actualizar decalage:', err);
+      });
     }
   };
 
@@ -1120,46 +1147,33 @@ export default function HostView({
 
   const currentPrimaryVoiceName = selectedVoices.es ? (selectedVoices.es.includes('Elvira') ? 'Elvira Neural (ES)' : selectedVoices.es) : 'Elvira Neural';
 
-  const renderInspectorContent = (isMobile = false) => (
+  const renderInspectorContent = () => (
     <div className="space-y-4">
-      {/* Mobile top tabs */}
-      {isMobile && (
-        <div className="flex items-center gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80">
-          {[
-            { id: 'cabins', label: 'Cabinas' },
-            { id: 'qa', label: `Q&A ${qaQueue.filter(q => q.status === 'pending').length ? `(${qaQueue.filter(q => q.status === 'pending').length})` : ''}` },
-            { id: 'room', label: 'Sala' }
-          ].map(t => (
-            <button
-              key={t.id}
-              onClick={() => setInspectorTab(t.id)}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
-                inspectorTab === t.id
-                  ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-2xs'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Tab: Cabinas */}
       {inspectorTab === 'cabins' && (
         <div className="space-y-4 text-left animate-fadeIn">
           {/* Headphone Monitor & Volume Card */}
           <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-3 shadow-2xs">
-            <div className="flex items-center gap-2">
-              <Headphones className="w-4 h-4 text-zinc-800 dark:text-zinc-200" />
-              <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Retorno de Auriculares</span>
-            </div>
+            <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 block">
+              Retorno de Auriculares
+            </span>
 
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
               {monitoredLang !== 'none'
                 ? `Monitoreando retorno en directo en ${monitoredLang.toUpperCase()}. Silencia cuando hables al micrófono para evitar eco.`
                 : 'Silenciado para no escuchar eco mientras hablas. Selecciona una cabina para audicionar su locución.'}
             </p>
+
+            <button
+              type="button"
+              onClick={() => audioPlayerService.playAudioTestTone()}
+              className="w-full h-7 px-3 rounded-full bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 touch-manipulation"
+              title="Probar sonido de altavoz o auriculares locales"
+            >
+              <Bell className="w-3 h-3 text-zinc-600 dark:text-zinc-300" />
+              <span>Probar</span>
+            </button>
 
             {monitoredLang !== 'none' && (
               <div className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-medium leading-tight ${
@@ -1174,18 +1188,6 @@ export default function HostView({
                 </span>
               </div>
             )}
-
-            <div className="pt-0.5 flex">
-              <button
-                type="button"
-                onClick={() => audioPlayerService.playAudioTestTone()}
-                className="w-full py-1.5 px-3 rounded-xl bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
-                title="Probar sonido de altavoz o auriculares locales"
-              >
-                <Bell className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" />
-                <span>Probar</span>
-              </button>
-            </div>
 
             {/* Slider de Volumen Auriculares Integrado Ergonómicamente */}
             <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70">
@@ -1439,19 +1441,10 @@ export default function HostView({
 
             {/* Auditoría Técnica Exclusiva para Administrador */}
             {isAdminVerified && (
-              <div className="p-3.5 rounded-2xl border border-purple-200 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-950/30 space-y-2.5 text-xs shadow-2xs">
-                <div className="flex items-center justify-between border-b border-purple-200/60 dark:border-purple-800/40 pb-2">
-                  <span className="font-semibold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
-                    Telemetría Admin (STT & IA)
-                  </span>
-                  <span className="px-1.5 py-0.2 rounded bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-[9px] font-mono">
-                    ADMIN
-                  </span>
-                </div>
+              <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-2 text-xs shadow-2xs">
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-500 dark:text-zinc-400">Motor STT Activo:</span>
-                  <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+                  <span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">
                     {activeSttInfo?.label || 'Deepgram Nova-3'}
                   </span>
                 </div>
@@ -1475,17 +1468,17 @@ export default function HostView({
                         {activeTelemetry.engineUsed || 'Google Gemini 3.1'}
                       </span>
                     </div>
-                    <div className="pt-1 border-t border-purple-100 dark:border-purple-900/40 grid grid-cols-3 gap-1 text-center font-mono text-[10px]">
-                      <div className="p-1 rounded bg-white/60 dark:bg-zinc-900/60">
-                        <div className="text-zinc-400">STT</div>
+                    <div className="pt-1.5 border-t border-zinc-200/70 dark:border-zinc-800/70 grid grid-cols-3 gap-1.5 text-center font-mono text-[10px]">
+                      <div className="p-1.5 rounded-xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/50">
+                        <div className="text-[9px] text-zinc-400">STT</div>
                         <div className="font-bold text-zinc-800 dark:text-zinc-200">{activeTelemetry.sttMs || 0}ms</div>
                       </div>
-                      <div className="p-1 rounded bg-white/60 dark:bg-zinc-900/60">
-                        <div className="text-zinc-400">LLM</div>
+                      <div className="p-1.5 rounded-xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/50">
+                        <div className="text-[9px] text-zinc-400">LLM</div>
                         <div className="font-bold text-zinc-800 dark:text-zinc-200">{activeTelemetry.transMs || 0}ms</div>
                       </div>
-                      <div className="p-1 rounded bg-white/60 dark:bg-zinc-900/60">
-                        <div className="text-zinc-400">Total</div>
+                      <div className="p-1.5 rounded-xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/50">
+                        <div className="text-[9px] text-zinc-400">Total</div>
                         <div className="font-bold text-emerald-600 dark:text-emerald-400">{activeTelemetry.totalLatencyMs || 0}ms</div>
                       </div>
                     </div>
@@ -1622,64 +1615,76 @@ export default function HostView({
   if (isInitializing) {
     return (
       <div className="fixed inset-0 z-50 w-full h-full flex flex-col items-center justify-center bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6 space-y-4 text-center select-none overflow-hidden animate-fadeIn">
-        <div className="relative flex items-center justify-center">
-          <div className="w-12 h-12 rounded-full border-2 border-zinc-200 dark:border-zinc-800 border-t-zinc-900 dark:border-t-zinc-100 animate-spin" />
-          <Radio className="w-5 h-5 text-zinc-600 dark:text-zinc-400 absolute" />
-        </div>
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        <Loader2 className="w-8 h-8 text-zinc-800 dark:text-zinc-200 animate-spin" />
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 tracking-tight">
             Iniciando estudio de emisión...
           </p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
-            {roomId}
-          </p>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>{roomId}</span>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-dvh min-h-dvh w-full flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-hidden font-sans select-none transition-colors">
+    <div className="h-full min-h-0 flex-1 w-full flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-hidden font-sans select-none transition-colors">
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* CABECERA MÓVIL (MOBILE HEADER 48px, sm:hidden)                */}
+      {/* CABECERA MÓVIL (MOBILE HEADER, sm:hidden)                     */}
+      {/* Ajuste ergonómico de 56px + Safe Area Inset para iOS Safari    */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <header className="sm:hidden h-12 w-full bg-white dark:bg-zinc-950 px-3 flex items-center justify-between z-30 select-none flex-shrink-0">
-        <button
-          type="button"
-          onClick={() => onLeave({ reason: 'voluntary', isMobile: true })}
-          className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
-          title="Salir al inicio"
-          aria-label="Salir al inicio"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
+      <header className="sm:hidden h-[calc(3.5rem+env(safe-area-inset-top,0px))] pt-safe border-b border-zinc-200 dark:border-zinc-800/80 px-4 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0 z-30 select-none">
+        {/* Izquierda: Salir de la sala con touch target de 44px HIG */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onLeave({ reason: 'voluntary', isMobile: true })}
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-xs active:scale-95 touch-manipulation"
+            title="Salir al inicio"
+            aria-label="Salir al inicio"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+        </div>
 
-        <button
-          type="button"
-          onClick={handleCopyMeetingLink}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition-all cursor-pointer truncate shadow-2xs"
-          title="Copiar vínculo de la sala"
-        >
-          <span>{roomId}</span>
-          {hasCopiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> : <Copy className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />}
-        </button>
+        {/* Centro: Cápsula de sala táctil con altura mínima de 44px */}
+        <div className="flex items-center justify-center flex-1 min-w-0 px-1.5">
+          <button
+            type="button"
+            onClick={handleCopyMeetingLink}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition-all cursor-pointer truncate shadow-xs active:scale-95 touch-manipulation"
+            title="Toca para copiar vínculo de la sala"
+          >
+            <span className="truncate">{roomId}</span>
+            {hasCopiedLink ? (
+              <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+            ) : (
+              <Copy className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-shrink-0" />
+            )}
+          </button>
+        </div>
 
-        <MobileHeaderMenu
-          roomId={roomId}
-          onOpenSettings={() => onOpenSettings && onOpenSettings()}
-          onOpenAttendees={() => setIsAttendeesModalOpen(true)}
-          attendeesCount={roomStats.attendees?.length || 0}
-          onOpenSummary={handleGenerateSummary}
-          onOpenVoices={() => {
-            setSelectedCatalogLang('all');
-            setSidebarTab('catalog');
-          }}
-          onOpenQR={() => setIsQrModalOpen(true)}
-          hasCopiedLink={hasCopiedLink}
-          onCopyLink={handleCopyMeetingLink}
-          onLeave={() => onLeave({ reason: 'voluntary', isMobile: true })}
-        />
+        {/* Derecha: Menú desplegable móvil con touch target de 44px */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <MobileHeaderMenu
+            roomId={roomId}
+            onOpenSettings={() => onOpenSettings && onOpenSettings()}
+            onOpenQR={() => setIsQrModalOpen(true)}
+            onOpenAttendees={() => setIsAttendeesSheetOpen(true)}
+            attendeesCount={roomStats.attendees?.length || 0}
+            onOpenSummary={handleGenerateSummary}
+            onOpenVoices={() => {
+              setSelectedCatalogLang('all');
+              setSidebarTab('catalog');
+            }}
+            hasCopiedLink={hasCopiedLink}
+            onCopyLink={handleCopyMeetingLink}
+            onLeave={() => onLeave({ reason: 'voluntary', isMobile: true })}
+          />
+        </div>
       </header>
 
       {/* ───────────────────────────────────────────────────────────── */}
@@ -1757,21 +1762,18 @@ export default function HostView({
             <PanelRight className="w-4 h-4" />
           </button>
 
-          {/* Píldora de Perfil del Anfitrión con UserMenu de standalone-assistant */}
+          {/* Botón de Perfil del Anfitrión con UserMenu */}
           <button
             ref={hostUserMenuTriggerRef}
             type="button"
             onClick={() => setIsHostUserMenuOpen(prev => !prev)}
-            className="flex items-center gap-1.5 h-8 pl-1 pr-2.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 transition-colors cursor-pointer shadow-2xs select-none"
-            title="Tu perfil en la sala"
+            className="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center transition-colors cursor-pointer shadow-2xs select-none active:scale-95"
+            title="Tu perfil en la sala (Ponente)"
             aria-label="Perfil del anfitrión"
           >
             <div className="w-6 h-6 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center text-[10px] font-bold">
               P
             </div>
-            <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-              Ponente
-            </span>
           </button>
 
           <UserMenu
@@ -2011,14 +2013,7 @@ export default function HostView({
                     leftLabel="Rápido (3s)"
                     rightLabel="Ponencia (6s)"
                     formatValue={(val) => (val < 40 ? 'Ágil' : 'Ponencia')}
-                    onChange={(v) => {
-                      setDecalageValue(v);
-                      fetch(`/api/rooms/${roomId}/decalage`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ decalageMode: v < 40 ? 'quick' : 'natural' })
-                      }).catch(() => {});
-                    }}
+                    onChange={handleDecalageChange}
                   />
                 </div>
               </div>
@@ -2134,23 +2129,6 @@ export default function HostView({
                     {effectiveTotalListeners} oyente{effectiveTotalListeners === 1 ? '' : 's'} conectado{effectiveTotalListeners === 1 ? '' : 's'} · Emisión neuronal en 4 cabinas
                   </p>
                 </div>
-                {isAdminVerified && (
-                  <div
-                    className="hidden md:inline-flex items-center gap-2 px-2.5 py-1 rounded-xl bg-purple-50/90 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800 text-[11px] font-mono text-purple-700 dark:text-purple-300 shadow-2xs animate-fadeIn"
-                    title="Información técnica de transcripción exclusiva para Administrador"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
-                    <span className="font-semibold">STT: {activeSttInfo?.label || 'Deepgram Nova-3'}</span>
-                    <span className="text-purple-300 dark:text-purple-700">|</span>
-                    <span className="text-[10px] opacity-80">{activeSttInfo?.mode === 'streaming' ? 'Streaming' : 'Chunks'}</span>
-                    {typeof activeTelemetry?.totalLatencyMs === 'number' && activeTelemetry.totalLatencyMs > 0 && (
-                      <>
-                        <span className="text-purple-300 dark:text-purple-700">|</span>
-                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{activeTelemetry.totalLatencyMs}ms</span>
-                      </>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div className="flex items-center gap-2.5">
@@ -2193,7 +2171,7 @@ export default function HostView({
           </div>
 
           {/* Canvas Body con Subtítulos y Barra de Emisión Manual */}
-          <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden p-4 sm:px-6 sm:pt-6 sm:pb-3 space-y-3">
+          <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden p-4 pb-28 sm:px-6 sm:pt-6 sm:pb-3 space-y-3">
             <div className="w-full max-w-4xl mx-auto flex-1 min-h-0 flex flex-col space-y-3">
               {/* Error Banner */}
               {broadcastError && (
@@ -2334,34 +2312,9 @@ export default function HostView({
             <div className="mx-5 border-b border-zinc-200 dark:border-zinc-800/80 flex-shrink-0" />
 
             <div className="flex-1 overflow-y-auto px-5 pt-4 pb-5 space-y-4">
-              {renderInspectorContent(false)}
+              {renderInspectorContent()}
             </div>
           </aside>
-        )}
-
-        {/* Mobile Right Drawer for Inspector */}
-        {isMobileInspectorOpen && (
-          <div className="fixed inset-0 z-50 sm:hidden flex justify-end">
-            <div
-              className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
-              onClick={() => setIsMobileInspectorOpen(false)}
-            />
-            <aside className="relative w-full sm:w-96 max-w-[92vw] h-full bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 flex flex-col p-4 space-y-4 overflow-y-auto shadow-2xl z-10 animate-fadeIn">
-              <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
-                <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                  Inspector de Sala
-                </span>
-                <button
-                  onClick={() => setIsMobileInspectorOpen(false)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 cursor-pointer"
-                  title="Cerrar panel"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              {renderInspectorContent(true)}
-            </aside>
-          </div>
         )}
 
       </div>
@@ -2372,20 +2325,67 @@ export default function HostView({
           isBroadcasting={isBroadcasting}
           onToggleBroadcast={handleToggleBroadcast}
           isToggling={isTogglingBroadcast}
-          monitoredLang={monitoredLang}
-          onToggleMonitoring={handleToggleMonitoring}
+          onOpenAttendees={() => setIsAttendeesSheetOpen(true)}
+          attendeesCount={roomStats.attendees?.length || 0}
+          onOpenStudioSettings={() => setIsStudioSettingsOpen(true)}
           onOpenCabinsSheet={() => setIsCabinsSheetOpen(true)}
-          onOpenQR={() => setIsQrModalOpen(true)}
-          onOpenQA={() => {
-            setInspectorTab('qa');
-            setIsMobileInspectorOpen(true);
-          }}
+          onOpenQA={() => setIsQASheetOpen(true)}
           audioRecorderService={audioRecorderService}
           pendingQACount={qaQueue.filter(q => q.status === 'pending').length}
         />
       </div>
 
-      {/* Mobile Cabins Bottom Sheet */}
+      {/* Mobile Studio Settings Bottom Sheet (Sección Exclusiva de Ajustes de Estudio / Micrófono e Idioma) */}
+      <StudioSettingsBottomSheet
+        isOpen={isStudioSettingsOpen}
+        onClose={() => setIsStudioSettingsOpen(false)}
+        sourceLanguage={sourceLanguage}
+        onSelectSourceLanguage={(langCode) => {
+          setSourceLanguage(langCode);
+          lastExplicitSpeakerLangRef.current = langCode;
+          try { localStorage.setItem('lv_stt_lang', langCode); } catch (e) {}
+          audioRecorderService.setLanguage(langCode);
+        }}
+        onToggleAutoLanguage={() => {
+          const next = sourceLanguage === 'auto'
+            ? (lastExplicitSpeakerLangRef.current || 'es-ES')
+            : 'auto';
+          setSourceLanguage(next);
+          try { localStorage.setItem('lv_stt_lang', next); } catch (err) {}
+          audioRecorderService.setLanguage(next);
+        }}
+        devices={devices}
+        selectedDevice={selectedDevice}
+        onChangeDevice={async (newDev) => {
+          const dev = newDev || 'default';
+          setSelectedDevice(dev);
+          if (isBroadcasting) {
+            if (isSwitchingDeviceRef.current) return;
+            isSwitchingDeviceRef.current = true;
+            try {
+              await audioRecorderService.switchDevice(dev);
+            } catch (err) {
+              console.error('[HostView] Error en conmutación en caliente de micrófono:', err);
+              setBroadcastError('No se pudo conmutar al nuevo micrófono. Se mantiene el dispositivo previo.');
+            } finally {
+              isSwitchingDeviceRef.current = false;
+            }
+          } else {
+            audioRecorderService.setDevice(dev);
+          }
+        }}
+        speechRate={speechRate}
+        onChangeSpeechRate={(v) => {
+          setSpeechRate(v);
+          audioPlayerService.setPlaybackRate(v);
+        }}
+        decalageValue={decalageValue}
+        onChangeDecalage={handleDecalageChange}
+        isBroadcasting={isBroadcasting}
+        audioRecorderService={audioRecorderService}
+      />
+
+      {/* Mobile Cabins Bottom Sheet (Sección Exclusiva de Cabinas) */}
       <CabinsBottomSheet
         isOpen={isCabinsSheetOpen}
         onClose={() => setIsCabinsSheetOpen(false)}
@@ -2402,9 +2402,36 @@ export default function HostView({
           handleOpenCatalogForCabin(lang || 'all');
         }}
         decalageValue={decalageValue}
-        onDecalageChange={setDecalageValue}
+        onDecalageChange={handleDecalageChange}
         boothVolume={boothVolume}
         onVolumeChange={setBoothVolume}
+      />
+
+      {/* Mobile Q&A Bottom Sheet (Sección Exclusiva de Preguntas) */}
+      <QABottomSheet
+        isOpen={isQASheetOpen}
+        onClose={() => setIsQASheetOpen(false)}
+        qaQueue={qaQueue}
+        activeQuestion={activeQuestion}
+        incomingQuestionAudio={incomingQuestionAudio}
+        onApproveQuestion={handleApproveQuestion}
+        onCloseQuestion={handleCloseQuestion}
+      />
+
+      {/* Mobile Attendees Bottom Sheet (Sección Exclusiva de Participantes) */}
+      <AttendeesBottomSheet
+        isOpen={isAttendeesSheetOpen}
+        onClose={() => setIsAttendeesSheetOpen(false)}
+        roomId={roomId}
+        roomStats={roomStats}
+        effectiveTotalListeners={effectiveTotalListeners}
+        sourceLanguage={sourceLanguage}
+        socketLatency={socketLatency}
+        isBroadcasting={isBroadcasting}
+        isAdminVerified={isAdminVerified}
+        activeSttInfo={activeSttInfo}
+        activeTelemetry={activeTelemetry}
+        onKickAttendee={handleKickAttendee}
       />
 
       {/* Global Modals */}

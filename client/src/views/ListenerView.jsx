@@ -23,7 +23,8 @@ import {
   Pencil,
   Users,
   Search,
-  AudioLines
+  AudioLines,
+  Loader2
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import LanguageSelector, { SUPPORTED_LANGUAGES } from '../components/LanguageSelector.jsx';
@@ -470,15 +471,18 @@ export default function ListenerView({
   if (isInitializing) {
     return (
       <div className="fixed inset-0 z-50 w-full h-full flex flex-col items-center justify-center bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6 space-y-4 text-center select-none overflow-hidden animate-fadeIn">
-        <div className="relative flex items-center justify-center">
-          <div className="w-12 h-12 rounded-full border-2 border-zinc-200 dark:border-zinc-800 border-t-zinc-900 dark:border-t-zinc-100 animate-spin" />
-          <Volume2 className="w-5 h-5 text-zinc-600 dark:text-zinc-400 absolute" />
-        </div>
-        <div className="space-y-1 max-w-xs">
-          <h3 className="font-semibold text-xs sm:text-sm tracking-tight text-zinc-900 dark:text-zinc-100">
-            Sintonizando sala <span className="font-mono text-zinc-600 dark:text-zinc-400">{roomId}</span>
-          </h3>
-          <p className="text-[11px] sm:text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
+        <Loader2 className="w-8 h-8 text-zinc-800 dark:text-zinc-200 animate-spin" />
+        <div className="space-y-2 max-w-xs text-center">
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 tracking-tight">
+              Sintonizando sala
+            </p>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>{roomId}</span>
+            </div>
+          </div>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
             Conectando con la cabina de audio e interpretación en directo...
           </p>
         </div>
@@ -487,19 +491,19 @@ export default function ListenerView({
   }
 
   return (
-    <div className="h-dvh min-h-dvh w-full flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-hidden font-sans select-none transition-colors">
+    <div className="h-full min-h-0 flex-1 w-full flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-hidden font-sans select-none transition-colors">
 
       {/* ───────────────────────────────────────────────────────────── */}
       {/* CABECERA MÓVIL: SALA Y CONTROLES ESENCIALES                   */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <header className="sm:hidden h-[calc(3.5rem+env(safe-area-inset-top,0px))] pt-safe border-b border-zinc-200 dark:border-zinc-800/80 px-4 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0 z-30">
+      <header className="sm:hidden h-[calc(3.5rem+env(safe-area-inset-top,0px))] pt-safe border-b border-zinc-200 dark:border-zinc-800/80 px-4 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0 z-30 select-none">
 
         {/* Left: Mobile Exit */}
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => handleExit(false)}
-            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-xs active:scale-95"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-xs active:scale-95 touch-manipulation"
             title="Salir de la sala"
             aria-label="Salir de la sala"
           >
@@ -512,7 +516,7 @@ export default function ListenerView({
           <button
             type="button"
             onClick={handleCopyMeetingLink}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition-all cursor-pointer truncate shadow-xs active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition-all cursor-pointer truncate shadow-xs active:scale-95 touch-manipulation"
             title="Toca para copiar vínculo de la reunión"
           >
             <span className="truncate">{roomId}</span>
@@ -529,7 +533,7 @@ export default function ListenerView({
           <button
             type="button"
             onClick={toggleTheme}
-            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-xs active:scale-95"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-xs active:scale-95 touch-manipulation"
             title={resolvedTheme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
             aria-label={resolvedTheme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           >

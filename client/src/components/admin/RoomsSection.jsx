@@ -264,7 +264,7 @@ export default function RoomsSection({
             adminAuthService.clearToken();
             window.dispatchEvent(new CustomEvent('liftvoice_admin_unauthorized'));
           }}
-          className="h-11 px-5 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs sm:text-sm font-semibold hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors shadow-sm cursor-pointer"
+          className="h-11 px-5 rounded-full sm:rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs sm:text-sm font-semibold hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors shadow-sm cursor-pointer"
         >
           Iniciar Sesión de Administrador
         </button>
@@ -441,7 +441,7 @@ export default function RoomsSection({
                     <button
                       type="button"
                       onClick={() => handleCopyLink(selectedRoom.roomId)}
-                      className="h-11 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/60 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-medium transition-all active:scale-95 shadow-2xs flex items-center gap-2 cursor-pointer shrink-0"
+                      className="h-11 px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/60 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-medium transition-all active:scale-95 shadow-2xs flex items-center gap-2 cursor-pointer shrink-0"
                     >
                       {copiedId === selectedRoom.roomId ? (
                         <>
@@ -489,7 +489,7 @@ export default function RoomsSection({
                     <button
                       type="button"
                       onClick={() => setActiveQrRoom(selectedRoom)}
-                      className="h-10 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/60 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer shrink-0"
+                      className="h-10 px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/60 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer shrink-0"
                     >
                       <QrCode className="w-4 h-4" />
                       <span>Proyectar código QR</span>
@@ -510,7 +510,7 @@ export default function RoomsSection({
                     <button
                       type="button"
                       onClick={() => window.open(listenerUrl, '_blank', 'noopener,noreferrer')}
-                      className="h-10 px-4 rounded-2xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs sm:text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer shrink-0 shadow-xs"
+                      className="h-10 px-4 rounded-full sm:rounded-2xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs sm:text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer shrink-0 shadow-xs"
                     >
                       <ExternalLink className="w-4 h-4" />
                       <span>Entrar como oyente</span>
@@ -531,7 +531,7 @@ export default function RoomsSection({
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteId(selectedRoom.roomId)}
-                      className="h-10 px-4 rounded-2xl border border-rose-200 dark:border-rose-900/40 bg-rose-50/70 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 text-xs sm:text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
+                      className="h-10 px-4 rounded-full sm:rounded-2xl border border-rose-200 dark:border-rose-900/40 bg-rose-50/70 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 text-xs sm:text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>Finalizar sala</span>
@@ -628,7 +628,7 @@ export default function RoomsSection({
                   type="button"
                   onClick={() => setConfirmDeleteId(null)}
                   disabled={isClosingRoom}
-                  className="h-10 px-4 rounded-2xl border border-zinc-200 dark:border-white/10 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  className="h-10 px-4 rounded-full sm:rounded-2xl border border-zinc-200 dark:border-white/10 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -636,7 +636,7 @@ export default function RoomsSection({
                   type="button"
                   onClick={() => handleExecuteDelete(confirmDeleteId)}
                   disabled={isClosingRoom}
-                  className="h-10 px-4 rounded-2xl bg-red-600 text-white hover:bg-red-700 text-xs sm:text-sm font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  className="h-10 px-4 rounded-full sm:rounded-2xl bg-red-600 text-white hover:bg-red-700 text-xs sm:text-sm font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
                 >
                   {isClosingRoom && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>Finalizar sala</span>
