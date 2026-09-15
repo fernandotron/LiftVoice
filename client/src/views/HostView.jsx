@@ -1505,7 +1505,7 @@ export default function HostView({
                     <div className="flex items-center justify-between">
                       <span className="text-zinc-500 dark:text-zinc-400">Motor LLM:</span>
                       <span className="font-mono text-zinc-700 dark:text-zinc-300">
-                        {activeTelemetry.engineUsed || 'Google Gemini 3.1'}
+                        {activeTelemetry.engineUsed || 'Google Gemini 3.8 Live'}
                       </span>
                     </div>
                     <div className="pt-1.5 border-t border-zinc-200/70 dark:border-zinc-800/70 grid grid-cols-3 gap-1.5 text-center font-mono text-[10px]">

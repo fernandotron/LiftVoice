@@ -525,7 +525,7 @@ export class TranslationService {
     this.openaiApiKey = config.openaiApiKey || process.env.OPENAI_API_KEY || '';
     this.deeplApiKey = config.deeplApiKey || process.env.DEEPL_API_KEY || '';
     this.geminiApiKey = config.geminiApiKey || process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || '';
-    this.geminiModel = config.geminiModel || 'google/gemini-3.1-flash-lite';
+    this.geminiModel = config.geminiModel || 'google/gemini-3.8-live';
     this.qwenApiKey = config.qwenApiKey || process.env.DASHSCOPE_API_KEY || process.env.OPENROUTER_API_KEY || '';
     this.qwenModel = config.qwenModel || 'qwen/qwen-3.8-27b';
     this.qwenEndpoint = config.qwenEndpoint || process.env.QWEN_ENDPOINT || '';
@@ -572,7 +572,7 @@ export class TranslationService {
     if (model !== undefined) this.geminiModel = model;
     if (preferredEngine !== undefined) this.preferredEngine = preferredEngine;
     if (temperature !== undefined) this.geminiTemperature = parseFloat(temperature) || 0.1;
-    console.log(`[TranslationService] ⚡ Google Gemini configured (Model: ${this.geminiModel || 'google/gemini-3.1-flash-lite'}, Temp: ${this.geminiTemperature}, Engine: ${this.preferredEngine})`);
+    console.log(`[TranslationService] ⚡ Google Gemini configured (Model: ${this.geminiModel || 'google/gemini-3.8-live'}, Temp: ${this.geminiTemperature}, Engine: ${this.preferredEngine})`);
   }
 
   setGoogleNeuralMode(mode) {
@@ -696,10 +696,11 @@ export class TranslationService {
             targets: options.targets
           });
           result.latencyMs = Date.now() - startTime;
-          result.engineUsed = isMedical ? 'Google Gemini 3.1 Flash-Lite (Clinical)' : 'Google Gemini 3.1 Flash-Lite';
-          console.log(`[TranslationService] ⚡ Translated with Gemini 3.1 Flash-Lite in ${result.latencyMs}ms`);
+          const modelTag = this.geminiModel?.includes('thinking') ? 'Google Gemini 3.8 Live Thinking' : (this.geminiModel?.includes('3.8') ? 'Google Gemini 3.8 Live' : 'Google Gemini');
+          result.engineUsed = isMedical ? `${modelTag} (Clinical)` : modelTag;
+          console.log(`[TranslationService] ⚡ Translated with ${modelTag} in ${result.latencyMs}ms`);
         } catch (err) {
-          console.warn('[TranslationService] Gemini 3.1 Flash-Lite translation error, falling back:', err.message);
+          console.warn(`[TranslationService] Gemini translation error (${this.geminiModel || 'gemini-3.8-live'}), falling back:`, err.message);
         }
       }
 
@@ -917,7 +918,7 @@ export class TranslationService {
     const targetLangs = resolveTargetLangs(options.targets);
     const schema = buildDynamicTranslationSchema(targetLangs);
 
-    const systemPrompt = `You are Google Gemini 3.1 Flash-Lite (Sept 2026), an ultra-low latency simultaneous conference interpreter${medicalMode ? ` specialized in clinical medicine (${safeSpecialty})` : ''}.
+    const systemPrompt = `You are Google Gemini 3.8 Live (Sept 2026), an ultra-low latency simultaneous conference interpreter${medicalMode ? ` specialized in clinical medicine (${safeSpecialty})` : ''}.
 Translate the live spoken text accurately and naturally into: ${targetLangs.join(', ')}.
 Maintain natural conversational rhythm suitable for real-time speech synthesis.${glossaryRule}${contextSnippet}
 
@@ -936,8 +937,8 @@ ${schema}`;
     let body;
 
     if (isGoogleStudio) {
-      let studioModel = this.geminiModel ? this.geminiModel.replace(/^google\//, '') : 'gemini-2.0-flash';
-      if (!studioModel.startsWith('gemini-')) studioModel = 'gemini-2.0-flash';
+      let studioModel = this.geminiModel ? this.geminiModel.replace(/^google\//, '') : 'gemini-3.8-live';
+      if (!studioModel.startsWith('gemini-')) studioModel = 'gemini-3.8-live';
       endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${studioModel}:generateContent?key=${key}`;
       body = JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
@@ -954,7 +955,7 @@ ${schema}`;
       headers['HTTP-Referer'] = 'https://liftvoice.ai';
       headers['X-Title'] = 'LiftVoice Simultaneous';
       body = JSON.stringify({
-        model: this.geminiModel || 'google/gemini-3.1-flash-lite',
+        model: this.geminiModel || 'google/gemini-3.8-live',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPayload }

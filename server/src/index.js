@@ -470,7 +470,7 @@ app.get('/api/config', async (req, res) => {
       googleNeuralMode: translationService.googleNeuralMode || 'universal',
       preferredTranslationEngine: translationService.preferredEngine || 'gemini',
       aiStrategy: translationService.aiStrategy || 'json_single',
-      geminiModel: translationService.geminiModel || 'google/gemini-3.1-flash-lite',
+      geminiModel: translationService.geminiModel || 'google/gemini-3.8-live',
       geminiTemp: String(translationService.geminiTemperature !== undefined ? translationService.geminiTemperature : '0.1'),
       qwenModel: translationService.qwenModel || 'qwen/qwen-3.8-27b',
       qwenTemp: String(translationService.qwenTemperature !== undefined ? translationService.qwenTemperature : '0.1'),

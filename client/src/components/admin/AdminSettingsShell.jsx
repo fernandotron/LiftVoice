@@ -60,7 +60,7 @@ export const OPTIMAL_CONFIG_DEFAULTS = {
   voiceGender: DEFAULT_GENDERS,
   preferredEngine: 'gemini',
   aiStrategy: 'json_single',
-  geminiModel: 'google/gemini-3.1-flash-lite',
+  geminiModel: 'google/gemini-3.8-live',
   geminiTemp: '0.1',
   openaiModel: 'gpt-4o-mini',
   openaiTemp: '0.1',
@@ -90,10 +90,10 @@ export const SECTION_DEFAULTS_MAP = {
     id: 'ai',
     title: 'Modelos de traducción',
     shortLabel: 'Modelos de traducción',
-    subtitle: 'Restaura el motor Google Gemini 3.1 Flash-Lite con temperatura 0.1 y estrategia de llamada única estructurada en JSON.',
+    subtitle: 'Restaura el motor Google Gemini 3.8 Live con temperatura 0.1 y estrategia de llamada única estructurada en JSON.',
     highlights: [
       { label: 'Proveedor', value: 'Google Gemini' },
-      { label: 'Modelo', value: 'gemini-3.1-flash-lite' },
+      { label: 'Modelo', value: 'gemini-3.8-live' },
       { label: 'Temperatura', value: '0.1' },
       { label: 'Estrategia', value: 'Llamada única JSON' }
     ],
@@ -132,7 +132,7 @@ export const buildSettingsSnapshot = (data = {}) => ({
   voiceGender: data.voiceGender || DEFAULT_GENDERS,
   deepgramKey: data.deepgramKey || '',
   geminiKey: data.geminiKey || '',
-  geminiModel: data.geminiModel || 'google/gemini-3.1-flash-lite',
+  geminiModel: data.geminiModel || 'google/gemini-3.8-live',
   geminiTemp: data.geminiTemp !== undefined ? String(data.geminiTemp) : '0.1',
   elevenLabsKey: data.elevenLabsKey || '',
   openaiKey: data.openaiKey || '',
@@ -279,8 +279,9 @@ const AI_STRATEGY_OPTIONS = [
 ];
 
 const GEMINI_MODEL_OPTIONS = [
+  { value: 'google/gemini-3.8-live', label: 'Gemini 3.8 Live', description: 'google/gemini-3.8-live • Ultra-baja latencia voz/streaming' },
+  { value: 'google/gemini-3.8-live-thinking', label: 'Gemini 3.8 Live Thinking', description: 'google/gemini-3.8-live-thinking • Razonamiento adaptativo y clínico' },
   { value: 'google/gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', description: 'google/gemini-3.1-flash-lite • Ultra-rápido' },
-  { value: 'google/gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', description: 'google/gemini-3.5-flash-lite • Razonamiento adaptativo' },
   { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', description: 'gemini-2.0-flash • Google AI Studio directo' }
 ];
 
@@ -401,7 +402,7 @@ export default function AdminSettingsShell({
 
   const [deepgramKey, setDeepgramKey] = useState(() => safeGetItem('lv_deepgram_key'));
   const [geminiKey, setGeminiKey] = useState(() => safeGetItem('lv_gemini_key'));
-  const [geminiModel, setGeminiModel] = useState(() => safeGetItem('lv_gemini_model') || 'google/gemini-3.1-flash-lite');
+  const [geminiModel, setGeminiModel] = useState(() => safeGetItem('lv_gemini_model') || 'google/gemini-3.8-live');
   const [elevenLabsKey, setElevenLabsKey] = useState(() => safeGetItem('lv_eleven_key'));
   const [openaiKey, setOpenaiKey] = useState(() => safeGetItem('lv_openai_key'));
   const [qwenKey, setQwenKey] = useState(() => safeGetItem('lv_qwen_key'));
