@@ -32,6 +32,7 @@ export class AIPipeline {
     this.roomRecentEmissions = new Map(); // roomId -> Array of { text, norm, time }
     this.cabinQueues = new Map(); // `${roomId}:${lang}` -> Promise chain for sequential per-cabin TTS
     this.cabinQueueDepths = new Map(); // `${roomId}:${lang}` -> integer depth (shed-load defense)
+    this.roomDecalageBuffers = new Map(); // roomId -> { text, timer, opts }
     this.openaiApiKey = process.env.OPENAI_API_KEY || '';
   }
 
@@ -130,9 +131,9 @@ export class AIPipeline {
     this.roomSeqCounters.delete(key);
     this.roomContexts.delete(key);
     this.roomRecentEmissions.delete(key);
-    const buf = this.roomDecalageBuffers.get(key);
+    const buf = this.roomDecalageBuffers?.get(key);
     if (buf?.timer) clearTimeout(buf.timer);
-    this.roomDecalageBuffers.delete(key);
+    this.roomDecalageBuffers?.delete(key);
     for (const cKey of this.cabinQueues.keys()) {
       if (cKey.startsWith(`${key}:`)) {
         this.cabinQueues.delete(cKey);
@@ -142,6 +143,7 @@ export class AIPipeline {
 
   flushDecalageBuffer(roomId) {
     const key = (roomId || 'MAIN').toUpperCase();
+    if (!this.roomDecalageBuffers) this.roomDecalageBuffers = new Map();
     const entry = this.roomDecalageBuffers.get(key);
     if (!entry) return;
     if (entry.timer) clearTimeout(entry.timer);
@@ -298,6 +300,7 @@ export class AIPipeline {
     const wordCount = cleanUtterance.split(/\s+/).length;
     const isStreaming = decalageMode === 'streaming' || decalageMode === 'fast';
     const minWords = decalageMode === 'paused' ? 14 : (isStreaming ? 3 : 7);
+    if (!this.roomDecalageBuffers) this.roomDecalageBuffers = new Map();
     const existingBuffer = this.roomDecalageBuffers.get(roomId);
 
     if (isStreaming || isTerminal || wordCount >= minWords) {

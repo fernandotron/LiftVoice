@@ -407,28 +407,29 @@ class RoomManager {
       room.title = 'Conferencia Principal';
     }
 
-    // SEC-02: Si la sala ya existía y cuenta con hostKey, validar obligatoriamente
-    if (!isNewRoom && room.hostKey && room.hostKey !== hostKey) {
-      console.warn(`[RoomManager] [SEC-02] Rechazado intento no autorizado de HOST_JOIN en sala ${room.id} (socket: ${socketId})`);
-      return { success: false, error: 'INVALID_HOST_KEY' };
-    }
+    const hasActiveHost = Boolean(room.hostSocket && room.hostSocket.readyState === 1 && room.hostSocketId !== socketId);
 
-    // Gracefully handle reconnection / host takeover: disconnect stale host socket if different
-    if (room.hostSocket && room.hostSocketId !== socketId) {
-      // SEC-02: Para reemplazar a un host activo, la clave es obligatoria e innegociable
+    // SEC-02: Protección contra Host Takeover no autorizado:
+    // 1. Si ya existe un host activo transmitiendo en la sala, la clave debe coincidir estrictamente
+    if (hasActiveHost) {
       if (room.hostKey && room.hostKey !== hostKey) {
+        console.warn(`[RoomManager] [SEC-02] Rechazado intento no autorizado de takeover HOST_JOIN en sala ${room.id} (socket: ${socketId})`);
         return { success: false, error: 'INVALID_HOST_KEY' };
       }
-      console.log(`[RoomManager] Host takeover in room ${room.id}: replacing socket ${room.hostSocketId} with ${socketId}`);
+      console.log(`[RoomManager] Host takeover autorizado en sala ${room.id}: reemplazando socket ${room.hostSocketId} con ${socketId}`);
       try {
-        if (room.hostSocket.readyState === 1) {
-          room.hostSocket.close(4001, 'Host session replaced by new connection');
-        }
+        room.hostSocket.close(4001, 'Host session replaced by authenticated connection');
       } catch (e) {}
+    } else {
+      // 2. Si la sala no tiene host activo pero el cliente presentó una clave explícitamente incorrecta
+      if (hostKey && room.hostKey && room.hostKey !== hostKey) {
+        console.warn(`[RoomManager] [SEC-02] Clave de host incorrecta en sala ${room.id} (socket: ${socketId})`);
+        return { success: false, error: 'INVALID_HOST_KEY' };
+      }
     }
 
-    if (!room.hostKey && hostKey) {
-      room.hostKey = hostKey;
+    if (!room.hostKey) {
+      room.hostKey = hostKey || crypto.randomBytes(16).toString('hex');
     }
     room.hostSocket = socket;
     room.hostSocketId = socketId;

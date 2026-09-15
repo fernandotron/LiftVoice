@@ -537,6 +537,29 @@ export default function HostView({
       }
     });
 
+    const unsubJoinFailed = socketService.on('host_join_failed', (msg) => {
+      if (!isMounted) return;
+      console.warn('[HostView] ⚠️ Rechazado acceso como anfitrión:', msg);
+      setBroadcastError(`Acceso como anfitrión rechazado: ${msg?.reason || 'Clave de sala no válida'}`);
+      setIsBroadcasting(false);
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(`lv_hostkey_${roomId}`);
+          localStorage.removeItem(`lv_hostkey_${roomId.toUpperCase()}`);
+        }
+      } catch (e) {}
+    });
+
+    const unsubSocketError = socketService.on('error', (msg) => {
+      if (!isMounted) return;
+      if (msg?.message) {
+        console.warn('[HostView] ⚠️ Mensaje de error recibido del socket:', msg.message);
+        if (msg.message.includes('Unauthorized') || msg.message.includes('host')) {
+          setBroadcastError(msg.message);
+        }
+      }
+    });
+
     const unsubTranscript = socketService.on('transcript_event', (item) => {
       if (!isMounted || !item) return;
       setTranscriptHistory(prev => {
@@ -663,6 +686,8 @@ export default function HostView({
       socketService.leaveRoom(roomId);
       unsubStats();
       unsubJoined();
+      unsubJoinFailed();
+      unsubSocketError();
       unsubTranscript();
       unsubLatency();
       unsubTelemetry();

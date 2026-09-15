@@ -11,6 +11,10 @@ async function runTest() {
   await new Promise((resolve) => hostWs.on('open', resolve));
   console.log('✅ Host WebSocket Connected');
 
+  hostWs.on('message', (d) => {
+    console.log('📡 [Host WS Event]:', d.toString());
+  });
+
   hostWs.send(JSON.stringify({
     type: 'HOST_JOIN',
     roomId: ROOM_ID
@@ -53,7 +57,7 @@ async function runTest() {
   await new Promise((r) => setTimeout(r, 800));
 
   // 3. Host emits a spoken speech phrase in Spanish
-  const testPhrase = 'Bienvenidos a la conferencia de innovacion 2026';
+  const testPhrase = 'Bienvenidos a la conferencia de innovacion 2026.';
   console.log(`\n🎙️ [Host] Broadcasting speech phrase: "${testPhrase}"...`);
   
   hostWs.send(JSON.stringify({

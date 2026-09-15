@@ -307,6 +307,12 @@ class SocketService {
       case 'HOST_JOINED_SUCCESS':
         if (msg.hostKey) {
           this.currentHostKey = msg.hostKey;
+          try {
+            if (typeof localStorage !== 'undefined' && msg.roomId) {
+              localStorage.setItem(`lv_hostkey_${msg.roomId}`, msg.hostKey);
+              localStorage.setItem(`lv_hostkey_${msg.roomId.toUpperCase()}`, msg.hostKey);
+            }
+          } catch (e) {}
         }
         this.emit('joined_success', msg);
         if (msg.stats) {
@@ -401,14 +407,21 @@ class SocketService {
   joinAsHost(roomId, token = null) {
     this.currentRoomId = roomId;
     this.currentRole = 'HOST';
-    let adminToken = token || this.currentHostKey;
+    let storedHostKey = null;
+    try {
+      if (typeof localStorage !== 'undefined' && roomId) {
+        storedHostKey = localStorage.getItem(`lv_hostkey_${roomId}`) || localStorage.getItem(`lv_hostkey_${roomId.toUpperCase()}`);
+      }
+    } catch (e) {}
+    let adminToken = token || this.currentHostKey || storedHostKey;
     if (!adminToken && typeof localStorage !== 'undefined') {
       adminToken = localStorage.getItem('liftvoice_admin_token') || localStorage.getItem('lv_admin_token') || localStorage.getItem('adminToken') || null;
     }
+    const resolvedHostKey = this.currentHostKey || storedHostKey || adminToken || null;
     return this.send({
       type: 'HOST_JOIN',
       roomId,
-      hostKey: this.currentHostKey || adminToken,
+      hostKey: resolvedHostKey,
       token: adminToken,
       supportsBinary: true
     });
@@ -556,6 +569,7 @@ class SocketService {
   sendSpeechText(text, sourceLanguage = 'auto', forceLanguages = [], options = {}) {
     return this.send({
       type: 'SPEECH_CHUNK_TEXT',
+      roomId: (this.currentRoomId || 'MAIN').toUpperCase(),
       text,
       sourceLanguage,
       forceLanguages,
@@ -571,6 +585,7 @@ class SocketService {
   sendSpeechAudio(audioBase64, mimeType = 'audio/webm', sourceLanguage = 'auto', options = {}) {
     return this.send({
       type: 'SPEECH_CHUNK_AUDIO',
+      roomId: (this.currentRoomId || 'MAIN').toUpperCase(),
       audioBase64,
       mimeType,
       sourceLanguage,
