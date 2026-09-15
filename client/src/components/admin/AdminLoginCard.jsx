@@ -207,18 +207,20 @@ export function AdminLoginCard({
   // MODAL VARIANT: Clean single card without double borders or nested frames
   if (variant === 'modal') {
     return (
-      <div className="relative w-full max-w-[360px] sm:max-w-[390px] rounded-[32px] bg-white dark:bg-[#121214] border border-zinc-200/90 dark:border-zinc-800/90 shadow-2xl p-7 sm:p-9 text-center animate-fadeIn mx-auto my-auto">
+      <div className="relative w-full h-full h-dvh md:h-auto md:max-w-[390px] rounded-none md:rounded-[32px] bg-white dark:bg-[#121214] border-0 md:border border-zinc-200/90 dark:border-zinc-800/90 shadow-none md:shadow-2xl p-6 sm:p-7 md:p-9 text-center animate-fadeIn mx-auto my-auto flex flex-col justify-center items-center">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="absolute top-4 right-4 w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation"
+            className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation z-10"
             aria-label="Cerrar modal"
           >
             <X className="w-4 h-4" />
           </button>
         )}
-        {formContent}
+        <div className="w-full max-w-[360px]">
+          {formContent}
+        </div>
       </div>
     );
   }

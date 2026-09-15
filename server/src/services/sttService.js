@@ -127,18 +127,18 @@ export class STTService {
       }
     }
 
-    // Optimización Nova-3: Utilizar monolingüe 'es' de alta fidelidad por defecto
-    // Solo rutear a 'multi' cuando se solicite explícitamente code-switching multilingual
+    // Optimización Nova-3: Cuando se define idioma explícito usarlo directamente;
+    // si language === 'auto', delegar en detect_language=true para auto-clasificación acústica
     const model = options.model || 'nova-3';
-    let resolvedLang;
+    let langParam = '';
     if (cleanLang === 'multi') {
-      resolvedLang = 'multi';
+      langParam = '&language=multi';
     } else if (cleanLang && cleanLang !== 'auto') {
-      resolvedLang = cleanLang;
+      langParam = `&language=${cleanLang}`;
     } else {
-      resolvedLang = 'es'; // Monolingüe español de alta precisión
+      langParam = '&detect_language=true';
     }
-    let url = `https://api.deepgram.com/v1/listen?model=${model}&smart_format=true&punctuate=true&language=${resolvedLang}`;
+    let url = `https://api.deepgram.com/v1/listen?model=${model}&smart_format=true&punctuate=true${langParam}`;
 
     if (options.medicalMode) {
       if (model === 'nova-3') {
@@ -202,16 +202,16 @@ export class STTService {
     }
     formData.append('temperature', isMedical ? '0.0' : '0.2');
 
-    // Forzado monolingüe en Whisper para evitar clasificaciones erróneas (e.g., 'ca' o 'pt' en frases cortas)
+    // Forzado monolingüe en Whisper cuando se define un idioma explícito; si es 'auto', omitir para auto-detección nativa
     const candidateLang = (language && language !== 'auto')
       ? language
       : (options.language && options.language !== 'auto'
           ? options.language
           : (this.sttLanguage && this.sttLanguage !== 'auto' ? this.sttLanguage : null));
 
-    let whisperLang = 'es'; // Por defecto español en LiftVoice
     if (candidateLang) {
       const lower = String(candidateLang).toLowerCase().trim();
+      let whisperLang = null;
       if (lower.startsWith('es') || ['es', 'es-es', 'es-419', 'es-mx', 'spanish'].includes(lower)) {
         whisperLang = 'es';
       } else if (lower.startsWith('pt')) {
@@ -220,12 +220,17 @@ export class STTService {
         whisperLang = 'en';
       } else if (lower.startsWith('it')) {
         whisperLang = 'it';
+      } else if (lower.startsWith('fr')) {
+        whisperLang = 'fr';
+      } else if (lower.startsWith('de')) {
+        whisperLang = 'de';
       } else if (lower !== 'auto' && lower !== 'multi') {
         whisperLang = lower.slice(0, 2);
       }
+      if (whisperLang) {
+        formData.append('language', whisperLang);
+      }
     }
-
-    formData.append('language', whisperLang);
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',

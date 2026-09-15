@@ -10,10 +10,11 @@ export class WsolaTimeStretcher {
     this.sampleRate = sampleRate;
     this._recomputeParameters();
 
-    this.inputBuffer = new Float32Array(this.sampleRate * 2); // 2 segundos de historial
+    this.inputBuffer = new Float32Array(this.sampleRate * 12); // 12 segundos de historial para soportar frases extensas
     this.inputWritePos = 0;
     this.inputReadPos = 0;
     this.samplesAvailable = 0;
+    this.totalSamplesWritten = 0;
 
     this.overlapBuffer = new Float32Array(this.halfWindow);
     this.hasOverlap = false;
@@ -28,10 +29,21 @@ export class WsolaTimeStretcher {
     // Desplazamiento de búsqueda ampliado a ±12ms para acomodar F0 graves masculinos (85Hz = 11.76ms)
     this.maxSearchDelta = Math.round((this.sampleRate * 12) / 1000);
 
-    // Ventana de Hanning precalculada
+    // Ventana de Hanning precalculada con partición de unidad exacta (C1)
     this.window = new Float32Array(this.windowSize);
     for (let i = 0; i < this.windowSize; i++) {
       this.window[i] = 0.5 * (1.0 - Math.cos((2.0 * Math.PI * i) / (this.windowSize - 1)));
+    }
+
+    // Tablas normalizadas de solapamiento precalculadas para eliminar divisiones por muestra en tiempo real
+    this.windowIn = new Float32Array(this.halfWindow);
+    this.windowOverlap = new Float32Array(this.halfWindow);
+    for (let i = 0; i < this.halfWindow; i++) {
+      const wIn = this.window[i];
+      const wOverlap = this.window[this.halfWindow + i];
+      const norm = (wIn + wOverlap) || 1.0;
+      this.windowIn[i] = wIn / norm;
+      this.windowOverlap[i] = wOverlap / norm;
     }
   }
 
@@ -39,7 +51,7 @@ export class WsolaTimeStretcher {
     if (newRate && newRate !== this.sampleRate && newRate >= 16000 && newRate <= 96000) {
       this.sampleRate = newRate;
       this._recomputeParameters();
-      this.inputBuffer = new Float32Array(this.sampleRate * 2);
+      this.inputBuffer = new Float32Array(this.sampleRate * 12);
       this.overlapBuffer = new Float32Array(this.halfWindow);
       this.reset();
     }
@@ -62,6 +74,7 @@ export class WsolaTimeStretcher {
       this.inputWritePos = (this.inputWritePos + 1) % bufLen;
     }
     this.samplesAvailable += num;
+    this.totalSamplesWritten += num;
   }
 
   /**
@@ -74,12 +87,16 @@ export class WsolaTimeStretcher {
   /**
    * Procesa y extrae muestras con una tasa de velocidad `timeScale`
    */
-  process(timeScale = 1.0, maxOutputSamples = 4096) {
+  process(timeScale = 1.0, maxOutputSamples = null) {
     // Cálculo riguroso del umbral mínimo requerido para garantizar que no haya lecturas fuera de límites
     const minRequired = this.windowSize + this.maxSearchDelta * 2 + (this.hasOverlap ? 0 : this.halfWindow);
     if (this.samplesAvailable < minRequired) {
       return new Float32Array(0);
     }
+
+    const effectiveMax = (typeof maxOutputSamples === 'number' && maxOutputSamples > 0)
+      ? maxOutputSamples
+      : Math.max(4096, Math.ceil(this.samplesAvailable / Math.max(0.5, timeScale)) + 8192);
 
     const bufLen = this.inputBuffer.length;
 
@@ -89,14 +106,11 @@ export class WsolaTimeStretcher {
         if (this.samplesAvailable < this.halfWindow) {
           return new Float32Array(0);
         }
-        const blendCount = Math.min(this.halfWindow, this.samplesAvailable, maxOutputSamples);
+        const blendCount = Math.min(this.halfWindow, this.samplesAvailable, effectiveMax);
         const out = new Float32Array(blendCount);
         for (let i = 0; i < blendCount; i++) {
           const inSample = this.inputBuffer[this._mod(this.inputReadPos + i, bufLen)];
-          const wIn = this.window[i];
-          const wOverlap = this.window[this.halfWindow + i];
-          const norm = (wIn + wOverlap) || 1.0;
-          out[i] = (this.overlapBuffer[i] * wOverlap + inSample * wIn) / norm;
+          out[i] = this.overlapBuffer[i] * this.windowOverlap[i] + inSample * this.windowIn[i];
         }
         this.inputReadPos = this._mod(this.inputReadPos + blendCount, bufLen);
         this.samplesAvailable -= blendCount;
@@ -105,7 +119,7 @@ export class WsolaTimeStretcher {
       }
 
       // Bypass directo ultra-eficiente
-      const take = Math.min(this.samplesAvailable, maxOutputSamples);
+      const take = Math.min(this.samplesAvailable, effectiveMax);
       const out = new Float32Array(take);
       for (let i = 0; i < take; i++) {
         out[i] = this.inputBuffer[this.inputReadPos];
@@ -116,14 +130,14 @@ export class WsolaTimeStretcher {
     }
 
     // Pre-asignación en typed array para cero presión en el Garbage Collector
-    const outBuffer = new Float32Array(maxOutputSamples);
+    const outBuffer = new Float32Array(effectiveMax);
     let outCount = 0;
     const stepSynthesis = this.halfWindow;
     const stepAnalysis = Math.max(1, Math.round(stepSynthesis * timeScale));
 
     while (
       this.samplesAvailable >= (this.windowSize + this.maxSearchDelta * 2 + (this.hasOverlap ? 0 : this.halfWindow)) &&
-      (outCount + this.halfWindow) <= maxOutputSamples
+      (outCount + this.halfWindow) <= effectiveMax
     ) {
       if (!this.hasOverlap) {
         // Primera trama: inicializar overlap
@@ -143,11 +157,7 @@ export class WsolaTimeStretcher {
       // Overlap-Add entre la cola anterior y la nueva trama sincronizada
       for (let i = 0; i < this.halfWindow; i++) {
         const inSample = this.inputBuffer[this._mod(alignedPos + i, bufLen)];
-        const wIn = this.window[i];
-        const wOverlap = this.window[this.halfWindow + i];
-        const norm = (wIn + wOverlap) || 1.0;
-
-        outBuffer[outCount++] = (this.overlapBuffer[i] * wOverlap + inSample * wIn) / norm;
+        outBuffer[outCount++] = this.overlapBuffer[i] * this.windowOverlap[i] + inSample * this.windowIn[i];
 
         // Guardar la segunda mitad de la ventana para el siguiente solapamiento
         const nextInSample = this.inputBuffer[this._mod(alignedPos + this.halfWindow + i, bufLen)];
@@ -159,7 +169,7 @@ export class WsolaTimeStretcher {
       this.samplesAvailable -= stepAnalysis;
     }
 
-    return outCount === maxOutputSamples ? outBuffer : outBuffer.slice(0, outCount);
+    return outCount === effectiveMax ? outBuffer : outBuffer.slice(0, outCount);
   }
 
   // Búsqueda de similitud de forma de onda en dos fases: gruesa (x2) + refinamiento fino (±1 muestra)
@@ -167,8 +177,13 @@ export class WsolaTimeStretcher {
     let minDiff = Infinity;
     let bestDelta = 0;
     const bufLen = this.inputBuffer.length;
+    // Protección de límite inferior calculada sobre el historial real de muestras acumuladas en el buffer circular
+    const historySamples = this.totalSamplesWritten > 0
+      ? Math.max(0, Math.min(this.totalSamplesWritten, bufLen) - this.samplesAvailable)
+      : targetPos;
+    const minDelta = Math.max(-this.maxSearchDelta, -historySamples);
 
-    for (let delta = -this.maxSearchDelta; delta <= this.maxSearchDelta; delta += 2) {
+    for (let delta = minDelta; delta <= this.maxSearchDelta; delta += 2) {
       let diff = 0;
       const start = targetPos + delta;
       for (let i = 0; i < this.halfWindow; i += 2) { // Decimación x2 (Nyquist a 12 kHz, sin aliasing de formantes)
@@ -185,7 +200,7 @@ export class WsolaTimeStretcher {
     // Refinamiento fino local ±1 muestra para eliminar filtrado en peine en altas frecuencias
     const fineDeltas = [bestDelta - 1, bestDelta + 1];
     for (const d of fineDeltas) {
-      if (d < -this.maxSearchDelta || d > this.maxSearchDelta) continue;
+      if (d < minDelta || d > this.maxSearchDelta) continue;
       let diff = 0;
       const start = targetPos + d;
       for (let i = 0; i < this.halfWindow; i += 2) {
@@ -206,6 +221,7 @@ export class WsolaTimeStretcher {
     this.inputWritePos = 0;
     this.inputReadPos = 0;
     this.samplesAvailable = 0;
+    this.totalSamplesWritten = 0;
     this.hasOverlap = false;
     if (this.overlapBuffer) this.overlapBuffer.fill(0);
   }

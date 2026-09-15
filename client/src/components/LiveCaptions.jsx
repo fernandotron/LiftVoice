@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Copy, Check, ArrowDown, Mic } from 'lucide-react';
+import { Copy, Check, ArrowDown, Mic, Volume2 } from 'lucide-react';
 
 function LiveCaptions({
   transcriptHistory = [],
@@ -12,7 +12,10 @@ function LiveCaptions({
   medicalSpecialty = 'general',
   captionSize = 'md',
   isAdmin = false,
-  activeSttInfo = null
+  activeSttInfo = null,
+  activePlayingSeqId = null,
+  activePlayingPacketId = null,
+  isPlayingAudio = false
 }) {
   const fontClassMap = {
     sm: 'text-xs sm:text-sm leading-relaxed',
@@ -123,10 +126,10 @@ function LiveCaptions({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto px-4 sm:px-6 bg-transparent ${
+        className={`flex-1 overflow-y-auto px-4 sm:px-6 bg-transparent scrollbar-custom scrollbar-fina ${
           transcriptHistory.length === 0 && !displayedInterim
-            ? 'flex items-center justify-center'
-            : 'py-2.5 sm:py-3 space-y-3.5'
+            ? 'flex items-center justify-center pb-24 sm:pb-0'
+            : 'pt-2.5 sm:pt-3 pb-28 sm:pb-4 space-y-3.5'
         } ${maxHeightClass}`}
         role="log"
         aria-live="polite"
@@ -153,12 +156,19 @@ function LiveCaptions({
           transcriptHistory.map((item, index) => {
             const isLast = index === transcriptHistory.length - 1;
             const translatedText = item.translations?.[currentLanguage] || item.originalText;
+            const isAudioActive = isPlayingAudio && Boolean(
+              (activePlayingPacketId && (item.id === activePlayingPacketId || String(activePlayingPacketId).startsWith(item.id))) ||
+              (activePlayingSeqId && item.seqId === activePlayingSeqId)
+            );
+            const isCardHighlighted = isAudioActive || (!activePlayingPacketId && !activePlayingSeqId && isLast);
 
             return (
               <div
                 key={item.id || index}
-                className={`group relative p-4 rounded-2xl border transition-all duration-150 ${
-                  isLast
+                className={`group relative p-4 rounded-2xl border transition-all duration-200 ${
+                  isAudioActive
+                    ? 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-600/60 ring-1 ring-emerald-500/30 shadow-xs'
+                    : isCardHighlighted
                     ? 'bg-zinc-50/90 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-700 shadow-xs'
                     : 'bg-white dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700'
                 }`}
@@ -169,6 +179,12 @@ function LiveCaptions({
                     <span>
                       {new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>
+                    {isAudioActive && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-[9px] font-semibold animate-pulse border border-emerald-300/60 dark:border-emerald-700">
+                        <Volume2 className="w-2.5 h-2.5" />
+                        <span>Leyendo audio</span>
+                      </span>
+                    )}
                     {item.detectedLanguage && (
                       <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[9px] font-mono border border-zinc-200 dark:border-zinc-700">
                         {item.detectedLanguage}

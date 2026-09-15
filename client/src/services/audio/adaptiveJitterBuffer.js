@@ -13,35 +13,36 @@ export class AdaptiveJitterBuffer {
     this.jitterEstMs = 20;
     this.lastTransitTime = null;
     this.lastPacketTime = null;
+    this.lastServerTimestamp = null;
     this.currentSpeed = 1.0;
   }
 
   // Registra la llegada de un paquete de red para actualizar la estimación de jitter
   onPacketArrival(serverTimestamp) {
     const now = Date.now();
-    if (this.lastPacketTime !== null && serverTimestamp !== undefined && serverTimestamp !== null) {
-      let transit = 0;
-
-      // Si el timestamp viene en UInt32 (LVBP v1.1, menor a 2^32), calcular con aritmética modular UInt32
+    if (this.lastPacketTime !== null && this.lastServerTimestamp !== null && serverTimestamp !== undefined && serverTimestamp !== null) {
+      // Diferencial estricto RFC-3550: D(i, j) = (R_j - R_i) - (S_j - S_i)
+      // Al restar deltas locales, se elimina matemáticamente cualquier desfase absoluto de reloj (clock skew).
+      let d = 0;
       if (serverTimestamp < 4294967296 && serverTimestamp > 0) {
-        const now32 = (now >>> 0);
-        transit = (now32 - (serverTimestamp >>> 0)) >>> 0;
+        const rDiff = ((now >>> 0) - (this.lastPacketTime >>> 0)) | 0;
+        const sDiff = ((serverTimestamp >>> 0) - (this.lastServerTimestamp >>> 0)) | 0;
+        d = Math.abs(rDiff - sDiff);
       } else {
-        transit = Math.max(0, now - serverTimestamp);
+        const rDiff = now - this.lastPacketTime;
+        const sDiff = serverTimestamp - this.lastServerTimestamp;
+        d = Math.abs(rDiff - sDiff);
       }
 
-      if (this.lastTransitTime !== null) {
-        const d = Math.abs(transit - this.lastTransitTime);
-        // Filtrar saltos anormales causados por suspensión de pestaña móvil (> 1500ms)
-        if (d < 1500) {
-          this.jitterEstMs += (d - this.jitterEstMs) / 16.0; // Filtro IIR de 1er orden RFC-3550
-          // Delimitar jitter a límites acústicos razonables [10ms, 150ms]
-          this.jitterEstMs = Math.min(150, Math.max(10, this.jitterEstMs));
-        }
+      // Filtrar saltos anormales causados por suspensión de pestaña móvil (> 1500ms)
+      if (d < 1500) {
+        this.jitterEstMs += (d - this.jitterEstMs) / 16.0; // Filtro IIR de 1er orden RFC-3550
+        // Delimitar jitter a límites acústicos razonables [10ms, 150ms]
+        this.jitterEstMs = Math.min(150, Math.max(10, this.jitterEstMs));
       }
-      this.lastTransitTime = transit;
     }
     this.lastPacketTime = now;
+    this.lastServerTimestamp = serverTimestamp !== undefined ? serverTimestamp : null;
   }
 
   /**
@@ -87,6 +88,7 @@ export class AdaptiveJitterBuffer {
     this.jitterEstMs = 20;
     this.lastTransitTime = null;
     this.lastPacketTime = null;
+    this.lastServerTimestamp = null;
     this.currentSpeed = 1.0;
   }
 }

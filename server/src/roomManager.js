@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 export function generateMeetCode() {
   const chars = 'abcdefghijklmnopqrstuvwxyz';
   const getRand = (len) => {
@@ -28,6 +30,7 @@ class RoomManager {
       const now = Date.now();
       const reapedRooms = new Set();
       for (const [id, room] of this.rooms.entries()) {
+        if (reapedRooms.has(room)) continue;
         const isAbandoned = !room.hostSocket && (!room.listeners || room.listeners.size === 0);
         const hasHistoryOrAttendees = (room.transcriptHistory && room.transcriptHistory.length > 0) || (room.registeredAttendees && room.registeredAttendees.size > 0);
         const maxIdleMs = hasHistoryOrAttendees ? 60 * 60 * 1000 : 20 * 60 * 1000;
@@ -38,6 +41,11 @@ class RoomManager {
         if ((isAbandoned && isIdle) || isGhostRoom) {
           reapedRooms.add(room);
           console.log(`[RoomManager] Reaped inactive room ${id}`);
+
+          if (room._statsDebounceTimer) {
+            clearTimeout(room._statsDebounceTimer);
+            room._statsDebounceTimer = null;
+          }
 
           // MEM-02: Close all sockets with code 1000 ('Room closed')
           if (room.hostSocket && room.hostSocket.readyState === 1) {
@@ -97,10 +105,13 @@ class RoomManager {
 
     const cleanTitle = (title === 'Conferencia Principal 2026') ? 'Conferencia Principal' : (title || 'Conferencia Principal');
 
+    // SEC-02: Generar clave criptográficamente segura si no se proporcionó una
+    const secureHostKey = (hostKey && String(hostKey).trim()) || crypto.randomBytes(16).toString('hex');
+
     const room = {
       id: roomId,
       title: cleanTitle,
-      hostKey: hostKey || null,
+      hostKey: secureHostKey,
       createdAt: Date.now(),
       lastActivity: Date.now(),
       hostSocket: null,
@@ -157,6 +168,11 @@ class RoomManager {
     if (!roomId) return false;
     const room = this.getRoom(roomId);
     if (room) {
+      if (room._statsDebounceTimer) {
+        clearTimeout(room._statsDebounceTimer);
+        room._statsDebounceTimer = null;
+      }
+
       // MEM-02: Close all sockets with code 1000 ('Room closed')
       if (room.hostSocket && room.hostSocket.readyState === 1) {
         try { room.hostSocket.close(1000, 'Room closed'); } catch (e) {}
@@ -338,14 +354,41 @@ class RoomManager {
   getActiveLanguages(roomId) {
     const room = this.getRoom(roomId);
     if (!room || !room.listeners) return [];
+    
+    // SEC-06: Lista negra estricta de valores inválidos / centinela
+    const INVALID_LANGS = new Set(['none', 'auto', 'null', 'undefined', '']);
     const langs = new Set();
+
     for (const listener of room.listeners.values()) {
-      if (listener.lang) langs.add(String(listener.lang).toLowerCase().trim());
+      if (listener.lang) {
+        const clean = String(listener.lang).toLowerCase().trim();
+        if (clean && !INVALID_LANGS.has(clean)) {
+          langs.add(clean);
+        }
+      }
     }
+
     if (room.monitoredBooth) {
-      langs.add(String(room.monitoredBooth).toLowerCase().trim());
+      const cleanBooth = String(room.monitoredBooth).toLowerCase().trim();
+      if (cleanBooth && !INVALID_LANGS.has(cleanBooth)) {
+        langs.add(cleanBooth);
+      }
     }
+
     return Array.from(langs);
+  }
+
+  setMonitoredBooth(roomId, lang) {
+    const room = this.getRoom(roomId);
+    if (!room) return false;
+    
+    // SEC-06: Sanear valor asignado a monitoredBooth
+    const INVALID_LANGS = new Set(['none', 'auto', 'null', 'undefined', '']);
+    const rawLang = lang ? String(lang).toLowerCase().trim() : '';
+    const cleanLang = (rawLang && !INVALID_LANGS.has(rawLang)) ? rawLang : null;
+    
+    room.monitoredBooth = cleanLang;
+    return true;
   }
 
   getOrCreateRoom(roomId, title = 'Conferencia Principal', hostKey = null) {
@@ -358,15 +401,24 @@ class RoomManager {
   }
 
   setHost(roomId, socket, socketId, hostKey = null) {
+    const isNewRoom = !this.getRoom(roomId);
     const room = this.getOrCreateRoom(roomId, 'Conferencia Principal', hostKey);
     if (room.title === 'Conferencia Principal 2026') {
       room.title = 'Conferencia Principal';
     }
-    if (room.hostKey && room.hostKey !== hostKey) {
+
+    // SEC-02: Si la sala ya existía y cuenta con hostKey, validar obligatoriamente
+    if (!isNewRoom && room.hostKey && room.hostKey !== hostKey) {
+      console.warn(`[RoomManager] [SEC-02] Rechazado intento no autorizado de HOST_JOIN en sala ${room.id} (socket: ${socketId})`);
       return { success: false, error: 'INVALID_HOST_KEY' };
     }
+
     // Gracefully handle reconnection / host takeover: disconnect stale host socket if different
     if (room.hostSocket && room.hostSocketId !== socketId) {
+      // SEC-02: Para reemplazar a un host activo, la clave es obligatoria e innegociable
+      if (room.hostKey && room.hostKey !== hostKey) {
+        return { success: false, error: 'INVALID_HOST_KEY' };
+      }
       console.log(`[RoomManager] Host takeover in room ${room.id}: replacing socket ${room.hostSocketId} with ${socketId}`);
       try {
         if (room.hostSocket.readyState === 1) {
@@ -374,6 +426,7 @@ class RoomManager {
         }
       } catch (e) {}
     }
+
     if (!room.hostKey && hostKey) {
       room.hostKey = hostKey;
     }
@@ -873,6 +926,10 @@ class RoomManager {
       room.qaQueue[existingIdx] = item;
     } else {
       room.qaQueue.push(item);
+      // SEC-04: Límite superior estricto de 100 preguntas pendientes (FIFO drop)
+      while (room.qaQueue.length > 100) {
+        room.qaQueue.shift();
+      }
     }
     this.broadcastStats(roomId);
     return item;
@@ -916,10 +973,30 @@ class RoomManager {
     return false;
   }
 
-  broadcastStats(roomId) {
+  broadcastStats(roomId, immediate = false) {
     const room = this.getRoom(roomId);
     if (!room) return;
 
+    if (!immediate) {
+      if (room._statsDebounceTimer) return;
+      room._statsDebounceTimer = setTimeout(() => {
+        room._statsDebounceTimer = null;
+        this._dispatchStats(room);
+      }, 250);
+      if (room._statsDebounceTimer.unref) room._statsDebounceTimer.unref();
+      return;
+    }
+
+    if (room._statsDebounceTimer) {
+      clearTimeout(room._statsDebounceTimer);
+      room._statsDebounceTimer = null;
+    }
+    this._dispatchStats(room);
+  }
+
+  _dispatchStats(room) {
+    if (!room) return;
+    const roomId = room.id;
     const MAX_BUFFERED_STATS = 256 * 1024; // 256 KB backpressure limit (RES-01)
 
     // 1. Send private stats (with attendees) ONLY to the host
@@ -944,8 +1021,12 @@ class RoomManager {
       stats: publicStats
     });
 
-    for (const listener of room.listeners.values()) {
-      if (listener.socket && listener.socket.readyState === 1) {
+    for (const [socketId, listener] of room.listeners.entries()) {
+      if (!listener.socket || listener.socket.readyState > 1) {
+        room.listeners.delete(socketId);
+        continue;
+      }
+      if (listener.socket.readyState === 1) {
         if (listener.socket.bufferedAmount <= MAX_BUFFERED_STATS) {
           try {
             listener.socket.send(publicPayload);
@@ -989,7 +1070,7 @@ class RoomManager {
     // Defense against out-of-order playback: RFC-1982 modular sequence arithmetic
     if (!room.lastBroadcastSeqByLang) room.lastBroadcastSeqByLang = new Map();
     const lastSeq = room.lastBroadcastSeqByLang.get(targetLang) || 0;
-    if (lastSeq > 0 && currentSeq > 0) {
+    if (lastSeq > 0 && currentSeq > 0 && !audioPacket.isHealed && !audioPacket.isHotSwitch) {
       const diff = (currentSeq - lastSeq) & 0xFFFF;
       const isOlder = diff > 0x8000;
       const stepBack = (lastSeq - currentSeq) & 0xFFFF;
@@ -1000,7 +1081,7 @@ class RoomManager {
         return;
       }
     }
-    if (currentSeq > 0) {
+    if (currentSeq > 0 && !audioPacket.isHealed) {
       room.lastBroadcastSeqByLang.set(targetLang, currentSeq);
     }
 
@@ -1015,7 +1096,9 @@ class RoomManager {
       text: audioPacket.text,
       timestamp: audioPacket.timestamp || Date.now(),
       duration: audioPacket.duration || 0,
-      latencyMs: audioPacket.latencyMs || 0
+      latencyMs: audioPacket.latencyMs || 0,
+      isHealed: Boolean(audioPacket.isHealed),
+      isHotSwitch: Boolean(audioPacket.isHotSwitch)
     };
 
     // Cache latest audio packet per language booth for Hot Channel Switching with auto-expiration
@@ -1073,22 +1156,47 @@ class RoomManager {
     const KILL_BUFFERED_BYTES = 1024 * 1024; // 1 MB: zombie connection, terminate to protect server heap
     let sentCount = 0;
     for (const [socketId, listener] of room.listeners.entries()) {
-      if (listener.lang === targetLang && listener.socket && listener.socket.readyState === 1) {
+      // 1. Proactively evict any closing or dead sockets
+      if (!listener.socket || listener.socket.readyState > 1) {
+        room.listeners.delete(socketId);
+        continue;
+      }
+
+      if (listener.lang === targetLang && listener.socket.readyState === 1) {
+        // Immediate termination if buffer exceeded 1MB (zombie protection)
         if (listener.socket.bufferedAmount > KILL_BUFFERED_BYTES) {
           console.warn(`[RoomManager] 🛑 Saturated zombie socket (${listener.socket.bufferedAmount} bytes). Terminating.`);
           try {
-            listener.socket.close(4008, 'Buffer overflow: connection too slow');
-            setTimeout(() => {
-              try { listener.socket.terminate(); } catch (e) {}
-            }, 500);
+            listener.socket.terminate();
           } catch (e) {}
+          const leadKey = listener.email ? listener.email.toLowerCase() : (listener.attendeeId || socketId);
+          if (room.registeredAttendees && room.registeredAttendees.has(leadKey)) {
+            room.registeredAttendees.get(leadKey).isOnline = false;
+          }
           room.listeners.delete(socketId);
           continue;
         }
+
+        // Backpressure check with congested consecutive skips timeout
         if (listener.socket.bufferedAmount > MAX_BUFFERED_BYTES) {
-          console.warn(`[RoomManager] ⚠️ Client buffer congested (${listener.socket.bufferedAmount} bytes). Skipping chunk.`);
+          listener.congestedSkips = (listener.congestedSkips || 0) + 1;
+          if (listener.congestedSkips >= 10) {
+            console.warn(`[RoomManager] 🛑 Unresponsive client stalled for ${listener.congestedSkips} chunks (${listener.socket.bufferedAmount} bytes). Evicting.`);
+            try {
+              listener.socket.terminate();
+            } catch (e) {}
+            const leadKey = listener.email ? listener.email.toLowerCase() : (listener.attendeeId || socketId);
+            if (room.registeredAttendees && room.registeredAttendees.has(leadKey)) {
+              room.registeredAttendees.get(leadKey).isOnline = false;
+            }
+            room.listeners.delete(socketId);
+            continue;
+          }
           continue;
         }
+
+        // Reset congested counter on healthy delivery
+        listener.congestedSkips = 0;
 
         try {
           if (binaryPacket && listener.supportsBinary) {
@@ -1143,6 +1251,8 @@ class RoomManager {
     if (elapsedMs <= validWindow) {
       return packet;
     }
+    // Eagerly delete expired audio chunk to prevent heap retention
+    room.lastAudioByLang.delete(targetLang);
     return null;
   }
 }

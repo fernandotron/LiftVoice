@@ -43,6 +43,51 @@ class ASRAudioWorkletProcessor extends AudioWorkletProcessor {
     this.chunkSamples = Math.max(1, Math.round((this.targetRate * chunkMs) / 1000));
     this.chunkBuf = new Int16Array(this.chunkSamples);
     this.pending = 0;
+
+    // --- Pre-Roll Ring Buffer de 180ms ---
+    // Preserva los fonemas sordos y consonantes iniciales (/s/, /p/, /t/, /k/, /f/) que preceden al ataque VAD
+    this.preRollCapacity = Math.max(1, Math.round(this.targetRate * 0.180));
+    this.preRollBuf = new Int16Array(this.preRollCapacity);
+    this.preRollWriteIdx = 0;
+    this.preRollCount = 0;
+    this.isTransmitting = false;
+
+    // Escuchar mensajes dinámicos desde el hilo principal (sensibilidad VAD, hangover)
+    this.port.onmessage = (e) => {
+      const msg = e.data;
+      if (!msg) return;
+      if (typeof msg.silenceThreshold === 'number') {
+        this.silenceThreshold = msg.silenceThreshold;
+      }
+      if (typeof msg.hangoverSeconds === 'number') {
+        this.hangoverSamples = Math.round(msg.hangoverSeconds * sampleRate);
+      }
+    };
+  }
+
+  // Guarda muestra en el pre-roll ring buffer durante el periodo de silencio
+  pushPreRoll(sample) {
+    const s = Math.max(-1, Math.min(1, sample));
+    const intVal = s < 0 ? s * 0x8000 : s * 0x7fff;
+    this.preRollBuf[this.preRollWriteIdx] = intVal;
+    this.preRollWriteIdx = (this.preRollWriteIdx + 1) % this.preRollCapacity;
+    if (this.preRollCount < this.preRollCapacity) {
+      this.preRollCount++;
+    }
+  }
+
+  // Vuelca el pre-roll acumulado directamente al buffer de transmisión al activarse la voz
+  flushPreRoll() {
+    if (this.preRollCount === 0) return;
+    const startIdx = (this.preRollWriteIdx - this.preRollCount + this.preRollCapacity) % this.preRollCapacity;
+    for (let i = 0; i < this.preRollCount; i++) {
+      const idx = (startIdx + i) % this.preRollCapacity;
+      this.chunkBuf[this.pending++] = this.preRollBuf[idx];
+      if (this.pending >= this.chunkSamples) {
+        this.flush();
+      }
+    }
+    this.preRollCount = 0;
   }
 
   // Escala Float32 [-1.0, 1.0] a Int16 [-32768, 32767] y acumula en el buffer
@@ -86,6 +131,12 @@ class ASRAudioWorkletProcessor extends AudioWorkletProcessor {
 
     const shouldSend = voiced || this.silenceRun <= this.hangoverSamples;
 
+    // Transición silencio -> voz activa: volcar pre-roll de 180ms antes de las nuevas muestras
+    if (shouldSend && !this.isTransmitting) {
+      this.flushPreRoll();
+      this.isTransmitting = true;
+    }
+
     // --- 2. Downsampling lineal continuo hacia 16 kHz ---
     // El cursor avanza ininterrumpidamente para mantener sincronía temporal estricta con el reloj de audio
     while (this.cursor < n) {
@@ -93,8 +144,11 @@ class ASRAudioWorkletProcessor extends AudioWorkletProcessor {
       const frac = this.cursor - i;
       const s0 = channel[i];
       const s1 = i + 1 < n ? channel[i + 1] : s0; // clamp en el borde del bloque (error sub-audible)
+      const interpolated = s0 + (s1 - s0) * frac;
       if (shouldSend) {
-        this.pushSample(s0 + (s1 - s0) * frac);
+        this.pushSample(interpolated);
+      } else {
+        this.pushPreRoll(interpolated);
       }
       this.cursor += this.ratio;
     }
@@ -104,8 +158,9 @@ class ASRAudioWorkletProcessor extends AudioWorkletProcessor {
     // --- 3. Drenaje inmediato al entrar en silencio ---
     // Al superar el hangover, vaciar cualquier audio residual para que el endpointing de Deepgram reciba
     // el silencio de cierre inmediatamente sin esperar a llenar un chunk completo de 100ms.
-    if (!shouldSend) {
+    if (!shouldSend && this.isTransmitting) {
       this.flush();
+      this.isTransmitting = false;
     }
 
     return true; // Mantener vivo el processor

@@ -314,14 +314,15 @@ app.post('/api/tunnel/start', requireAdminAuth, async (req, res) => {
 });
 
 app.post('/api/rooms', (req, res) => {
-  const { roomId, title } = req.body;
-  const room = roomManager.createRoom(roomId, title);
+  const { roomId, title, hostKey } = req.body;
+  const room = roomManager.createRoom(roomId, title, hostKey);
   res.json({
     success: true,
     room: {
       id: room.id,
       title: room.title,
-      createdAt: room.createdAt
+      createdAt: room.createdAt,
+      hostKey: room.hostKey // SEC-02: Proporcionar hostKey al creador legítimo
     }
   });
 });
@@ -1126,6 +1127,7 @@ wss.on('connection', (ws, req) => {
             type: 'HOST_JOINED_SUCCESS',
             roomId: currentRoomId,
             socketId,
+            hostKey: result.room?.hostKey || null, // SEC-02: Entregar al host para su reconexión transparente
             isAdmin: Boolean(ws.isAdminSession),
             stats: roomManager.getHostStats(currentRoomId)
           }));
@@ -1184,6 +1186,16 @@ wss.on('connection', (ws, req) => {
             currentLang: lang,
             stats: roomManager.getPublicStats(currentRoomId)
           }));
+
+          // Si hay audio activo reciente en el canal del oyente (reconexión o entrada durante el habla), despacharlo
+          const recentAudio = roomManager.getRecentAudioForLang(currentRoomId, lang);
+          if (recentAudio && recentAudio.audioBase64) {
+            ws.send(JSON.stringify({
+              ...recentAudio,
+              type: 'AUDIO_CHUNK',
+              isHotSwitch: true
+            }));
+          }
           break;
         }
 
@@ -1262,43 +1274,57 @@ wss.on('connection', (ws, req) => {
         }
 
         case 'AUDIENCE_RAISE_HAND': {
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
-          if (targetRoom) {
-            const item = roomManager.addHandRaise(targetRoom, socketId, msg.profile || {});
-            const room = roomManager.getRoom(targetRoom);
-            if (room && room.hostSocket && room.hostSocket.readyState === 1) {
-              room.hostSocket.send(JSON.stringify({
-                type: 'QA_QUESTION_REQUESTED',
-                request: item,
-                stats: roomManager.getHostStats(targetRoom)
-              }));
-            }
-            ws.send(JSON.stringify({
-              type: 'QA_HAND_RAISE_CONFIRMED',
-              status: 'queued'
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'No estás unido a ninguna sala activa' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Attendee ${socketId} attempted to raise hand in room ${msg.roomId} while in ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only interact with your active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
+          const item = roomManager.addHandRaise(targetRoom, socketId, msg.profile || {});
+          const room = roomManager.getRoom(targetRoom);
+          if (room && room.hostSocket && room.hostSocket.readyState === 1) {
+            room.hostSocket.send(JSON.stringify({
+              type: 'QA_QUESTION_REQUESTED',
+              request: item,
+              stats: roomManager.getHostStats(targetRoom)
             }));
           }
+          ws.send(JSON.stringify({
+            type: 'QA_HAND_RAISE_CONFIRMED',
+            status: 'queued'
+          }));
           break;
         }
 
         case 'AUDIENCE_LOWER_HAND': {
-          const targetRoom = msg.roomId ? msg.roomId.toUpperCase() : currentRoomId;
-          if (targetRoom) {
-            const attId = msg.attendeeId || socketId;
-            roomManager.removeHandRaise(targetRoom, attId);
-            const room = roomManager.getRoom(targetRoom);
-            if (room && room.hostSocket && room.hostSocket.readyState === 1) {
-              room.hostSocket.send(JSON.stringify({
-                type: 'QA_HAND_LOWERED',
-                attendeeId: attId,
-                stats: roomManager.getHostStats(targetRoom)
-              }));
-            }
-            ws.send(JSON.stringify({
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'No estás unido a ninguna sala activa' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Attendee ${socketId} attempted to lower hand in room ${msg.roomId} while in ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only interact with your active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
+          const attId = msg.attendeeId || socketId;
+          roomManager.removeHandRaise(targetRoom, attId);
+          const room = roomManager.getRoom(targetRoom);
+          if (room && room.hostSocket && room.hostSocket.readyState === 1) {
+            room.hostSocket.send(JSON.stringify({
               type: 'QA_HAND_LOWERED',
-              status: 'idle'
+              attendeeId: attId,
+              stats: roomManager.getHostStats(targetRoom)
             }));
           }
+          ws.send(JSON.stringify({
+            type: 'QA_HAND_LOWERED',
+            status: 'idle'
+          }));
           break;
         }
 
@@ -1477,11 +1503,13 @@ wss.on('connection', (ws, req) => {
           }
           // Host asks to preview/synthesize a test voice chunk in a specific channel
           const targetRoom = currentRoomId;
-          if (targetRoom && msg.lang && msg.text) {
+          const previewText = typeof msg.text === 'string' ? msg.text.trim().slice(0, 500) : '';
+
+          if (targetRoom && msg.lang && previewText) {
             const { ttsService } = await import('./services/ttsService.js');
             const room = roomManager.getRoom(targetRoom);
-            const voiceOpt = room?.config?.voices?.[msg.lang];
-            const result = await ttsService.synthesize(msg.text, msg.lang, voiceOpt);
+            const voiceOpt = room?.config?.voiceConfig?.[msg.lang] || room?.config?.voices?.[msg.lang];
+            const result = await ttsService.synthesize(previewText, msg.lang, voiceOpt);
             if (result && result.audioBase64) {
               ws.send(JSON.stringify({
                 type: 'AUDIO_CHUNK',
@@ -1489,7 +1517,7 @@ wss.on('connection', (ws, req) => {
                 audioBase64: result.audioBase64,
                 mimeType: result.mimeType || 'audio/mp3',
                 id: `preview_${Date.now()}`,
-                text: msg.text,
+                text: previewText,
                 duration: result.durationMs,
                 latencyMs: result.latencyMs,
                 timestamp: Date.now(),
@@ -1543,7 +1571,7 @@ wss.on('connection', (ws, req) => {
             const room = roomManager.getRoom(targetRoom);
             if (room) {
               const cleanLang = (msg.lang && msg.lang !== 'none') ? String(msg.lang).toLowerCase().trim() : null;
-              room.monitoredBooth = cleanLang;
+              roomManager.setMonitoredBooth(targetRoom, cleanLang);
               console.log(`[WS] 🎧 Host monitoring booth updated to: "${cleanLang || 'none'}" in room ${targetRoom}`);
               roomManager.broadcastStats(targetRoom);
             }

@@ -321,8 +321,8 @@ export default function UsersSection({
         <div
           className={
             isPage
-              ? 'w-full max-w-7xl mx-auto flex items-center justify-between gap-4'
-              : 'w-full flex items-center justify-between gap-3'
+              ? 'w-full max-w-7xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3'
+              : 'w-full flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3'
           }
         >
           <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 min-w-0">
@@ -340,11 +340,11 @@ export default function UsersSection({
             )}
           </div>
 
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div className="flex items-center justify-end gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0">
             <button
               type="button"
               onClick={() => setEditingUser(null)}
-              className="h-9 sm:h-10 px-3.5 sm:px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-95 shadow-2xs"
+              className="flex-1 sm:flex-initial h-12 sm:h-10 px-4 sm:px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-semibold flex items-center justify-center transition-all cursor-pointer active:scale-[0.99] sm:active:scale-95 shadow-2xs whitespace-nowrap"
             >
               Cancelar
             </button>
@@ -354,7 +354,7 @@ export default function UsersSection({
               form="admin-user-edit-form"
               onClick={handleSaveUserDetail}
               disabled={isSavingUser}
-              className="h-9 sm:h-10 px-5 sm:px-6 rounded-full sm:rounded-2xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs sm:text-sm font-medium transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-98"
+              className="flex-1 sm:flex-initial h-12 sm:h-10 px-5 sm:px-6 rounded-full sm:rounded-2xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs sm:text-sm font-semibold flex items-center justify-center transition-all shadow-sm gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99] sm:active:scale-98 whitespace-nowrap"
             >
               {isSavingUser && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>Guardar cambios</span>

@@ -68,6 +68,8 @@ class AudioPlayerService {
     this.currentLanguage = 'es';
     this.currentRoomId = 'MAIN';
     this.isPlaying = false;
+    this.currentPlayingSeqId = null;
+    this.currentPlayingPacketId = null;
     this.onStateChangeCallbacks = new Set();
 
     // Playout Queue & Jitter Buffer
@@ -80,6 +82,9 @@ class AudioPlayerService {
 
     // Control de secuencia determinista para evitar reproducción desordenada
     this.lastProcessedSeqByLang = new Map();
+    this.packetReorderBuffer = [];
+    this.reorderTimer = null;
+    this.maxReorderDelayMs = 60; // Ventana de retención anti-desorden (60ms)
 
     // AudioWorklet Continuous Playout & WSOLA (2026 Edition)
     this.workletNode = null;
@@ -170,9 +175,9 @@ class AudioPlayerService {
       this.analyserNode.connect(this.audioCtx.destination);
     }
 
-    // 6. Mobile Background Audio Bridge: Recrear si fue destruido en disposeSession
-    // Conectado POST-LIMITADOR (limiterNode) para evitar recorte en segundo plano al subir volumen
-    if (!this.mediaStreamDest && typeof this.audioCtx.createMediaStreamDestination === 'function') {
+    // 6. Mobile Background Audio Bridge: Solo en dispositivos móviles para mantener audio en pantalla bloqueada
+    // Evita duplicación de audio y filtro en peine (comb-filtering) en navegadores de escritorio
+    if (this.isMobileDevice() && !this.mediaStreamDest && typeof this.audioCtx.createMediaStreamDestination === 'function') {
       try {
         this.mediaStreamDest = this.audioCtx.createMediaStreamDestination();
         if (this.limiterNode) {
@@ -289,7 +294,7 @@ class AudioPlayerService {
     const queue = [...this.pendingWorkletChunks];
     this.pendingWorkletChunks = [];
     for (const chunk of queue) {
-      this.playAudioChunk(chunk);
+      this._dispatchAudioChunk(chunk);
     }
   }
 
@@ -370,7 +375,7 @@ class AudioPlayerService {
       const chunks = [...this.suspendedChunks];
       this.suspendedChunks = [];
       for (const pkt of chunks) {
-        this.playAudioChunk(pkt);
+        this._dispatchAudioChunk(pkt);
       }
     }
   }
@@ -461,6 +466,7 @@ class AudioPlayerService {
     this.isUnlocking = true;
     this.currentRoomId = roomId;
     this.currentLanguage = lang;
+    if (lang) this.lastProcessedSeqByLang.delete(lang);
 
     try {
       // 1. Initialize Web Audio Context & DSP graph
@@ -630,6 +636,10 @@ class AudioPlayerService {
     if (this.currentLanguage !== lang) {
       this.currentLanguage = lang;
       this.stopAll();
+      // Limpiar memoria de secuencia para que paquetes de la nueva cabina no sean filtrados
+      this.lastProcessedSeqByLang.delete(lang);
+      this.currentPlayingSeqId = null;
+      this.currentPlayingPacketId = null;
       this.setupMediaSession();
       this.notifyState();
     }
@@ -648,6 +658,8 @@ class AudioPlayerService {
 
   stopAll() {
     this.playbackEpoch++;
+    this.currentPlayingSeqId = null;
+    this.currentPlayingPacketId = null;
     if (this.htmlAudioTag) {
       try {
         this.htmlAudioTag.pause();
@@ -707,6 +719,11 @@ class AudioPlayerService {
     this.activeSources.clear();
     this.suspendedChunks = [];
     this.pendingWorkletChunks = [];
+    if (this.reorderTimer) {
+      clearTimeout(this.reorderTimer);
+      this.reorderTimer = null;
+    }
+    this.packetReorderBuffer = [];
     if (this.audioCtx) {
       this.nextStartTime = this.audioCtx.currentTime;
     }
@@ -745,7 +762,7 @@ class AudioPlayerService {
   /**
    * Continuous Playout: pushes PCM samples into WSOLA time-stretcher and AudioWorklet Ring Buffer
    */
-  pushToWorklet(floatSamples, timestamp) {
+  pushToWorklet(floatSamples, timestamp, packet = null) {
     if (!floatSamples || floatSamples.length === 0 || !this.workletReady || !this.workletNode || !this.stretcher) {
       return false;
     }
@@ -758,13 +775,18 @@ class AudioPlayerService {
       totalBuffered,
       this.audioCtx ? this.audioCtx.sampleRate : 48000
     );
-    const stretched = this.stretcher.process(rate);
+    const maxSamples = Math.ceil((this.stretcher.samplesAvailable * 1.25) / Math.max(0.5, rate)) + 8192;
+    const stretched = this.stretcher.process(rate, maxSamples);
     if (stretched && stretched.length > 0) {
       this.workletNode.port.postMessage(
         { type: 'push', samples: stretched },
         [stretched.buffer]
       );
       this.isPlaying = true;
+      if (packet) {
+        this.currentPlayingSeqId = packet.seqId || null;
+        this.currentPlayingPacketId = packet.id || null;
+      }
       this.notifyState();
       return true;
     }
@@ -772,11 +794,6 @@ class AudioPlayerService {
   }
 
   _enqueueDecodeTask(taskFn) {
-    // Si la cadena de promesas supera 25 ejecuciones continuas, regenerar la raíz para liberar GC
-    if (this.decodeQueueDepth > 25) {
-      this.decodeQueue = Promise.resolve();
-      this.decodeQueueDepth = 0;
-    }
     this.decodeQueueDepth++;
     this.decodeQueue = this.decodeQueue
       .catch(() => {})
@@ -788,32 +805,137 @@ class AudioPlayerService {
 
   /**
    * Queue and play incoming audio packet in strict sequential order (Universal Web Audio API)
+   * Includes an RFC-3550 standard De-Jitter Reorder Buffer (60ms) to prevent out-of-order drops.
    */
   playAudioChunk(packet) {
     if (this.isMuted || !packet) return;
 
-    if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && packet.lang !== this.currentLanguage) {
+    if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && !packet.isHostMonitoring && !packet.isListenerDirect && packet.lang !== this.currentLanguage) {
       return;
     }
 
-    // Comprobación de secuencia determinista: descartar paquetes residuales u obsoletos
-    const packetLang = packet.lang || this.currentLanguage;
-    const seq = Number(packet.seqId) || 0;
-    if (seq > 0) {
-      const lastSeq = this.lastProcessedSeqByLang.get(packetLang) || 0;
-      if (lastSeq > 0) {
-        const diff = (seq - lastSeq) & 0xFFFF;
-        const isOlder = diff > 0x8000;
-        const stepBack = (lastSeq - seq) & 0xFFFF;
-        // Descartar si es estrictamente anterior en la ventana actual
-        if (isOlder && stepBack < 300) {
-          console.warn(`[AudioPlayer] 🛑 Descartado paquete obsoleto: seq ${seq} < lastSeq ${lastSeq}`);
-          return;
-        }
-      }
-      this.lastProcessedSeqByLang.set(packetLang, seq);
+    if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted') && !this.isMuted) {
+      this.audioCtx.resume().catch(() => {});
     }
 
+    const packetLang = packet.lang || this.currentLanguage;
+    const seq = Number(packet.seqId) || 0;
+
+    // Hot Switch instantáneo para conmutación de canal (Booth Switching sin espera de 60ms ni descartes obsoletos)
+    if (packet.isHotSwitch) {
+      this.lastProcessedSeqByLang.set(packetLang, seq);
+      if (this.reorderTimer) {
+        clearTimeout(this.reorderTimer);
+        this.reorderTimer = null;
+      }
+      this.packetReorderBuffer = [];
+      this._dispatchAudioChunk(packet);
+      return;
+    }
+
+    // Si no tiene número de secuencia, despachar de inmediato
+    if (seq <= 0) {
+      this._dispatchAudioChunk(packet);
+      return;
+    }
+
+    const lastSeq = this.lastProcessedSeqByLang.get(packetLang) || 0;
+
+    // Caso 1: Primer paquete del stream
+    if (lastSeq === 0) {
+      this.lastProcessedSeqByLang.set(packetLang, seq);
+      this._dispatchAudioChunk(packet);
+      this._drainReorderQueue(packetLang);
+      return;
+    }
+
+    // Aritmética modular RFC-1982
+    const diff = (seq - lastSeq) & 0xFFFF;
+    const isOlder = diff > 0x8000;
+    const stepBack = (lastSeq - seq) & 0xFFFF;
+
+    // Caso 2: Paquete obsoleto (llegó tras expirar la ventana de reordenación)
+    if (isOlder && stepBack < 300) {
+      console.warn(`[AudioPlayer] 🛑 Descartado paquete obsoleto: seq ${seq} < lastSeq ${lastSeq}`);
+      return;
+    }
+
+    // Caso 3: Paquete estrictamente consecutivo (seq == lastSeq + 1)
+    if (diff === 1) {
+      this.lastProcessedSeqByLang.set(packetLang, seq);
+      this._dispatchAudioChunk(packet);
+      this._drainReorderQueue(packetLang);
+      return;
+    }
+
+    // Caso 4: Hueco en la secuencia (diff > 1, paquete adelantado por jitter)
+    this._enqueueOutOfOrderPacket(packetLang, seq, packet);
+  }
+
+  _enqueueOutOfOrderPacket(lang, seq, packet) {
+    this.packetReorderBuffer.push({ lang, seq, packet });
+    this.packetReorderBuffer.sort((a, b) => {
+      const d = (a.seq - b.seq) & 0xFFFF;
+      return d > 0x8000 ? 1 : -1;
+    });
+
+    if (this.packetReorderBuffer.length > 16) {
+      this._forceFlushOldestReorderPacket();
+    }
+
+    if (!this.reorderTimer) {
+      this.reorderTimer = setTimeout(() => {
+        this._onReorderTimeout();
+      }, this.maxReorderDelayMs);
+    }
+  }
+
+  _drainReorderQueue(lang) {
+    let currentLast = this.lastProcessedSeqByLang.get(lang) || 0;
+
+    while (this.packetReorderBuffer.length > 0) {
+      const nextIdx = this.packetReorderBuffer.findIndex(item => {
+        if (item.lang !== lang) return false;
+        const diff = (item.seq - currentLast) & 0xFFFF;
+        return diff === 1;
+      });
+
+      if (nextIdx === -1) break;
+
+      const [nextItem] = this.packetReorderBuffer.splice(nextIdx, 1);
+      currentLast = nextItem.seq;
+      this.lastProcessedSeqByLang.set(lang, currentLast);
+      this._dispatchAudioChunk(nextItem.packet);
+    }
+
+    if (this.packetReorderBuffer.length === 0 && this.reorderTimer) {
+      clearTimeout(this.reorderTimer);
+      this.reorderTimer = null;
+    }
+  }
+
+  _onReorderTimeout() {
+    this.reorderTimer = null;
+    if (this.packetReorderBuffer.length === 0) return;
+
+    this._forceFlushOldestReorderPacket();
+
+    if (this.packetReorderBuffer.length > 0) {
+      this.reorderTimer = setTimeout(() => {
+        this._onReorderTimeout();
+      }, this.maxReorderDelayMs);
+    }
+  }
+
+  _forceFlushOldestReorderPacket() {
+    if (this.packetReorderBuffer.length === 0) return;
+    const oldest = this.packetReorderBuffer.shift();
+    this.lastProcessedSeqByLang.set(oldest.lang, oldest.seq);
+    this._dispatchAudioChunk(oldest.packet);
+    this._drainReorderQueue(oldest.lang);
+  }
+
+  _dispatchAudioChunk(packet) {
     // Si el Worklet se está descargando en red, encolar para evitar colisión de doble reproducción
     if (this.workletLoading) {
       this.pendingWorkletChunks.push(packet);
@@ -826,7 +948,7 @@ class AudioPlayerService {
       if (packet.sampleRate && this.audioCtx && packet.sampleRate !== this.audioCtx.sampleRate) {
         samples = this._resampleFloat32(samples, packet.sampleRate, this.audioCtx.sampleRate);
       }
-      const ok = this.pushToWorklet(samples, packet.timestamp);
+      const ok = this.pushToWorklet(samples, packet.timestamp, packet);
       if (ok) return;
     }
 
@@ -838,7 +960,7 @@ class AudioPlayerService {
       if (packet.sampleRate && this.audioCtx && packet.sampleRate !== this.audioCtx.sampleRate) {
         f32 = this._resampleFloat32(f32, packet.sampleRate, this.audioCtx.sampleRate);
       }
-      const ok = this.pushToWorklet(f32, packet.timestamp);
+      const ok = this.pushToWorklet(f32, packet.timestamp, packet);
       if (ok) return;
     }
 
@@ -846,19 +968,22 @@ class AudioPlayerService {
     if (packet.binaryPayload instanceof ArrayBuffer) {
       this._enqueueDecodeTask(async () => {
         try {
+          if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted') && !this.isMuted) {
+            await this.audioCtx.resume().catch(() => {});
+          }
           const startEpoch = this.playbackEpoch;
           const audioBuffer = await this.decodeAudioDataSafe(packet.binaryPayload);
           if (!audioBuffer || startEpoch !== this.playbackEpoch) return;
 
           // Descartar si el oyente cambió de canal o idioma durante la decodificación
-          if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && packet.lang !== this.currentLanguage) {
+          if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && !packet.isHostMonitoring && !packet.isListenerDirect && packet.lang !== this.currentLanguage) {
             return;
           }
 
           if (this.workletReady && this.stretcher) {
             const channelData = audioBuffer.getChannelData(0);
-            this.pushToWorklet(channelData, packet.timestamp);
-            return;
+            const ok = this.pushToWorklet(channelData, packet.timestamp, packet);
+            if (ok) return;
           }
           await this.processAndScheduleDecodedBuffer(audioBuffer, packet);
         } catch (e) {
@@ -877,11 +1002,11 @@ class AudioPlayerService {
         } catch (err) {
           console.warn('[AudioPlayer] Decode failed, falling back to Web Speech:', err);
           if (packet.text) {
-            await this.playSpeechSynthesisAsync(packet.text, packet.lang);
+            await this.playSpeechSynthesisAsync(packet.text, packet.lang, packet);
           }
         }
       } else if (packet.text) {
-        await this.playSpeechSynthesisAsync(packet.text, packet.lang);
+        await this.playSpeechSynthesisAsync(packet.text, packet.lang, packet);
       }
     });
   }
@@ -917,7 +1042,7 @@ class AudioPlayerService {
     if (!audioBuffer || currentEpoch !== this.playbackEpoch) return;
 
     // Discard chunk if language changed while decoding was asynchronously running
-    if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && packet.lang !== this.currentLanguage) {
+    if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && !packet.isHostMonitoring && !packet.isListenerDirect && packet.lang !== this.currentLanguage) {
       return;
     }
 
@@ -926,7 +1051,7 @@ class AudioPlayerService {
       try {
         const channelData = audioBuffer.getChannelData(0);
         if (channelData && channelData.length > 0) {
-          const ok = this.pushToWorklet(channelData, packet.timestamp);
+          const ok = this.pushToWorklet(channelData, packet.timestamp, packet);
           if (ok) return;
         }
       } catch (e) {
@@ -948,7 +1073,7 @@ class AudioPlayerService {
     const baseRate = this.basePlaybackRate || this.playbackRate || 1.0;
     const queueLeadTime = Math.max(0, this.nextStartTime - now);
     let effectiveRate = baseRate;
-    if (queueLeadTime > 4.8) {
+    if (queueLeadTime > 4.0) {
       // Hard Resync: latency is excessive (network stutter/tab sleep); purge stale active sources and snap to live stream
       for (const item of this.activeSources) {
         try {
@@ -962,10 +1087,10 @@ class AudioPlayerService {
       this.activeSources.clear();
       this.nextStartTime = now;
       effectiveRate = baseRate;
-    } else if (queueLeadTime > 3.2) {
-      effectiveRate = Math.min(1.025, baseRate * 1.025); // Cap at +42 cents max to eliminate chipmunk effect
-    } else if (queueLeadTime > 1.8) {
-      effectiveRate = Math.min(1.015, baseRate * 1.015); // Smooth imperceptible drift recovery
+    } else if (queueLeadTime > 2.0) {
+      effectiveRate = Math.min(1.08, baseRate * 1.08); // +8% para absorber desfase acumulado en ~25s sin distorsión
+    } else if (queueLeadTime > 1.0) {
+      effectiveRate = Math.min(1.04, baseRate * 1.04); // +4% corrección de deriva acústica transparente
     }
 
     const sourceNode = this.audioCtx.createBufferSource();
@@ -1000,6 +1125,10 @@ class AudioPlayerService {
     const activeItem = { sourceNode, chunkGain };
     this.activeSources.add(activeItem);
     this.isPlaying = true;
+
+    // Sincronización visual: vincular frase activa para resaltado en tiempo real en LiveCaptions
+    this.currentPlayingSeqId = packet?.seqId || null;
+    this.currentPlayingPacketId = packet?.id || null;
     this.notifyState();
 
     sourceNode.onended = () => {
@@ -1011,6 +1140,8 @@ class AudioPlayerService {
         sourceNode.buffer = null; // Free decompressed PCM audio buffer immediately for V8 GC
       } catch (e) {}
       if (this.activeSources.size === 0) {
+        this.currentPlayingSeqId = null;
+        this.currentPlayingPacketId = null;
         this.decodeQueue = Promise.resolve(); // Break indefinite promise chaining during pauses
         if (this.audioCtx && this.audioCtx.currentTime >= this.nextStartTime) {
           this.isPlaying = false;
@@ -1125,14 +1256,17 @@ class AudioPlayerService {
     return promise;
   }
 
-  playWebSpeechWithPersona(text, lang = 'es', profile = {}) {
+  playWebSpeechWithPersona(text, lang = 'es', profile = {}, packet = null) {
     return new Promise((resolve) => {
       if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
         return resolve();
       }
 
       try {
-        window.speechSynthesis.cancel();
+        // Prevención de cuelgues en iOS Safari: solo cancelar si hay emisión activa previa
+        if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+          window.speechSynthesis.cancel();
+        }
 
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = this.speechLangs[lang] || lang;
@@ -1176,6 +1310,8 @@ class AudioPlayerService {
           clearTimeout(timeoutId);
           if (this.activeUtterances) this.activeUtterances.delete(utterance);
           this.isPlaying = false;
+          this.currentPlayingSeqId = null;
+          this.currentPlayingPacketId = null;
           this.notifyState();
           resolve();
         };
@@ -1185,13 +1321,23 @@ class AudioPlayerService {
 
         utterance.onstart = () => {
           this.isPlaying = true;
+          this.currentPlayingSeqId = packet?.seqId || null;
+          this.currentPlayingPacketId = packet?.id || null;
           this.notifyState();
         };
 
         utterance.onend = done;
         utterance.onerror = done;
 
-        window.speechSynthesis.speak(utterance);
+        // Despacho asíncrono seguro (15ms) para evitar que WebKit descarte el utterance en iOS/iPadOS
+        setTimeout(() => {
+          try {
+            window.speechSynthesis.speak(utterance);
+          } catch (speakErr) {
+            console.warn('[AudioPlayer] Web Speech speak error:', speakErr);
+            done();
+          }
+        }, 15);
       } catch (e) {
         console.error('[AudioPlayer] Speech error:', e);
         resolve();
@@ -1199,8 +1345,8 @@ class AudioPlayerService {
     });
   }
 
-  playSpeechSynthesisAsync(text, lang = 'en') {
-    return this.playWebSpeechWithPersona(text, lang, { pitch: 1.0, rate: 1.0 });
+  playSpeechSynthesisAsync(text, lang = 'en', packet = null) {
+    return this.playWebSpeechWithPersona(text, lang, { pitch: 1.0, rate: 1.0 }, packet);
   }
 
   getFrequencyData() {
@@ -1297,7 +1443,9 @@ class AudioPlayerService {
       volume: this.volume,
       playbackRate: this.playbackRate,
       isPlaying: this.isPlaying,
-      currentLanguage: this.currentLanguage
+      currentLanguage: this.currentLanguage,
+      currentPlayingSeqId: this.currentPlayingSeqId || null,
+      currentPlayingPacketId: this.currentPlayingPacketId || null
     };
     for (const cb of this.onStateChangeCallbacks) {
       try { cb(state); } catch (e) {}

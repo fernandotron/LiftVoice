@@ -12,6 +12,13 @@ const CABINS = [
   { code: 'pt', label: 'Português' }
 ];
 
+const CABIN_NAMES = {
+  es: 'Español',
+  en: 'English',
+  it: 'Italiano',
+  pt: 'Português'
+};
+
 const LANG_OPTIONS = [
   { value: 'all', label: 'Todos los idiomas', icon: Languages },
   { value: 'es', label: 'Español', flag: 'es' },
@@ -248,6 +255,24 @@ export default function SidebarVoiceCatalog({
     }
   };
 
+  // Asignación directa si hay un filtro de idioma activo, o apertura de popover si el filtro es 'all'
+  const handleAssignVoice = (voice, specificLang = null) => {
+    if (specificLang) {
+      onSelectVoice(specificLang, voice);
+      setAssigningVoiceId(null);
+      return;
+    }
+
+    if (selectedLang && selectedLang !== 'all') {
+      onSelectVoice(selectedLang, voice);
+      setAssigningVoiceId(null);
+      return;
+    }
+
+    // Solo se abre el popover si el filtro superior está en 'Todos los idiomas'
+    setAssigningVoiceId(prev => (prev === voice.id ? null : voice.id));
+  };
+
   const filteredVoices = useMemo(() => {
     const normalize = (str) =>
       (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -327,7 +352,10 @@ export default function SidebarVoiceCatalog({
           aria-label="Filtrar por idioma"
           value={selectedLang}
           options={LANG_OPTIONS}
-          onChange={(_, val) => setSelectedLang(val || 'all')}
+          onChange={(_, val) => {
+            setSelectedLang(val || 'all');
+            setAssigningVoiceId(null);
+          }}
         />
 
         {/* Filtro: Proveedor */}
@@ -356,18 +384,29 @@ export default function SidebarVoiceCatalog({
             const isPlaying = playingVoiceId === voice.id;
             const assignedCabins = CABINS.filter(c => selectedVoices[c.code] === voice.id);
             const isAssigned = assignedCabins.length > 0;
-            const isAssigning = assigningVoiceId === voice.id;
+            const isAssignedToCurrent = selectedLang !== 'all'
+              ? selectedVoices[selectedLang] === voice.id
+              : isAssigned;
+            const isAssigning = assigningVoiceId === voice.id && selectedLang === 'all';
             const isHighlighted = highlightedVoiceId === voice.id;
+            const currentLangLabel = CABIN_NAMES[selectedLang] || selectedLang.toUpperCase();
 
             return (
               <div
                 key={voice.id}
                 id={`voice-card-${voice.id}`}
+                onClick={() => {
+                  if (selectedLang !== 'all') {
+                    handleAssignVoice(voice);
+                  }
+                }}
                 className={`group relative flex items-center justify-between p-3 rounded-2xl border transition-all duration-300 shadow-2xs ${
+                  selectedLang !== 'all' ? 'cursor-pointer' : ''
+                } ${
                   isHighlighted
                     ? 'border-zinc-400 dark:border-white/60 bg-zinc-200/80 dark:bg-zinc-800/95 shadow-md ring-2 ring-zinc-950/20 dark:ring-white/30 scale-[1.01]'
-                    : isAssigned
-                    ? 'border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/80 shadow-2xs ring-1 ring-zinc-400/20 dark:ring-zinc-700/50'
+                    : isAssignedToCurrent
+                    ? 'border-zinc-400 dark:border-zinc-600 bg-zinc-100/90 dark:bg-zinc-800/90 shadow-2xs ring-1 ring-zinc-400/30 dark:ring-zinc-600/50'
                     : 'border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900/80'
                 }`}
               >
@@ -375,11 +414,14 @@ export default function SidebarVoiceCatalog({
                 <div className="relative shrink-0">
                   <button
                     type="button"
-                    onClick={() => handleAudition(voice)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAudition(voice);
+                    }}
                     className={`relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 cursor-pointer group/btn ${
                       isPlaying
                         ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 ring-2 ring-zinc-900/20 dark:ring-white/30 scale-102 shadow-xs'
-                        : isAssigned
+                        : isAssignedToCurrent
                         ? 'bg-zinc-200/80 dark:bg-white/15 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-white/20 hover:bg-zinc-300/80 dark:hover:bg-white/25 hover:scale-105 shadow-2xs'
                         : 'bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:bg-zinc-200 dark:hover:bg-white/15 hover:scale-105 shadow-2xs'
                     }`}
@@ -437,10 +479,10 @@ export default function SidebarVoiceCatalog({
                   )}
                 </div>
 
-                {/* Lado derecho: Botón Asignar a cabina (visible en hover en escritorio) */}
+                {/* Lado derecho: Botón Asignar a cabina */}
                 <div
                   className={`relative shrink-0 transition-opacity duration-150 ${
-                    isAssigned || isAssigning
+                    isAssignedToCurrent || isAssigning
                       ? 'opacity-100'
                       : 'opacity-100 sm:opacity-0 sm:pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto'
                   }`}
@@ -448,58 +490,69 @@ export default function SidebarVoiceCatalog({
                 >
                   <button
                     type="button"
-                    onClick={() => setAssigningVoiceId(isAssigning ? null : voice.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAssignVoice(voice);
+                    }}
                     className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 border ${
-                      isAssigned
+                      isAssignedToCurrent
                         ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 hover:bg-zinc-800 dark:hover:bg-white'
                         : isAssigning
                           ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100'
                           : 'bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300'
                     }`}
-                    title={isAssigned ? `Asignada a ${assignedCabins.map(c => c.label).join(', ')} (clic para cambiar)` : 'Asignar a cabina'}
-                    aria-label="Asignar a cabina"
+                    title={
+                      selectedLang !== 'all'
+                        ? (isAssignedToCurrent ? `Voz activa para ${currentLangLabel}` : `Asignar a cabina de ${currentLangLabel}`)
+                        : (isAssigned ? `Asignada a ${assignedCabins.map(c => c.label).join(', ')} (clic para cambiar)` : 'Asignar a cabina')
+                    }
+                    aria-label={
+                      selectedLang !== 'all'
+                        ? (isAssignedToCurrent ? `Voz activa para ${currentLangLabel}` : `Asignar a cabina de ${currentLangLabel}`)
+                        : (isAssigned ? `Asignada a ${assignedCabins.map(c => c.label).join(', ')}` : 'Asignar a cabina')
+                    }
                   >
-                    {isAssigned ? (
+                    {isAssignedToCurrent ? (
                       <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                     ) : (
                       <Plus className={`w-3.5 h-3.5 stroke-[2.5] transition-transform ${isAssigning ? 'rotate-45' : ''}`} />
                     )}
                   </button>
 
-                    {/* Popover de asignación rápida a cabinas */}
-                    {isAssigning && (
-                      <div className="absolute right-0 bottom-full mb-1.5 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-1.5 z-40 space-y-0.5 animate-fadeIn">
-                        <div className="px-2 py-1 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                          Asignar a cabina:
-                        </div>
-                        {CABINS.map(cab => {
-                          const isCurrent = selectedVoices[cab.code] === voice.id;
-                          return (
-                            <button
-                              key={cab.code}
-                              type="button"
-                              onClick={() => {
-                                onSelectVoice(cab.code, voice);
-                                setAssigningVoiceId(null);
-                              }}
-                              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                                isCurrent
-                                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-bold'
-                                  : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <CountryFlag code={cab.code} className="w-4 h-4 rounded-full" />
-                                <span>{cab.label}</span>
-                              </div>
-                              {isCurrent && <Check className="w-3.5 h-3.5 stroke-[3] text-zinc-900 dark:text-zinc-100" />}
-                            </button>
-                          );
-                        })}
+                  {/* Popover de asignación rápida a cabinas (solo cuando el filtro es 'all') */}
+                  {isAssigning && selectedLang === 'all' && (
+                    <div className="absolute right-0 bottom-full mb-1.5 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-1.5 z-40 space-y-0.5 animate-fadeIn">
+                      <div className="px-2 py-1 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                        Asignar a cabina:
                       </div>
-                    )}
-                  </div>
+                      {CABINS.map(cab => {
+                        const isCurrent = selectedVoices[cab.code] === voice.id;
+                        return (
+                          <button
+                            key={cab.code}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAssignVoice(voice, cab.code);
+                            }}
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors cursor-pointer ${
+                              isCurrent
+                                ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-bold'
+                                : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <CountryFlag code={cab.code} className="w-4 h-4 rounded-full" />
+                              <span>{cab.label}</span>
+                            </div>
+                            {isCurrent && <Check className="w-3.5 h-3.5 stroke-[3] text-zinc-900 dark:text-zinc-100" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
+              </div>
             );
           })
         )}

@@ -117,9 +117,15 @@ export default function MobileAudioDock({
   return (
     <nav 
       aria-label="Controles de audio del oyente"
-      className="fixed bottom-0 inset-x-0 z-40 sm:hidden pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-10 px-2.5 sm:px-4 bg-gradient-to-t from-white via-white/95 via-45% to-transparent dark:from-zinc-950 dark:via-zinc-950/95 dark:via-45% dark:to-transparent pointer-events-none"
+      className="fixed bottom-0 inset-x-0 z-40 sm:hidden pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-12 px-2.5 sm:px-4 pointer-events-none select-none"
     >
-      <div className="flex items-center justify-center gap-2.5 sm:gap-3 pointer-events-auto">
+      {/* Capa de difuminado progresivo inferior (Frosted Glass con gradiente y desenfoque) */}
+      <div 
+        aria-hidden="true" 
+        className="dock-difuminado-inferior" 
+      />
+
+      <div className="relative z-10 flex items-center justify-center gap-2.5 sm:gap-3 pointer-events-auto">
         
         {/* Satélite Izquierdo: Selector de Idioma con Menú de Acciones Superior */}
         <div className="relative flex-shrink-0">

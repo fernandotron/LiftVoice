@@ -102,6 +102,39 @@ export class DeepgramStreamingService {
   }
 
   /**
+   * Configura dinámicamente los parámetros del VAD en el AudioWorklet activo
+   */
+  setVadParams({ silenceThreshold, hangoverSeconds }) {
+    if (typeof silenceThreshold === 'number') this.currentVadSilenceThreshold = silenceThreshold;
+    if (typeof hangoverSeconds === 'number') this.currentVadHangoverSeconds = hangoverSeconds;
+    if (this.workletNode && this.workletNode.port) {
+      try {
+        this.workletNode.port.postMessage({
+          type: 'SET_VAD',
+          silenceThreshold: this.currentVadSilenceThreshold,
+          hangoverSeconds: this.currentVadHangoverSeconds
+        });
+      } catch (e) {}
+    }
+  }
+
+  setVadSensitivity(level) {
+    let silenceThreshold = ASR_VAD_SILENCE_THRESHOLD;
+    let hangoverSeconds = ASR_VAD_HANGOVER_SECONDS;
+    if (level === 'high') {
+      silenceThreshold = 0.005; // Mayor sensibilidad para susurros o micrófonos lejanos
+      hangoverSeconds = 0.7;
+    } else if (level === 'aggressive') {
+      silenceThreshold = 0.016; // Supresión agresiva de ruido ambiental de auditorio
+      hangoverSeconds = 0.4;
+    } else {
+      silenceThreshold = 0.008; // Sensibilidad estándar de estudio
+      hangoverSeconds = 0.6;
+    }
+    this.setVadParams({ silenceThreshold, hangoverSeconds });
+  }
+
+  /**
    * Inicia el pipeline completo: obtiene token efímero, monta el grafo de audio y abre el WebSocket
    */
   async start(stream, config = {}, callbacks = {}) {
@@ -399,8 +432,8 @@ export class DeepgramStreamingService {
       processorOptions: {
         targetSampleRate: config.sampleRate || ASR_SAMPLE_RATE,
         chunkMs: ASR_CHUNK_MS,
-        silenceThreshold: ASR_VAD_SILENCE_THRESHOLD,
-        hangoverSeconds: ASR_VAD_HANGOVER_SECONDS
+        silenceThreshold: this.currentVadSilenceThreshold || ASR_VAD_SILENCE_THRESHOLD,
+        hangoverSeconds: this.currentVadHangoverSeconds || ASR_VAD_HANGOVER_SECONDS
       }
     });
 

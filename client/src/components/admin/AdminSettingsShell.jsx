@@ -2334,8 +2334,8 @@ export default function AdminSettingsShell({
   if (isCheckingAuth) {
     if (variant === 'modal') {
       return (
-        <div className="w-full max-w-5xl h-[92vh] sm:h-[680px] max-h-[92vh] rounded-[28px] sm:rounded-[30px] bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xl flex items-center justify-center relative">
-          <button onClick={handleCloseAttempt} className="absolute top-4 right-4 w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation z-10" title="Cerrar panel" aria-label="Cerrar panel"><X className="w-4 h-4"/></button>
+        <div className="w-full h-full h-dvh md:h-[680px] md:max-w-5xl md:max-h-[92vh] rounded-none md:rounded-[30px] bg-white dark:bg-zinc-950 border-0 md:border border-zinc-200/80 dark:border-zinc-800/80 shadow-none md:shadow-2xl flex items-center justify-center relative">
+          <button onClick={handleCloseAttempt} className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation z-10" title="Cerrar panel" aria-label="Cerrar panel"><X className="w-4 h-4"/></button>
           <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
         </div>
       );
@@ -2394,7 +2394,7 @@ export default function AdminSettingsShell({
   if (variant === 'modal') {
     return (
       <div 
-        className="relative w-full h-full sm:h-[88vh] sm:max-h-[820px] sm:max-w-[1100px] flex flex-col md:flex-row overflow-hidden rounded-none sm:rounded-[32px] bg-white dark:bg-zinc-950 border-0 sm:border border-zinc-200/80 dark:border-white/10 shadow-2xl text-left focus:outline-none" 
+        className="relative w-full h-full h-dvh md:h-[88vh] md:max-h-[820px] md:max-w-[1100px] flex flex-col md:flex-row overflow-hidden rounded-none md:rounded-[32px] bg-white dark:bg-zinc-950 border-0 md:border border-zinc-200/80 dark:border-white/10 shadow-none md:shadow-2xl text-left focus:outline-none" 
         ref={modalContainerRef}
       >
         {/* Left Sidebar Rail (Visible en md+, en móvil oculto para activar MenuDeArea) */}
@@ -2405,7 +2405,7 @@ export default function AdminSettingsShell({
         {/* Right Content Panel */}
         <div className="flex-1 flex flex-col justify-between h-full overflow-hidden bg-white dark:bg-zinc-950 min-w-0">
           {/* Modal Header con MenuDeArea táctil para móvil */}
-          <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-6 sm:px-8 pt-5 sm:pt-7 pb-4 border-b border-zinc-200/80 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md">
+          <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-4 sm:px-6 md:px-8 pt-[max(1.25rem,env(safe-area-inset-top))] md:pt-7 pb-4 border-b border-zinc-200/80 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md">
             <DegradadoCabecera />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2.5">

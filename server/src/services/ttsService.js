@@ -472,6 +472,18 @@ export class TTSService {
     return fallback;
   }
 
+  generateFallbackPayload(text, lang) {
+    return {
+      audioBase64: null,
+      audioBuffer: null,
+      useClientWebSpeech: true,
+      text: text || '',
+      lang: lang || 'es',
+      durationMs: Math.max(1000, (text || '').length * 65),
+      provider: 'client-webspeech'
+    };
+  }
+
   async synthesizeWithQwenTTS(text, lang, options = {}) {
     const endpoint = (this.qwenTtsEndpoint || process.env.QWEN_TTS_ENDPOINT || 'http://localhost:8000/v1/audio/speech').trim();
     if (endpoint) {
@@ -524,6 +536,7 @@ export class TTSService {
 
     return {
       audioBase64,
+      audioBuffer: buffer,
       mimeType: 'audio/mpeg',
       text,
       lang,
@@ -587,6 +600,7 @@ export class TTSService {
 
     return {
       audioBase64,
+      audioBuffer: buffer,
       mimeType: 'audio/mpeg',
       text,
       lang,
@@ -639,6 +653,7 @@ export class TTSService {
 
     return {
       audioBase64,
+      audioBuffer: buffer,
       mimeType: 'audio/mpeg',
       text,
       lang,
@@ -688,6 +703,7 @@ export class TTSService {
 
     return {
       audioBase64,
+      audioBuffer: buffer,
       mimeType: 'audio/mpeg',
       text,
       lang,
@@ -798,6 +814,7 @@ export class TTSService {
             }
             resolve({
               audioBase64: fullBuffer.toString('base64'),
+              audioBuffer: fullBuffer,
               mimeType: 'audio/mpeg',
               text,
               lang,
@@ -892,6 +909,7 @@ export class TTSService {
     const buffer = Buffer.from(arrayBuffer);
     return {
       audioBase64: buffer.toString('base64'),
+      audioBuffer: buffer,
       mimeType: 'audio/mpeg',
       text,
       lang,
@@ -992,6 +1010,7 @@ export class TTSService {
 
     return {
       audioBase64,
+      audioBuffer: combinedBuffer,
       mimeType: 'audio/mpeg',
       text,
       lang,

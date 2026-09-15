@@ -567,14 +567,18 @@ export default function HostView({
     });
 
     const unsubAudio = socketService.on('audio_chunk', (packet) => {
-      if (!isMounted) return;
+      if (!isMounted || !packet) return;
       if (packet.isHostPreview) {
         audioPlayerService.playAudioChunk(packet);
-      } else if (packet.isBoothAudio) {
+      } else {
         // Play only the cabin that the host explicitly chose to monitor in headphones
         const activeMonitored = monitoredLangRef.current;
         if (activeMonitored && activeMonitored !== 'none' && packet.lang === activeMonitored) {
-          audioPlayerService.playAudioChunk(packet);
+          audioPlayerService.playAudioChunk({
+            ...packet,
+            isBoothAudio: true,
+            isHostMonitoring: true
+          });
         }
       }
     });
@@ -745,10 +749,17 @@ export default function HostView({
     }
 
     // Transmit strictly ONE single socket event to server AI pipeline for translation and multi-booth TTS
-    // Pass empty array [] so Lazy Cabins only synthesizes audio for active listeners or host-monitored booth
     const currentMedConfig = medicalConfigRef.current || {};
     const currentStt = audioRecorderService.getActiveSttInfo ? audioRecorderService.getActiveSttInfo() : null;
-    socketService.sendSpeechText(cleanText, sendLang, [], {
+    const activeMon = monitoredLangRef.current;
+    let forceLangs = [];
+    if (activeMon && activeMon !== 'none') {
+      forceLangs.push(activeMon);
+    }
+    if (overrides.inputSource === 'manual_text') {
+      forceLangs = ['es', 'en', 'it', 'pt'];
+    }
+    socketService.sendSpeechText(cleanText, sendLang, forceLangs, {
       medicalMode: currentMedConfig.medicalMode,
       medicalSpecialty: currentMedConfig.medicalSpecialty,
       customGlossary: currentMedConfig.customGlossary,
@@ -770,6 +781,7 @@ export default function HostView({
       socketService.setMonitoredBooth(roomId, langCode);
       try {
         await audioPlayerService.unlockAudio(roomId, langCode);
+        audioPlayerService.setLanguage(langCode);
       } catch (e) {}
     }
   };
@@ -826,7 +838,10 @@ export default function HostView({
           }
         }
 
-        await audioPlayerService.unlockAudio(roomId, 'es');
+        const activeBoothLang = (monitoredLangRef.current && monitoredLangRef.current !== 'none')
+          ? monitoredLangRef.current
+          : ((sourceLanguageRef.current && sourceLanguageRef.current !== 'auto') ? sourceLanguageRef.current : 'es');
+        await audioPlayerService.unlockAudio(roomId, activeBoothLang);
         const activeStt = sttEngine || localStorage.getItem('lv_stt_engine') || 'deepgram';
         const currentSrcLang = sourceLanguageRef.current;
         await audioRecorderService.startRecording({
@@ -2081,18 +2096,20 @@ export default function HostView({
 
         {/* Tab 2: Catálogo de Voces (mantenido montado en segundo plano para 0ms y cero parpadeo) */}
           <div className={`h-full overflow-hidden ${sidebarTab === 'catalog' ? 'flex flex-col' : 'hidden'}`}>
-            <SidebarVoiceCatalog
-              roomId={roomId}
-              selectedVoices={selectedVoices}
-              targetLang={selectedCatalogLang}
-              navNonce={catalogNavNonce}
-              onSelectVoice={(targetLang, voiceObj) => {
-                const voiceId = typeof voiceObj === 'object' && voiceObj ? voiceObj.id : voiceObj;
-                const gender = typeof voiceObj === 'object' && voiceObj ? voiceObj.gender : undefined;
-                const engine = typeof voiceObj === 'object' && voiceObj ? voiceObj.engine : undefined;
-                handleSelectVoiceFromCatalog(targetLang, voiceId, engine, gender);
-              }}
-            />
+            <ErrorBoundary>
+              <SidebarVoiceCatalog
+                roomId={roomId}
+                selectedVoices={selectedVoices}
+                targetLang={selectedCatalogLang}
+                navNonce={catalogNavNonce}
+                onSelectVoice={(targetLang, voiceObj) => {
+                  const voiceId = typeof voiceObj === 'object' && voiceObj ? voiceObj.id : voiceObj;
+                  const gender = typeof voiceObj === 'object' && voiceObj ? voiceObj.gender : undefined;
+                  const engine = typeof voiceObj === 'object' && voiceObj ? voiceObj.engine : undefined;
+                  handleSelectVoiceFromCatalog(targetLang, voiceId, engine, gender);
+                }}
+              />
+            </ErrorBoundary>
           </div>
 
           {/* Tab 3: Resumen de Sesión */}
@@ -2166,11 +2183,11 @@ export default function HostView({
           </div>
 
           {/* Canvas Body con Subtítulos y Barra de Emisión Manual */}
-          <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden p-4 pb-28 sm:px-6 sm:pt-6 sm:pb-3 space-y-3">
-            <div className="w-full max-w-4xl mx-auto flex-1 min-h-0 flex flex-col space-y-3">
+          <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden px-0 sm:px-6 sm:pt-6 sm:pb-3 space-y-2 sm:space-y-3">
+            <div className="w-full sm:max-w-4xl sm:mx-auto flex-1 min-h-0 flex flex-col space-y-2 sm:space-y-3">
               {/* Error Banner */}
               {broadcastError && (
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 px-4 sm:px-0">
                   <Banner
                     icon={<XCircle className="w-4 h-4 text-white" strokeWidth={2.4} />}
                     color="#ef4444"
@@ -2213,6 +2230,31 @@ export default function HostView({
               onSubmit={handleSendCustomText}
               className="w-full max-w-2xl rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-3 shadow-xs transition-all duration-200 focus-within:border-zinc-400 dark:focus-within:border-zinc-600 hover:border-zinc-300 dark:hover:border-zinc-700 flex flex-col gap-2"
             >
+              {/* Chips rápidos de presets para prueba del simulador */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                {[
+                  { label: '🇪🇸 Bienvenida', text: 'Bienvenidos a la conferencia de innovación. Hoy presentamos la traducción simultánea con inteligencia artificial en tiempo real.', lang: 'es' },
+                  { label: '🇺🇸 Keynote', text: 'Welcome to our live keynote. You can listen in real-time in English, Spanish, Italian, and Portuguese directly from your mobile phone.', lang: 'en' },
+                  { label: '🩺 Caso clínico', text: 'El paciente presenta disnea súbita, taquicardia con frecuencia de 115 lpm y saturación de oxígeno del 91%. Se solicita electrocardiograma urgente.', lang: 'es' },
+                  { label: '⚡ Conmutación', text: 'Probando cambio dinámico de cabina de idioma en alta fidelidad y ultra-baja latencia.', lang: 'es' }
+                ].map((p, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setManualText(p.text);
+                      if (promptTextareaRef.current) {
+                        promptTextareaRef.current.focus();
+                        adjustPromptHeight(promptTextareaRef.current);
+                      }
+                    }}
+                    className="h-6 px-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium transition-colors cursor-pointer shrink-0 border border-zinc-200/50 dark:border-zinc-700/50"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Textarea Multimodal-input style */}
               <div className="flex flex-row items-start gap-1 sm:gap-2">
                 <textarea

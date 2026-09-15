@@ -35,6 +35,7 @@ import LanguageBottomSheet from '../components/mobile/LanguageBottomSheet.jsx';
 import MobileQAPill from '../components/mobile/MobileQAPill.jsx';
 import Banner from '../components/shared/Banner.jsx';
 import DesktopHeaderMenu from '../components/shared/DesktopHeaderMenu.jsx';
+import AudioVisualizer from '../components/AudioVisualizer.jsx';
 import { socketService } from '../services/socket.js';
 import { audioPlayerService } from '../services/audioPlayer.js';
 
@@ -152,6 +153,8 @@ export default function ListenerView({
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioSuspended, setIsAudioSuspended] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [activePlayingSeqId, setActivePlayingSeqId] = useState(null);
+  const [activePlayingPacketId, setActivePlayingPacketId] = useState(null);
   const [transcriptHistory, setTranscriptHistory] = useState([]);
   const [roomStats, setRoomStats] = useState({
     totalListeners: 0,
@@ -254,6 +257,8 @@ export default function ListenerView({
       setIsPlayingAudio(state.isPlaying);
       setIsMuted(state.isMuted);
       setIsAudioSuspended(audioPlayerService.isContextSuspended());
+      setActivePlayingSeqId(state.currentPlayingSeqId || null);
+      setActivePlayingPacketId(state.currentPlayingPacketId || null);
     });
 
     // Q&A Backchannel socket handlers
@@ -580,12 +585,15 @@ export default function ListenerView({
         )}
 
         {/* Canvas de Subtítulos a Pantalla Completa con espacio inferior para el dock */}
-        <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden pb-24">
+        <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
           <LiveCaptions
             transcriptHistory={transcriptHistory}
             currentLanguage={selectedLanguage}
             showOriginal={true}
             captionSize={captionSize}
+            activePlayingSeqId={activePlayingSeqId}
+            activePlayingPacketId={activePlayingPacketId}
+            isPlayingAudio={isPlayingAudio && !isMuted}
             className="flex-1 flex flex-col h-full min-h-0 w-full"
             maxHeightClass="flex-1 h-full min-h-0"
           />
@@ -834,18 +842,22 @@ export default function ListenerView({
 
               {/* Visualizer indicator if playing and not muted */}
               {isPlayingAudio && !isMuted && (
-                <div className="relative h-9 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 flex items-center justify-between px-3 overflow-hidden shadow-2xs select-none">
+                <div className="relative h-11 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 flex items-center justify-between px-3.5 overflow-hidden shadow-2xs select-none">
                   <div className="flex items-center gap-2 min-w-0">
-                    <AudioLines className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <AudioLines className="w-3.5 h-3.5 text-emerald-500 shrink-0 animate-pulse" />
                     <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300 truncate">
                       Audio en vivo activo
                     </span>
                   </div>
-                  <div className="flex items-end gap-0.5 h-3 shrink-0">
-                    <span className="w-0.5 h-full bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-                    <span className="w-0.5 h-2 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-                    <span className="w-0.5 h-3 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
-                    <span className="w-0.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '450ms' }} />
+                  <div className="w-24 h-6 flex items-center shrink-0">
+                    <AudioVisualizer
+                      mode="bars"
+                      height={24}
+                      barCount={18}
+                      barColor="#10b981"
+                      isActive={isPlayingAudio && !isMuted}
+                      getFrequencyDataFn={() => audioPlayerService.getFrequencyData()}
+                    />
                   </div>
                 </div>
               )}
@@ -921,6 +933,9 @@ export default function ListenerView({
                 currentLanguage={selectedLanguage}
                 showOriginal={true}
                 captionSize={captionSize}
+                activePlayingSeqId={activePlayingSeqId}
+                activePlayingPacketId={activePlayingPacketId}
+                isPlayingAudio={isPlayingAudio && !isMuted}
                 className="flex-1 flex flex-col h-full min-h-0 w-full"
                 maxHeightClass="flex-1 h-full min-h-0"
               />

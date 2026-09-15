@@ -7,8 +7,8 @@
 class StreamPlayoutProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    // Capacidad del buffer circular: 2 segundos a 48kHz = 96,000 muestras
-    this.bufferSize = (options && options.processorOptions && options.processorOptions.bufferSize) || 96000;
+    // Capacidad del buffer circular: 10 segundos a 48kHz = 480,000 muestras
+    this.bufferSize = (options && options.processorOptions && options.processorOptions.bufferSize) || 480000;
     this.ringBuffer = new Float32Array(this.bufferSize);
     this.writeIndex = 0;
     this.readIndex = 0;
@@ -88,6 +88,7 @@ class StreamPlayoutProcessor extends AudioWorkletProcessor {
       this.fadeInRemaining = 0;
       for (let i = 0; i < quantumSize; i++) {
         this.lastSample *= 0.85; // Decaimiento rápido en <1ms
+        if (Math.abs(this.lastSample) < 1e-7) this.lastSample = 0.0; // Anti-denormal flush to zero
         channelLeft[i] = this.lastSample;
         if (channelRight !== channelLeft) channelRight[i] = this.lastSample;
       }

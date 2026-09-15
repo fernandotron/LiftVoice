@@ -16,6 +16,8 @@ class SocketService {
     this.maxReconnectAttempts = 10;
     this.connectingPromise = null;
     this.isKicked = false;
+    this.outboxQueue = [];
+    this.currentHostKey = null;
 
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
@@ -125,6 +127,8 @@ class SocketService {
           this.reconnectAttempts = 0;
           this.emit('connection_status', { connected: true });
           this.startPingLoop();
+          // SEC-01: NO ejecutar flushOutbox() aquí. Debe esperar a la confirmación
+          // de rol en sala (HOST_JOINED_SUCCESS / LISTENER_JOINED_SUCCESS).
           resolve();
         };
 
@@ -233,6 +237,14 @@ class SocketService {
       this.ws.send(JSON.stringify(data));
       return true;
     }
+    // Si la conexión está temporalmente reconectando, encolar mensajes críticos (voz, transcripción, Q&A)
+    const CRITICAL_TYPES = new Set(['SPEECH_CHUNK_TEXT', 'SPEECH_CHUNK_AUDIO', 'AUDIENCE_AUDIO_QUESTION', 'AUDIENCE_RAISE_HAND']);
+    if (data && CRITICAL_TYPES.has(data.type)) {
+      if (this.outboxQueue.length < 50) {
+        this.outboxQueue.push({ type: 'json', data });
+        console.log(`[Socket] 📬 Encolado mensaje de voz en outbox (${this.outboxQueue.length} pendientes): ${data.type}`);
+      }
+    }
     return false;
   }
 
@@ -241,7 +253,29 @@ class SocketService {
       this.ws.send(buffer);
       return true;
     }
+    if (buffer && this.outboxQueue.length < 50) {
+      this.outboxQueue.push({ type: 'binary', data: buffer });
+      console.log(`[Socket] 📬 Encolado paquete binario de audio en outbox (${this.outboxQueue.length} pendientes)`);
+    }
     return false;
+  }
+
+  flushOutbox() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || this.outboxQueue.length === 0) return;
+    console.log(`[Socket] 🚀 Vaciando outbox con ${this.outboxQueue.length} mensaje(s) encolados durante la reconexión...`);
+    const queue = [...this.outboxQueue];
+    this.outboxQueue = [];
+    for (const item of queue) {
+      try {
+        if (item.type === 'json') {
+          this.ws.send(JSON.stringify(item.data));
+        } else if (item.type === 'binary') {
+          this.ws.send(item.data);
+        }
+      } catch (e) {
+        console.warn('[Socket] Error al vaciar elemento del outbox:', e);
+      }
+    }
   }
 
   handleMessage(msg) {
@@ -254,6 +288,7 @@ class SocketService {
       }
       case 'KICKED_BY_HOST':
         this.isKicked = true;
+        this.outboxQueue = []; // SEC-01: Evitar retransmisión si el usuario fue vetado
         this.stopPingLoop();
         this.emit('kicked_by_host', msg);
         break;
@@ -270,11 +305,21 @@ class SocketService {
         this.emit('pipeline_metric', msg.metric);
         break;
       case 'HOST_JOINED_SUCCESS':
+        if (msg.hostKey) {
+          this.currentHostKey = msg.hostKey;
+        }
+        this.emit('joined_success', msg);
+        if (msg.stats) {
+          this.emit('room_stats', msg.stats);
+        }
+        this.flushOutbox(); // SEC-01: Ahora el socket tiene clientRole y room autenticados en el servidor
+        break;
       case 'LISTENER_JOINED_SUCCESS':
         this.emit('joined_success', msg);
         if (msg.stats) {
           this.emit('room_stats', msg.stats);
         }
+        this.flushOutbox(); // SEC-01: Oyente autenticado en sala, vaciar preguntas o eventos encolados
         break;
       case 'LANGUAGE_CHANGED':
         this.emit('language_changed', msg.lang);
@@ -348,20 +393,22 @@ class SocketService {
       seqId,
       timestamp,
       binaryPayload,
-      isBinary: true
+      isBinary: true,
+      isBoothAudio: this.currentRole === 'HOST'
     });
   }
 
   joinAsHost(roomId, token = null) {
     this.currentRoomId = roomId;
     this.currentRole = 'HOST';
-    let adminToken = token;
+    let adminToken = token || this.currentHostKey;
     if (!adminToken && typeof localStorage !== 'undefined') {
       adminToken = localStorage.getItem('liftvoice_admin_token') || localStorage.getItem('lv_admin_token') || localStorage.getItem('adminToken') || null;
     }
     return this.send({
       type: 'HOST_JOIN',
       roomId,
+      hostKey: this.currentHostKey || adminToken,
       token: adminToken,
       supportsBinary: true
     });

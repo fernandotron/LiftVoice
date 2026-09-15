@@ -33,12 +33,17 @@ class UserManager {
   }
 
   save() {
-    try {
-      const obj = Object.fromEntries(this.users);
-      fs.writeFileSync(USERS_FILE, JSON.stringify(obj, null, 2), 'utf-8');
-    } catch (e) {
-      console.error('Failed to save users', e);
-    }
+    if (this._saveTimeout) return;
+    this._saveTimeout = setTimeout(() => {
+      this._saveTimeout = null;
+      try {
+        const obj = Object.fromEntries(this.users);
+        fs.writeFileSync(USERS_FILE, JSON.stringify(obj, null, 2), 'utf-8');
+      } catch (e) {
+        console.error('Failed to save users', e);
+      }
+    }, 400);
+    if (this._saveTimeout.unref) this._saveTimeout.unref();
   }
 
   getOrCreateUser(id, { name, email, phone }) {
@@ -66,6 +71,12 @@ class UserManager {
       if (phone) user.phone = phone;
       this.save();
       return user;
+    }
+
+    // Limit in-memory users cache to 5000 max entries (prevent memory leak from anonymous sockets)
+    if (this.users.size >= 5000) {
+      const oldestKey = this.users.keys().next().value;
+      if (oldestKey) this.users.delete(oldestKey);
     }
 
     const newUser = {

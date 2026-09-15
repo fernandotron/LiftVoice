@@ -411,6 +411,10 @@ class AudioRecorderService {
       this.vadThreshold = 0.02;
       if (!this.decalageMode) this.silenceThresholdMs = 950;
     }
+    // Propagar dinámicamente al motor de streaming Deepgram y su AudioWorklet en tiempo real
+    if (deepgramStreamingService && typeof deepgramStreamingService.setVadSensitivity === 'function') {
+      deepgramStreamingService.setVadSensitivity(this.vadSensitivity);
+    }
   }
 
   setSttEngine(engine) {
@@ -574,9 +578,10 @@ class AudioRecorderService {
       const constraints = {
         audio: {
           deviceId: this.selectedDeviceId !== 'default' ? { exact: this.selectedDeviceId } : undefined,
+          channelCount: 1,
           echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+          noiseSuppression: false,
+          autoGainControl: false
         }
       };
 
@@ -586,7 +591,7 @@ class AudioRecorderService {
     } catch (err) {
       console.warn('[AudioRecorder] Conmutación con restricción exacta falló, reintentando con audio predeterminado:', err);
       newStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: false, autoGainControl: false }
       });
     }
 
@@ -967,9 +972,10 @@ class AudioRecorderService {
       const constraints = {
         audio: {
           deviceId: this.selectedDeviceId && this.selectedDeviceId !== 'default' ? { exact: this.selectedDeviceId } : undefined,
+          channelCount: 1,
           echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+          noiseSuppression: false,
+          autoGainControl: false
         }
       };
 
@@ -986,9 +992,10 @@ class AudioRecorderService {
           this.selectedDeviceId = 'default';
           acquiredStream = await navigator.mediaDevices.getUserMedia({
             audio: {
+              channelCount: 1,
               echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true
+              noiseSuppression: false,
+              autoGainControl: false
             }
           });
         } else {

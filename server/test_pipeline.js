@@ -63,9 +63,9 @@ async function runTest() {
     sourceLanguage: 'es'
   }));
 
-  // Wait 4 seconds for AI pipeline (Translation -> TTS -> Multi-channel WS Broadcast)
+  // Wait 6.5 seconds for AI pipeline (Translation -> TTS -> Multi-channel WS Broadcast)
   console.log('⏳ Waiting for AI pipeline processing and multi-channel broadcast...');
-  await new Promise((r) => setTimeout(r, 4000));
+  await new Promise((r) => setTimeout(r, 6500));
 
   // 4. Verification Check
   console.log('\n--- Verification Results ---');

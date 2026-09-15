@@ -8,8 +8,9 @@ import { sttService } from './sttService.js';
  * Canonical ISO-639-1 language normalizer for LiftVoice AI Pipeline
  */
 export function normalizePipelineLang(lang) {
-  if (!lang || lang === 'auto' || lang === 'multi') return 'auto';
+  if (!lang || lang === 'auto' || lang === 'multi' || lang === 'none') return 'auto';
   const l = String(lang).toLowerCase().trim();
+  if (l === 'none' || l === 'null' || l === 'undefined') return 'auto';
   if (l.startsWith('es')) return 'es';
   if (l.startsWith('en')) return 'en';
   if (l.startsWith('it')) return 'it';
@@ -29,7 +30,8 @@ export class AIPipeline {
     this.roomSeqCounters = new Map(); // roomId -> integer
     this.roomContexts = new Map(); // roomId -> string of recent spoken words
     this.roomRecentEmissions = new Map(); // roomId -> Array of { text, norm, time }
-    this.roomDecalageBuffers = new Map(); // roomId -> { text, timer, opts, seqId }
+    this.cabinQueues = new Map(); // `${roomId}:${lang}` -> Promise chain for sequential per-cabin TTS
+    this.cabinQueueDepths = new Map(); // `${roomId}:${lang}` -> integer depth (shed-load defense)
     this.openaiApiKey = process.env.OPENAI_API_KEY || '';
   }
 
@@ -131,6 +133,11 @@ export class AIPipeline {
     const buf = this.roomDecalageBuffers.get(key);
     if (buf?.timer) clearTimeout(buf.timer);
     this.roomDecalageBuffers.delete(key);
+    for (const cKey of this.cabinQueues.keys()) {
+      if (cKey.startsWith(`${key}:`)) {
+        this.cabinQueues.delete(cKey);
+      }
+    }
   }
 
   flushDecalageBuffer(roomId) {
@@ -412,7 +419,8 @@ export class AIPipeline {
         medicalMode,
         medicalSpecialty,
         customGlossary,
-        contextHistory: prevContext
+        contextHistory: prevContext,
+        targets: targetLangs
       });
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('TRANSLATION_TIMEOUT')), 5000)
@@ -484,74 +492,48 @@ export class AIPipeline {
     const healthyLangs = targetLangs.filter(l => !isOmittedOrUntranslated(l));
     const healingLangs = targetLangs.filter(l => isOmittedOrUntranslated(l));
 
-    // VÍA RÁPIDA (Fast Lane): Sintetizar y difundir de inmediato las cabinas sanas sin demora (<180ms)
-    const fastLanePromises = healthyLangs.map(async (lang) => {
-      const translatedText = transResult.translations[lang] || spokenText;
-      if (!translatedText) return;
+    // Despacho de síntesis TTS por cabina desacoplado en colas independientes FIFO por idioma
+    // Permite que la transcripción y subtítulos fluyan a <450ms sin riesgo de backpressure shed-load
+    const MAX_CABIN_QUEUE_DEPTH = 3;
+    const MAX_CABIN_TASK_AGE_MS = 8000;
 
-      try {
-        const voiceOpt = {
-          voice: room?.config?.voiceConfig?.[lang],
-          gender: room?.config?.voiceGender?.[lang],
-          engine: room?.config?.preferredTtsEngine
-        };
-        const audioResult = await ttsService.synthesize(translatedText, lang, voiceOpt);
-        if (audioResult) {
-          let audioBuffer = audioResult.audioBuffer;
-          if (!audioBuffer && audioResult.audioBase64) {
-            try { audioBuffer = Buffer.from(audioResult.audioBase64, 'base64'); } catch (e) {}
-          }
-          roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
-            id: `${packetId}_${lang}`,
-            seqId,
-            lang,
-            text: translatedText,
-            audioBase64: audioResult.audioBase64,
-            audioBuffer,
-            useClientWebSpeech: audioResult.useClientWebSpeech,
-            mimeType: audioResult.mimeType || 'audio/mpeg',
-            duration: audioResult.durationMs,
-            latencyMs: Date.now() - pipelineStart,
-            timestamp: Date.now()
-          });
-        }
-      } catch (err) {
-        console.error(`[AIPipeline] Error synthesizing TTS for healthy lang ${lang}:`, err.message);
+    for (const lang of healthyLangs) {
+      const cabinKey = `${roomId}:${lang}`;
+      const currentDepth = this.cabinQueueDepths.get(cabinKey) || 0;
+      if (currentDepth >= MAX_CABIN_QUEUE_DEPTH) {
+        console.warn(`[AIPipeline] ⚠️ Shedding TTS chunk for cabin ${cabinKey} (depth ${currentDepth} >= ${MAX_CABIN_QUEUE_DEPTH})`);
+        continue;
       }
-    });
+      this.cabinQueueDepths.set(cabinKey, currentDepth + 1);
 
-    // VÍA DE AUTO-RECUPERACIÓN (Healing Lane): Auto-sanar cabinas omitidas con oyentes activos (<80ms)
-    // Se ejecuta en paralelo sin bloquear la vía rápida (Aislamiento Bulkhead)
-    if (healingLangs.length > 0) {
-      console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Bulkhead activado para cabina(s) omitida(s): [${healingLangs.join(', ')}]. Auto-sanando en paralelo...`);
-      for (const lang of healingLangs) {
-        (async () => {
+      const prevTask = this.cabinQueues.get(cabinKey) || Promise.resolve();
+      const nextTask = prevTask
+        .catch(() => {})
+        .then(async () => {
+          if (Date.now() - pipelineStart > MAX_CABIN_TASK_AGE_MS) {
+            console.warn(`[AIPipeline] ⏱️ Discarding expired TTS task for cabin ${cabinKey} (age > ${MAX_CABIN_TASK_AGE_MS}ms)`);
+            return;
+          }
+          const translatedText = transResult.translations[lang] || spokenText;
+          if (!translatedText) return;
+
           try {
-            const healedRes = await translationService.translateWithFreeEngine(spokenText, detectedLang, [lang]);
-            const healedText = (healedRes && healedRes.translations && healedRes.translations[lang]) || spokenText;
-            transResult.translations[lang] = healedText;
-            transcriptItem.translations[lang] = healedText;
-
-            // Actualizar el historial de la sala y notificar a los oyentes de esa cabina
-            roomManager.updateTranscriptItem(roomId, transcriptItem);
-
-            // Sintetizar y difundir audio TTS para la cabina sanada con configuración de la sala
             const voiceOpt = {
               voice: room?.config?.voiceConfig?.[lang],
               gender: room?.config?.voiceGender?.[lang],
               engine: room?.config?.preferredTtsEngine
             };
-            const audioResult = await ttsService.synthesize(healedText, lang, voiceOpt);
+            const audioResult = await ttsService.synthesize(translatedText, lang, voiceOpt);
             if (audioResult) {
               let audioBuffer = audioResult.audioBuffer;
               if (!audioBuffer && audioResult.audioBase64) {
                 try { audioBuffer = Buffer.from(audioResult.audioBase64, 'base64'); } catch (e) {}
               }
               roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
-                id: `${packetId}_${lang}_healed`,
+                id: `${packetId}_${lang}`,
                 seqId,
                 lang,
-                text: healedText,
+                text: translatedText,
                 audioBase64: audioResult.audioBase64,
                 audioBuffer,
                 useClientWebSpeech: audioResult.useClientWebSpeech,
@@ -560,27 +542,99 @@ export class AIPipeline {
                 latencyMs: Date.now() - pipelineStart,
                 timestamp: Date.now()
               });
-              console.log(`[AIPipeline] 🩹 [Room: ${roomId}] Cabina '${lang}' auto-sanada y difundida con éxito (<${Date.now() - pipelineStart}ms).`);
             }
-          } catch (hErr) {
-            console.warn(`[AIPipeline] Micro-fallback de auto-sanación falló para cabina '${lang}':`, hErr.message);
+          } catch (err) {
+            console.error(`[AIPipeline] Error synthesizing TTS for healthy lang ${lang}:`, err.message);
           }
-        })();
-      }
+        })
+        .finally(() => {
+          const d = (this.cabinQueueDepths.get(cabinKey) || 1) - 1;
+          if (d <= 0) {
+            this.cabinQueueDepths.delete(cabinKey);
+            if (this.cabinQueues.get(cabinKey) === nextTask) {
+              this.cabinQueues.delete(cabinKey);
+            }
+          } else {
+            this.cabinQueueDepths.set(cabinKey, d);
+          }
+        });
+      this.cabinQueues.set(cabinKey, nextTask);
     }
 
-    // Esperar síntesis de la vía rápida para mantener métricas de latencia de ultra-baja demora.
-    // Usamos Promise.allSettled con ventana reducida a 2200ms para que una cabina lenta nunca bloquee el pipeline de la sala.
-    try {
-      await Promise.race([
-        Promise.allSettled(fastLanePromises),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('TTS_TIMEOUT')), 2200))
-      ]);
-    } catch (ttsErr) {
-      if (ttsErr?.message === 'TTS_TIMEOUT') {
-        console.warn(`[AIPipeline] ⏱️ Síntesis TTS de vía rápida continuó en segundo plano para paquete ${packetId} (seq ${seqId})`);
-      } else {
-        console.warn('[AIPipeline] Error en TTS de vía rápida:', ttsErr);
+    // VÍA DE AUTO-RECUPERACIÓN (Healing Lane): Auto-sanar cabinas omitidas con oyentes activos (<80ms)
+    // Se ejecuta en paralelo sin bloquear la vía rápida (Aislamiento Bulkhead)
+    if (healingLangs.length > 0) {
+      console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Bulkhead activado para cabina(s) omitida(s): [${healingLangs.join(', ')}]. Auto-sanando en paralelo...`);
+      for (const lang of healingLangs) {
+        const cabinKey = `${roomId}:${lang}`;
+        const currentDepth = this.cabinQueueDepths.get(cabinKey) || 0;
+        if (currentDepth >= MAX_CABIN_QUEUE_DEPTH) {
+          console.warn(`[AIPipeline] ⚠️ Shedding healed TTS chunk for cabin ${cabinKey} (depth ${currentDepth} >= ${MAX_CABIN_QUEUE_DEPTH})`);
+          continue;
+        }
+        this.cabinQueueDepths.set(cabinKey, currentDepth + 1);
+
+        const prevTask = this.cabinQueues.get(cabinKey) || Promise.resolve();
+        const nextTask = prevTask
+          .catch(() => {})
+          .then(async () => {
+            if (Date.now() - pipelineStart > MAX_CABIN_TASK_AGE_MS) {
+              console.warn(`[AIPipeline] ⏱️ Discarding expired healed TTS task for cabin ${cabinKey}`);
+              return;
+            }
+            try {
+              const healedRes = await translationService.translateWithFreeEngine(spokenText, detectedLang, [lang]);
+              const healedText = (healedRes && healedRes.translations && healedRes.translations[lang]) || spokenText;
+              transResult.translations[lang] = healedText;
+              transcriptItem.translations[lang] = healedText;
+
+              // Actualizar el historial de la sala y notificar a los oyentes de esa cabina
+              roomManager.updateTranscriptItem(roomId, transcriptItem);
+
+              // Sintetizar y difundir audio TTS para la cabina sanada con configuración de la sala
+              const voiceOpt = {
+                voice: room?.config?.voiceConfig?.[lang],
+                gender: room?.config?.voiceGender?.[lang],
+                engine: room?.config?.preferredTtsEngine
+              };
+              const audioResult = await ttsService.synthesize(healedText, lang, voiceOpt);
+              if (audioResult) {
+                let audioBuffer = audioResult.audioBuffer;
+                if (!audioBuffer && audioResult.audioBase64) {
+                  try { audioBuffer = Buffer.from(audioResult.audioBase64, 'base64'); } catch (e) {}
+                }
+                roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
+                  id: `${packetId}_${lang}_healed`,
+                  seqId,
+                  lang,
+                  text: healedText,
+                  audioBase64: audioResult.audioBase64,
+                  audioBuffer,
+                  useClientWebSpeech: audioResult.useClientWebSpeech,
+                  mimeType: audioResult.mimeType || 'audio/mpeg',
+                  duration: audioResult.durationMs,
+                  latencyMs: Date.now() - pipelineStart,
+                  timestamp: Date.now(),
+                  isHealed: true
+                });
+                console.log(`[AIPipeline] 🩹 [Room: ${roomId}] Cabina '${lang}' auto-sanada y difundida con éxito (<${Date.now() - pipelineStart}ms).`);
+              }
+            } catch (hErr) {
+              console.warn(`[AIPipeline] Micro-fallback de auto-sanación falló para cabina '${lang}':`, hErr.message);
+            }
+          })
+          .finally(() => {
+            const d = (this.cabinQueueDepths.get(cabinKey) || 1) - 1;
+            if (d <= 0) {
+              this.cabinQueueDepths.delete(cabinKey);
+              if (this.cabinQueues.get(cabinKey) === nextTask) {
+                this.cabinQueues.delete(cabinKey);
+              }
+            } else {
+              this.cabinQueueDepths.set(cabinKey, d);
+            }
+          });
+        this.cabinQueues.set(cabinKey, nextTask);
       }
     }
 
