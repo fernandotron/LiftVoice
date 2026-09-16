@@ -191,6 +191,13 @@ export default function HostView({
   const [participantSearch, setParticipantSearch] = useState('');
   const [broadcastSeconds, setBroadcastSeconds] = useState(0);
 
+  // Audio Player State for monitoring highlight in LiveCaptions
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [activePlayingSeqId, setActivePlayingSeqId] = useState(null);
+  const [activePlayingPacketId, setActivePlayingPacketId] = useState(null);
+  const [activeCoalescedSeqIds, setActiveCoalescedSeqIds] = useState([]);
+  const [activeCoalescedPacketIds, setActiveCoalescedPacketIds] = useState([]);
+
   // User Menu State & Ref
   const [isHostUserMenuOpen, setIsHostUserMenuOpen] = useState(false);
   const hostUserMenuTriggerRef = useRef(null);
@@ -348,6 +355,20 @@ export default function HostView({
   useEffect(() => {
     monitoredLangRef.current = monitoredLang;
   }, [monitoredLang]);
+
+  // Subscribe to audio player state for synchronized speech highlight when monitoring
+  useEffect(() => {
+    const unsubPlayer = audioPlayerService.onStateChange((state) => {
+      setIsPlayingAudio(Boolean(state.isPlaying));
+      setActivePlayingSeqId(state.currentPlayingSeqId || null);
+      setActivePlayingPacketId(state.currentPlayingPacketId || null);
+      setActiveCoalescedSeqIds(state.currentCoalescedSeqIds || []);
+      setActiveCoalescedPacketIds(state.currentCoalescedPacketIds || []);
+    });
+    return () => {
+      if (typeof unsubPlayer === 'function') unsubPlayer();
+    };
+  }, []);
 
   // Synchronize microphone / STT engine language dynamically
   useEffect(() => {
@@ -2257,6 +2278,11 @@ export default function HostView({
               currentLanguage={monitoredLang !== 'none' ? monitoredLang : (sourceLanguage === 'auto' ? 'es' : sourceLanguage.slice(0, 2))}
               showOriginal={true}
               medicalMode={medicalConfig.medicalMode}
+              isPlayingAudio={isPlayingAudio}
+              activePlayingSeqId={activePlayingSeqId}
+              activePlayingPacketId={activePlayingPacketId}
+              activeCoalescedSeqIds={activeCoalescedSeqIds}
+              activeCoalescedPacketIds={activeCoalescedPacketIds}
               className="flex-1 flex flex-col h-full min-h-0 w-full"
               maxHeightClass="flex-1 h-full min-h-0"
               captionSize={captionSize}
@@ -2271,31 +2297,6 @@ export default function HostView({
               onSubmit={handleSendCustomText}
               className="w-full max-w-2xl rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-3 shadow-xs transition-all duration-200 focus-within:border-zinc-400 dark:focus-within:border-zinc-600 hover:border-zinc-300 dark:hover:border-zinc-700 flex flex-col gap-2"
             >
-              {/* Chips rápidos de presets para prueba del simulador */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                {[
-                  { label: '🇪🇸 Bienvenida', text: 'Bienvenidos a la conferencia de innovación. Hoy presentamos la traducción simultánea con inteligencia artificial en tiempo real.', lang: 'es' },
-                  { label: '🇺🇸 Keynote', text: 'Welcome to our live keynote. You can listen in real-time in English, Spanish, Italian, and Portuguese directly from your mobile phone.', lang: 'en' },
-                  { label: '🩺 Caso clínico', text: 'El paciente presenta disnea súbita, taquicardia con frecuencia de 115 lpm y saturación de oxígeno del 91%. Se solicita electrocardiograma urgente.', lang: 'es' },
-                  { label: '⚡ Conmutación', text: 'Probando cambio dinámico de cabina de idioma en alta fidelidad y ultra-baja latencia.', lang: 'es' }
-                ].map((p, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setManualText(p.text);
-                      if (promptTextareaRef.current) {
-                        promptTextareaRef.current.focus();
-                        adjustPromptHeight(promptTextareaRef.current);
-                      }
-                    }}
-                    className="h-6 px-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium transition-colors cursor-pointer shrink-0 border border-zinc-200/50 dark:border-zinc-700/50"
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-
               {/* Textarea Multimodal-input style */}
               <div className="flex flex-row items-start gap-1 sm:gap-2">
                 <textarea

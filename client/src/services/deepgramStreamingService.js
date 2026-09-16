@@ -13,12 +13,12 @@
 
 import { PcmBacklog } from './pcmBacklog.js';
 
-const WORKLET_MODULE_PATH = '/asr-audio-worklet.js';
+const WORKLET_MODULE_PATH = '/asr-audio-worklet.js?v=20260916';
 const WORKLET_PROCESSOR_NAME = 'asr-audio-worklet';
 
 const ASR_SAMPLE_RATE = 16000;
-const ASR_ENDPOINTING_MS = 300;
-const ASR_UTTERANCE_END_MS = 1000;
+const ASR_ENDPOINTING_MS = 900; // SOTA 2026: 900ms prevents premature cuts during natural human breathing pauses
+const ASR_UTTERANCE_END_MS = 1200;
 const ASR_KEEPALIVE_INTERVAL_MS = 5000;
 const ASR_CHUNK_MS = 100;
 const ASR_VAD_SILENCE_THRESHOLD = 0.008;
@@ -655,7 +655,7 @@ export class DeepgramStreamingService {
       smart_format: 'true'
     });
 
-    const resolvedEndpointing = resolvedLanguage === 'multi' ? 500 : ASR_ENDPOINTING_MS;
+    const resolvedEndpointing = resolvedLanguage === 'multi' ? 800 : ASR_ENDPOINTING_MS;
     params.append('endpointing', String(resolvedEndpointing));
     params.append('utterance_end_ms', String(ASR_UTTERANCE_END_MS));
     params.append('vad_events', 'true');
@@ -760,10 +760,12 @@ export class DeepgramStreamingService {
       }
 
       const isFinal = Boolean(data.is_final || data.speech_final);
+      const isSpeechFinal = Boolean(data.speech_final);
       if (callbacks.onTranscript) {
         callbacks.onTranscript({
           transcript: transcript.trim(),
           isFinal,
+          isSpeechFinal,
           detectedLanguage: data.channel?.detected_language || config.language
         });
       }

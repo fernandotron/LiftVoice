@@ -641,14 +641,14 @@ class AudioRecorderService {
       return;
     }
 
-    // Fase 1 (800ms): Enviar forceFinalize() a Deepgram para que vacíe su búfer acústico
+    // Fase 1 (1050ms): Disparar forceFinalize() DESPUÉS del endpointing nativo de Deepgram (900ms)
     this.pendingWatchdogTimer = setTimeout(() => {
       if (!this.currentPendingText || !this.currentPendingText.trim() || !this.isRecording) {
         return;
       }
       this.forceFinalizeSpeech();
 
-      // Fase 2 (1200ms total): Si tras forceFinalize() Deepgram aún no ha emitido is_final (común en frases cortas),
+      // Fase 2 (1450ms total): Si tras forceFinalize() Deepgram aún no ha emitido is_final (común en frases cortas aisladas),
       // volcar directamente el texto pendiente como final para garantizar cero bloqueos en la UI
       this.pendingWatchdogTimer = setTimeout(() => {
         if (!this.currentPendingText || !this.currentPendingText.trim() || !this.isRecording) {
@@ -662,7 +662,7 @@ class AudioRecorderService {
           this.onSpeechTextCallback(pending, langCode || 'es', { isTerminalSilence: true, endOfTurn: true, bypassDecalage: true });
         }
       }, 400);
-    }, 800);
+    }, 1050);
   }
 
   /**

@@ -20,6 +20,90 @@ export function normalizePipelineLang(lang) {
 }
 
 /**
+ * Merges two consecutive speech segments, eliminating any overlapping suffix-prefix words.
+ * E.g.:
+ * prev: "Entonces, ¿qué podemos hacer con la suma de"
+ * next: "¿qué podemos hacer con la suma de los números y la multiplicación?"
+ * result: "Entonces, ¿qué podemos hacer con la suma de los números y la multiplicación?"
+ */
+export function mergeOverlappingSpeech(prevText, nextText) {
+  if (!prevText || !prevText.trim()) return nextText ? nextText.trim() : '';
+  if (!nextText || !nextText.trim()) return prevText ? prevText.trim() : '';
+
+  const cleanPrev = prevText.trim();
+  const cleanNext = nextText.trim();
+
+  const normWord = (w) => (w || '').toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').trim();
+
+  const prevWords = cleanPrev.split(/\s+/).filter(Boolean);
+  const nextWords = cleanNext.split(/\s+/).filter(Boolean);
+
+  const normPrevWords = prevWords.map(normWord);
+  const normNextWords = nextWords.map(normWord);
+
+  const prevNormJoined = normPrevWords.join(' ');
+  const nextNormJoined = normNextWords.join(' ');
+
+  // 1. Full containment: next already includes prev
+  if (nextNormJoined.startsWith(prevNormJoined)) {
+    return cleanNext;
+  }
+  // Prev already includes next
+  if (prevNormJoined.endsWith(nextNormJoined) || prevNormJoined === nextNormJoined) {
+    return cleanPrev;
+  }
+
+  // 2. Find longest overlapping suffix of prev that matches prefix of next
+  const maxOverlap = Math.min(prevWords.length, nextWords.length);
+  for (let k = maxOverlap; k >= 1; k--) {
+    let match = true;
+    for (let i = 0; i < k; i++) {
+      if (normPrevWords[normPrevWords.length - k + i] !== normNextWords[i]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      const nonOverlappingNext = nextWords.slice(k).join(' ');
+      return nonOverlappingNext ? `${cleanPrev} ${nonOverlappingNext}`.trim() : cleanPrev;
+    }
+  }
+
+  return `${cleanPrev} ${cleanNext}`.trim();
+}
+
+/**
+ * Removes back-to-back repeating phrases of 2+ words within a single utterance.
+ * E.g.: "hacer con la suma de ¿qué podemos hacer con la suma de los números"
+ */
+export function deduplicateRepeatedPhrases(text) {
+  if (!text || typeof text !== 'string' || text.length < 10) return text || '';
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 4) return text.trim();
+
+  const normWord = (w) => (w || '').toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').trim();
+  const norm = words.map(normWord);
+
+  // Check repeating phrase lengths from floor(N/2) down to 2 words
+  for (let k = Math.floor(words.length / 2); k >= 2; k--) {
+    for (let i = 0; i <= words.length - 2 * k; i++) {
+      let isRepeat = true;
+      for (let j = 0; j < k; j++) {
+        if (!norm[i + j] || norm[i + j] !== norm[i + k + j]) {
+          isRepeat = false;
+          break;
+        }
+      }
+      if (isRepeat) {
+        words.splice(i + k, k);
+        return deduplicateRepeatedPhrases(words.join(' '));
+      }
+    }
+  }
+  return words.join(' ');
+}
+
+/**
  * AI Pipeline Orchestrator for LiftVoice (2026 Edition)
  * Mic / Speech -> STT -> Multi-target Translation -> Parallel TTS -> Monotonic Serialized Broadcast
  */
@@ -175,6 +259,16 @@ export class AIPipeline {
         this.cabinQueues.delete(cKey);
       }
     }
+    for (const cKey of this.cabinPendingTexts.keys()) {
+      if (cKey.startsWith(`${key}:`)) {
+        this.cabinPendingTexts.delete(cKey);
+      }
+    }
+    for (const cKey of this.cabinQueueDepths.keys()) {
+      if (cKey.startsWith(`${key}:`)) {
+        this.cabinQueueDepths.delete(cKey);
+      }
+    }
   }
 
   flushDecalageBuffer(roomId) {
@@ -262,6 +356,7 @@ export class AIPipeline {
       };
     }
     let { roomId, text, audioBuffer, mimeType, sourceLanguage = 'auto', seqId = 1, forceLanguages = [], medicalMode, medicalSpecialty, customGlossary, sttEngine, sttModel } = opts;
+    roomId = (roomId || 'MAIN').toUpperCase();
     sourceLanguage = normalizePipelineLang(sourceLanguage);
     const pipelineStart = Date.now();
     const packetId = `pkt_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
@@ -394,7 +489,8 @@ export class AIPipeline {
 
     let cleanText = spokenText.trim();
     if (cleanText.length > 1500) cleanText = cleanText.slice(0, 1500);
-    let cleanUtterance = cleanText;
+    // Strip any intra-utterance repeated n-gram phrases (model stutter)
+    let cleanUtterance = deduplicateRepeatedPhrases(cleanText);
     let normUtterance = normalizePipelineSpeech(cleanUtterance);
 
     // Defense 1: Exact duplicate of recent utterance within 4 seconds (protects against rapid double socket packet events)
@@ -408,49 +504,72 @@ export class AIPipeline {
       return;
     }
 
+    // Defense 2: Check if cleanUtterance repeats words from the most recently dispatched sentence
+    const lastDispatched = roomHistory[roomHistory.length - 1];
+    if (lastDispatched && (now - lastDispatched.time < 6000)) {
+      const mergedDispatched = mergeOverlappingSpeech(lastDispatched.text, cleanUtterance);
+      if (mergedDispatched === lastDispatched.text) {
+        console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Suppressed redundant partial already dispatched: "${cleanUtterance}"`);
+        return;
+      }
+      if (mergedDispatched.startsWith(lastDispatched.text)) {
+        const remaining = mergedDispatched.slice(lastDispatched.text.length).trim();
+        if (remaining && remaining !== cleanUtterance) {
+          console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Stripped overlap with recent dispatch: "${cleanUtterance}" -> "${remaining}"`);
+          cleanUtterance = remaining;
+          normUtterance = normalizePipelineSpeech(cleanUtterance);
+        }
+      }
+    }
+
     if (!cleanUtterance || cleanUtterance.length < 2) {
       return;
     }
 
-    // --- DÉCALAGE / CLAUSE ACCUMULATION ENGINE (2026 Streaming Chaining & Smart Tail Flush) ---
+    // --- DÉCALAGE / CLAUSE ACCUMULATION ENGINE (2026 Semantic SBD & Smart Tail Flush) ---
     const existingBuffer = this.roomDecalageBuffers?.get(roomId);
     const decalageMode = room?.config?.decalageMode || this.decalageMode || 'streaming';
     const isBypass = Boolean(opts.bypassDecalage || opts.isTerminalSilence || opts.endOfTurn);
-    const isTerminal = /[.!?…]\s*$/.test(cleanUtterance) || isBypass;
-    const wordCount = cleanUtterance.split(/\s+/).length;
+    
+    // Accumulate candidate text using intelligent overlap merging and deduplication
+    const candidateRawText = existingBuffer ? mergeOverlappingSpeech(existingBuffer.text, cleanUtterance) : cleanUtterance;
+    const candidateFullText = deduplicateRepeatedPhrases(candidateRawText);
+    const isTerminal = /[.!?…]\s*$/.test(candidateFullText) || isBypass;
+    const wordCount = cleanUtterance.split(/\s+/).filter(Boolean).length;
+    const totalAccumulatedWords = candidateFullText.split(/\s+/).filter(Boolean).length;
     const isStreaming = decalageMode === 'streaming' || decalageMode === 'fast' || decalageMode === 'quick';
-    const isSufficientLength = isBypass
-      ? true
-      : isStreaming
-      ? (wordCount >= 3 || (isTerminal && wordCount >= 2))
-      : (wordCount >= (decalageMode === 'paused' ? 12 : 6));
 
-    const totalAccumulatedWords = (existingBuffer ? existingBuffer.text.split(/\s+/).length : 0) + wordCount;
+    // Despacho inteligente para traducción y TTS:
+    // 1. Bypass explícito (fin de turno, silencio terminal de VAD o input manual)
+    // 2. Oración terminal completa: tiene puntuación (. ? !) y al menos 4 palabras
+    // 3. Ventana máxima de acumulación de palabras para evitar latencia excesiva (10 en streaming, 16 en paused)
+    const shouldDispatch = isBypass ||
+      (isTerminal && totalAccumulatedWords >= 4) ||
+      (totalAccumulatedWords >= (isStreaming ? 10 : (decalageMode === 'paused' ? 16 : 8)));
 
-    if (isBypass || isSufficientLength || isTerminal || totalAccumulatedWords >= (isStreaming ? 4 : 7)) {
+    if (shouldDispatch) {
       if (existingBuffer) {
         if (existingBuffer.timer) clearTimeout(existingBuffer.timer);
         this.roomDecalageBuffers.delete(roomId);
-        cleanUtterance = `${existingBuffer.text} ${cleanUtterance}`.trim();
-        spokenText = cleanUtterance;
-        normUtterance = normalizePipelineSpeech(cleanUtterance);
       }
+      cleanUtterance = candidateFullText;
+      spokenText = cleanUtterance;
+      normUtterance = normalizePipelineSpeech(cleanUtterance);
     } else {
       // Accumulate in buffer and schedule flush
-      const combinedText = existingBuffer ? `${existingBuffer.text} ${cleanUtterance}` : cleanUtterance;
       if (existingBuffer?.timer) clearTimeout(existingBuffer.timer);
 
-      const waitMs = isStreaming ? 320 : (decalageMode === 'paused' ? 1800 : 450);
+      const waitMs = isStreaming ? 750 : (decalageMode === 'paused' ? 1800 : 900);
       const timer = setTimeout(() => {
         this.flushDecalageBuffer(roomId);
       }, waitMs);
 
       this.roomDecalageBuffers.set(roomId, {
-        text: combinedText,
+        text: candidateFullText,
         timer,
-        opts: { ...opts, audioBuffer: null, text: combinedText, seqId, sttEngineUsed, sttModelUsed, sttLatency, bypassDecalage: true }
+        opts: { ...opts, audioBuffer: null, text: candidateFullText, seqId, sttEngineUsed, sttModelUsed, sttLatency, bypassDecalage: true }
       });
-      console.log(`[AIPipeline] ⏳ [Room: ${roomId}] Décalage buffering clause (${combinedText.split(/\s+/).length} words, mode: ${decalageMode}): "${combinedText}"`);
+      console.log(`[AIPipeline] ⏳ [Room: ${roomId}] Décalage buffering clause (${totalAccumulatedWords} words, mode: ${decalageMode}): "${candidateFullText}"`);
       return;
     }
 

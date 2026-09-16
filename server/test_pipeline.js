@@ -4,7 +4,7 @@ async function runTest() {
   console.log('--- Starting LiftVoice Automated Pipeline & E2E Verification Test ---');
 
   const WS_URL = 'ws://localhost:3001';
-  const ROOM_ID = 'TEST-ROOM-2026';
+  const ROOM_ID = 'TEST-ROOM-' + Math.floor(Date.now() / 1000);
 
   // 1. Connect Host Socket
   const hostWs = new WebSocket(WS_URL);
@@ -67,9 +67,9 @@ async function runTest() {
     sourceLanguage: 'es'
   }));
 
-  // Wait 6.5 seconds for AI pipeline (Translation -> TTS -> Multi-channel WS Broadcast)
+  // Wait 9.5 seconds for AI pipeline (Translation -> TTS -> Multi-channel WS Broadcast)
   console.log('⏳ Waiting for AI pipeline processing and multi-channel broadcast...');
-  await new Promise((r) => setTimeout(r, 6500));
+  await new Promise((r) => setTimeout(r, 9500));
 
   // 4. Verification Check
   console.log('\n--- Verification Results ---');
