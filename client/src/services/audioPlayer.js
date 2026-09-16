@@ -93,8 +93,6 @@ class AudioPlayerService {
     this.stretcher = null;
     this.jitterController = new AdaptiveJitterBuffer({ targetLatencyMs: 80 });
     this.currentBufferedSamples = 0;
-    this.mediaStreamDest = null;
-    this.carrierAudioElement = null;
 
     this.activeUtterances = new Set();
 
@@ -175,28 +173,9 @@ class AudioPlayerService {
       this.analyserNode.connect(this.audioCtx.destination);
     }
 
-    // 6. Mobile Background Audio Bridge: Solo en dispositivos móviles para mantener audio en pantalla bloqueada
-    // Evita duplicación de audio y filtro en peine (comb-filtering) en navegadores de escritorio
-    if (this.isMobileDevice() && !this.mediaStreamDest && typeof this.audioCtx.createMediaStreamDestination === 'function') {
-      try {
-        this.mediaStreamDest = this.audioCtx.createMediaStreamDestination();
-        if (this.limiterNode) {
-          this.limiterNode.connect(this.mediaStreamDest);
-        } else if (this.gainNode) {
-          this.gainNode.connect(this.mediaStreamDest);
-        }
-        if (!this.carrierAudioElement && typeof document !== 'undefined') {
-          this.carrierAudioElement = document.createElement('audio');
-          this.carrierAudioElement.srcObject = this.mediaStreamDest.stream;
-          this.carrierAudioElement.setAttribute('playsinline', 'true');
-          this.carrierAudioElement.setAttribute('webkit-playsinline', 'true');
-          this.carrierAudioElement.style.display = 'none';
-          document.body.appendChild(this.carrierAudioElement);
-        }
-      } catch (e) {
-        console.warn('[AudioPlayer] MediaStreamDestination setup fallback:', e);
-      }
-    }
+    // 6. Playout único y directo por Web Audio (audioCtx.destination).
+    // La reproducción en segundo plano en dispositivos móviles es preservada por
+    // initBackgroundAudioKeeper() mediante un bucle inaudible de silencio sin duplicar la señal.
 
     // 7. Inicializar AudioWorklet Continuous Playout Processor si no existe
     if (this.audioCtx.audioWorklet && !this.workletLoading && !this.workletReady && !this.workletNode) {
@@ -243,9 +222,6 @@ class AudioPlayerService {
       const state = this.audioCtx ? this.audioCtx.state : 'closed';
       console.log(`[AudioPlayer] 🔊 AudioContext onstatechange: ${state}`);
       if (state === 'running') {
-        if (this.carrierAudioElement && this.carrierAudioElement.paused) {
-          this.carrierAudioElement.play().catch(() => {});
-        }
         if (this.bgAudioElement && this.bgAudioElement.paused && this.isMobileDevice()) {
           this.bgAudioElement.play().catch(() => {});
         }
@@ -268,9 +244,6 @@ class AudioPlayerService {
           await this.audioCtx.resume();
           if (this.audioCtx.state === 'running') {
             console.log('[AudioPlayer] 📞 AudioContext recuperado tras interrupción/llamada.');
-            if (this.carrierAudioElement && this.carrierAudioElement.paused) {
-              this.carrierAudioElement.play().catch(() => {});
-            }
             if (this.bgAudioElement && this.bgAudioElement.paused && this.isMobileDevice()) {
               this.bgAudioElement.play().catch(() => {});
             }
@@ -481,10 +454,6 @@ class AudioPlayerService {
           dummySource.connect(this.audioCtx.destination);
           dummySource.start(0);
         } catch (e) {}
-      }
-
-      if (this.carrierAudioElement && this.carrierAudioElement.paused) {
-        this.carrierAudioElement.play().catch(() => {});
       }
 
       if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted')) {
@@ -1385,23 +1354,6 @@ class AudioPlayerService {
         }
       } catch (e) {}
       this.bgAudioElement = null;
-    }
-    if (this.carrierAudioElement) {
-      try {
-        this.carrierAudioElement.pause();
-        this.carrierAudioElement.srcObject = null;
-        if (this.carrierAudioElement.parentNode) {
-          this.carrierAudioElement.parentNode.removeChild(this.carrierAudioElement);
-        }
-      } catch (e) {}
-      this.carrierAudioElement = null;
-    }
-    if (this.mediaStreamDest) {
-      try {
-        if (this.limiterNode) this.limiterNode.disconnect(this.mediaStreamDest);
-        if (this.gainNode) this.gainNode.disconnect(this.mediaStreamDest);
-      } catch (e) {}
-      this.mediaStreamDest = null;
     }
     if (this.workletNode) {
       try {
