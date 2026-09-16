@@ -1,4 +1,5 @@
 import FormData from 'form-data';
+import { sanitizeApiKey, geminiModelCooldowns } from './translationService.js';
 
 /**
  * Speech-to-Text (STT) Service for LiftVoice
@@ -209,9 +210,9 @@ export class STTService {
           ? options.language
           : (this.sttLanguage && this.sttLanguage !== 'auto' ? this.sttLanguage : null));
 
+    let whisperLang = null;
     if (candidateLang) {
       const lower = String(candidateLang).toLowerCase().trim();
-      let whisperLang = null;
       if (lower.startsWith('es') || ['es', 'es-es', 'es-419', 'es-mx', 'spanish'].includes(lower)) {
         whisperLang = 'es';
       } else if (lower.startsWith('pt')) {
@@ -277,42 +278,76 @@ export class STTService {
       ? `${CLINICAL_INITIAL_PROMPT}\n\n${strictSpanishPrompt}`
       : strictSpanishPrompt;
 
-    const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-live:generateContent';
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': key
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: promptText },
-              {
-                inline_data: {
-                  mime_type: cleanMime,
-                  data: base64Audio
-                }
+    const payload = {
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: promptText },
+            {
+              inline_data: {
+                mime_type: cleanMime,
+                data: base64Audio
               }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.0,
-          maxOutputTokens: 300
+            }
+          ]
         }
-      }),
-      signal: AbortSignal.timeout(7000)
-    });
+      ],
+      generationConfig: {
+        temperature: 0.0,
+        maxOutputTokens: 300
+      }
+    };
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Gemini Transcribe Live error ${res.status}: ${errText}`);
+    // Google Generative Language API: gemini-3.8-live only supports WebSocket (bidiGenerateContent).
+    // REST generateContent with inline audio routes to gemini-3.8-flash, with resilient fallback to high-availability flash models.
+    const allCandidates = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-3.5-flash'];
+    const nowTimestamp = Date.now();
+    const healthyModels = allCandidates.filter(m => !(geminiModelCooldowns.get(m) > nowTimestamp));
+    const coolingModels = allCandidates.filter(m => geminiModelCooldowns.get(m) > nowTimestamp);
+    const modelsToTry = healthyModels.length > 0 ? [...healthyModels, ...coolingModels] : allCandidates;
+    let lastError = null;
+    let data = null;
+    let modelUsed = null;
+
+    for (let i = 0; i < modelsToTry.length; i++) {
+      const model = modelsToTry[i];
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(7000)
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          const cleanErrText = sanitizeApiKey(errText, key);
+          const err = new Error(`Gemini Transcribe Live error (${model}) HTTP ${res.status}: ${cleanErrText}`);
+          err.status = res.status;
+          throw err;
+        }
+
+        data = await res.json();
+        modelUsed = model;
+        break;
+      } catch (err) {
+        lastError = err;
+        if (err.status === 429 || err.status === 503 || /429|503|quota|rate limit|high demand|unavailable/i.test(err.message)) {
+          geminiModelCooldowns.set(model, Date.now() + 60000);
+        }
+        const nextModel = modelsToTry[i + 1];
+        console.warn(`[STTService] ⚠️ STT with ${model} failed (${sanitizeApiKey(err.message, key)}). ${nextModel ? 'Engaging fallback to ' + nextModel + '...' : ''}`);
+      }
     }
 
-    const data = await res.json();
+    if (!data) {
+      throw lastError || new Error('All Gemini transcription models failed');
+    }
+
     const transcript = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
     const effectiveLang = (language && language !== 'auto') ? language : (this.sttLanguage && this.sttLanguage !== 'auto' ? this.sttLanguage : 'es');
 
@@ -321,7 +356,8 @@ export class STTService {
       detectedLanguage: effectiveLang,
       confidence: 0.98,
       latencyMs: Date.now() - startTime,
-      engine: 'Google Gemini 3.8 Transcribe Live'
+      engine: `Google Gemini STT (${modelUsed})`,
+      modelUsed
     };
   }
 
@@ -354,31 +390,42 @@ export class STTService {
       candidateEngines.push('deepgram', 'whisper', 'gemini_live');
     }
 
+    let lastResult = null;
     for (const eng of candidateEngines) {
       if (eng === 'deepgram' && hasDeepgram) {
         try {
           const result = await this.transcribeWithDeepgram(audioBuffer, resolvedMime, language, options);
-          if (result && result.text) return result;
+          if (result) {
+            lastResult = result;
+            if (result.text) return result;
+          }
         } catch (err) {
           console.warn('[STTService] Deepgram STT failed, falling back:', err.message);
         }
       } else if (eng === 'whisper' && hasWhisper) {
         try {
           const result = await this.transcribeWithWhisper(audioBuffer, resolvedMime, language, options);
-          if (result && result.text) return result;
+          if (result) {
+            lastResult = result;
+            if (result.text) return result;
+          }
         } catch (err) {
           console.warn('[STTService] Whisper STT failed, falling back:', err.message);
         }
       } else if (eng === 'gemini_live' && hasGemini) {
         try {
           const result = await this.transcribeWithGeminiLive(audioBuffer, resolvedMime, language, options);
-          if (result && result.text) return result;
+          if (result) {
+            lastResult = result;
+            if (result.text) return result;
+          }
         } catch (err) {
           console.warn('[STTService] Gemini Live STT failed, falling back:', err.message);
         }
       }
     }
 
+    if (lastResult) return lastResult;
     return null;
   }
 }

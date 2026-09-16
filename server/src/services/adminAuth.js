@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import net from 'net';
 
 const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_FAILED_ATTEMPTS = 5;
@@ -10,14 +11,53 @@ const sessions = new Map();
 const loginAttempts = new Map();
 
 /**
- * Extracts normalized client IP from request (handling proxies and local interfaces)
+ * Extracts normalized client IP from request with trusted reverse proxy validation.
+ * Prevents IP spoofing via X-Forwarded-For headers from untrusted direct sockets (CWE-345 / CWE-290).
  */
 export function getClientIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
+  let remoteAddress = req?.socket?.remoteAddress || req?.ip || '';
+  if (remoteAddress.startsWith('::ffff:')) {
+    remoteAddress = remoteAddress.replace(/^::ffff:/, '');
   }
-  return req.socket?.remoteAddress || req.ip || '127.0.0.1';
+
+  // Trusted proxies: loopback by default + configured TRUSTED_PROXIES or TRUST_PROXY
+  const trustedProxies = ['127.0.0.1', '::1'];
+  const envTrusted = (process.env.TRUSTED_PROXIES || process.env.TRUST_PROXY || '').trim();
+  if (envTrusted) {
+    if (envTrusted === '*' || envTrusted === 'true') {
+      trustedProxies.push('*');
+    } else {
+      const customList = envTrusted.split(',').map(s => s.trim().replace(/^::ffff:/, ''));
+      trustedProxies.push(...customList);
+    }
+  }
+
+  const isTrusted = trustedProxies.includes('*') || trustedProxies.includes(remoteAddress);
+
+  if (isTrusted && req?.headers) {
+    // Prefer X-Real-IP if provided by reverse proxy
+    const realIpHeader = req.headers['x-real-ip'];
+    if (realIpHeader && typeof realIpHeader === 'string') {
+      const realIp = realIpHeader.trim().replace(/^::ffff:/, '');
+      if (net.isIP(realIp)) {
+        return realIp;
+      }
+    }
+
+    // Inspect X-Forwarded-For
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      const rawForwarded = Array.isArray(forwarded) ? forwarded[0] : String(forwarded);
+      const parts = rawForwarded.split(',').map(s => s.trim().replace(/^::ffff:/, ''));
+      for (const part of parts) {
+        if (net.isIP(part)) {
+          return part;
+        }
+      }
+    }
+  }
+
+  return remoteAddress || '127.0.0.1';
 }
 
 /**

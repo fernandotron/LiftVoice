@@ -257,12 +257,17 @@ class AudioRecorderService {
     this.mediaRecorder = null;
     this.mediaRecorderMimeType = 'audio/webm';
     this.audioChunks = [];
+    this.pingPongRecorders = [null, null];
+    this.activeRecorderIdx = 0;
+    this.pingPongChunks = [[], []];
+    this.preRollChunks = [];
     this.restartTimeout = null;
     this.restartCount = 0;
     this.lastRestartTime = 0;
     this.lastSpeechActivityTime = Date.now();
     this.isCommitting = false;
     this.acousticResetTimer = null;
+    this.pendingWatchdogTimer = null;
 
     this.sourceNode = null;
     this.onDeviceAutoSwitched = null;
@@ -351,14 +356,14 @@ class AudioRecorderService {
         status: this.isRecording ? 'listening' : 'idle'
       };
     }
-    if (engine === 'gemini_live') {
+    if (engine === 'gemini_live' || engine === 'gemini' || engine === 'google') {
       return {
         engine: 'gemini_live',
-        model: 'gemini-2.0-flash',
-        label: 'Google Gemini Live',
+        model: 'gemini-3.8-flash',
+        label: 'Google Gemini 3.8 Live',
         provider: 'Google Gemini Audio API',
         mode: 'server_chunks',
-        modeLabel: 'Chunks Servidor (MediaRecorder)',
+        modeLabel: 'Chunks Servidor (MediaRecorder VAD)',
         status: this.isRecording ? 'listening' : 'idle'
       };
     }
@@ -419,30 +424,45 @@ class AudioRecorderService {
 
   setSttEngine(engine) {
     if (!engine) return;
+    const normalized = (engine === 'gemini' || engine === 'google') ? 'gemini_live' : engine;
     const prevEngine = this.sttEngine;
-    this.sttEngine = engine;
-    console.log(`[AudioRecorder] 🎙️ STT Engine establecido: "${engine}" (anterior: "${prevEngine}")`);
+    this.sttEngine = normalized;
+    console.log(`[AudioRecorder] 🎙️ STT Engine establecido: "${normalized}" (anterior: "${prevEngine}")`);
     this.notifySttInfoChange();
 
-    if (this.isRecording && prevEngine !== engine) {
-      if (engine === 'deepgram') {
-        if (this.recognition) {
-          try {
-            this.recognition.onend = null;
-            this.recognition.onerror = null;
-            this.recognition.onresult = null;
-            this.recognition.abort();
-          } catch (e) {}
-          this.recognition = null;
-          this.clearSilenceTimer();
-          this.committedResultIndex = 0;
-          this.latestResultCount = 0;
-          this.committedSessionTranscript = '';
-          this.currentRawSessionText = '';
-          this.currentPendingText = '';
-          this.notifyInterim('');
+    if (this.isRecording && prevEngine !== normalized) {
+      // 1. Limpiar estado previo de texto en vuelo
+      if (this.recognition) {
+        try {
+          this.recognition.onend = null;
+          this.recognition.onerror = null;
+          this.recognition.onresult = null;
+          this.recognition.abort();
+        } catch (e) {}
+        this.recognition = null;
+      }
+      this.clearSilenceTimer();
+      this.committedResultIndex = 0;
+      this.latestResultCount = 0;
+      this.committedSessionTranscript = '';
+      this.currentRawSessionText = '';
+      this.currentPendingText = '';
+      this.notifyInterim('');
+
+      if (normalized === 'deepgram') {
+        // Detener chunk recorder si existía
+        if (this.vadInterval) {
+          clearInterval(this.vadInterval);
+          this.vadInterval = null;
         }
-        if (this.mediaStream && (!this.deepgramStreamingService.active || !this.deepgramStreamingService.ws)) {
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+          try { this.mediaRecorder.stop(); } catch (e) {}
+          this.mediaRecorder = null;
+        }
+        this.audioChunks = [];
+
+        // Conectar a Deepgram en streaming
+        if (this.mediaStream) {
           const opts = this.recordingOptions || {};
           const srcLower = (this.sourceLanguage || '').toLowerCase();
           let langCode = 'es';
@@ -460,6 +480,11 @@ class AudioRecorderService {
           if (Array.isArray(opts.customGlossary)) keyterms.push(...opts.customGlossary);
           this.currentKeyterms = keyterms;
 
+          // Detener sesión anterior si estaba viva para evitar estados zombies
+          if (this.deepgramStreamingService.active || this.deepgramStreamingService.ws) {
+            this.deepgramStreamingService.stop().catch(() => {});
+          }
+
           this.deepgramStreamingService.start(
             this.mediaStream,
             {
@@ -475,6 +500,7 @@ class AudioRecorderService {
                 const clean = (transcript || '').trim();
                 if (!clean) return;
                 if (isFinal) {
+                  this.clearPendingWatchdog();
                   this.currentPendingText = '';
                   this.notifyInterim('');
                   if (this.onSpeechTextCallback) {
@@ -483,30 +509,67 @@ class AudioRecorderService {
                 } else {
                   this.currentPendingText = clean;
                   this.notifyInterim(clean);
+                  this.schedulePendingWatchdog(detectedLanguage || langCode);
+                }
+              },
+              onUtteranceEnd: () => {
+                this.clearPendingWatchdog();
+                const pending = (this.currentPendingText || '').trim();
+                if (pending && this.isRecording) {
+                  this.currentPendingText = '';
+                  this.notifyInterim('');
+                  if (this.onSpeechTextCallback) {
+                    this.onSpeechTextCallback(pending, langCode, { isTerminalSilence: true, endOfTurn: true, bypassDecalage: true });
+                  }
                 }
               },
               onFirstPartialLatency: opts.onFirstPartialLatency,
               onFirstPartialTimeout: opts.onFirstPartialTimeout,
               onError: (err) => {
-                this.fallbackToWebSpeech('es-ES');
+                console.warn('[AudioRecorder] Error en conmutación a Deepgram, conmutando a server chunk:', err);
+                this.startServerChunkPipeline();
               }
             }
-          ).catch(() => {});
+          ).catch((e) => {
+            console.warn('[AudioRecorder] Error start Deepgram en caliente:', e);
+            this.startServerChunkPipeline();
+          });
         }
-      } else if (engine === 'webspeech') {
-        if (this.deepgramStreamingService.active) {
+      } else if (normalized === 'gemini_live') {
+        // Detener Deepgram si estaba activo
+        if (this.deepgramStreamingService && (this.deepgramStreamingService.active || this.deepgramStreamingService.ws)) {
           this.deepgramStreamingService.stop().catch(() => {});
         }
-        this.clearSilenceTimer();
-        this.committedResultIndex = 0;
-        this.latestResultCount = 0;
-        this.committedSessionTranscript = '';
-        this.currentRawSessionText = '';
-        this.currentPendingText = '';
-        this.notifyInterim('');
-        if (!this.recognition) {
+        console.log(`[AudioRecorder] 🚀 Conmutando a pipeline de chunks VAD para Gemini Live (${normalized})`);
+        this.initMediaRecorderForChunks(this.mediaStream);
+        this.setupVadChunkTrigger();
+
+        const isSecure = typeof window !== 'undefined' && Boolean(window.isSecureContext);
+        const hasWebSpeech = isSecure && (window.SpeechRecognition || window.webkitSpeechRecognition);
+        if (hasWebSpeech) {
           this.initSpeechRecognition();
         }
+      } else if (normalized === 'whisper' || normalized === 'server_chunk') {
+        // Detener Deepgram si estaba activo
+        if (this.deepgramStreamingService && (this.deepgramStreamingService.active || this.deepgramStreamingService.ws)) {
+          this.deepgramStreamingService.stop().catch(() => {});
+        }
+        console.log(`[AudioRecorder] 🚀 Conmutando a pipeline de chunks VAD para ${normalized}`);
+        this.initMediaRecorderForChunks(this.mediaStream);
+        this.setupVadChunkTrigger();
+      } else if (normalized === 'webspeech') {
+        if (this.deepgramStreamingService && (this.deepgramStreamingService.active || this.deepgramStreamingService.ws)) {
+          this.deepgramStreamingService.stop().catch(() => {});
+        }
+        if (this.vadInterval) {
+          clearInterval(this.vadInterval);
+          this.vadInterval = null;
+        }
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+          try { this.mediaRecorder.stop(); } catch (e) {}
+          this.mediaRecorder = null;
+        }
+        this.initSpeechRecognition();
       }
     }
   }
@@ -554,6 +617,52 @@ class AudioRecorderService {
 
   setDevice(deviceId) {
     this.selectedDeviceId = deviceId || 'default';
+  }
+
+  /**
+   * Forces immediate finalization of pending speech in Deepgram ASR engine
+   */
+  forceFinalizeSpeech() {
+    if (this.deepgramStreamingService && typeof this.deepgramStreamingService.forceFinalize === 'function') {
+      this.deepgramStreamingService.forceFinalize();
+    }
+  }
+
+  clearPendingWatchdog() {
+    if (this.pendingWatchdogTimer) {
+      clearTimeout(this.pendingWatchdogTimer);
+      this.pendingWatchdogTimer = null;
+    }
+  }
+
+  schedulePendingWatchdog(langCode) {
+    this.clearPendingWatchdog();
+    if (!this.currentPendingText || !this.currentPendingText.trim() || !this.isRecording) {
+      return;
+    }
+
+    // Fase 1 (800ms): Enviar forceFinalize() a Deepgram para que vacíe su búfer acústico
+    this.pendingWatchdogTimer = setTimeout(() => {
+      if (!this.currentPendingText || !this.currentPendingText.trim() || !this.isRecording) {
+        return;
+      }
+      this.forceFinalizeSpeech();
+
+      // Fase 2 (1200ms total): Si tras forceFinalize() Deepgram aún no ha emitido is_final (común en frases cortas),
+      // volcar directamente el texto pendiente como final para garantizar cero bloqueos en la UI
+      this.pendingWatchdogTimer = setTimeout(() => {
+        if (!this.currentPendingText || !this.currentPendingText.trim() || !this.isRecording) {
+          return;
+        }
+        const pending = this.currentPendingText.trim();
+        console.log(`[AudioRecorder] ⏱️ Smart Tail Watchdog forzando volcado de texto pendiente: "${pending}"`);
+        this.currentPendingText = '';
+        this.notifyInterim('');
+        if (this.onSpeechTextCallback) {
+          this.onSpeechTextCallback(pending, langCode || 'es', { isTerminalSilence: true, endOfTurn: true, bypassDecalage: true });
+        }
+      }, 400);
+    }, 800);
   }
 
   /**
@@ -685,7 +794,6 @@ class AudioRecorderService {
    * o cuando los servicios de streaming primarios se degradan o fallan en Chrome/Android.
    */
   startServerChunkPipeline() {
-    if (this.sttEngine === 'server_chunk') return;
     this.clearSilenceTimer();
     if (this.restartTimeout) {
       clearTimeout(this.restartTimeout);
@@ -711,19 +819,17 @@ class AudioRecorderService {
     this.sttEngine = 'server_chunk';
     this.notifyStreamingStatus('server_chunk');
     console.log('[AudioRecorder] 🛡️ Activando Red de Seguridad de Transcripción por Chunks en Servidor (Server-Side ASR).');
-    this.initMediaRecorderForChunks(this.mediaStream);
-    this.setupVadChunkTrigger();
+    if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') {
+      this.initMediaRecorderForChunks(this.mediaStream);
+    }
+    if (!this.vadInterval) {
+      this.setupVadChunkTrigger();
+    }
   }
 
   initMediaRecorderForChunks(stream) {
     if (typeof MediaRecorder === 'undefined' || !stream) return;
-    if (this.mediaRecorder) {
-      this.mediaRecorder.onstop = null;
-      this.mediaRecorder.ondataavailable = null;
-      if (this.mediaRecorder.state !== 'inactive') {
-        try { this.mediaRecorder.stop(); } catch (e) {}
-      }
-    }
+    this.cleanupChunkRecorders();
 
     let mimeType = 'audio/webm;codecs=opus';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
@@ -737,19 +843,55 @@ class AudioRecorderService {
     }
 
     this.mediaRecorderMimeType = mimeType;
-    this.audioChunks = [];
+    this.pingPongChunks = [[], []];
+    this.preRollChunks = [];
+    this.activeRecorderIdx = 0;
 
+    // Start recorder A immediately
+    this.createAndStartPingPongRecorder(0, stream);
+    this.mediaRecorder = this.pingPongRecorders[0];
+  }
+
+  createAndStartPingPongRecorder(idx, stream) {
+    if (!stream) return null;
     try {
-      this.mediaRecorder = new MediaRecorder(stream, { mimeType });
-      this.mediaRecorder.ondataavailable = (event) => {
+      const rec = new MediaRecorder(stream, { mimeType: this.mediaRecorderMimeType });
+      this.pingPongChunks[idx] = [];
+      rec.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
-          this.audioChunks.push(event.data);
+          this.pingPongChunks[idx].push(event.data);
+          // Maintain rolling pre-roll window of recent timeslices (~200ms - 400ms)
+          this.preRollChunks.push(event.data);
+          if (this.preRollChunks.length > 3) {
+            this.preRollChunks.shift();
+          }
         }
       };
-      this.mediaRecorder.start(250);
+      rec.start(150);
+      this.pingPongRecorders[idx] = rec;
+      return rec;
     } catch (e) {
-      console.error('[AudioRecorder] Error al inicializar MediaRecorder de chunks:', e);
+      console.error(`[AudioRecorder] Error al inicializar PingPong recorder ${idx}:`, e);
+      return null;
     }
+  }
+
+  cleanupChunkRecorders() {
+    for (let i = 0; i < 2; i++) {
+      const rec = this.pingPongRecorders[i];
+      if (rec) {
+        rec.onstop = null;
+        rec.ondataavailable = null;
+        if (rec.state !== 'inactive') {
+          try { rec.stop(); } catch (e) {}
+        }
+      }
+      this.pingPongRecorders[i] = null;
+      this.pingPongChunks[i] = [];
+    }
+    this.mediaRecorder = null;
+    this.audioChunks = [];
+    this.preRollChunks = [];
   }
 
   setupVadChunkTrigger() {
@@ -761,24 +903,31 @@ class AudioRecorderService {
     let speechActive = false;
     let silenceStart = 0;
     let chunkSpeechStart = 0;
-    const SILENCE_COMMIT_MS = this.silenceThresholdMs || 950;
-    const MAX_CHUNK_DURATION_MS = 6500; // Corte máximo para mantener latencia acotada
+    const SILENCE_COMMIT_MS = this.silenceThresholdMs || 850;
+    const MAX_CHUNK_DURATION_MS = 5000; // Corte óptimo para mantener latencia ultra-baja en streaming
 
     this.vadInterval = setInterval(() => {
-      if (!this.isRecording || this.sttEngine !== 'server_chunk') {
+      const isChunkEngine = this.sttEngine === 'server_chunk' || this.sttEngine === 'gemini_live' || this.sttEngine === 'whisper';
+      if (!this.isRecording || !isChunkEngine) {
         if (this.vadInterval) clearInterval(this.vadInterval);
         this.vadInterval = null;
         return;
       }
 
-      const isVoiced = this.audioLevel > 18; // Umbral RMS del analizador Web Audio
+      let vadLimit = 14;
+      if (this.vadSensitivity === 'high') vadLimit = 8;
+      else if (this.vadSensitivity === 'aggressive') vadLimit = 22;
+
+      const isVoiced = this.audioLevel > vadLimit; // Nivel RMS continuo del analizador Web Audio
       const now = Date.now();
 
       if (isVoiced) {
         if (!speechActive) {
           speechActive = true;
           chunkSpeechStart = now;
-          this.notifyInterim('🎙️ Escuchando ponencia...');
+          if (!this.recognition) {
+            this.notifyInterim('🎙️ Escuchando ponencia...');
+          }
         }
         silenceStart = 0;
 
@@ -799,23 +948,40 @@ class AudioRecorderService {
   }
 
   flushAndEmitChunk() {
-    if (!this.mediaRecorder || this.mediaRecorder.state !== 'recording') return;
-    const recorder = this.mediaRecorder;
+    const currentIdx = this.activeRecorderIdx;
+    const currentRec = this.pingPongRecorders[currentIdx];
+    if (!currentRec || currentRec.state !== 'recording') return;
 
-    recorder.onstop = () => {
-      const chunks = [...this.audioChunks];
-      this.audioChunks = [];
+    const nextIdx = 1 - currentIdx;
 
-      if (this.isRecording && this.mediaRecorder) {
-        try { this.mediaRecorder.start(250); } catch (e) {}
+    // 1. Start the next recorder FIRST before stopping the current one.
+    // This completely eliminates the dead-zone so not a single millisecond is lost!
+    this.createAndStartPingPongRecorder(nextIdx, this.mediaStream);
+    this.activeRecorderIdx = nextIdx;
+    this.mediaRecorder = this.pingPongRecorders[nextIdx];
+
+    // 2. Snapshot the current recorded chunks
+    const chunksToEmit = [...(this.pingPongChunks[currentIdx] || [])];
+    this.pingPongChunks[currentIdx] = [];
+
+    // 3. Stop the current recorder and emit its complete, independent Blob
+    currentRec.onstop = () => {
+      if (this.pingPongChunks[currentIdx]?.length > 0) {
+        chunksToEmit.push(...this.pingPongChunks[currentIdx]);
+        this.pingPongChunks[currentIdx] = [];
       }
+      this.pingPongRecorders[currentIdx] = null;
 
-      const blob = new Blob(chunks, { type: this.mediaRecorderMimeType });
+      const blob = new Blob(chunksToEmit, { type: this.mediaRecorderMimeType });
       if (blob.size > 800) {
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = (reader.result || '').split(',')[1];
           if (base64 && this.onSpeechAudioCallback) {
+            const recentWebSpeechCommit = Date.now() - (this.lastCommittedTime || 0) < 1500;
+            if (this.sttEngine === 'webspeech' && recentWebSpeechCommit) {
+              return;
+            }
             this.notifyInterim('⚡ Procesando voz con IA...');
             this.onSpeechAudioCallback(base64, this.mediaRecorderMimeType, this.sourceLanguage);
           }
@@ -825,7 +991,7 @@ class AudioRecorderService {
     };
 
     try {
-      recorder.stop();
+      currentRec.stop();
     } catch (e) {}
   }
 
@@ -952,7 +1118,9 @@ class AudioRecorderService {
     if (options.deviceId) this.selectedDeviceId = options.deviceId;
 
     const savedStt = localStorage.getItem('lv_stt_engine');
-    this.sttEngine = options.sttEngine || (savedStt && savedStt !== 'webspeech' ? savedStt : 'deepgram');
+    let rawEngine = options.sttEngine || (savedStt && savedStt !== 'webspeech' ? savedStt : 'deepgram');
+    if (rawEngine === 'gemini' || rawEngine === 'google') rawEngine = 'gemini_live';
+    this.sttEngine = rawEngine;
     this.onSpeechTextCallback = onSpeech;
     this.onSpeechAudioCallback = onAudio;
     if (onInterim) this.onInterim(onInterim);
@@ -1109,6 +1277,7 @@ class AudioRecorderService {
                 if (!clean) return;
 
                 if (isFinal) {
+                  this.clearPendingWatchdog();
                   console.log(`[AudioRecorder] ⚡ Deepgram Stream is_final: "${clean}" (detected: ${detectedLanguage || langCode})`);
                   this.currentPendingText = '';
                   this.notifyInterim('');
@@ -1118,16 +1287,18 @@ class AudioRecorderService {
                 } else {
                   this.currentPendingText = clean;
                   this.notifyInterim(clean);
+                  this.schedulePendingWatchdog(detectedLanguage || langCode);
                 }
               },
               onUtteranceEnd: () => {
+                this.clearPendingWatchdog();
                 const pending = (this.currentPendingText || '').trim();
                 if (pending && this.isRecording) {
                   console.log(`[AudioRecorder] ⚡ Deepgram UtteranceEnd flushing pending speech: "${pending}"`);
                   this.currentPendingText = '';
                   this.notifyInterim('');
                   if (this.onSpeechTextCallback) {
-                    this.onSpeechTextCallback(pending, langCode);
+                    this.onSpeechTextCallback(pending, langCode, { isTerminalSilence: true, endOfTurn: true, bypassDecalage: true });
                   }
                 }
               },
@@ -1144,35 +1315,31 @@ class AudioRecorderService {
         } catch (dgErr) {
           this.fallbackToWebSpeech('es-ES');
         }
-      } else {
-        // Fallback for Whisper / WebSpeech
-        if (typeof MediaRecorder !== 'undefined' && this.sttEngine === 'whisper') {
-          let mimeType = 'audio/webm;codecs=opus';
-          if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-            mimeType = 'audio/webm;codecs=opus';
-          } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-            mimeType = 'audio/webm';
-          } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-            mimeType = 'audio/mp4';
-          }
-          this.mediaRecorderMimeType = mimeType;
-          this.audioChunks = [];
-          try {
-            this.mediaRecorder = new MediaRecorder(this.mediaStream, { mimeType });
-            this.mediaRecorder.ondataavailable = (event) => {
-              if (event.data && event.data.size > 0) {
-                this.audioChunks.push(event.data);
-              }
-            };
-            this.mediaRecorder.start(250);
-          } catch (mErr) {
-            console.warn('[AudioRecorder] MediaRecorder init notice:', mErr);
-          }
-        }
+      } else if (this.sttEngine === 'gemini_live') {
+        // High-Precision Real-Time Speech Stream for Gemini Live:
+        // Captures speaker audio via MediaRecorder + VAD and streams chunks to Gemini Live on the server.
+        // Also initializes WebSpeech in parallel if available in secure context for immediate local interim preview.
+        console.log(`[AudioRecorder] 🎙️ Iniciando motor de audio chunks VAD para Gemini Live`);
+        this.initMediaRecorderForChunks(this.mediaStream);
+        this.setupVadChunkTrigger();
 
-        // Start WebSpeech for webspeech or whisper interim preview
+        const isSecure = typeof window !== 'undefined' && Boolean(window.isSecureContext);
+        const hasWebSpeech = isSecure && (window.SpeechRecognition || window.webkitSpeechRecognition);
+        if (hasWebSpeech) {
+          setTimeout(() => {
+            if (this.isRecording && !this.recognition) {
+              this.initSpeechRecognition();
+            }
+          }, 100);
+        }
+      } else if (this.sttEngine === 'whisper' || this.sttEngine === 'server_chunk') {
+        console.log(`[AudioRecorder] 🎙️ Iniciando motor de chunks VAD para: "${this.sttEngine}"`);
+        this.initMediaRecorderForChunks(this.mediaStream);
+        this.setupVadChunkTrigger();
+      } else {
+        // Modo webspeech nativo
         setTimeout(() => {
-          if (this.isRecording) {
+          if (this.isRecording && !this.recognition) {
             this.initSpeechRecognition();
           }
         }, 100);
@@ -1187,6 +1354,13 @@ class AudioRecorderService {
   }
 
   fallbackToWebSpeech(preferredLang = 'es-ES') {
+    const isSecure = typeof window !== 'undefined' && Boolean(window.isSecureContext);
+    const hasWebSpeech = isSecure && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!hasWebSpeech) {
+      console.warn('[AudioRecorder] 🔄 Fallback a WebSpeech no disponible (origen no seguro o sin soporte). Conmutando directamente a Red de Seguridad por Chunks en Servidor.');
+      this.startServerChunkPipeline();
+      return;
+    }
     console.warn(`[AudioRecorder] 🔄 Activando fallback limpio a WebSpeech (idioma: ${preferredLang})`);
     this.clearSilenceTimer();
     this.committedResultIndex = 0;
@@ -1211,9 +1385,10 @@ class AudioRecorderService {
   }
 
   initSpeechRecognition(retryCount = 0, overrideLang = null) {
-    const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognitionClass) {
-      console.warn('[AudioRecorder] Web Speech Recognition API no soportada en este navegador (Firefox/Safari). Activando Red de Seguridad de Transcripción por Chunks en Servidor.');
+    const isSecure = typeof window !== 'undefined' && Boolean(window.isSecureContext);
+    const SpeechRecognitionClass = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SpeechRecognitionClass || !isSecure) {
+      console.warn('[AudioRecorder] Web Speech Recognition API no soportada o bloqueada por contexto no seguro (HTTP LAN). Activando Red de Seguridad de Transcripción por Chunks en Servidor.');
       this.startServerChunkPipeline();
       return;
     }
@@ -1350,6 +1525,13 @@ class AudioRecorderService {
       rec.start();
     } catch (e) {
       console.warn(`[AudioRecorder] Could not start speech recognition (attempt ${retryCount}):`, e);
+      try {
+        rec.onend = null;
+        rec.onerror = null;
+        rec.onresult = null;
+        rec.abort();
+      } catch (abErr) {}
+      this.recognition = null;
       if (this.isRecording && retryCount < 2) {
         setTimeout(() => {
           if (this.isRecording) {
@@ -1405,7 +1587,22 @@ class AudioRecorderService {
 
     console.log(`[AudioRecorder] 🎙️ Dictation committed (${text.split(/\s+/).length} words): "${text}" (Engine: ${this.sttEngine})`);
 
-    // If STT engine is Deepgram or Whisper, capture audio slice and emit strictly via onSpeechAudioCallback
+    // Track 1 Priority: Emit recognized text immediately with zero dropped words
+    if (text && this.onSpeechTextCallback) {
+      this.onSpeechTextCallback(text, this.sourceLanguage);
+      clearTimeout(commitTimeout);
+      releaseLock();
+      return;
+    }
+
+    // If STT engine is a chunk engine with active VAD and no recognized text, VAD handles mediaRecorder flushing
+    if (this.vadInterval) {
+      clearTimeout(commitTimeout);
+      releaseLock();
+      return;
+    }
+
+    // Fallback: If STT engine is audio-only without VAD, capture audio slice and emit via onSpeechAudioCallback
     if (this.sttEngine !== 'webspeech' && this.onSpeechAudioCallback && this.mediaRecorder && this.mediaRecorder.state === 'recording') {
       const recorder = this.mediaRecorder;
       recorder.onstop = () => {
@@ -1428,9 +1625,6 @@ class AudioRecorderService {
             releaseLock();
           };
           reader.readAsDataURL(blob);
-        } else if (text && this.onSpeechTextCallback) {
-          this.onSpeechTextCallback(text);
-          releaseLock();
         } else {
           releaseLock();
         }
@@ -1438,16 +1632,9 @@ class AudioRecorderService {
       try {
         recorder.stop();
       } catch (e) {
-        if (text && this.onSpeechTextCallback) {
-          this.onSpeechTextCallback(text);
-        }
         clearTimeout(commitTimeout);
         releaseLock();
       }
-    } else if (this.onSpeechTextCallback) {
-      this.onSpeechTextCallback(text);
-      clearTimeout(commitTimeout);
-      releaseLock();
     } else {
       clearTimeout(commitTimeout);
       releaseLock();
@@ -1458,27 +1645,11 @@ class AudioRecorderService {
   }
 
   resetAcousticWindow() {
-    if (!this.isRecording) return;
+    // Non-destructive: Preserve continuous recognition session without aborting
     if (this.acousticResetTimer) {
       clearTimeout(this.acousticResetTimer);
       this.acousticResetTimer = null;
     }
-    this.acousticResetTimer = setTimeout(() => {
-      this.acousticResetTimer = null;
-      if (!this.isRecording || this.currentPendingText) return;
-      try {
-        if (this.recognition) {
-          this.recognition.onend = null;
-          this.recognition.onerror = null;
-          this.recognition.onresult = null;
-          this.recognition.abort();
-        }
-      } catch (e) {}
-      this.recognition = null;
-      this.committedResultIndex = 0;
-      this.latestResultCount = 0;
-      this.initSpeechRecognition();
-    }, 120);
   }
 
   clearSilenceTimer() {
@@ -1537,6 +1708,7 @@ class AudioRecorderService {
     this.isStarting = false;
     this.isRecording = false;
     this.clearSilenceTimer();
+    this.clearPendingWatchdog();
 
     if (this.onVisibilityChange && typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.onVisibilityChange);
@@ -1590,17 +1762,7 @@ class AudioRecorderService {
       this.recognition = null;
     }
 
-    if (this.mediaRecorder) {
-      try {
-        this.mediaRecorder.onstop = null;
-        this.mediaRecorder.ondataavailable = null;
-        if (this.mediaRecorder.state !== 'inactive') {
-          this.mediaRecorder.stop();
-        }
-      } catch (e) {}
-      this.mediaRecorder = null;
-    }
-    this.audioChunks = [];
+    this.cleanupChunkRecorders();
 
     if (this.mediaStream) {
       try {
@@ -1653,6 +1815,7 @@ class AudioRecorderService {
       }
       const avg = sum / dataArray.length;
       const newLevel = Math.min(100, Math.round((avg / 120) * 100));
+      this.audioLevel = newLevel;
 
       const now = performance.now();
       if (newLevel > 35) {

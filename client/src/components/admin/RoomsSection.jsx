@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   Radio, Headphones, Trash2, Loader2, AlertCircle,
   Lock, Copy, Check, QrCode, ExternalLink, ArrowLeft, Search, X,
-  Clock, ChevronRight, User
+  Clock, ChevronRight, User, Cpu
 } from 'lucide-react';
 import { adminAuthService } from '../../services/adminAuthService.js';
 import SelectDropdown from '../shared/SelectDropdown.jsx';
@@ -287,6 +287,10 @@ export default function RoomsSection({
       <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 truncate">
         <span className="font-medium text-zinc-700 dark:text-zinc-300">LiftVoice Studio</span>
         <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline">/</span>
+        <span className="hidden sm:inline font-medium text-zinc-600 dark:text-zinc-400">
+          {selectedRoom.config?.pipelineMode === 'gemini_live_s2s' ? 'Gemini 3.8 Live S2S (24kHz)' : 'Deepgram Nova-3 Modular'}
+        </span>
+        <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline">/</span>
         <span className="hidden sm:inline">
           {roomSubSection === 'cabins'
             ? `${selectedRoom.totalListeners || 0} oyentes activos`
@@ -423,6 +427,44 @@ export default function RoomsSection({
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                     Desglose: ES ({breakdown.es || 0}) • EN ({breakdown.en || 0}) • IT ({breakdown.it || 0}) • PT ({breakdown.pt || 0}).
+                  </p>
+                </div>
+
+                {/* Pipeline de interpretación de la sala */}
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                      Pipeline de interpretación
+                    </label>
+                    <span className={`text-[11px] font-medium flex items-center gap-1.5 ${
+                      selectedRoom.config?.pipelineMode === 'gemini_live_s2s'
+                        ? 'text-purple-600 dark:text-purple-400'
+                        : 'text-blue-600 dark:text-blue-400'
+                    }`}>
+                      {selectedRoom.config?.pipelineMode === 'gemini_live_s2s' ? 'Speech-to-Speech Nativo (24kHz)' : 'Modular (STT + AI + TTS)'}
+                    </span>
+                  </div>
+                  <div className="w-full h-11 px-4 rounded-2xl bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm flex items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Cpu className="w-4 h-4 text-zinc-400 shrink-0" />
+                      <span className="truncate font-semibold">
+                        {selectedRoom.config?.pipelineMode === 'gemini_live_s2s'
+                          ? 'Gemini 3.8 Live S2S (24kHz)'
+                          : 'Deepgram Nova-3 Modular'}
+                      </span>
+                    </div>
+                    <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 ${
+                      selectedRoom.config?.pipelineMode === 'gemini_live_s2s'
+                        ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25'
+                        : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25'
+                    }`}>
+                      {selectedRoom.config?.pipelineMode === 'gemini_live_s2s' ? 'Google Gemini 3.8 Live' : 'Deepgram Nova-3'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
+                    {selectedRoom.config?.pipelineMode === 'gemini_live_s2s'
+                      ? 'Speech-to-Speech nativo a 24kHz • Google interpreta y habla directamente en cada cabina sin saltos intermediarios.'
+                      : 'Pipeline modular desacoplado • Captura Deepgram STT ~150ms + traducción Gemini 3.8 Flash + síntesis TTS neural.'}
                   </p>
                 </div>
 
@@ -815,6 +857,14 @@ export default function RoomsSection({
                         <CountryFlag code={room.sourceLanguage || 'es'} className="w-4 h-4 rounded-full shrink-0 shadow-2xs" />
                         <span>{getLanguageLabel(room.sourceLanguage || 'es')}</span>
                       </div>
+                      <span className="text-zinc-300 dark:text-zinc-700 select-none">/</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                        room.config?.pipelineMode === 'gemini_live_s2s'
+                          ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40'
+                          : 'bg-zinc-100/70 dark:bg-white/5 text-zinc-500'
+                      }`}>
+                        {room.config?.pipelineMode === 'gemini_live_s2s' ? 'Gemini Live S2S' : 'Deepgram Modular'}
+                      </span>
                     </div>
 
                     {/* Oyentes Totales y Micro-desglose de Cabinas */}

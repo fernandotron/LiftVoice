@@ -16,7 +16,7 @@
 
 const DEFAULT_TARGET_RATE = 16000;
 const DEFAULT_SILENCE_THRESHOLD = 0.008; // RMS por debajo de este valor ≈ silencio (~ -42 dBFS)
-const DEFAULT_HANGOVER_SECONDS = 0.6;   // cola de audio tras la última voz detectada (600ms)
+const DEFAULT_HANGOVER_SECONDS = 1.4;   // cola de audio tras la última voz detectada (1400ms para garantizar endpointing de Deepgram)
 const DEFAULT_CHUNK_MS = 100;           // audio objetivo por mensaje WebSocket (~100ms)
 
 class ASRAudioWorkletProcessor extends AudioWorkletProcessor {
@@ -161,6 +161,7 @@ class ASRAudioWorkletProcessor extends AudioWorkletProcessor {
     if (!shouldSend && this.isTransmitting) {
       this.flush();
       this.isTransmitting = false;
+      this.port.postMessage({ type: 'speech_ended' });
     }
 
     return true; // Mantener vivo el processor

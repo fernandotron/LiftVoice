@@ -20,8 +20,24 @@ import {
   requireAdminAuth,
   checkRateLimit,
   recordFailedAttempt,
-  recordSuccessfulAttempt
+  recordSuccessfulAttempt,
+  getClientIp
 } from './services/adminAuth.js';
+export { getClientIp };
+import {
+  checkAsrTokenRateLimit,
+  resetAsrTokenRateLimit,
+  clearGrantTokenCache,
+  sanitizeKeyterms,
+  applyKeytermsUrlBudget,
+  resolveDeepgramLanguage,
+  mintEphemeralToken,
+  sanitizeSecret,
+  deepSanitizeSecrets,
+  ASR_KEYTERM_MAX_URL_CHARS,
+  ASR_TOKEN_MAX_REQUESTS_PER_WINDOW
+} from './services/deepgramTokenService.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,28 +92,6 @@ function getNetworkInterfacesList() {
 function getLocalIpAddress() {
   const candidates = getNetworkInterfacesList();
   return candidates[0]?.address || '192.168.1.12';
-}
-
-/**
- * SEC-01 / LOW-01: Extract client IP with trusted reverse proxy verification.
- * Normalizes IPv4-mapped IPv6 prefixes (::ffff:) and safely handles string or array x-forwarded-for.
- */
-export function getClientIp(req) {
-  let remoteAddress = req?.socket?.remoteAddress || '';
-  if (remoteAddress.startsWith('::ffff:')) {
-    remoteAddress = remoteAddress.replace(/^::ffff:/, '');
-  }
-  const trustedProxies = ['127.0.0.1', '::1'];
-  if (trustedProxies.includes(remoteAddress) && req?.headers && req.headers['x-forwarded-for']) {
-    const xForwardedFor = req.headers['x-forwarded-for'];
-    const rawIp = Array.isArray(xForwardedFor) ? xForwardedFor[0] : String(xForwardedFor).split(',')[0];
-    let ip = (rawIp || '').trim();
-    if (ip.startsWith('::ffff:')) {
-      ip = ip.replace(/^::ffff:/, '');
-    }
-    return ip || remoteAddress;
-  }
-  return remoteAddress;
 }
 
 import { tunnelService } from './tunnelService.js';
@@ -344,23 +338,30 @@ export function requireHostAuth(req, res, next) {
   const roomId = req.params.roomId;
   const room = roomId ? roomManager.getRoom(roomId) : null;
 
+  // 1. Allow authenticated admin sessions (RBAC)
+  if (token && verifyAdminSession(token)) {
+    return next();
+  }
+
+  // 2. Validate host authentication token against room hostKey or global tokens
   const validTokens = [
     process.env.ADMIN_TOKEN,
     process.env.HOST_SECRET,
     room?.hostKey
   ].filter(Boolean);
 
-  if (validTokens.length > 0) {
-    if (!token || !validTokens.includes(token)) {
-      return res.status(401).json({ error: 'Unauthorized: Invalid or missing host authentication token' });
-    }
+  if (validTokens.length > 0 && token && validTokens.includes(token)) {
+    return next();
   }
-  next();
+
+  return res.status(401).json({ error: 'Unauthorized: Invalid or missing host authentication token' });
 }
 
-const ALLOWED_TTS_ENGINES = new Set(['auto', 'edge', 'azure', 'deepgram', 'cartesia', 'google', 'elevenlabs', 'openai', 'qwen_tts']);
-const ALLOWED_DECALAGE_MODES = new Set(['fast', 'quick', 'natural', 'paused']);
-const ALLOWED_GENDERS = new Set(['female', 'male', 'neutral']);
+export const ALLOWED_TTS_ENGINES = new Set(['auto', 'edge', 'azure', 'deepgram', 'cartesia', 'google', 'elevenlabs', 'openai', 'qwen_tts']);
+export const ALLOWED_DECALAGE_MODES = new Set(['fast', 'quick', 'natural', 'paused']);
+export const ALLOWED_GENDERS = new Set(['female', 'male', 'neutral']);
+export const ALLOWED_PIPELINE_MODES = new Set(['deepgram_gemini', 'gemini_live_s2s']);
+export const ALLOWED_GEMINI_LIVE_VOICES = new Set(['Aoede', 'Kore', 'Puck', 'Charon', 'Fenrir']);
 
 // Décalage / Pacing Configuration endpoint
 app.post('/api/rooms/:roomId/decalage', requireHostAuth, (req, res) => {
@@ -380,7 +381,7 @@ app.post('/api/rooms/:roomId/decalage', requireHostAuth, (req, res) => {
 
 // Room-specific Voice Configuration endpoint
 app.post('/api/rooms/:roomId/voices', requireHostAuth, (req, res) => {
-  const { voiceConfig, voiceGender, preferredTtsEngine, decalageMode } = req.body;
+  const { voiceConfig, voiceGender, preferredTtsEngine, decalageMode, pipelineMode, geminiLiveVoices } = req.body;
   const room = roomManager.getRoom(req.params.roomId);
   if (!room) {
     return res.status(404).json({ error: 'Room not found' });
@@ -415,6 +416,33 @@ app.post('/api/rooms/:roomId/voices', requireHostAuth, (req, res) => {
     room.config.decalageMode = decalageMode;
   }
 
+  if (pipelineMode && typeof pipelineMode === 'string' && ALLOWED_PIPELINE_MODES.has(pipelineMode.trim())) {
+    room.config.pipelineMode = pipelineMode.trim();
+  }
+
+  if (geminiLiveVoices && typeof geminiLiveVoices === 'object' && !Array.isArray(geminiLiveVoices)) {
+    const sanitizedGeminiVoices = {};
+    for (const [lang, voice] of Object.entries(geminiLiveVoices)) {
+      if (
+        typeof lang === 'string' &&
+        /^[a-z]{2}(-[A-Z]{2})?$/i.test(lang) &&
+        lang !== '__proto__' &&
+        lang !== 'constructor' &&
+        lang !== 'prototype' &&
+        typeof voice === 'string'
+      ) {
+        const trimmedVoice = voice.trim();
+        const matchedVoice = [...ALLOWED_GEMINI_LIVE_VOICES].find(v => v.toLowerCase() === trimmedVoice.toLowerCase());
+        if (matchedVoice) {
+          sanitizedGeminiVoices[lang.toLowerCase()] = matchedVoice;
+        } else if (/^gemini-live-[a-zA-Z0-9_\-]{1,32}$/i.test(trimmedVoice)) {
+          sanitizedGeminiVoices[lang.toLowerCase()] = trimmedVoice;
+        }
+      }
+    }
+    room.config.geminiLiveVoices = { ...(room.config.geminiLiveVoices || {}), ...sanitizedGeminiVoices };
+  }
+
   console.log(`[RoomManager] 🎙️ Updated booth voices for room ${room.id}:`, room.config.voiceConfig);
 
   // Broadcast voices update to all connected clients in the room
@@ -423,7 +451,9 @@ app.post('/api/rooms/:roomId/voices', requireHostAuth, (req, res) => {
     voiceConfig: room.config.voiceConfig,
     voiceGender: room.config.voiceGender,
     preferredTtsEngine: room.config.preferredTtsEngine,
-    decalageMode: room.config.decalageMode
+    decalageMode: room.config.decalageMode,
+    pipelineMode: room.config.pipelineMode,
+    geminiLiveVoices: room.config.geminiLiveVoices
   });
 
   return res.json({
@@ -431,7 +461,9 @@ app.post('/api/rooms/:roomId/voices', requireHostAuth, (req, res) => {
     voiceConfig: room.config.voiceConfig,
     voiceGender: room.config.voiceGender,
     preferredTtsEngine: room.config.preferredTtsEngine,
-    decalageMode: room.config.decalageMode
+    decalageMode: room.config.decalageMode,
+    pipelineMode: room.config.pipelineMode,
+    geminiLiveVoices: room.config.geminiLiveVoices
   });
 });
 
@@ -462,6 +494,8 @@ app.get('/api/config', async (req, res) => {
 
     res.json({
       success: true,
+      pipelineMode: aiPipeline.pipelineMode || 'deepgram_gemini',
+      geminiLiveVoices: aiPipeline.geminiLiveVoices || { en: 'Aoede', it: 'Kore', pt: 'Fenrir', es: 'Charon' },
       preferredSttEngine: sttService.preferredSttEngine || 'deepgram',
       sttLang: sttService.sttLanguage || 'auto',
       sttVad: sttService.sttVad || 'standard',
@@ -577,11 +611,40 @@ app.post('/api/config', requireAdminAuth, (req, res) => {
     decalageMode,
     googleNeuralMode,
     voiceConfig,
-    voiceGender
+    voiceGender,
+    pipelineMode,
+    geminiLiveVoices
   } = req.body;
 
   const qwenEndpoint = sanitizeEndpoint(req.body.qwenEndpoint);
   const qwenTtsEndpoint = sanitizeEndpoint(req.body.qwenTtsEndpoint);
+
+  const validatedPipelineMode = (pipelineMode !== undefined && typeof pipelineMode === 'string' && ALLOWED_PIPELINE_MODES.has(pipelineMode.trim()))
+    ? pipelineMode.trim()
+    : undefined;
+
+  let sanitizedGeminiLiveVoices = undefined;
+  if (geminiLiveVoices !== undefined && typeof geminiLiveVoices === 'object' && !Array.isArray(geminiLiveVoices)) {
+    sanitizedGeminiLiveVoices = {};
+    for (const [lang, voice] of Object.entries(geminiLiveVoices)) {
+      if (
+        typeof lang === 'string' &&
+        /^[a-z]{2}(-[A-Z]{2})?$/i.test(lang) &&
+        lang !== '__proto__' &&
+        lang !== 'constructor' &&
+        lang !== 'prototype' &&
+        typeof voice === 'string'
+      ) {
+        const trimmedVoice = voice.trim();
+        const matchedVoice = [...ALLOWED_GEMINI_LIVE_VOICES].find(v => v.toLowerCase() === trimmedVoice.toLowerCase());
+        if (matchedVoice) {
+          sanitizedGeminiLiveVoices[lang.toLowerCase()] = matchedVoice;
+        } else if (/^gemini-live-[a-zA-Z0-9_\-]{1,32}$/i.test(trimmedVoice)) {
+          sanitizedGeminiLiveVoices[lang.toLowerCase()] = trimmedVoice;
+        }
+      }
+    }
+  }
 
   aiPipeline.setApiKeys({
     openaiApiKey,
@@ -611,46 +674,33 @@ app.post('/api/config', requireAdminAuth, (req, res) => {
     decalageMode,
     googleNeuralMode,
     voiceConfig,
-    voiceGender
+    voiceGender,
+    pipelineMode: validatedPipelineMode,
+    geminiLiveVoices: sanitizedGeminiLiveVoices
   });
-  cachedGrantTokens.clear();
+  clearGrantTokenCache();
   res.json({ success: true, message: 'API keys, STT, TTS and Translation settings updated successfully' });
 });
 
-// In-memory multi-tenant token cache for Deepgram Grant tokens (indexed by apiKey with LRU & TTL sweep)
-const cachedGrantTokens = new Map(); // apiKey -> { token, expiresAt }
-const grantTokenPromisesInFlight = new Map(); // apiKey -> Promise
-const MAX_GRANT_CACHE_ENTRIES = 500;
-
-// ASR Keyterm & Gateway Handshake Constraints (parity with App Salud ASR_KEYTERM_MAX_URL_CHARS)
-// Deepgram and reverse proxies (ALB/Cloudflare/Envoy) reject or drop HTTP Upgrade requests with URL >2150 chars.
-const ASR_KEYTERM_MAX_URL_CHARS = 1600;
-const ASR_MAX_KEYTERMS_COUNT = 40;
-const ASR_MAX_TERM_LENGTH = 50;
-const ASR_TOKEN_CACHE_MIN_MARGIN_MS = 20000; // Require >=20s validity before reusing cached token
-
-function storeGrantTokenInCache(key, tokenData) {
-  if (cachedGrantTokens.size >= MAX_GRANT_CACHE_ENTRIES) {
-    const oldestKey = cachedGrantTokens.keys().next().value;
-    if (oldestKey) cachedGrantTokens.delete(oldestKey);
-  }
-  cachedGrantTokens.set(key, tokenData);
-}
-
-// Barrido periódico cada 60s para purgar tokens caducados y evitar fugas de memoria
-const grantTokenSweepInterval = setInterval(() => {
-  const now = Date.now();
-  for (const [key, record] of cachedGrantTokens.entries()) {
-    if (!record || now >= record.expiresAt) {
-      cachedGrantTokens.delete(key);
-    }
-  }
-}, 60000);
-if (grantTokenSweepInterval.unref) grantTokenSweepInterval.unref();
-
 // Ephemeral ASR Token for Direct Deepgram Streaming WebSocket (Nova-3) (#ISSUE-01)
+// Protected by IP Rate Limiting (DoS/credit-drain protection), Strict TTL clamping (30-60s),
+// Keyterm Sanitization, URL Budget Guards (<1600 chars), and Strict Secret Leakage Shields.
 app.post('/api/asr-token', async (req, res) => {
   try {
+    const clientIp = getClientIp(req);
+
+    // 1. IP-based Rate Limiting (maximum 30 requests per minute per IP)
+    const rateCheck = checkAsrTokenRateLimit(clientIp);
+    if (!rateCheck.allowed) {
+      res.setHeader('Retry-After', String(rateCheck.retryAfter || 60));
+      return res.status(429).json({
+        success: false,
+        code: 'RATE_LIMIT_EXCEEDED',
+        error: `Rate limit exceeded for token minting. Maximum ${ASR_TOKEN_MAX_REQUESTS_PER_WINDOW} requests per minute.`,
+        retryAfter: rateCheck.retryAfter || 60
+      });
+    }
+
     const { sttService } = await import('./services/sttService.js');
     const body = req.body || {};
     const apiKey = (body.deepgramApiKey && typeof body.deepgramApiKey === 'string' && body.deepgramApiKey.trim())
@@ -672,167 +722,41 @@ app.post('/api/asr-token', async (req, res) => {
     const forceNova2 = Boolean(body.forceNova2 || body.preferNova2 || process.env.DEEPGRAM_FORCE_NOVA2 === 'true' || requestedModel.includes('nova-2'));
     const effectiveModel = forceNova2 ? 'nova-2' : 'nova-3';
 
+    // Language resolution
     const rawLang = (typeof body.language === 'string' && body.language) || (typeof body.lang === 'string' && body.lang) || 'auto';
-    const langLower = rawLang.trim().toLowerCase();
+    const deepgramLang = resolveDeepgramLanguage(rawLang, effectiveModel);
 
-    // Language resolution logic (homologous to toDeepgramLanguage in App Salud):
-    // Nova-3 supports high-accuracy native monolingual streaming ('es', 'en', 'it', 'pt-BR').
-    // Only route to 'multi' when the user explicitly requests auto-detection or multilingual code-switching.
-    let deepgramLang;
-    if (langLower.startsWith('en')) {
-      deepgramLang = 'en';
-    } else if (langLower.startsWith('es')) {
-      deepgramLang = 'es';
-    } else if (langLower.startsWith('it')) {
-      deepgramLang = 'it';
-    } else if (langLower.startsWith('pt')) {
-      deepgramLang = langLower.includes('br') ? 'pt-BR' : 'pt';
-    } else if (langLower === 'auto' || langLower === 'multi' || !langLower) {
-      deepgramLang = effectiveModel === 'nova-3' ? 'multi' : 'es';
-    } else {
-      deepgramLang = langLower.length > 2 ? langLower.slice(0, 2) : langLower;
-    }
-
+    // Keyterms collection
     const rawTerms = Array.isArray(req.body.keyterms) ? [...req.body.keyterms] : [];
     if (req.body.medicalMode && req.body.customGlossary && Array.isArray(req.body.customGlossary)) {
       rawTerms.push(...req.body.customGlossary);
     }
 
-    // Sanitize and case-insensitively deduplicate keyterms while preserving original casing
-    const seenTermKeys = new Set();
-    const cleanTerms = [];
-    for (const t of rawTerms) {
-      const termStr = typeof t === 'object' && t ? (t.term || t.text || t.word || String(t)) : String(t);
-      const sanitized = termStr
-        .replace(/[^a-zA-Z0-9\sáéíóúÁÉÍÓÚñÑüÜ.,/_-]/g, '')
-        .trim()
-        .slice(0, ASR_MAX_TERM_LENGTH);
-      if (sanitized.length < 2) continue;
-      const termKey = sanitized.toLowerCase();
-      if (!seenTermKeys.has(termKey)) {
-        seenTermKeys.add(termKey);
-        cleanTerms.push(sanitized);
-      }
-    }
+    // Keyterm Sanitization (strips quotes, control chars, script tags, HTML tags)
+    const cleanTerms = sanitizeKeyterms(rawTerms);
 
-    // Budget guard: Prevent WebSocket handshake hang / HTTP 414 / HTTP 431 on gateways with >2150 chars URL
-    let totalKeytermsCharBudget = 0;
-    const validKeyterms = [];
-    for (const term of cleanTerms) {
-      if (validKeyterms.length >= ASR_MAX_KEYTERMS_COUNT) break;
-      const termEncodedLen = encodeURIComponent(term).length;
-      const termUrlLen = (effectiveModel === 'nova-3' ? 9 : 13) + termEncodedLen;
-      if (totalKeytermsCharBudget + termUrlLen > ASR_KEYTERM_MAX_URL_CHARS) {
-        console.warn(`[ASR Token] ⚠️ Keyterms truncated by URL budget (${validKeyterms.length} retained, budget: ${totalKeytermsCharBudget}/${ASR_KEYTERM_MAX_URL_CHARS} chars)`);
-        break;
-      }
-      validKeyterms.push(term);
-      totalKeytermsCharBudget += termUrlLen;
-    }
+    // URL Budget Guard: Prevent WebSocket handshake hang / HTTP 414 / HTTP 431 on gateways with >1600 chars URL
+    const { validKeyterms } = applyKeytermsUrlBudget(cleanTerms, effectiveModel, ASR_KEYTERM_MAX_URL_CHARS);
 
     const forceRefresh = Boolean(body.forceRefresh);
-    const parsedTtl = Number(body.ttl || body.ttl_seconds || process.env.DEEPGRAM_GRANT_TTL || 60);
-    const requestedTtl = Number.isFinite(parsedTtl) ? Math.min(Math.max(parsedTtl, 30), 600) : 60;
-    let token = null;
-    let expiresIn = requestedTtl;
-    const now = Date.now();
-    const cacheKey = apiKey.trim();
-    const cachedToken = cachedGrantTokens.get(cacheKey);
+    const rawTtl = body.ttl !== undefined ? body.ttl : (body.ttl_seconds !== undefined ? body.ttl_seconds : (process.env.DEEPGRAM_GRANT_TTL || 60));
 
-    // Reuse cached token if not forced and at least ASR_TOKEN_CACHE_MIN_MARGIN_MS (20s) remain
-    if (!forceRefresh && cachedToken && now < cachedToken.expiresAt - ASR_TOKEN_CACHE_MIN_MARGIN_MS) {
-      token = cachedToken.token;
-      expiresIn = Math.max(5, Math.round((cachedToken.expiresAt - now) / 1000));
-    } else {
-      if (forceRefresh) {
-        cachedGrantTokens.delete(cacheKey);
-      }
+    // Multi-tenant In-Memory Cache & Single-Flight Mutex with TTL clamping: Math.min(Math.max(parsedTtl, 30), 60)
+    const grantResult = await mintEphemeralToken({
+      apiKey,
+      ttl: rawTtl,
+      forceRefresh
+    });
 
-      // Single-flight mutex pattern por clave: compartir petición en vuelo con peticiones concurrentes de la misma clave
-      let grantPromise = grantTokenPromisesInFlight.get(cacheKey);
-      if (!grantPromise) {
-        grantPromise = (async () => {
-          try {
-            const grantRes = await fetch('https://api.deepgram.com/v1/auth/grant', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Token ${apiKey}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ ttl_seconds: requestedTtl }),
-              signal: AbortSignal.timeout(5000)
-            });
-            if (grantRes.ok) {
-              const grantData = await grantRes.json();
-              const newToken = grantData.access_token || grantData.key;
-              const newExpiresIn = Number(grantData.expires_in) || requestedTtl;
-              storeGrantTokenInCache(cacheKey, {
-                token: newToken,
-                expiresAt: Date.now() + (newExpiresIn * 1000)
-              });
-              return { success: true, token: newToken, expiresIn: newExpiresIn };
-            } else {
-              const errText = await grantRes.text().catch(() => '');
-              let parsedErr = null;
-              try { parsedErr = JSON.parse(errText); } catch (_) {}
-              const deepgramMsg = parsedErr?.err_msg || parsedErr?.message || parsedErr?.error || errText.slice(0, 300);
-
-              let userMsg = 'Deepgram Grant API authentication failed.';
-              let errCode = 'GRANT_API_UNAVAILABLE';
-
-              if (grantRes.status === 401) {
-                userMsg = 'Invalid Deepgram API key. Please check your credentials in Settings.';
-                errCode = 'DEEPGRAM_AUTH_INVALID';
-              } else if (grantRes.status === 403) {
-                userMsg = 'Deepgram API key lacks permissions to mint ephemeral tokens. A Project Admin or Member role with auth scope is required.';
-                errCode = 'DEEPGRAM_GRANT_FORBIDDEN';
-              } else if (grantRes.status === 429) {
-                userMsg = 'Deepgram API rate limit exceeded. Please wait a moment before retrying.';
-                errCode = 'DEEPGRAM_RATE_LIMITED';
-              } else if (grantRes.status >= 500) {
-                userMsg = `Deepgram Grant API upstream server error (${grantRes.status}).`;
-                errCode = 'DEEPGRAM_UPSTREAM_ERROR';
-              }
-
-              console.warn(`[ASR Token] Deepgram grant failed (${grantRes.status}) [${errCode}]: ${deepgramMsg}`);
-              return {
-                success: false,
-                status: grantRes.status,
-                error: userMsg,
-                code: errCode,
-                details: deepgramMsg || undefined
-              };
-            }
-          } catch (gErr) {
-            const isTimeout = gErr.name === 'TimeoutError' || gErr.name === 'AbortError';
-            console.warn('[ASR Token] Grant fetch exception:', gErr.message);
-            return {
-              success: false,
-              status: isTimeout ? 504 : 502,
-              error: isTimeout
-                ? 'Timeout connecting to Deepgram Grant API (5000ms limit reached).'
-                : `Failed to connect to Deepgram Grant API: ${gErr.message}`,
-              code: isTimeout ? 'GRANT_API_TIMEOUT' : 'GRANT_API_NETWORK_ERROR'
-            };
-          } finally {
-            grantTokenPromisesInFlight.delete(cacheKey);
-          }
-        })();
-        grantTokenPromisesInFlight.set(cacheKey, grantPromise);
-      }
-
-      const grantResult = await grantPromise;
-      if (!grantResult || !grantResult.success) {
-        return res.status((grantResult && grantResult.status) || 502).json(grantResult || { error: 'Unknown grant error' });
-      }
-      token = grantResult.token;
-      expiresIn = grantResult.expiresIn;
+    if (!grantResult || !grantResult.success) {
+      const status = (grantResult && grantResult.status) || 502;
+      return res.status(status).json(deepSanitizeSecrets(grantResult || { success: false, error: 'Unknown grant error' }, apiKey, process.env.DEEPGRAM_API_KEY));
     }
 
     return res.json({
       success: true,
-      token,
-      expiresIn,
+      token: grantResult.token,
+      expiresIn: Math.min(grantResult.expiresIn, 60),
       listenUrl: 'wss://api.deepgram.com/v1/listen',
       model: effectiveModel,
       language: deepgramLang,
@@ -840,8 +764,14 @@ app.post('/api/asr-token', async (req, res) => {
       mipOptOut: Boolean(req.body.medicalMode)
     });
   } catch (err) {
-    console.error('[ASR Token] Error minting token:', err);
-    return res.status(500).json({ error: err.message });
+    const safeError = sanitizeSecret(
+      err?.message || 'Error processing ASR token request',
+      process.env.DEEPGRAM_API_KEY,
+      req.body?.apiKey,
+      req.body?.deepgramApiKey
+    );
+    console.error('[ASR Token] Error minting token:', safeError);
+    return res.status(500).json({ success: false, error: safeError });
   }
 });
 
@@ -1123,13 +1053,17 @@ wss.on('connection', (ws, req) => {
             ws.isAdminSession = false;
           }
           
+          const currentRoom = roomManager.getRoom(currentRoomId);
+          const hostHistory = (currentRoom?.transcriptHistory || []).slice(-50);
+
           ws.send(JSON.stringify({
             type: 'HOST_JOINED_SUCCESS',
             roomId: currentRoomId,
             socketId,
             hostKey: result.room?.hostKey || null, // SEC-02: Entregar al host para su reconexión transparente
             isAdmin: Boolean(ws.isAdminSession),
-            stats: roomManager.getHostStats(currentRoomId)
+            stats: roomManager.getHostStats(currentRoomId),
+            history: hostHistory
           }));
           break;
         }
@@ -1178,13 +1112,26 @@ wss.on('connection', (ws, req) => {
             break;
           }
 
+          const currentRoom = roomManager.getRoom(currentRoomId);
+          const sanitizedListenerHistory = (currentRoom?.transcriptHistory || []).slice(-50).map(item => ({
+            id: item.id,
+            seqId: item.seqId,
+            timestamp: item.timestamp,
+            originalText: item.originalText,
+            detectedLanguage: item.detectedLanguage,
+            translations: item.translations,
+            isFinal: item.isFinal !== undefined ? Boolean(item.isFinal) : true,
+            engineUsed: item.engineUsed || null
+          }));
+
           // Send public stats (NO PII) to the listener
           ws.send(JSON.stringify({
             type: 'LISTENER_JOINED_SUCCESS',
             roomId: currentRoomId,
             socketId,
             currentLang: lang,
-            stats: roomManager.getPublicStats(currentRoomId)
+            stats: roomManager.getPublicStats(currentRoomId),
+            history: sanitizedListenerHistory
           }));
 
           // Si hay audio activo reciente en el canal del oyente (reconexión o entrada durante el habla), despacharlo
@@ -1627,9 +1574,19 @@ wss.on('connection', (ws, req) => {
               medicalSpecialty: msg.medicalSpecialty,
               customGlossary: msg.customGlossary,
               sttEngine: msg.sttEngine,
-              sttModel: msg.sttModel
+              sttModel: msg.sttModel,
+              isTerminalSilence: Boolean(msg.isTerminalSilence),
+              endOfTurn: Boolean(msg.endOfTurn),
+              bypassDecalage: Boolean(msg.bypassDecalage)
             });
           }
+          break;
+        }
+
+        case 'SPEECH_COMMIT': {
+          if (clientRole !== 'HOST') break;
+          if (!currentRoomId) break;
+          aiPipeline.flushDecalageBuffer(currentRoomId);
           break;
         }
 
@@ -1734,3 +1691,5 @@ for (const altPort of altPorts) {
     });
   } catch (err) {}
 }
+
+export { app, server };

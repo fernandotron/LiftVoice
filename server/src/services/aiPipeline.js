@@ -3,6 +3,7 @@ import { roomManager } from '../roomManager.js';
 import { translationService } from './translationService.js';
 import { ttsService } from './ttsService.js';
 import { sttService } from './sttService.js';
+import { geminiLiveBridge } from './geminiLiveBridge.js';
 
 /**
  * Canonical ISO-639-1 language normalizer for LiftVoice AI Pipeline
@@ -32,8 +33,23 @@ export class AIPipeline {
     this.roomRecentEmissions = new Map(); // roomId -> Array of { text, norm, time }
     this.cabinQueues = new Map(); // `${roomId}:${lang}` -> Promise chain for sequential per-cabin TTS
     this.cabinQueueDepths = new Map(); // `${roomId}:${lang}` -> integer depth (shed-load defense)
+    this.cabinPendingTexts = new Map(); // `${roomId}:${lang}` -> Coalesced pending texts waiting for current synthesis to finish
     this.roomDecalageBuffers = new Map(); // roomId -> { text, timer, opts }
     this.openaiApiKey = process.env.OPENAI_API_KEY || '';
+    this._pipelineMode = 'deepgram_gemini';
+    this.geminiLiveVoices = { en: 'Aoede', it: 'Kore', pt: 'Fenrir', es: 'Charon' };
+  }
+
+  get pipelineMode() {
+    return this._pipelineMode || 'deepgram_gemini';
+  }
+
+  set pipelineMode(mode) {
+    const norm = (mode === 'gemini_live_s2s') ? 'gemini_live_s2s' : 'deepgram_gemini';
+    this._pipelineMode = norm;
+    if (norm !== 'gemini_live_s2s') {
+      geminiLiveBridge.closeAllSessions();
+    }
   }
 
   setApiKeys({
@@ -65,8 +81,26 @@ export class AIPipeline {
     sttLang,
     sttVad,
     decalageMode,
-    googleNeuralMode
+    googleNeuralMode,
+    pipelineMode,
+    geminiLiveVoices
   }) {
+    if (pipelineMode !== undefined) {
+      if (typeof pipelineMode === 'string' && ['deepgram_gemini', 'gemini_live_s2s'].includes(pipelineMode.trim())) {
+        const targetMode = pipelineMode.trim();
+        if (this.pipelineMode === 'gemini_live_s2s' && targetMode !== 'gemini_live_s2s') {
+          geminiLiveBridge.closeAllSessions();
+        }
+        this.pipelineMode = targetMode;
+        geminiLiveBridge.pipelineMode = targetMode;
+        roomManager.setDefaultPipelineMode(targetMode);
+      }
+    }
+    if (geminiLiveVoices !== undefined && typeof geminiLiveVoices === 'object' && !Array.isArray(geminiLiveVoices)) {
+      geminiLiveBridge.setGeminiLiveVoices(geminiLiveVoices);
+      this.geminiLiveVoices = { ...geminiLiveBridge.geminiLiveVoices };
+      roomManager.setDefaultGeminiLiveVoices(this.geminiLiveVoices);
+    }
     if (openaiApiKey !== undefined && openaiApiKey !== null) {
       this.openaiApiKey = openaiApiKey;
       translationService.setApiKey(openaiApiKey);
@@ -79,6 +113,7 @@ export class AIPipeline {
     }
     if (geminiApiKey !== undefined || geminiModel !== undefined || geminiTemp !== undefined) {
       translationService.setGeminiConfig({ apiKey: geminiApiKey, model: geminiModel, preferredEngine, temperature: geminiTemp });
+      if (geminiApiKey) geminiLiveBridge.setApiKey(geminiApiKey);
     }
     if (qwenApiKey !== undefined || qwenModel !== undefined || qwenEndpoint !== undefined || preferredEngine !== undefined || qwenTemp !== undefined) {
       translationService.setQwenConfig({ apiKey: qwenApiKey, model: qwenModel, endpoint: qwenEndpoint, preferredEngine, temperature: qwenTemp });
@@ -126,6 +161,7 @@ export class AIPipeline {
 
   cleanupRoom(roomId) {
     const key = (roomId || 'MAIN').toUpperCase();
+    geminiLiveBridge.closeRoom(key);
     this.roomQueues.delete(key);
     this.roomQueueDepths.delete(key);
     this.roomSeqCounters.delete(key);
@@ -150,7 +186,7 @@ export class AIPipeline {
     this.roomDecalageBuffers.delete(key);
     if (entry.text && entry.text.trim()) {
       console.log(`[AIPipeline] 🚀 [Room: ${key}] Décalage window elapsed. Flushing accumulated clause: "${entry.text}"`);
-      this.processSpeech({ ...entry.opts, roomId: key, text: entry.text.trim(), audioBuffer: null }).catch((err) => {
+      this.processSpeech({ ...entry.opts, roomId: key, text: entry.text.trim(), audioBuffer: null, bypassDecalage: true }).catch((err) => {
         console.warn(`[AIPipeline] Error executing flushed décalage clause in room ${key}:`, err);
       });
     }
@@ -182,10 +218,11 @@ export class AIPipeline {
     const seqId = this.getNextSeqId(roomId);
     roomManager.touchRoomActivity(roomId);
 
-    // Backpressure & Load-Shedding defense: drop intermediate stale chunks if queue depth >= 3
+    // SOTA 2026 Elastic Speech Queue: Allow rapid speech bursts up to 12 concurrent/chained items
     const currentDepth = this.roomQueueDepths.get(roomId) || 0;
-    if (currentDepth >= 3) {
-      console.warn(`[AIPipeline] ⚠️ Backpressure in room ${roomId} (queue depth: ${currentDepth}). Dropping stale audio chunk to protect heap and prevent cascading lag.`);
+    const MAX_ROOM_QUEUE_DEPTH = 12;
+    if (currentDepth >= MAX_ROOM_QUEUE_DEPTH) {
+      console.warn(`[AIPipeline] ⚠️ Extreme backpressure in room ${roomId} (queue depth: ${currentDepth} >= ${MAX_ROOM_QUEUE_DEPTH}). Soft-limiting input to protect heap.`);
       return { dropped: true, reason: 'BACKPRESSURE_LOAD_SHEDDING', seqId };
     }
 
@@ -237,6 +274,87 @@ export class AIPipeline {
     if (!room) {
       console.warn(`[AIPipeline] Room ${roomId} not found.`);
       return;
+    }
+
+    // Gemini 3.8 Live Speech-to-Speech (S2S) Engine Fast-Path with Resilient Cascade Fallback
+    const isGeminiLiveMode = this.pipelineMode === 'gemini_live_s2s' || room?.config?.pipelineMode === 'gemini_live_s2s';
+    if (isGeminiLiveMode) {
+      let s2sSuccess = false;
+      try {
+        if (!spokenText && audioBuffer) {
+          try {
+            const hasDeepgram = Boolean(this.deepgramApiKey || process.env.DEEPGRAM_API_KEY);
+            const sttResult = await sttService.transcribeAudio(audioBuffer, mimeType, sourceLanguage, {
+              preferredSttEngine: hasDeepgram ? 'deepgram' : undefined,
+              medicalMode
+            });
+            if (sttResult && sttResult.text) {
+              spokenText = sttResult.text.trim();
+              if (sttResult.detectedLanguage && sttResult.detectedLanguage !== 'auto') {
+                sourceLanguage = normalizePipelineLang(sttResult.detectedLanguage);
+              }
+            }
+          } catch (sttErr) {
+            console.warn(`[AIPipeline] S2S transcribeAudio note:`, sttErr?.message);
+          }
+        }
+
+        if (spokenText) {
+          await geminiLiveBridge.feedSpeakerText(roomId, spokenText, {
+            packetId,
+            seqId,
+            sourceLanguage,
+            forceLanguages,
+            originalText: spokenText
+          });
+          s2sSuccess = true;
+        } else if (audioBuffer) {
+          await geminiLiveBridge.feedSpeakerAudio(roomId, audioBuffer, mimeType, {
+            packetId,
+            seqId,
+            sourceLanguage,
+            forceLanguages,
+            originalText: spokenText || text
+          });
+          s2sSuccess = true;
+        }
+
+        if (s2sSuccess) {
+          // Emit pipeline telemetry for the host
+          if (room.hostSocket && room.hostSocket.readyState === 1) {
+            try {
+              const isAdmin = Boolean(room.hostSocket.isAdminSession);
+              const activeLangs = this.getActiveLanguages(roomId);
+              room.hostSocket.send(JSON.stringify({
+                type: 'PIPELINE_METRIC',
+                metric: {
+                  packetId,
+                  seqId,
+                  text: spokenText || text || 'Live Audio Stream',
+                  detectedSource: sourceLanguage || 'auto',
+                  engineUsed: isAdmin ? 'Gemini 3.8 Live S2S' : undefined,
+                  sttEngine: isAdmin ? 'Gemini Live S2S' : undefined,
+                  sttModel: isAdmin ? 'gemini-3.8-live' : undefined,
+                  sttMs: 0,
+                  transMs: 0,
+                  ttsMs: 0,
+                  activeChannels: activeLangs,
+                  totalLatencyMs: Date.now() - pipelineStart,
+                  timestamp: Date.now()
+                }
+              }));
+            } catch (e) {}
+          }
+          return {
+            id: packetId,
+            seqId,
+            pipelineMode: 'gemini_live_s2s'
+          };
+        }
+      } catch (s2sErr) {
+        console.warn(`[AIPipeline] ⚠️ Gemini Live S2S feed error in room ${roomId}: ${s2sErr.message}. Cascading to modular Deepgram/Gemini pipeline...`);
+        // Fall through to standard STT -> Translation -> TTS pipeline below
+      }
     }
 
     // Step 1: STT (if audio buffer provided and text is empty)
@@ -294,16 +412,22 @@ export class AIPipeline {
       return;
     }
 
-    // --- DÉCALAGE / CLAUSE ACCUMULATION ENGINE (2026 Streaming Chaining) ---
+    // --- DÉCALAGE / CLAUSE ACCUMULATION ENGINE (2026 Streaming Chaining & Smart Tail Flush) ---
+    const existingBuffer = this.roomDecalageBuffers?.get(roomId);
     const decalageMode = room?.config?.decalageMode || this.decalageMode || 'streaming';
-    const isTerminal = /[.!?…]\s*$/.test(cleanUtterance);
+    const isBypass = Boolean(opts.bypassDecalage || opts.isTerminalSilence || opts.endOfTurn);
+    const isTerminal = /[.!?…]\s*$/.test(cleanUtterance) || isBypass;
     const wordCount = cleanUtterance.split(/\s+/).length;
-    const isStreaming = decalageMode === 'streaming' || decalageMode === 'fast';
-    const minWords = decalageMode === 'paused' ? 14 : (isStreaming ? 3 : 7);
-    if (!this.roomDecalageBuffers) this.roomDecalageBuffers = new Map();
-    const existingBuffer = this.roomDecalageBuffers.get(roomId);
+    const isStreaming = decalageMode === 'streaming' || decalageMode === 'fast' || decalageMode === 'quick';
+    const isSufficientLength = isBypass
+      ? true
+      : isStreaming
+      ? (wordCount >= 3 || (isTerminal && wordCount >= 2))
+      : (wordCount >= (decalageMode === 'paused' ? 12 : 6));
 
-    if (isStreaming || isTerminal || wordCount >= minWords) {
+    const totalAccumulatedWords = (existingBuffer ? existingBuffer.text.split(/\s+/).length : 0) + wordCount;
+
+    if (isBypass || isSufficientLength || isTerminal || totalAccumulatedWords >= (isStreaming ? 4 : 7)) {
       if (existingBuffer) {
         if (existingBuffer.timer) clearTimeout(existingBuffer.timer);
         this.roomDecalageBuffers.delete(roomId);
@@ -316,7 +440,7 @@ export class AIPipeline {
       const combinedText = existingBuffer ? `${existingBuffer.text} ${cleanUtterance}` : cleanUtterance;
       if (existingBuffer?.timer) clearTimeout(existingBuffer.timer);
 
-      const waitMs = decalageMode === 'paused' ? 2200 : 800;
+      const waitMs = isStreaming ? 320 : (decalageMode === 'paused' ? 1800 : 450);
       const timer = setTimeout(() => {
         this.flushDecalageBuffer(roomId);
       }, waitMs);
@@ -324,7 +448,7 @@ export class AIPipeline {
       this.roomDecalageBuffers.set(roomId, {
         text: combinedText,
         timer,
-        opts: { ...opts, audioBuffer: null, text: combinedText, seqId, sttEngineUsed, sttModelUsed, sttLatency }
+        opts: { ...opts, audioBuffer: null, text: combinedText, seqId, sttEngineUsed, sttModelUsed, sttLatency, bypassDecalage: true }
       });
       console.log(`[AIPipeline] ⏳ [Room: ${roomId}] Décalage buffering clause (${combinedText.split(/\s+/).length} words, mode: ${decalageMode}): "${combinedText}"`);
       return;
@@ -426,7 +550,7 @@ export class AIPipeline {
         targets: targetLangs
       });
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TRANSLATION_TIMEOUT')), 5000)
+        setTimeout(() => reject(new Error('TRANSLATION_TIMEOUT')), 8500)
       );
       transResult = await Promise.race([transPromise, timeoutPromise]);
     } catch (err) {
@@ -496,148 +620,254 @@ export class AIPipeline {
     const healingLangs = targetLangs.filter(l => isOmittedOrUntranslated(l));
 
     // Despacho de síntesis TTS por cabina desacoplado en colas independientes FIFO por idioma
-    // Permite que la transcripción y subtítulos fluyan a <450ms sin riesgo de backpressure shed-load
-    const MAX_CABIN_QUEUE_DEPTH = 3;
-    const MAX_CABIN_TASK_AGE_MS = 8000;
+    // SOTA 2026 Zero-Loss Cabin Dispatch with Adaptive Clause Coalescence
+    const MAX_CABIN_TASK_AGE_MS = 25000; // 25s conference-grade décalage window
 
     for (const lang of healthyLangs) {
       const cabinKey = `${roomId}:${lang}`;
+      const translatedText = transResult.translations[lang] || spokenText;
+      if (!translatedText) continue;
+
       const currentDepth = this.cabinQueueDepths.get(cabinKey) || 0;
-      if (currentDepth >= MAX_CABIN_QUEUE_DEPTH) {
-        console.warn(`[AIPipeline] ⚠️ Shedding TTS chunk for cabin ${cabinKey} (depth ${currentDepth} >= ${MAX_CABIN_QUEUE_DEPTH})`);
+      if (currentDepth > 0) {
+        // A synthesis task is already executing for this cabin: coalesce pending text into structured queue
+        const existing = this.cabinPendingTexts.get(cabinKey) || {
+          text: '',
+          seqIds: [],
+          packetIds: [],
+          arrivedAt: Date.now(),
+          count: 0
+        };
+
+        // Guard against unbounded allocation / cloud TTS limits (cap at 3,000 characters)
+        if (existing.text.length + translatedText.length > 3000) {
+          console.warn(`[AIPipeline] ⚠️ Cabin ${cabinKey} pending text exceeded 3000 chars. Trimming oldest clause.`);
+          existing.text = existing.text.slice(-1500);
+        }
+
+        const sep = /[.!?…][\p{Pe}\p{Pf}"'”»\s]*$/u.test(existing.text.trim()) ? ' ' : '. ';
+        existing.text = existing.text ? `${existing.text.trim()}${sep}${translatedText.trim()}` : translatedText.trim();
+        existing.seqIds.push(seqId);
+        existing.packetIds.push(packetId);
+        existing.count++;
+        existing.arrivedAt = Date.now();
+        this.cabinPendingTexts.set(cabinKey, existing);
+        console.log(`[AIPipeline] 🔗 [Cabin: ${cabinKey}] Coalescing rapid speech burst into pending queue (Count: ${existing.count}): "${existing.text}"`);
         continue;
       }
-      this.cabinQueueDepths.set(cabinKey, currentDepth + 1);
+
+      this.cabinQueueDepths.set(cabinKey, 1);
 
       const prevTask = this.cabinQueues.get(cabinKey) || Promise.resolve();
       const nextTask = prevTask
         .catch(() => {})
         .then(async () => {
-          if (Date.now() - pipelineStart > MAX_CABIN_TASK_AGE_MS) {
-            console.warn(`[AIPipeline] ⏱️ Discarding expired TTS task for cabin ${cabinKey} (age > ${MAX_CABIN_TASK_AGE_MS}ms)`);
-            return;
-          }
-          const translatedText = transResult.translations[lang] || spokenText;
-          if (!translatedText) return;
+          let textToSynthesize = translatedText;
+          let currentIterationSeq = seqId;
+          let coalescedSeqIds = [seqId];
+          let coalescedPacketIds = [packetId];
+          let iterationIndex = 0;
+          let lastBurstArrival = pipelineStart;
 
-          try {
-            const voiceOpt = {
-              voice: room?.config?.voiceConfig?.[lang],
-              gender: room?.config?.voiceGender?.[lang],
-              engine: room?.config?.preferredTtsEngine
-            };
-            const audioResult = await ttsService.synthesize(translatedText, lang, voiceOpt);
-            if (audioResult) {
-              let audioBuffer = audioResult.audioBuffer;
-              if (!audioBuffer && audioResult.audioBase64) {
-                try { audioBuffer = Buffer.from(audioResult.audioBase64, 'base64'); } catch (e) {}
+          while (textToSynthesize) {
+            iterationIndex++;
+            const subPacketId = iterationIndex === 1 ? `${packetId}_${lang}` : `${packetId}_${lang}_part${iterationIndex}`;
+
+            const pendingExtra = this.cabinPendingTexts.get(cabinKey);
+            if (pendingExtra) {
+              const sep = /[.!?…][\p{Pe}\p{Pf}"'”»\s]*$/u.test(textToSynthesize.trim()) ? ' ' : '. ';
+              textToSynthesize = `${textToSynthesize.trim()}${sep}${pendingExtra.text.trim()}`.trim();
+              if (pendingExtra.seqIds && pendingExtra.seqIds.length > 0) {
+                currentIterationSeq = Math.max(currentIterationSeq, ...pendingExtra.seqIds);
+                coalescedSeqIds.push(...pendingExtra.seqIds);
               }
-              roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
-                id: `${packetId}_${lang}`,
-                seqId,
-                lang,
-                text: translatedText,
-                audioBase64: audioResult.audioBase64,
-                audioBuffer,
-                useClientWebSpeech: audioResult.useClientWebSpeech,
-                mimeType: audioResult.mimeType || 'audio/mpeg',
-                duration: audioResult.durationMs,
-                latencyMs: Date.now() - pipelineStart,
-                timestamp: Date.now()
-              });
+              if (pendingExtra.packetIds && pendingExtra.packetIds.length > 0) {
+                coalescedPacketIds.push(...pendingExtra.packetIds);
+              }
+              lastBurstArrival = pendingExtra.arrivedAt || Date.now();
+              this.cabinPendingTexts.delete(cabinKey);
             }
-          } catch (err) {
-            console.error(`[AIPipeline] Error synthesizing TTS for healthy lang ${lang}:`, err.message);
-          }
-        })
-        .finally(() => {
-          const d = (this.cabinQueueDepths.get(cabinKey) || 1) - 1;
-          if (d <= 0) {
-            this.cabinQueueDepths.delete(cabinKey);
-            if (this.cabinQueues.get(cabinKey) === nextTask) {
-              this.cabinQueues.delete(cabinKey);
-            }
-          } else {
-            this.cabinQueueDepths.set(cabinKey, d);
-          }
-        });
-      this.cabinQueues.set(cabinKey, nextTask);
-    }
 
-    // VÍA DE AUTO-RECUPERACIÓN (Healing Lane): Auto-sanar cabinas omitidas con oyentes activos (<80ms)
-    // Se ejecuta en paralelo sin bloquear la vía rápida (Aislamiento Bulkhead)
-    if (healingLangs.length > 0) {
-      console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Bulkhead activado para cabina(s) omitida(s): [${healingLangs.join(', ')}]. Auto-sanando en paralelo...`);
-      for (const lang of healingLangs) {
-        const cabinKey = `${roomId}:${lang}`;
-        const currentDepth = this.cabinQueueDepths.get(cabinKey) || 0;
-        if (currentDepth >= MAX_CABIN_QUEUE_DEPTH) {
-          console.warn(`[AIPipeline] ⚠️ Shedding healed TTS chunk for cabin ${cabinKey} (depth ${currentDepth} >= ${MAX_CABIN_QUEUE_DEPTH})`);
-          continue;
-        }
-        this.cabinQueueDepths.set(cabinKey, currentDepth + 1);
-
-        const prevTask = this.cabinQueues.get(cabinKey) || Promise.resolve();
-        const nextTask = prevTask
-          .catch(() => {})
-          .then(async () => {
-            if (Date.now() - pipelineStart > MAX_CABIN_TASK_AGE_MS) {
-              console.warn(`[AIPipeline] ⏱️ Discarding expired healed TTS task for cabin ${cabinKey}`);
-              return;
+            if (Date.now() - lastBurstArrival > MAX_CABIN_TASK_AGE_MS) {
+              console.warn(`[AIPipeline] ⏱️ Discarding expired TTS task (>25s) for cabin ${cabinKey}`);
+              break;
             }
+
             try {
-              const healedRes = await translationService.translateWithFreeEngine(spokenText, detectedLang, [lang]);
-              const healedText = (healedRes && healedRes.translations && healedRes.translations[lang]) || spokenText;
-              transResult.translations[lang] = healedText;
-              transcriptItem.translations[lang] = healedText;
-
-              // Actualizar el historial de la sala y notificar a los oyentes de esa cabina
-              roomManager.updateTranscriptItem(roomId, transcriptItem);
-
-              // Sintetizar y difundir audio TTS para la cabina sanada con configuración de la sala
               const voiceOpt = {
                 voice: room?.config?.voiceConfig?.[lang],
                 gender: room?.config?.voiceGender?.[lang],
                 engine: room?.config?.preferredTtsEngine
               };
-              const audioResult = await ttsService.synthesize(healedText, lang, voiceOpt);
+              const audioResult = await ttsService.synthesize(textToSynthesize, lang, voiceOpt);
               if (audioResult) {
                 let audioBuffer = audioResult.audioBuffer;
                 if (!audioBuffer && audioResult.audioBase64) {
                   try { audioBuffer = Buffer.from(audioResult.audioBase64, 'base64'); } catch (e) {}
                 }
                 roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
-                  id: `${packetId}_${lang}_healed`,
-                  seqId,
+                  id: subPacketId,
+                  seqId: currentIterationSeq,
+                  coalescedSeqIds: Array.from(new Set(coalescedSeqIds)),
+                  coalescedPacketIds: Array.from(new Set(coalescedPacketIds)),
                   lang,
-                  text: healedText,
+                  text: textToSynthesize,
                   audioBase64: audioResult.audioBase64,
                   audioBuffer,
                   useClientWebSpeech: audioResult.useClientWebSpeech,
                   mimeType: audioResult.mimeType || 'audio/mpeg',
                   duration: audioResult.durationMs,
-                  latencyMs: Date.now() - pipelineStart,
-                  timestamp: Date.now(),
-                  isHealed: true
+                  latencyMs: Date.now() - lastBurstArrival,
+                  timestamp: Date.now()
                 });
-                console.log(`[AIPipeline] 🩹 [Room: ${roomId}] Cabina '${lang}' auto-sanada y difundida con éxito (<${Date.now() - pipelineStart}ms).`);
               }
-            } catch (hErr) {
-              console.warn(`[AIPipeline] Micro-fallback de auto-sanación falló para cabina '${lang}':`, hErr.message);
+            } catch (err) {
+              console.error(`[AIPipeline] Error synthesizing TTS for healthy lang ${lang}:`, err.message);
+            }
+
+            // Drain any rapid speech bursts that queued while synthesizing
+            if (this.cabinPendingTexts.has(cabinKey)) {
+              const nextPending = this.cabinPendingTexts.get(cabinKey);
+              textToSynthesize = nextPending.text;
+              currentIterationSeq = Math.max(currentIterationSeq, ...(nextPending.seqIds || [currentIterationSeq]));
+              coalescedSeqIds = nextPending.seqIds || [];
+              coalescedPacketIds = nextPending.packetIds || [];
+              lastBurstArrival = nextPending.arrivedAt || Date.now();
+              this.cabinPendingTexts.delete(cabinKey);
+              console.log(`[AIPipeline] 🔄 [Cabin: ${cabinKey}] Draining coalesced speech backlog: "${textToSynthesize}"`);
+            } else {
+              textToSynthesize = null;
+            }
+          }
+        })
+        .finally(() => {
+          this.cabinQueueDepths.delete(cabinKey);
+          if (this.cabinQueues.get(cabinKey) === nextTask) {
+            this.cabinQueues.delete(cabinKey);
+          }
+        });
+      this.cabinQueues.set(cabinKey, nextTask);
+    }
+
+    // VÍA DE AUTO-RECUPERACIÓN (Healing Lane): Auto-sanar cabinas omitidas con oyentes activos (<80ms)
+    // Aislamiento Bulkhead estricto con espacio de nombres propio (:healing) para evitar colisiones lingüísticas
+    if (healingLangs.length > 0) {
+      console.log(`[AIPipeline] 🛡️ [Room: ${roomId}] Bulkhead activado para cabina(s) omitida(s): [${healingLangs.join(', ')}]. Auto-sanando en paralelo...`);
+      for (const lang of healingLangs) {
+        const healingKey = `${roomId}:${lang}:healing`;
+        const currentDepth = this.cabinQueueDepths.get(healingKey) || 0;
+        if (currentDepth > 0) {
+          const existing = this.cabinPendingTexts.get(healingKey) || {
+            text: '',
+            seqIds: [],
+            packetIds: [],
+            arrivedAt: Date.now()
+          };
+          const sep = /[.!?…][\p{Pe}\p{Pf}"'”»\s]*$/u.test(existing.text.trim()) ? ' ' : '. ';
+          existing.text = existing.text ? `${existing.text.trim()}${sep}${spokenText.trim()}` : spokenText.trim();
+          existing.seqIds.push(seqId);
+          existing.packetIds.push(packetId);
+          this.cabinPendingTexts.set(healingKey, existing);
+          continue;
+        }
+        this.cabinQueueDepths.set(healingKey, 1);
+
+        const prevTask = this.cabinQueues.get(healingKey) || Promise.resolve();
+        const nextTask = prevTask
+          .catch(() => {})
+          .then(async () => {
+            let textToHeal = spokenText;
+            let currentIterationSeq = seqId;
+            let coalescedSeqIds = [seqId];
+            let coalescedPacketIds = [packetId];
+            let iterationIndex = 0;
+            let lastBurstArrival = pipelineStart;
+
+            while (textToHeal) {
+              iterationIndex++;
+              const subPacketId = iterationIndex === 1 ? `${packetId}_${lang}_healed` : `${packetId}_${lang}_healed_part${iterationIndex}`;
+
+              if (Date.now() - lastBurstArrival > MAX_CABIN_TASK_AGE_MS) {
+                console.warn(`[AIPipeline] ⏱️ Discarding expired healed TTS task (>25s) for cabin ${healingKey}`);
+                break;
+              }
+              try {
+                const pendingExtra = this.cabinPendingTexts.get(healingKey);
+                if (pendingExtra) {
+                  const sep = /[.!?…][\p{Pe}\p{Pf}"'”»\s]*$/u.test(textToHeal.trim()) ? ' ' : '. ';
+                  textToHeal = `${textToHeal.trim()}${sep}${pendingExtra.text.trim()}`.trim();
+                  if (pendingExtra.seqIds && pendingExtra.seqIds.length > 0) {
+                    currentIterationSeq = Math.max(currentIterationSeq, ...pendingExtra.seqIds);
+                    coalescedSeqIds.push(...pendingExtra.seqIds);
+                  }
+                  if (pendingExtra.packetIds && pendingExtra.packetIds.length > 0) {
+                    coalescedPacketIds.push(...pendingExtra.packetIds);
+                  }
+                  lastBurstArrival = pendingExtra.arrivedAt || Date.now();
+                  this.cabinPendingTexts.delete(healingKey);
+                }
+                const healedRes = await translationService.translateWithFreeEngine(textToHeal, detectedLang, [lang]);
+                const healedText = (healedRes && healedRes.translations && healedRes.translations[lang]) || textToHeal;
+                transResult.translations[lang] = healedText;
+                transcriptItem.translations[lang] = healedText;
+
+                // Actualizar el historial de la sala y notificar a los oyentes de esa cabina
+                roomManager.updateTranscriptItem(roomId, transcriptItem);
+
+                // Sintetizar y difundir audio TTS para la cabina sanada con configuración de la sala
+                const voiceOpt = {
+                  voice: room?.config?.voiceConfig?.[lang],
+                  gender: room?.config?.voiceGender?.[lang],
+                  engine: room?.config?.preferredTtsEngine
+                };
+                const audioResult = await ttsService.synthesize(healedText, lang, voiceOpt);
+                if (audioResult) {
+                  let audioBuffer = audioResult.audioBuffer;
+                  if (!audioBuffer && audioResult.audioBase64) {
+                    try { audioBuffer = Buffer.from(audioResult.audioBase64, 'base64'); } catch (e) {}
+                  }
+                  roomManager.broadcastAudioToLanguageChannel(roomId, lang, {
+                    id: subPacketId,
+                    seqId: currentIterationSeq,
+                    coalescedSeqIds: Array.from(new Set(coalescedSeqIds)),
+                    coalescedPacketIds: Array.from(new Set(coalescedPacketIds)),
+                    lang,
+                    text: healedText,
+                    audioBase64: audioResult.audioBase64,
+                    audioBuffer,
+                    useClientWebSpeech: audioResult.useClientWebSpeech,
+                    mimeType: audioResult.mimeType || 'audio/mpeg',
+                    duration: audioResult.durationMs,
+                    latencyMs: Date.now() - lastBurstArrival,
+                    timestamp: Date.now(),
+                    isHealed: true
+                  });
+                  console.log(`[AIPipeline] 🩹 [Room: ${roomId}] Cabina '${lang}' auto-sanada y difundida con éxito (<${Date.now() - lastBurstArrival}ms).`);
+                }
+              } catch (hErr) {
+                console.error(`[AIPipeline] Auto-healing failed for ${lang}:`, hErr.message);
+              }
+
+              if (this.cabinPendingTexts.has(healingKey)) {
+                const nextPending = this.cabinPendingTexts.get(healingKey);
+                textToHeal = nextPending.text;
+                currentIterationSeq = Math.max(currentIterationSeq, ...(nextPending.seqIds || [currentIterationSeq]));
+                coalescedSeqIds = nextPending.seqIds || [];
+                coalescedPacketIds = nextPending.packetIds || [];
+                lastBurstArrival = nextPending.arrivedAt || Date.now();
+                this.cabinPendingTexts.delete(healingKey);
+              } else {
+                textToHeal = null;
+              }
             }
           })
           .finally(() => {
-            const d = (this.cabinQueueDepths.get(cabinKey) || 1) - 1;
-            if (d <= 0) {
-              this.cabinQueueDepths.delete(cabinKey);
-              if (this.cabinQueues.get(cabinKey) === nextTask) {
-                this.cabinQueues.delete(cabinKey);
-              }
-            } else {
-              this.cabinQueueDepths.set(cabinKey, d);
+            this.cabinQueueDepths.delete(healingKey);
+            if (this.cabinQueues.get(healingKey) === nextTask) {
+              this.cabinQueues.delete(healingKey);
             }
           });
-        this.cabinQueues.set(cabinKey, nextTask);
+        this.cabinQueues.set(healingKey, nextTask);
       }
     }
 

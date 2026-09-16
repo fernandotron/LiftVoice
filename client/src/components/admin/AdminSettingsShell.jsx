@@ -50,7 +50,16 @@ const DEFAULT_GENDERS = {
   pt: 'female'
 };
 
+const DEFAULT_GEMINI_LIVE_VOICES = {
+  es: 'gemini-live-charon',
+  en: 'gemini-live-aoede',
+  it: 'gemini-live-kore',
+  pt: 'gemini-live-fenrir'
+};
+
 export const OPTIMAL_CONFIG_DEFAULTS = {
+  pipelineMode: 'deepgram_gemini',
+  geminiLiveVoices: DEFAULT_GEMINI_LIVE_VOICES,
   sttEngine: 'deepgram',
   sttLang: 'es',
   sttVad: 'standard',
@@ -72,6 +81,19 @@ export const OPTIMAL_CONFIG_DEFAULTS = {
   googleNeuralMode: 'universal'
 };
 
+export const PIPELINE_MODE_OPTIONS = [
+  {
+    value: 'deepgram_gemini',
+    label: 'Deepgram Nova-3 Modular',
+    description: 'Deepgram STT ~150ms + Gemini 3.8 Flash + Aura-2 / Azure TTS (Máximo control y precisión médica)'
+  },
+  {
+    value: 'gemini_live_s2s',
+    label: 'Google Gemini 3.8 Live S2S',
+    description: 'Speech-to-Speech nativo a 24kHz • Google interpreta y habla directamente en cada cabina'
+  }
+];
+
 export const SECTION_DEFAULTS_MAP = {
   stt: {
     id: 'stt',
@@ -79,12 +101,13 @@ export const SECTION_DEFAULTS_MAP = {
     shortLabel: 'Reconocimiento de voz',
     subtitle: 'Restaura el motor Deepgram Nova con latencia ~150ms, español (es) como idioma predeterminado, corte acústico a 300ms y filtro VAD estándar.',
     highlights: [
+      { label: 'Pipeline', value: 'Deepgram Nova-3 Modular' },
       { label: 'Motor', value: 'Deepgram Nova' },
       { label: 'Idioma', value: 'Español (es)' },
       { label: 'Endpointing', value: '300 ms' },
       { label: 'VAD & Décalage', value: 'Estándar / Natural' }
     ],
-    keys: ['lv_stt_engine', 'lv_stt_lang', 'lv_stt_vad', 'lv_decalage_mode']
+    keys: ['lv_pipeline_mode', 'lv_gemini_live_voices', 'lv_stt_engine', 'lv_stt_lang', 'lv_stt_vad', 'lv_decalage_mode']
   },
   ai: {
     id: 'ai',
@@ -126,6 +149,8 @@ export const SECTION_DEFAULTS_MAP = {
 };
 
 export const buildSettingsSnapshot = (data = {}) => ({
+  pipelineMode: data.pipelineMode || 'deepgram_gemini',
+  geminiLiveVoices: data.geminiLiveVoices || DEFAULT_GEMINI_LIVE_VOICES,
   sttEngine: data.sttEngine || 'deepgram',
   preferredTtsEngine: data.preferredTtsEngine || 'deepgram',
   voiceConfig: data.voiceConfig || DEFAULT_VOICES,
@@ -156,8 +181,17 @@ export const buildSettingsSnapshot = (data = {}) => ({
   googleNeuralMode: data.googleNeuralMode || 'universal'
 });
 
+const GEMINI_LIVE_PREBUILT_VOICES = [
+  { id: 'gemini-live-aoede', name: 'Google Aoede (Gemini Live)', gender: 'female', engine: 'gemini_live', desc: 'Cálida, natural y expresiva • Gemini Live 24kHz' },
+  { id: 'gemini-live-kore', name: 'Google Kore (Gemini Live)', gender: 'female', engine: 'gemini_live', desc: 'Serena, pausada y académica • Ideal Clínico 24kHz' },
+  { id: 'gemini-live-puck', name: 'Google Puck (Gemini Live)', gender: 'neutral', engine: 'gemini_live', desc: 'Ágil y conversacional • Gemini Live 24kHz' },
+  { id: 'gemini-live-charon', name: 'Google Charon (Gemini Live)', gender: 'male', engine: 'gemini_live', desc: 'Barítono profundo y solemne • Gemini Live 24kHz' },
+  { id: 'gemini-live-fenrir', name: 'Google Fenrir (Gemini Live)', gender: 'male', engine: 'gemini_live', desc: 'Firme, asertiva y directa • Gemini Live 24kHz' }
+];
+
 const BOOTH_VOICE_OPTIONS = {
   es: [
+    ...GEMINI_LIVE_PREBUILT_VOICES,
     { id: 'aura-2-carina-es', name: 'Deepgram Carina (Aura-2)', gender: 'female', engine: 'deepgram', desc: 'Natural y fluida • Deepgram Aura-2' },
     { id: 'aura-2-javier-es', name: 'Deepgram Javier (Aura-2)', gender: 'male', engine: 'deepgram', desc: 'Profesional y nítido • Deepgram Aura-2' },
     { id: 'es-ES-ElviraNeural', name: 'Azure Elvira', gender: 'female', engine: 'google', desc: 'Fluida y natural • Universal Azure $0' },
@@ -170,6 +204,7 @@ const BOOTH_VOICE_OPTIONS = {
     { id: 'pNInz6obpgDQGcFmaJgB', name: 'ElevenLabs Adam', gender: 'male', engine: 'elevenlabs', desc: 'Keynote magistral • 11Labs' }
   ],
   en: [
+    ...GEMINI_LIVE_PREBUILT_VOICES,
     { id: 'aura-2-thalia-en', name: 'Deepgram Thalia (Aura-2)', gender: 'female', engine: 'deepgram', desc: 'Limpia y expresiva • Deepgram Aura-2' },
     { id: 'aura-orion-en', name: 'Deepgram Orion', gender: 'male', engine: 'deepgram', desc: 'Barítono confiado ~140ms • Saldo $200' },
     { id: 'aura-asteria-en', name: 'Deepgram Asteria', gender: 'female', engine: 'deepgram', desc: 'Ultra-baja latencia ~140ms • Saldo $200' },
@@ -184,6 +219,7 @@ const BOOTH_VOICE_OPTIONS = {
     { id: 'pNInz6obpgDQGcFmaJgB', name: 'ElevenLabs Adam', gender: 'male', engine: 'elevenlabs', desc: 'Keynote magistral • 11Labs' }
   ],
   it: [
+    ...GEMINI_LIVE_PREBUILT_VOICES,
     { id: 'it-IT-ElsaNeural', name: 'Azure Elsa', gender: 'female', engine: 'google', desc: 'Italiano fluido y expresivo • Universal Azure $0' },
     { id: 'it-IT-GiuseppeNeural', name: 'Azure Giuseppe', gender: 'male', engine: 'google', desc: 'Cálido y natural • Universal Azure $0' },
     { id: 'it-IT-CosimoNeural', name: 'Azure Cosimo', gender: 'male', engine: 'google', desc: 'Sereno y refinado • Universal Azure $0' },
@@ -193,6 +229,7 @@ const BOOTH_VOICE_OPTIONS = {
     { id: 'AZnzlk1XvdvUeBnXmlld', name: 'ElevenLabs Domi', gender: 'female', engine: 'elevenlabs', desc: 'Asertiva y dinámica • 11Labs' }
   ],
   pt: [
+    ...GEMINI_LIVE_PREBUILT_VOICES,
     { id: 'pt-BR-FranciscaNeural', name: 'Azure Francisca', gender: 'female', engine: 'google', desc: 'Portugués brasileño suave • Universal Azure $0' },
     { id: 'pt-BR-AntonioNeural', name: 'Azure Antonio', gender: 'male', engine: 'google', desc: 'Enérgico y amigable • Universal Azure $0' },
     { id: 'qwen3-tts-pt', name: 'Alibaba Qwen3-TTS', gender: 'female', engine: 'qwen_tts', desc: 'Ultra-rápido 97ms • Qwen' },
@@ -251,6 +288,7 @@ const STT_VAD_OPTIONS = [
 
 const TTS_GLOBAL_ENGINE_OPTIONS = [
   { value: 'deepgram', label: 'Deepgram Aura / Aura-2', description: 'Latencia ~120ms • Multilingüe ES/EN/IT' },
+  { value: 'gemini_live', label: 'Google Gemini Live S2S', description: 'Voces nativas 24kHz • Aoede, Kore, Puck, Charon, Fenrir' },
   { value: 'google', label: 'Azure / Edge Neural Universal', description: '100% Gratuito & Ilimitado • Microsoft Azure $0' },
   { value: 'cartesia', label: 'Cartesia Sonic (SSM)', description: 'Ultra-baja latencia <100ms • Voces Sonic' },
   { value: 'qwen_tts', label: 'Alibaba Qwen3-TTS', description: 'Ultra-rápido 97ms • CosyVoice' },
@@ -279,10 +317,12 @@ const AI_STRATEGY_OPTIONS = [
 ];
 
 const GEMINI_MODEL_OPTIONS = [
-  { value: 'google/gemini-3.8-live', label: 'Gemini 3.8 Live', description: 'google/gemini-3.8-live • Ultra-baja latencia voz/streaming' },
+  { value: 'google/gemini-3.8-flash', label: 'Gemini 3.8 Flash', description: 'google/gemini-3.8-flash • Ultra-baja latencia REST (Sept 2026)' },
+  { value: 'google/gemini-3.8-live', label: 'Gemini 3.8 Live', description: 'google/gemini-3.8-live • Streaming Bidireccional WebSocket' },
+  { value: 'google/gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', description: 'google/gemini-3.5-flash-lite • Ultra-rápido Fallback Moderno' },
+  { value: 'google/gemini-3.5-flash', label: 'Gemini 3.5 Flash', description: 'google/gemini-3.5-flash • Alta Velocidad y Precisión' },
   { value: 'google/gemini-3.8-live-thinking', label: 'Gemini 3.8 Live Thinking', description: 'google/gemini-3.8-live-thinking • Razonamiento adaptativo y clínico' },
-  { value: 'google/gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', description: 'google/gemini-3.1-flash-lite • Ultra-rápido' },
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', description: 'gemini-2.0-flash • Google AI Studio directo' }
+  { value: 'google/gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', description: 'google/gemini-3.1-flash-lite • Ultra-rápido' }
 ];
 
 const TEMPERATURE_OPTIONS = [
@@ -383,6 +423,13 @@ export default function AdminSettingsShell({
     }
   }, [activeTab]);
 
+  const [pipelineMode, setPipelineMode] = useState(() => safeGetItem('lv_pipeline_mode', 'deepgram_gemini'));
+  const [geminiLiveVoices, setGeminiLiveVoices] = useState(() => {
+    try {
+      const saved = localStorage.getItem('lv_gemini_live_voices');
+      return saved ? { ...DEFAULT_GEMINI_LIVE_VOICES, ...JSON.parse(saved) } : DEFAULT_GEMINI_LIVE_VOICES;
+    } catch (e) { return DEFAULT_GEMINI_LIVE_VOICES; }
+  });
   const [sttEngine, setSttEngine] = useState(() => safeGetItem('lv_stt_engine', 'deepgram'));
   const [preferredTtsEngine, setPreferredTtsEngine] = useState(() => safeGetItem('lv_tts_engine', 'deepgram'));
   const [voiceConfig, setVoiceConfig] = useState(() => {
@@ -431,12 +478,14 @@ export default function AdminSettingsShell({
   const [initialState, setInitialState] = useState(null);
   
   const currentSnapshot = useMemo(() => buildSettingsSnapshot({
+    pipelineMode, geminiLiveVoices,
     sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
     deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
     qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
     preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
     sttLang, sttVad, googleNeuralMode
   }), [
+    pipelineMode, geminiLiveVoices,
     sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
     deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
     qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
@@ -488,6 +537,8 @@ export default function AdminSettingsShell({
 
   const revertToInitialState = () => {
     if (initialState) {
+      if (initialState.pipelineMode !== undefined) setPipelineMode(initialState.pipelineMode);
+      if (initialState.geminiLiveVoices !== undefined) setGeminiLiveVoices(initialState.geminiLiveVoices);
       if (initialState.sttEngine !== undefined) setSttEngine(initialState.sttEngine);
       if (initialState.preferredTtsEngine !== undefined) setPreferredTtsEngine(initialState.preferredTtsEngine);
       if (initialState.voiceConfig !== undefined) setVoiceConfig(initialState.voiceConfig);
@@ -636,6 +687,8 @@ export default function AdminSettingsShell({
     const handleConfigEvent = (e) => {
       const cfg = e?.detail;
       if (!cfg) return;
+      if (cfg.pipelineMode) setPipelineMode(cfg.pipelineMode);
+      if (cfg.geminiLiveVoices) setGeminiLiveVoices(prev => ({ ...prev, ...cfg.geminiLiveVoices }));
       if (cfg.voiceConfig) setVoiceConfig(prev => ({ ...prev, ...cfg.voiceConfig }));
       if (cfg.voiceGender) setVoiceGender(prev => ({ ...prev, ...cfg.voiceGender }));
     };
@@ -687,6 +740,8 @@ export default function AdminSettingsShell({
               hasElevenLabsKey: Boolean(data.hasElevenLabsKey),
               hasOpenAiKey: Boolean(data.hasOpenAiKey)
             });
+            const loadedPipelineMode = data.pipelineMode || safeGetItem('lv_pipeline_mode', 'deepgram_gemini');
+            const loadedGeminiLiveVoices = data.geminiLiveVoices ? { ...geminiLiveVoices, ...data.geminiLiveVoices } : geminiLiveVoices;
             const loadedStt = data.preferredSttEngine || sttEngine;
             const loadedTransEngine = data.preferredTranslationEngine || preferredEngine;
             const loadedTtsEngine = data.preferredTtsEngine || preferredTtsEngine;
@@ -705,6 +760,8 @@ export default function AdminSettingsShell({
             const loadedDecalage = data.decalageMode || decalageMode;
             const loadedGoogleNeural = data.googleNeuralMode || googleNeuralMode;
 
+            if (data.pipelineMode) setPipelineMode(data.pipelineMode);
+            if (data.geminiLiveVoices) setGeminiLiveVoices(loadedGeminiLiveVoices);
             if (data.preferredSttEngine) setSttEngine(data.preferredSttEngine);
             if (data.preferredTranslationEngine) setPreferredEngine(data.preferredTranslationEngine);
             if (data.preferredTtsEngine) setPreferredTtsEngine(data.preferredTtsEngine);
@@ -725,6 +782,8 @@ export default function AdminSettingsShell({
 
             // Sincronizar el estado inicial de referencia para que NO aparezca "Modificaciones sin guardar" al abrir el modal
             setInitialState(buildSettingsSnapshot({
+              pipelineMode: loadedPipelineMode,
+              geminiLiveVoices: loadedGeminiLiveVoices,
               sttEngine: loadedStt,
               preferredTtsEngine: loadedTtsEngine,
               voiceConfig: loadedVoiceCfg,
@@ -775,9 +834,12 @@ export default function AdminSettingsShell({
 
   const handleVoiceChange = (lang, newVoiceId) => {
     setVoiceConfig(prev => ({ ...prev, [lang]: newVoiceId }));
+    if (newVoiceId && newVoiceId.startsWith('gemini-live-')) {
+      setGeminiLiveVoices(prev => ({ ...prev, [lang]: newVoiceId }));
+    }
     setIsDirty(true);
     const found = (BOOTH_VOICE_OPTIONS[lang] || []).find(v => v.id === newVoiceId);
-    if (found && (found.gender === 'male' || found.gender === 'female')) {
+    if (found && (found.gender === 'male' || found.gender === 'female' || found.gender === 'neutral')) {
       setVoiceGender(prev => ({ ...prev, [lang]: found.gender }));
     }
   };
@@ -788,7 +850,12 @@ export default function AdminSettingsShell({
     const candidates = (BOOTH_VOICE_OPTIONS[lang] || []).filter(v => v.gender === newGender);
     const currentEngine = preferredTtsEngine;
     const matched = candidates.find(v => v.engine === currentEngine) || candidates[0];
-    if (matched) setVoiceConfig(prev => ({ ...prev, [lang]: matched.id }));
+    if (matched) {
+      setVoiceConfig(prev => ({ ...prev, [lang]: matched.id }));
+      if (matched.id.startsWith('gemini-live-')) {
+        setGeminiLiveVoices(prev => ({ ...prev, [lang]: matched.id }));
+      }
+    }
   };
 
   const handlePreviewVoice = async (langCode) => {
@@ -864,6 +931,8 @@ export default function AdminSettingsShell({
           'Authorization': token ? `Bearer ${token}` : ''
         },
         body: JSON.stringify({
+          pipelineMode,
+          geminiLiveVoices,
           preferredSttEngine: sttEngine, sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
           sttLang, sttVad,
           openaiKey: touchedKeys.has('openai') ? openaiKey : undefined,
@@ -887,6 +956,8 @@ export default function AdminSettingsShell({
 
       if (!resp.ok) throw new Error(`Error del servidor (${resp.status}) al guardar configuración`);
 
+      safeSetItem('lv_pipeline_mode', pipelineMode);
+      safeSetItem('lv_gemini_live_voices', geminiLiveVoices);
       safeSetItem('lv_stt_engine', sttEngine);
       safeSetItem('lv_stt_lang', sttLang);
       safeSetItem('lv_stt_vad', sttVad);
@@ -929,11 +1000,12 @@ export default function AdminSettingsShell({
       if (effectiveRoomId) {
         fetch(`/api/rooms/${effectiveRoomId}/voices`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ voiceConfig, voiceGender, preferredTtsEngine, decalageMode })
+          body: JSON.stringify({ voiceConfig, voiceGender, preferredTtsEngine, decalageMode, pipelineMode, geminiLiveVoices })
         }).catch(() => {});
       }
 
       const savedCfg = {
+        pipelineMode, geminiLiveVoices,
         sttEngine, preferredTtsEngine, voiceConfig, voiceGender, preferredEngine,
         sttLang, sttVad, aiStrategy,
         openaiKey, openaiModel, openaiTemp,
@@ -945,6 +1017,7 @@ export default function AdminSettingsShell({
       setIsSaving(false);
       setIsSaved(true);
       setInitialState(buildSettingsSnapshot({
+        pipelineMode, geminiLiveVoices,
         sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
         deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
         qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
@@ -990,6 +1063,8 @@ export default function AdminSettingsShell({
     }
 
     // 2. Rehidratar estado React y persistir en localStorage
+    let nextPipelineMode = pipelineMode;
+    let nextGeminiLiveVoices = geminiLiveVoices;
     let nextSttEngine = sttEngine;
     let nextSttLang = sttLang;
     let nextSttVad = sttVad;
@@ -1011,16 +1086,22 @@ export default function AdminSettingsShell({
     let nextCustomGlossary = customGlossary;
 
     if (isResetStt) {
+      nextPipelineMode = OPTIMAL_CONFIG_DEFAULTS.pipelineMode;
+      nextGeminiLiveVoices = OPTIMAL_CONFIG_DEFAULTS.geminiLiveVoices;
       nextSttEngine = OPTIMAL_CONFIG_DEFAULTS.sttEngine;
       nextSttLang = OPTIMAL_CONFIG_DEFAULTS.sttLang;
       nextSttVad = OPTIMAL_CONFIG_DEFAULTS.sttVad;
       nextDecalageMode = OPTIMAL_CONFIG_DEFAULTS.decalageMode;
 
+      setPipelineMode(nextPipelineMode);
+      setGeminiLiveVoices(nextGeminiLiveVoices);
       setSttEngine(nextSttEngine);
       setSttLang(nextSttLang);
       setSttVad(nextSttVad);
       setDecalageMode(nextDecalageMode);
 
+      safeSetItem('lv_pipeline_mode', nextPipelineMode);
+      safeSetItem('lv_gemini_live_voices', nextGeminiLiveVoices);
       safeSetItem('lv_stt_engine', nextSttEngine);
       safeSetItem('lv_stt_lang', nextSttLang);
       safeSetItem('lv_stt_vad', nextSttVad);
@@ -1106,6 +1187,8 @@ export default function AdminSettingsShell({
     }
 
     const savedCfg = {
+      pipelineMode: nextPipelineMode,
+      geminiLiveVoices: nextGeminiLiveVoices,
       sttEngine: nextSttEngine,
       preferredTtsEngine: nextPreferredTtsEngine,
       voiceConfig: nextVoiceConfig,
@@ -1154,6 +1237,8 @@ export default function AdminSettingsShell({
     }
 
     const resetSnapshot = buildSettingsSnapshot({
+      pipelineMode: nextPipelineMode,
+      geminiLiveVoices: nextGeminiLiveVoices,
       sttEngine: nextSttEngine,
       preferredTtsEngine: nextPreferredTtsEngine,
       voiceConfig: nextVoiceConfig,
@@ -1483,6 +1568,67 @@ export default function AdminSettingsShell({
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'stt' && (
         <div className="space-y-8 animate-fadeIn">
+          {/* Card: Arquitectura del Pipeline de Interpretación */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-blue-500 shrink-0" />
+                  <span>Arquitectura del Pipeline de Interpretación</span>
+                </h4>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
+                  Configura el flujo central de procesamiento acústico y entrega simultánea para todas las cabinas.
+                </p>
+              </div>
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium self-start sm:self-center shrink-0 ${
+                pipelineMode === 'gemini_live_s2s'
+                  ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
+                  : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30'
+              }`}>
+                {pipelineMode === 'gemini_live_s2s' ? 'Gemini 3.8 Live S2S (24kHz)' : 'Deepgram Nova-3 Modular'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 pt-1">
+              <div>
+                <label htmlFor="admin-pipeline-mode" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                  Modo de procesamiento del pipeline
+                </label>
+                <SelectDropdown
+                  id="admin-pipeline-mode"
+                  aria-label="Arquitectura del Pipeline de Interpretación"
+                  value={pipelineMode}
+                  options={PIPELINE_MODE_OPTIONS}
+                  onChange={(e) => {
+                    const newMode = e.target.value;
+                    setPipelineMode(newMode);
+                    setIsDirty(true);
+                  }}
+                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                />
+              </div>
+              <div className="flex flex-col justify-center">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  {pipelineMode === 'gemini_live_s2s'
+                    ? 'Inferencia directa Speech-to-Speech sin saltos intermedios. Google Gemini 3.8 Live interpreta y habla en cada cabina a 24kHz con mínima latencia perceptual.'
+                    : 'Pipeline modular desacoplado: captura Deepgram Nova-3 (~150ms), traducción vía Gemini 3.8 Flash y síntesis neural en Aura-2 / Azure TTS.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Alerta/Banner informativo cuando está en gemini_live_s2s */}
+            {pipelineMode === 'gemini_live_s2s' && (
+              <Banner
+                icon={<Sparkles className="w-4 h-4 text-purple-500 dark:text-purple-300" strokeWidth={2.2} />}
+                color="#8b5cf6"
+                title="Google Gemini 3.8 Live Speech-to-Speech Activo (24kHz)"
+                subtitle="Interpretación nativa extremo a extremo"
+                desc="Google Gemini 3.8 Live gestiona el pipeline de Speech-to-Speech de forma nativa a 24kHz en todas las cabinas de traducción. El orador principal se interpreta y sintetiza en tiempo real sin etapas intermedias de STT o TTS desacoplados."
+                className="mt-3 animate-fadeIn"
+              />
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
             {/* Motor Principal */}
             <div>
@@ -1735,6 +1881,16 @@ export default function AdminSettingsShell({
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'ai' && (
         <div className="space-y-8 animate-fadeIn">
+          {pipelineMode === 'gemini_live_s2s' && (
+            <Banner
+              icon={<Sparkles className="w-4 h-4 text-purple-500 dark:text-purple-300" strokeWidth={2.2} />}
+              color="#8b5cf6"
+              title="Google Gemini 3.8 Live Speech-to-Speech Activo (24kHz)"
+              subtitle="Pipeline S2S extremo a extremo seleccionado"
+              desc="La traducción e interpretación se realizan de forma directa y simultánea mediante Google Gemini 3.8 Live S2S sin llamadas intermedias de texto a 24kHz."
+              className="animate-fadeIn"
+            />
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
             <div>
               <label htmlFor="admin-ai-provider" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">

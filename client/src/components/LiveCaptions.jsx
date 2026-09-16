@@ -15,6 +15,8 @@ function LiveCaptions({
   activeSttInfo = null,
   activePlayingSeqId = null,
   activePlayingPacketId = null,
+  activeCoalescedSeqIds = [],
+  activeCoalescedPacketIds = [],
   isPlayingAudio = false
 }) {
   const fontClassMap = {
@@ -32,6 +34,7 @@ function LiveCaptions({
   const [autoScroll, setAutoScroll] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const prevCountRef = useRef(transcriptHistory.length);
+  const prevLastIdRef = useRef(null);
 
   // Anti-flicker: preserve recent interim text briefly while backend translates and final card arrives
   const [displayedInterim, setDisplayedInterim] = useState(interimText || '');
@@ -53,20 +56,27 @@ function LiveCaptions({
   }, [interimText]);
 
   useEffect(() => {
-    if (transcriptHistory.length > prevCountRef.current) {
+    const lastItem = transcriptHistory[transcriptHistory.length - 1];
+    const currentLastId = lastItem ? (lastItem.id || lastItem.seqId || `${lastItem.timestamp}`) : null;
+    const isNewCard = transcriptHistory.length > prevCountRef.current || (currentLastId && currentLastId !== prevLastIdRef.current);
+
+    if (isNewCard) {
       if (consolidatingTimerRef.current) clearTimeout(consolidatingTimerRef.current);
       setDisplayedInterim('');
       setIsConsolidating(false);
     }
-  }, [transcriptHistory.length]);
+  }, [transcriptHistory]);
 
   // Automatic scrolling: smoothly follow live subtitles and interim dictation stream without stutter
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const isNewItem = transcriptHistory.length > prevCountRef.current;
+    const lastItem = transcriptHistory[transcriptHistory.length - 1];
+    const currentLastId = lastItem ? (lastItem.id || lastItem.seqId || `${lastItem.timestamp}`) : null;
+    const isNewItem = transcriptHistory.length > prevCountRef.current || (currentLastId && currentLastId !== prevLastIdRef.current);
     prevCountRef.current = transcriptHistory.length;
+    prevLastIdRef.current = currentLastId;
 
     if (autoScroll && !isUserScrolledUpRef.current) {
       requestAnimationFrame(() => {
@@ -122,19 +132,20 @@ function LiveCaptions({
 
   return (
     <div className={`flex flex-col h-full relative bg-transparent transition-colors duration-150 ${className}`}>
-      {/* Captions Stream List */}
+      {/* Captions Stream List — w-full para que el scrollbar quede completamente a la derecha */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto px-4 sm:px-6 bg-transparent scrollbar-custom scrollbar-fina ${
-          transcriptHistory.length === 0 && !displayedInterim
-            ? 'flex items-center justify-center pb-24 sm:pb-0'
-            : 'pt-2.5 sm:pt-3 pb-28 sm:pb-4 space-y-3.5'
-        } ${maxHeightClass}`}
+        className={`flex-1 overflow-y-auto w-full bg-transparent scrollbar-custom scrollbar-fina ${maxHeightClass}`}
         role="log"
         aria-live="polite"
       >
-        {transcriptHistory.length === 0 && !displayedInterim ? (
+        <div className={`w-full max-w-4xl mx-auto px-4 sm:px-6 ${
+          transcriptHistory.length === 0 && !displayedInterim
+            ? 'h-full flex items-center justify-center pb-24 sm:pb-0'
+            : 'pt-2.5 sm:pt-3 pb-28 sm:pb-4 space-y-3.5 flex flex-col'
+        }`}>
+          {transcriptHistory.length === 0 && !displayedInterim ? (
           <div className="flex flex-col items-center justify-center text-center text-zinc-400 dark:text-zinc-500 px-4 py-12 select-none animate-fadeIn">
             <div className="text-zinc-400 dark:text-zinc-600 font-serif text-5xl font-light leading-none mb-3 tracking-wider select-none">
               T
@@ -156,11 +167,30 @@ function LiveCaptions({
           transcriptHistory.map((item, index) => {
             const isLast = index === transcriptHistory.length - 1;
             const translatedText = item.translations?.[currentLanguage] || item.originalText;
-            const isAudioActive = isPlayingAudio && Boolean(
-              (activePlayingPacketId && (item.id === activePlayingPacketId || String(activePlayingPacketId).startsWith(item.id))) ||
-              (activePlayingSeqId && item.seqId === activePlayingSeqId)
+            const isPacketMatch = Boolean(
+              activePlayingPacketId && item.id && (
+                String(item.id) === String(activePlayingPacketId) ||
+                String(activePlayingPacketId).startsWith(String(item.id) + '_') ||
+                String(activePlayingPacketId).startsWith(String(item.id) + '-') ||
+                String(item.id).startsWith(String(activePlayingPacketId) + '_') ||
+                String(item.id).startsWith(String(activePlayingPacketId) + '-')
+              )
             );
-            const isCardHighlighted = isAudioActive || (!activePlayingPacketId && !activePlayingSeqId && isLast);
+            const isSeqMatch = Boolean(
+              activePlayingSeqId != null &&
+              item.seqId != null &&
+              Number(item.seqId) === Number(activePlayingSeqId)
+            );
+            const isCoalescedMatch = Boolean(
+              (activeCoalescedPacketIds?.length > 0 && item.id && activeCoalescedPacketIds.some(pid => 
+                String(pid) === String(item.id) ||
+                String(pid).startsWith(String(item.id) + '_') ||
+                String(item.id).startsWith(String(pid) + '_')
+              )) ||
+              (activeCoalescedSeqIds?.length > 0 && item.seqId != null && activeCoalescedSeqIds.some(sid => Number(sid) === Number(item.seqId)))
+            );
+            const isAudioActive = Boolean(isPlayingAudio && (isPacketMatch || isSeqMatch || isCoalescedMatch));
+            const isCardHighlighted = isAudioActive || (!isPlayingAudio && isLast);
 
             return (
               <div
@@ -281,6 +311,7 @@ function LiveCaptions({
         {(transcriptHistory.length > 0 || displayedInterim) && (
           <div ref={bottomRef} className="h-4 sm:h-2 w-full pointer-events-none flex-shrink-0" />
         )}
+        </div>
       </div>
 
       {/* Floating Pill when user scrolled up and new text arrives */}

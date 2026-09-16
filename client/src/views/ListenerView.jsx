@@ -155,6 +155,8 @@ export default function ListenerView({
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [activePlayingSeqId, setActivePlayingSeqId] = useState(null);
   const [activePlayingPacketId, setActivePlayingPacketId] = useState(null);
+  const [activeCoalescedSeqIds, setActiveCoalescedSeqIds] = useState([]);
+  const [activeCoalescedPacketIds, setActiveCoalescedPacketIds] = useState([]);
   const [transcriptHistory, setTranscriptHistory] = useState([]);
   const [roomStats, setRoomStats] = useState({
     totalListeners: 0,
@@ -244,6 +246,16 @@ export default function ListenerView({
       });
     });
 
+    const unsubHistory = socketService.on('transcript_history', (history) => {
+      if (!Array.isArray(history)) return;
+      setTranscriptHistory(prev => {
+        if (prev.length === 0) return history.slice(-80);
+        const existingIds = new Set(prev.map(p => p.id));
+        const newItems = history.filter(h => !existingIds.has(h.id));
+        return [...prev, ...newItems].slice(-80);
+      });
+    });
+
     const unsubStats = socketService.on('room_stats', (stats) => {
       if (stats) setRoomStats(stats);
     });
@@ -259,6 +271,8 @@ export default function ListenerView({
       setIsAudioSuspended(audioPlayerService.isContextSuspended());
       setActivePlayingSeqId(state.currentPlayingSeqId || null);
       setActivePlayingPacketId(state.currentPlayingPacketId || null);
+      setActiveCoalescedSeqIds(state.currentCoalescedSeqIds || []);
+      setActiveCoalescedPacketIds(state.currentCoalescedPacketIds || []);
     });
 
     // Q&A Backchannel socket handlers
@@ -307,6 +321,7 @@ export default function ListenerView({
       socketService.leaveRoom(roomId);
       unsubAudio();
       unsubTranscript();
+      unsubHistory();
       unsubStats();
       unsubLatency();
       unsubPlayer();
@@ -593,6 +608,8 @@ export default function ListenerView({
             captionSize={captionSize}
             activePlayingSeqId={activePlayingSeqId}
             activePlayingPacketId={activePlayingPacketId}
+            activeCoalescedSeqIds={activeCoalescedSeqIds}
+            activeCoalescedPacketIds={activeCoalescedPacketIds}
             isPlayingAudio={isPlayingAudio && !isMuted}
             className="flex-1 flex flex-col h-full min-h-0 w-full"
             maxHeightClass="flex-1 h-full min-h-0"
@@ -925,21 +942,21 @@ export default function ListenerView({
             </div>
           </div>
 
-          {/* Canvas Body */}
-          <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden p-4 sm:p-6">
-            <div className="w-full max-w-4xl mx-auto flex-1 min-h-0 flex flex-col">
-              <LiveCaptions
-                transcriptHistory={transcriptHistory}
-                currentLanguage={selectedLanguage}
-                showOriginal={true}
-                captionSize={captionSize}
-                activePlayingSeqId={activePlayingSeqId}
-                activePlayingPacketId={activePlayingPacketId}
-                isPlayingAudio={isPlayingAudio && !isMuted}
-                className="flex-1 flex flex-col h-full min-h-0 w-full"
-                maxHeightClass="flex-1 h-full min-h-0"
-              />
-            </div>
+          {/* Canvas Body: w-full para que el scrollbar quede totalmente a la derecha */}
+          <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
+            <LiveCaptions
+              transcriptHistory={transcriptHistory}
+              currentLanguage={selectedLanguage}
+              showOriginal={true}
+              captionSize={captionSize}
+              activePlayingSeqId={activePlayingSeqId}
+              activePlayingPacketId={activePlayingPacketId}
+              activeCoalescedSeqIds={activeCoalescedSeqIds}
+              activeCoalescedPacketIds={activeCoalescedPacketIds}
+              isPlayingAudio={isPlayingAudio && !isMuted}
+              className="flex-1 flex flex-col h-full min-h-0 w-full"
+              maxHeightClass="flex-1 h-full min-h-0"
+            />
           </div>
         </section>
 

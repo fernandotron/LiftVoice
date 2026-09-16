@@ -341,6 +341,21 @@ export class TTSService {
       }
     }
 
+    // 1.5. Google Gemini Live (Native S2S Prebuilt Voices 24kHz: Aoede, Kore, Puck, Charon, Fenrir)
+    const isGeminiVoice = (engine === 'gemini_live') || (typeof voice === 'string' && voice.startsWith('gemini-live-'));
+    if (isGeminiVoice) {
+      try {
+        const result = await this.synthesizeWithGeminiLive(cleanText, lang, { voice, gender });
+        if (result && result.audioBase64) {
+          result.latencyMs = Date.now() - startTime;
+          this.setCache(cacheKey, result);
+          return result;
+        }
+      } catch (err) {
+        console.warn(`[TTSService] Gemini Live preview synthesis warning for ${lang} (${err.message}), falling back to Edge TTS`);
+      }
+    }
+
     // 2. Cartesia Sonic (Ultra-Low Latency SSM <100ms)
     if ((engine === 'cartesia' || (engine === 'auto' && this.cartesiaApiKey)) && this.cartesiaApiKey && !this.isCircuitOpen('cartesia')) {
       try {
@@ -482,6 +497,95 @@ export class TTSService {
       durationMs: Math.max(1000, (text || '').length * 65),
       provider: 'client-webspeech'
     };
+  }
+
+  /**
+   * Generates low-latency voice synthesis audition using Google Gemini 3.8 Live (24kHz WAV)
+   */
+  async synthesizeWithGeminiLive(text, lang, options = {}) {
+    const rawVoice = (options.voice || 'Aoede').replace(/^gemini-live-/, '');
+    const cleanVoice = ['Aoede', 'Kore', 'Puck', 'Charon', 'Fenrir'].find(v => v.toLowerCase() === rawVoice.toLowerCase()) || 'Aoede';
+    const apiKey = this.geminiApiKey || process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('No GEMINI_API_KEY available for Gemini Live synthesis');
+
+    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+    const WebSocket = (await import('ws')).default;
+    const { pcm24kToWav } = await import('./geminiLiveBridge.js');
+
+    return new Promise((resolve, reject) => {
+      let ws;
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch (err) {
+        return reject(err);
+      }
+
+      const timer = setTimeout(() => {
+        try { ws.close(); } catch (e) {}
+        reject(new Error('Gemini Live preview timeout (10000ms)'));
+      }, 10000);
+
+      const audioChunks = [];
+
+      ws.on('open', () => {
+        ws.send(JSON.stringify({
+          setup: {
+            model: 'models/gemini-3.8-live',
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName: cleanVoice }
+                }
+              }
+            },
+            systemInstruction: {
+              parts: [{ text: `You are a native professional voice actor speaking in ${lang || 'es'}. Read the text aloud clearly and naturally with flawless pronunciation. Output ONLY audio.` }]
+            }
+          }
+        }));
+      });
+
+      ws.on('message', (raw) => {
+        try {
+          const data = JSON.parse(raw.toString());
+          if (data.setupComplete) {
+            ws.send(JSON.stringify({
+              clientContent: {
+                turns: [{ role: 'user', parts: [{ text }] }],
+                turnComplete: true
+              }
+            }));
+          }
+          if (data.serverContent?.modelTurn?.parts) {
+            for (const part of data.serverContent.modelTurn.parts) {
+              if (part.inlineData?.data) {
+                audioChunks.push(Buffer.from(part.inlineData.data, 'base64'));
+              }
+            }
+          }
+          if (data.serverContent?.turnComplete) {
+            clearTimeout(timer);
+            try { ws.close(); } catch (e) {}
+            const fullPcm = Buffer.concat(audioChunks);
+            const wavBuffer = pcm24kToWav(fullPcm);
+            resolve({
+              audioBase64: wavBuffer.toString('base64'),
+              audioBuffer: wavBuffer,
+              mimeType: 'audio/wav',
+              durationMs: Math.round((fullPcm.length / 48000) * 1000),
+              provider: 'gemini_live'
+            });
+          }
+        } catch (e) {}
+      });
+
+      ws.on('error', (err) => {
+        clearTimeout(timer);
+        try { ws.close(); } catch (e) {}
+        reject(err);
+      });
+    });
   }
 
   async synthesizeWithQwenTTS(text, lang, options = {}) {
@@ -1038,8 +1142,102 @@ export class TTSService {
     const hasEleven = Boolean(this.elevenLabsApiKey);
     const hasOpenAI = Boolean(this.openaiApiKey);
     const hasCartesia = Boolean(this.cartesiaApiKey);
+    const hasGemini = Boolean(this.geminiApiKey || process.env.GEMINI_API_KEY);
 
     return [
+      // =========================================================================
+      // --- 0. GOOGLE GEMINI 3.8 LIVE S2S VOICES (Native Prebuilt Voices 24kHz) ---
+      // =========================================================================
+      {
+        id: 'gemini-live-aoede',
+        engine: 'gemini_live',
+        name: 'Google Aoede (Gemini Live)',
+        gender: 'female',
+        tone: 'Cálida, Natural, Expresiva',
+        desc: 'Voz insignia de Google Gemini Live a 24kHz, ideal para conferencias generales.',
+        lang: 'all',
+        languages: ['es', 'en', 'it', 'pt'],
+        latency: '~80ms',
+        badge: 'Google Gemini Live • 24kHz ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Gemini Live S2S',
+        scenario: 'keynote',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: hasGemini
+      },
+      {
+        id: 'gemini-live-kore',
+        engine: 'gemini_live',
+        name: 'Google Kore (Gemini Live)',
+        gender: 'female',
+        tone: 'Serena, Académica, Pausada',
+        desc: 'Voz serena y académica a 24kHz, perfecta para simposios médicos y técnicos.',
+        lang: 'all',
+        languages: ['es', 'en', 'it', 'pt'],
+        latency: '~80ms',
+        badge: 'Google Gemini Live • 24kHz ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Gemini Live S2S',
+        scenario: 'panel',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: hasGemini
+      },
+      {
+        id: 'gemini-live-puck',
+        engine: 'gemini_live',
+        name: 'Google Puck (Gemini Live)',
+        gender: 'neutral',
+        tone: 'Ágil, Dinámica, Conversacional',
+        desc: 'Voz neutra y rápida a 24kHz, optimizada para rondas de preguntas y respuestas.',
+        lang: 'all',
+        languages: ['es', 'en', 'it', 'pt'],
+        latency: '~80ms',
+        badge: 'Google Gemini Live • 24kHz ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Gemini Live S2S',
+        scenario: 'conversational',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: hasGemini
+      },
+      {
+        id: 'gemini-live-charon',
+        engine: 'gemini_live',
+        name: 'Google Charon (Gemini Live)',
+        gender: 'male',
+        tone: 'Barítono, Profundo, Solemne',
+        desc: 'Voz masculina grave y solemne a 24kHz, excelente para alocuciones magistrales.',
+        lang: 'all',
+        languages: ['es', 'en', 'it', 'pt'],
+        latency: '~80ms',
+        badge: 'Google Gemini Live • 24kHz ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Gemini Live S2S',
+        scenario: 'keynote',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: hasGemini
+      },
+      {
+        id: 'gemini-live-fenrir',
+        engine: 'gemini_live',
+        name: 'Google Fenrir (Gemini Live)',
+        gender: 'male',
+        tone: 'Firme, Directo, Asertivo',
+        desc: 'Voz masculina enérgica y asertiva a 24kHz para debates y paneles ejecutivos.',
+        lang: 'all',
+        languages: ['es', 'en', 'it', 'pt'],
+        latency: '~80ms',
+        badge: 'Google Gemini Live • 24kHz ⚡',
+        tier: 'zero_cost',
+        tierLabel: 'Gemini Live S2S',
+        scenario: 'panel',
+        isFree: true,
+        requiresKey: false,
+        isConfigured: hasGemini
+      },
       // =========================================================================
       // --- 1. MICROSOFT EDGE TTS / AZURE NEURAL (Universal Zero-Cost Tier $0) ---
       // =========================================================================

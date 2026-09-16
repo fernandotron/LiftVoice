@@ -29,6 +29,7 @@ const LANG_OPTIONS = [
 
 const ENGINE_OPTIONS = [
   { value: 'all', label: 'Todos los proveedores' },
+  { value: 'gemini_live', label: 'Google Gemini Live' },
   { value: 'edge', label: 'Azure / Edge' },
   { value: 'deepgram', label: 'Deepgram' },
   { value: 'openai', label: 'OpenAI' },

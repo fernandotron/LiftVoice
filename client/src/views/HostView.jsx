@@ -414,8 +414,11 @@ export default function HostView({
         audioRecorderService.setLanguage?.(cfg.sttLang);
       }
       if (cfg.sttEngine) {
-        setSttEngine(cfg.sttEngine);
-        audioRecorderService.setSttEngine?.(cfg.sttEngine);
+        let cleanEngine = cfg.sttEngine;
+        if (cleanEngine === 'gemini' || cleanEngine === 'google') cleanEngine = 'gemini_live';
+        setSttEngine(cleanEngine);
+        audioRecorderService.setSttEngine?.(cleanEngine);
+        setActiveSttInfo(audioRecorderService.getActiveSttInfo?.() || null);
       }
       if (cfg.sttVad) {
         audioRecorderService.setVadSensitivity?.(cfg.sttVad);
@@ -579,6 +582,16 @@ export default function HostView({
       });
     });
 
+    const unsubHistory = socketService.on('transcript_history', (history) => {
+      if (!isMounted || !Array.isArray(history)) return;
+      setTranscriptHistory(prev => {
+        if (prev.length === 0) return history.slice(-80);
+        const existingIds = new Set(prev.map(p => p.id));
+        const newItems = history.filter(h => !existingIds.has(h.id));
+        return [...prev, ...newItems].slice(-80);
+      });
+    });
+
     const unsubLatency = socketService.on('latency', (lat) => {
       if (!isMounted) return;
       setSocketLatency(lat);
@@ -689,6 +702,7 @@ export default function HostView({
       unsubJoinFailed();
       unsubSocketError();
       unsubTranscript();
+      unsubHistory();
       unsubLatency();
       unsubTelemetry();
       unsubAudio();
@@ -790,7 +804,10 @@ export default function HostView({
       customGlossary: currentMedConfig.customGlossary,
       sttEngine: overrides.sttEngine || currentStt?.label,
       sttModel: overrides.sttModel || currentStt?.model,
-      inputSource: overrides.inputSource || 'voice'
+      inputSource: overrides.inputSource || 'voice',
+      isTerminalSilence: overrides.isTerminalSilence,
+      endOfTurn: overrides.endOfTurn,
+      bypassDecalage: overrides.bypassDecalage
     });
   };
 
@@ -867,7 +884,8 @@ export default function HostView({
           ? monitoredLangRef.current
           : ((sourceLanguageRef.current && sourceLanguageRef.current !== 'auto') ? sourceLanguageRef.current : 'es');
         await audioPlayerService.unlockAudio(roomId, activeBoothLang);
-        const activeStt = sttEngine || localStorage.getItem('lv_stt_engine') || 'deepgram';
+        let activeStt = sttEngine || localStorage.getItem('lv_stt_engine') || 'deepgram';
+        if (activeStt === 'gemini' || activeStt === 'google') activeStt = 'gemini_live';
         const currentSrcLang = sourceLanguageRef.current;
         await audioRecorderService.startRecording({
           deviceId: selectedDevice === 'default' ? null : selectedDevice,
@@ -909,8 +927,8 @@ export default function HostView({
               sttModel: currentStt?.model
             });
           },
-          onSpeechText: (finalText, detectedLang) => {
-            sendSpeechToEngines(finalText, detectedLang);
+          onSpeechText: (finalText, detectedLang, overrides = {}) => {
+            sendSpeechToEngines(finalText, detectedLang, overrides);
           }
         });
         setIsBroadcasting(true);
@@ -2208,11 +2226,11 @@ export default function HostView({
           </div>
 
           {/* Canvas Body con Subtítulos y Barra de Emisión Manual */}
-          <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden px-0 sm:px-6 sm:pt-6 sm:pb-3 space-y-2 sm:space-y-3">
-            <div className="w-full sm:max-w-4xl sm:mx-auto flex-1 min-h-0 flex flex-col space-y-2 sm:space-y-3">
-              {/* Error Banner */}
-              {broadcastError && (
-                <div className="flex-shrink-0 px-4 sm:px-0">
+          <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
+            {/* Error Banner */}
+            {broadcastError && (
+              <div className="flex-shrink-0 px-4 sm:px-6 pt-3">
+                <div className="w-full max-w-4xl mx-auto">
                   <Banner
                     icon={<XCircle className="w-4 h-4 text-white" strokeWidth={2.4} />}
                     color="#ef4444"
@@ -2229,24 +2247,22 @@ export default function HostView({
                     }
                   />
                 </div>
-              )}
-
-              {/* Subtítulos a Pantalla Completa */}
-              <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
-                <LiveCaptions
-                  transcriptHistory={transcriptHistory}
-                  interimText={liveInterimSpeech}
-                  currentLanguage={monitoredLang !== 'none' ? monitoredLang : (sourceLanguage === 'auto' ? 'es' : sourceLanguage.slice(0, 2))}
-                  showOriginal={true}
-                  medicalMode={medicalConfig.medicalMode}
-                  className="flex-1 flex flex-col h-full min-h-0 w-full"
-                  maxHeightClass="flex-1 h-full min-h-0"
-                  captionSize={captionSize}
-                  isAdmin={isAdminVerified}
-                  activeSttInfo={activeSttInfo}
-                />
               </div>
-            </div>
+            )}
+
+            {/* Subtítulos a Pantalla Completa: w-full para que el scrollbar esté totalmente a la derecha */}
+            <LiveCaptions
+              transcriptHistory={transcriptHistory}
+              interimText={liveInterimSpeech}
+              currentLanguage={monitoredLang !== 'none' ? monitoredLang : (sourceLanguage === 'auto' ? 'es' : sourceLanguage.slice(0, 2))}
+              showOriginal={true}
+              medicalMode={medicalConfig.medicalMode}
+              className="flex-1 flex flex-col h-full min-h-0 w-full"
+              maxHeightClass="flex-1 h-full min-h-0"
+              captionSize={captionSize}
+              isAdmin={isAdminVerified}
+              activeSttInfo={activeSttInfo}
+            />
           </div>
 
           {/* Desktop Bottom Prompt — Replicado calcado de standalone-assistant (PromptInput) */}

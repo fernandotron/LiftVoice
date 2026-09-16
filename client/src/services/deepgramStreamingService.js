@@ -22,11 +22,51 @@ const ASR_UTTERANCE_END_MS = 1000;
 const ASR_KEEPALIVE_INTERVAL_MS = 5000;
 const ASR_CHUNK_MS = 100;
 const ASR_VAD_SILENCE_THRESHOLD = 0.008;
-const ASR_VAD_HANGOVER_SECONDS = 0.6;
+const ASR_VAD_HANGOVER_SECONDS = 1.4;
 const ASR_MAX_WS_BUFFERED_BYTES = 262144; // 256 KB
 const ASR_MAX_BACKLOG_BYTES = 524288; // 512 KB ≈ 16.4s de PCM a 16 kHz
 const ASR_FIRST_PARTIAL_TIMEOUT_MS = 1500;
 const ASR_CLOSE_DRAIN_TIMEOUT_MS = 1500;
+
+/**
+ * Downsamples Float32 PCM audio to targetSampleRate (16kHz) and converts to Int16 Linear16 PCM Buffer.
+ * Serves as resilient fallback when AudioWorklet is not available (e.g. non-secure HTTP contexts).
+ */
+export function downsampleAndConvertToInt16(float32Array, inputSampleRate, outputSampleRate = 16000) {
+  if (!float32Array || float32Array.length === 0) return new ArrayBuffer(0);
+
+  if (inputSampleRate === outputSampleRate) {
+    const int16 = new Int16Array(float32Array.length);
+    for (let i = 0; i < float32Array.length; i++) {
+      const s = Math.max(-1, Math.min(1, float32Array[i]));
+      int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return int16.buffer;
+  }
+
+  const sampleRateRatio = inputSampleRate / outputSampleRate;
+  const newLength = Math.round(float32Array.length / sampleRateRatio);
+  const result = new Int16Array(newLength);
+  let offsetResult = 0;
+  let offsetBuffer = 0;
+
+  while (offsetResult < result.length) {
+    const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
+    let accum = 0;
+    let count = 0;
+    for (let i = offsetBuffer; i < nextOffsetBuffer && i < float32Array.length; i++) {
+      accum += float32Array[i];
+      count++;
+    }
+    const sample = count > 0 ? accum / count : 0;
+    const clamped = Math.max(-1, Math.min(1, sample));
+    result[offsetResult] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF;
+    offsetResult++;
+    offsetBuffer = nextOffsetBuffer;
+  }
+
+  return result.buffer;
+}
 
 export class DeepgramStreamingService {
   constructor() {
@@ -35,6 +75,7 @@ export class DeepgramStreamingService {
     this.audioContext = null;
     this.sourceNode = null;
     this.workletNode = null;
+    this.scriptProcessorNode = null;
     this.muteGain = null;
     this.keepAliveTimer = null;
     this.isActive = false;
@@ -138,7 +179,7 @@ export class DeepgramStreamingService {
    * Inicia el pipeline completo: obtiene token efímero, monta el grafo de audio y abre el WebSocket
    */
   async start(stream, config = {}, callbacks = {}) {
-    if (this.isActive) {
+    if (this.isActive || this.ws) {
       await this.stop();
     }
     const currentSession = ++this.sessionSeq;
@@ -301,6 +342,11 @@ export class DeepgramStreamingService {
       this.onOnlineHandler = null;
     }
 
+    if (this.scriptProcessorNode) {
+      this.scriptProcessorNode.onaudioprocess = null;
+      this.scriptProcessorNode.disconnect();
+      this.scriptProcessorNode = null;
+    }
     if (this.workletNode) {
       this.workletNode.port.onmessage = null;
       this.workletNode.disconnect();
@@ -328,7 +374,7 @@ export class DeepgramStreamingService {
    * @param {MediaStream} newStream - Nuevo stream obtenido de getUserMedia
    */
   async switchStream(newStream) {
-    if (!this.audioContext || !this.workletNode) {
+    if (!this.audioContext || (!this.workletNode && !this.scriptProcessorNode)) {
       throw new Error('[DeepgramStreaming] No hay grafo de audio activo para conmutar');
     }
     if (!newStream || !newStream.getAudioTracks().length) {
@@ -346,7 +392,11 @@ export class DeepgramStreamingService {
     }
 
     const newSourceNode = this.audioContext.createMediaStreamSource(newStream);
-    newSourceNode.connect(this.workletNode);
+    if (this.scriptProcessorNode) {
+      newSourceNode.connect(this.scriptProcessorNode);
+    } else if (this.workletNode) {
+      newSourceNode.connect(this.workletNode);
+    }
 
     if (this.sourceNode) {
       try {
@@ -409,7 +459,7 @@ export class DeepgramStreamingService {
     return data;
   }
 
-  // --- Montaje del Grafo de Audio: Mic -> Worklet -> Gain(0) -> Destination ---
+  // --- Montaje del Grafo de Audio: Mic -> Worklet / ScriptProcessor -> Gain(0) -> Destination ---
   async setupAudioGraph(stream, config, seq) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!this.audioContext || this.audioContext.state === 'closed') {
@@ -419,8 +469,6 @@ export class DeepgramStreamingService {
       await this.audioContext.resume();
     }
 
-    await this.audioContext.audioWorklet.addModule(WORKLET_MODULE_PATH);
-
     if (seq !== this.startSeq) {
       if (this.audioContext.state !== 'closed') await this.audioContext.close();
       this.audioContext = null;
@@ -428,26 +476,82 @@ export class DeepgramStreamingService {
     }
 
     this.sourceNode = this.audioContext.createMediaStreamSource(stream);
-    this.workletNode = new AudioWorkletNode(this.audioContext, WORKLET_PROCESSOR_NAME, {
-      processorOptions: {
-        targetSampleRate: config.sampleRate || ASR_SAMPLE_RATE,
-        chunkMs: ASR_CHUNK_MS,
-        silenceThreshold: this.currentVadSilenceThreshold || ASR_VAD_SILENCE_THRESHOLD,
-        hangoverSeconds: this.currentVadHangoverSeconds || ASR_VAD_HANGOVER_SECONDS
-      }
-    });
-
     // Mute gain en 0 para mantener el pipeline de Web Audio procesando sin feedback de altavoces
     this.muteGain = this.audioContext.createGain();
     this.muteGain.gain.value = 0;
 
-    this.sourceNode.connect(this.workletNode);
-    this.workletNode.connect(this.muteGain);
-    this.muteGain.connect(this.audioContext.destination);
+    let workletSuccess = false;
+    const hasWorkletSupport = Boolean(
+      this.audioContext.audioWorklet &&
+      typeof this.audioContext.audioWorklet.addModule === 'function' &&
+      typeof AudioWorkletNode !== 'undefined'
+    );
 
-    this.workletNode.port.onmessage = (event) => {
-      this.handlePcm(event.data);
-    };
+    if (hasWorkletSupport) {
+      try {
+        try {
+          await this.audioContext.audioWorklet.addModule(WORKLET_MODULE_PATH);
+        } catch (workletErr) {
+          const errMsg = String(workletErr?.message || workletErr);
+          if (!errMsg.includes('already registered')) {
+            console.warn('[DeepgramStreaming] addModule falló con ruta directa, reintentando con URL absoluta:', workletErr);
+            const originUrl = typeof window !== 'undefined' ? new URL('/asr-audio-worklet.js', window.location.origin).href : WORKLET_MODULE_PATH;
+            await this.audioContext.audioWorklet.addModule(originUrl);
+          }
+        }
+
+        if (seq !== this.startSeq) return;
+
+        this.workletNode = new AudioWorkletNode(this.audioContext, WORKLET_PROCESSOR_NAME, {
+          processorOptions: {
+            targetSampleRate: config.sampleRate || ASR_SAMPLE_RATE,
+            chunkMs: ASR_CHUNK_MS,
+            silenceThreshold: this.currentVadSilenceThreshold || ASR_VAD_SILENCE_THRESHOLD,
+            hangoverSeconds: this.currentVadHangoverSeconds || ASR_VAD_HANGOVER_SECONDS
+          }
+        });
+
+        this.sourceNode.connect(this.workletNode);
+        this.workletNode.connect(this.muteGain);
+        this.muteGain.connect(this.audioContext.destination);
+
+        this.workletNode.port.onmessage = (event) => {
+          if (event.data instanceof ArrayBuffer) {
+            this.handlePcm(event.data);
+          } else if (event.data && event.data.type === 'speech_ended') {
+            this.forceFinalize();
+          }
+        };
+        workletSuccess = true;
+      } catch (workletInitErr) {
+        console.warn('[DeepgramStreaming] AudioWorklet initialization failed, falling back to ScriptProcessor:', workletInitErr);
+        if (this.workletNode) {
+          try { this.workletNode.disconnect(); } catch (e) {}
+          this.workletNode = null;
+        }
+      }
+    }
+
+    if (!workletSuccess) {
+      console.log('[DeepgramStreaming] 🎙️ Initializing resilient ScriptProcessorNode fallback (16kHz Linear16)');
+      const bufferSize = 4096;
+      this.scriptProcessorNode = this.audioContext.createScriptProcessor(bufferSize, 1, 1);
+      const inputSampleRate = this.audioContext.sampleRate || 48000;
+      const targetSampleRate = config.sampleRate || ASR_SAMPLE_RATE;
+
+      this.scriptProcessorNode.onaudioprocess = (e) => {
+        if (!this.isActive) return;
+        const inputData = e.inputBuffer.getChannelData(0);
+        const pcmBuffer = downsampleAndConvertToInt16(inputData, inputSampleRate, targetSampleRate);
+        if (pcmBuffer && pcmBuffer.byteLength > 0) {
+          this.handlePcm(pcmBuffer);
+        }
+      };
+
+      this.sourceNode.connect(this.scriptProcessorNode);
+      this.scriptProcessorNode.connect(this.muteGain);
+      this.muteGain.connect(this.audioContext.destination);
+    }
 
     // Reanudar contexto y reconectar socket si la pestaña vuelve a ser visible
     if (typeof document !== 'undefined') {
@@ -554,6 +658,7 @@ export class DeepgramStreamingService {
     const resolvedEndpointing = resolvedLanguage === 'multi' ? 500 : ASR_ENDPOINTING_MS;
     params.append('endpointing', String(resolvedEndpointing));
     params.append('utterance_end_ms', String(ASR_UTTERANCE_END_MS));
+    params.append('vad_events', 'true');
 
     if (Array.isArray(config.keyterms) && config.keyterms.length > 0) {
       for (const term of config.keyterms) {
@@ -824,6 +929,19 @@ export class DeepgramStreamingService {
         finalize();
       }
     });
+  }
+
+  /**
+   * Immediately finalizes Deepgram ASR stream to commit pending speech without waiting for keepalive
+   */
+  forceFinalize() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify({ type: 'Finalize' }));
+      } catch (e) {
+        console.warn('[DeepgramStreaming] forceFinalize error:', e);
+      }
+    }
   }
 
   clearKeepAlive() {

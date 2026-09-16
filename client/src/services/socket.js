@@ -318,12 +318,18 @@ class SocketService {
         if (msg.stats) {
           this.emit('room_stats', msg.stats);
         }
+        if (Array.isArray(msg.history)) {
+          this.emit('transcript_history', msg.history);
+        }
         this.flushOutbox(); // SEC-01: Ahora el socket tiene clientRole y room autenticados en el servidor
         break;
       case 'LISTENER_JOINED_SUCCESS':
         this.emit('joined_success', msg);
         if (msg.stats) {
           this.emit('room_stats', msg.stats);
+        }
+        if (Array.isArray(msg.history)) {
+          this.emit('transcript_history', msg.history);
         }
         this.flushOutbox(); // SEC-01: Oyente autenticado en sala, vaciar preguntas o eventos encolados
         break;
@@ -578,7 +584,18 @@ class SocketService {
       customGlossary: options.customGlossary,
       sttEngine: options.sttEngine,
       sttModel: options.sttModel,
-      inputSource: options.inputSource || 'voice'
+      inputSource: options.inputSource || 'voice',
+      isTerminalSilence: Boolean(options.isTerminalSilence),
+      endOfTurn: Boolean(options.endOfTurn),
+      bypassDecalage: Boolean(options.bypassDecalage)
+    });
+  }
+
+  sendSpeechCommit(roomId = null) {
+    const targetRoom = (roomId || this.currentRoomId || 'MAIN').toUpperCase();
+    return this.send({
+      type: 'SPEECH_COMMIT',
+      roomId: targetRoom
     });
   }
 

@@ -70,6 +70,8 @@ class AudioPlayerService {
     this.isPlaying = false;
     this.currentPlayingSeqId = null;
     this.currentPlayingPacketId = null;
+    this.currentCoalescedSeqIds = [];
+    this.currentCoalescedPacketIds = [];
     this.onStateChangeCallbacks = new Set();
 
     // Playout Queue & Jitter Buffer
@@ -84,15 +86,16 @@ class AudioPlayerService {
     this.lastProcessedSeqByLang = new Map();
     this.packetReorderBuffer = [];
     this.reorderTimer = null;
-    this.maxReorderDelayMs = 60; // Ventana de retención anti-desorden (60ms)
+    this.maxReorderDelayMs = 180; // Ventana de retención anti-desorden tolerante a micro-jitter (180ms)
 
     // AudioWorklet Continuous Playout & WSOLA (2026 Edition)
     this.workletNode = null;
     this.workletReady = false;
     this.workletLoading = false;
     this.stretcher = null;
-    this.jitterController = new AdaptiveJitterBuffer({ targetLatencyMs: 80 });
+    this.jitterController = new AdaptiveJitterBuffer({ targetLatencyMs: 1200 }); // Calibrado a nivel de frase TTS
     this.currentBufferedSamples = 0;
+    this.workletPacketQueue = [];
 
     this.activeUtterances = new Set();
 
@@ -195,8 +198,8 @@ class AudioPlayerService {
               const isPlayingWorklet = this.currentBufferedSamples > 128;
               if (this.isPlaying !== isPlayingWorklet && this.activeSources.size === 0) {
                 this.isPlaying = isPlayingWorklet;
-                this.notifyState();
               }
+              this._updateWorkletVisualState(this.currentBufferedSamples);
             }
           };
           this.workletNode.connect(this.lowCutFilter || this.gainNode);
@@ -278,7 +281,15 @@ class AudioPlayerService {
     this.handleWakeResume = () => {
       if (this.isDisposed) return;
       if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted') && this.isUnlocked && !this.isMuted) {
-        this.audioCtx.resume().catch(() => {});
+        this.audioCtx.resume().then(() => {
+          if (this.activeSources.size > 0 && this.audioCtx) {
+            const lead = this.nextStartTime - this.audioCtx.currentTime;
+            if (lead > 2.5) {
+              console.log(`[AudioPlayer] 📱 Tab wake with stale playout lead (${lead.toFixed(2)}s). Flushing queue.`);
+              this.stopAll();
+            }
+          }
+        }).catch(() => {});
       }
       if (document.visibilityState === 'visible' && !this.isDisposed && this.isUnlocked) {
         this.requestWakeLock();
@@ -629,6 +640,8 @@ class AudioPlayerService {
     this.playbackEpoch++;
     this.currentPlayingSeqId = null;
     this.currentPlayingPacketId = null;
+    this.currentCoalescedSeqIds = [];
+    this.currentCoalescedPacketIds = [];
     if (this.htmlAudioTag) {
       try {
         this.htmlAudioTag.pause();
@@ -643,9 +656,18 @@ class AudioPlayerService {
     }
     this.isMobilePlaying = false;
 
+    if (this.workletVisualTimer) {
+      clearTimeout(this.workletVisualTimer);
+      this.workletVisualTimer = null;
+    }
+
     const now = this.audioCtx ? this.audioCtx.currentTime : 0;
     for (const item of this.activeSources) {
       try {
+        if (item.startTimer) {
+          clearTimeout(item.startTimer);
+          item.startTimer = null;
+        }
         const src = item.sourceNode || item;
         const gain = item.chunkGain;
         if (src) src.onended = null;
@@ -686,6 +708,11 @@ class AudioPlayerService {
     this.currentBufferedSamples = 0;
 
     this.activeSources.clear();
+    this.workletPacketQueue = [];
+    this.currentPlayingSeqId = null;
+    this.currentPlayingPacketId = null;
+    this.currentCoalescedSeqIds = [];
+    this.currentCoalescedPacketIds = [];
     this.suspendedChunks = [];
     this.pendingWorkletChunks = [];
     if (this.reorderTimer) {
@@ -751,15 +778,60 @@ class AudioPlayerService {
         { type: 'push', samples: stretched },
         [stretched.buffer]
       );
-      this.isPlaying = true;
       if (packet) {
-        this.currentPlayingSeqId = packet.seqId || null;
-        this.currentPlayingPacketId = packet.id || null;
+        if (!this.workletPacketQueue) this.workletPacketQueue = [];
+        this.workletPacketQueue.push({
+          packet,
+          samples: stretched.length
+        });
       }
-      this.notifyState();
-      return true;
     }
-    return false;
+    // SAMPLES ACCEPTED BY WORKLET PIPELINE: Always mark as playing and return true to prevent dual-playback echo
+    this.isPlaying = true;
+    this._updateWorkletVisualState(this.currentBufferedSamples);
+    return true;
+  }
+
+  _updateWorkletVisualState(bufferedSamples) {
+    if (!this.workletPacketQueue || this.workletPacketQueue.length === 0) {
+      if (bufferedSamples <= 128 && this.activeSources.size === 0) {
+        if (this.currentPlayingPacketId !== null || this.currentPlayingSeqId !== null) {
+          this.currentPlayingSeqId = null;
+          this.currentPlayingPacketId = null;
+          this.currentCoalescedSeqIds = [];
+          this.currentCoalescedPacketIds = [];
+          this.isPlaying = false;
+          this.notifyState();
+        }
+      }
+      return;
+    }
+
+    let totalQueued = 0;
+    for (const item of this.workletPacketQueue) {
+      totalQueued += item.samples;
+    }
+
+    let playedFromQueue = Math.max(0, totalQueued - bufferedSamples);
+    while (this.workletPacketQueue.length > 1 && playedFromQueue >= this.workletPacketQueue[0].samples) {
+      const finished = this.workletPacketQueue.shift();
+      playedFromQueue -= finished.samples;
+    }
+
+    const activeItem = this.workletPacketQueue[0];
+    if (activeItem && activeItem.packet) {
+      const pkt = activeItem.packet;
+      const newSeqId = pkt.seqId || null;
+      const newPacketId = pkt.id || null;
+      if (this.currentPlayingPacketId !== newPacketId || this.currentPlayingSeqId !== newSeqId) {
+        this.currentPlayingSeqId = newSeqId;
+        this.currentPlayingPacketId = newPacketId;
+        this.currentCoalescedSeqIds = pkt.coalescedSeqIds || [];
+        this.currentCoalescedPacketIds = pkt.coalescedPacketIds || [];
+        this.isPlaying = true;
+        this.notifyState();
+      }
+    }
   }
 
   _enqueueDecodeTask(taskFn) {
@@ -829,16 +901,19 @@ class AudioPlayerService {
       return;
     }
 
-    // Caso 3: Paquete estrictamente consecutivo (seq == lastSeq + 1)
-    if (diff === 1) {
-      this.lastProcessedSeqByLang.set(packetLang, seq);
+    // Caso 2.5: Sub-paquetes continuos del mismo turno o secuencia idéntica (ej. streaming S2S / fragmentos coalescidos)
+    if (diff === 0) {
       this._dispatchAudioChunk(packet);
-      this._drainReorderQueue(packetLang);
       return;
     }
 
-    // Caso 4: Hueco en la secuencia (diff > 1, paquete adelantado por jitter)
-    this._enqueueOutOfOrderPacket(packetLang, seq, packet);
+    // Caso 3: Paquete consecutivo o adelantado por coalescencia/concurrencia de cabinas
+    // En conexiones WebSocket (TCP), los paquetes nunca llegan desordenados a nivel de transporte.
+    // Los saltos (diff >= 1) ocurren de forma legítima por coalescencia en el servidor, omisión de cabinas vacías
+    // o turnos del motor S2S. Procesar de inmediato sin demoras artificiales para fluidez absoluta.
+    this.lastProcessedSeqByLang.set(packetLang, seq);
+    this._dispatchAudioChunk(packet);
+    this._drainReorderQueue(packetLang);
   }
 
   _enqueueOutOfOrderPacket(lang, seq, packet) {
@@ -970,12 +1045,18 @@ class AudioPlayerService {
           await this.processAndScheduleBase64Chunk({ ...packet, audioBase64: rawBase64 });
         } catch (err) {
           console.warn('[AudioPlayer] Decode failed, falling back to Web Speech:', err);
-          if (packet.text) {
+          const isS2S = Boolean(packet.isS2S || packet.id?.startsWith('s2s_') || packet.engineUsed?.includes('Live'));
+          const isPlaceholder = /transcripci[oó]n|dictado|procesando/i.test(packet.text || '');
+          if (packet.text && !isS2S && !isPlaceholder) {
             await this.playSpeechSynthesisAsync(packet.text, packet.lang, packet);
           }
         }
       } else if (packet.text) {
-        await this.playSpeechSynthesisAsync(packet.text, packet.lang, packet);
+        const isS2S = Boolean(packet.isS2S || packet.id?.startsWith('s2s_') || packet.engineUsed?.includes('Live'));
+        const isPlaceholder = /transcripci[oó]n|dictado|procesando/i.test(packet.text || '');
+        if (!isS2S && !isPlaceholder) {
+          await this.playSpeechSynthesisAsync(packet.text, packet.lang, packet);
+        }
       }
     });
   }
@@ -1038,29 +1119,41 @@ class AudioPlayerService {
       this.nextStartTime = now;
     }
 
-    // Adaptive catch-up rate calculation: anti-chipmunk curve with Hard Resync
-    const baseRate = this.basePlaybackRate || this.playbackRate || 1.0;
+    // SOTA 2026 Elastic Décalage Playout Window:
+    // Human conference interpretation EVS (Ear-Voice Span) is naturally 3.0s to 8.0s.
+    // Hard Resync is ONLY triggered for extreme device sleep / mobile suspension (>35s).
     const queueLeadTime = Math.max(0, this.nextStartTime - now);
-    let effectiveRate = baseRate;
-    if (queueLeadTime > 4.0) {
-      // Hard Resync: latency is excessive (network stutter/tab sleep); purge stale active sources and snap to live stream
+    if (queueLeadTime > 35.0) {
+      console.warn(`[AudioPlayer] 🚨 Excessive queue lead time detected (${queueLeadTime.toFixed(2)}s). Soft-resyncing playout queue.`);
+      this.playbackEpoch++; // Cancel pending decodes in flight
+      this.decodeQueue = Promise.resolve(); // Reset promise queue
       for (const item of this.activeSources) {
         try {
           const src = item.sourceNode || item;
           if (src) src.onended = null;
-          if (typeof src.stop === 'function') src.stop();
-          if (typeof src.disconnect === 'function') src.disconnect();
-          if (item.chunkGain && typeof item.chunkGain.disconnect === 'function') item.chunkGain.disconnect();
+          if (item.chunkGain && this.audioCtx) {
+            try {
+              item.chunkGain.gain.cancelScheduledValues(now);
+              item.chunkGain.gain.setValueAtTime(item.chunkGain.gain.value, now);
+              item.chunkGain.gain.linearRampToValueAtTime(0.0001, now + 0.006);
+            } catch (e) {}
+          }
+          setTimeout(() => {
+            try {
+              if (typeof src.stop === 'function') src.stop();
+              if (typeof src.disconnect === 'function') src.disconnect();
+              if (item.chunkGain && typeof item.chunkGain.disconnect === 'function') item.chunkGain.disconnect();
+            } catch (e) {}
+          }, 8);
         } catch (e) {}
       }
       this.activeSources.clear();
-      this.nextStartTime = now;
-      effectiveRate = baseRate;
-    } else if (queueLeadTime > 2.0) {
-      effectiveRate = Math.min(1.08, baseRate * 1.08); // +8% para absorber desfase acumulado en ~25s sin distorsión
-    } else if (queueLeadTime > 1.0) {
-      effectiveRate = Math.min(1.04, baseRate * 1.04); // +4% corrección de deriva acústica transparente
+      this.nextStartTime = now + 0.020;
     }
+
+    // Keep nominal phoneme rate strictly 1.00x to eliminate pitch-shifting ("chipmunk" / "efecto ardilla").
+    // We do NOT modify sourceNode.playbackRate directly in Web Audio without pitch-preserving vocoders.
+    const effectiveRate = 1.0;
 
     const sourceNode = this.audioCtx.createBufferSource();
     sourceNode.buffer = audioBuffer;
@@ -1071,13 +1164,26 @@ class AudioPlayerService {
     sourceNode.connect(chunkGain);
     chunkGain.connect(this.lowCutFilter || this.gainNode);
 
-    // If chaining onto an existing active stream, start precisely at nextStartTime; otherwise give 60ms lead time
-    const isChaining = this.activeSources.size > 0 && this.nextStartTime > now;
-    const startTime = isChaining ? this.nextStartTime : Math.max(now + 0.06, this.nextStartTime);
+    // Dynamic Pause Shrinking (Recovers 20-35% of dead air without altering phonemes):
+    // In human speech, natural pauses between sentences/clauses range from 300ms to 600ms.
+    // Floored strictly at +20ms to prevent comb filtering and past-scheduling clicks.
+    let interChunkGap = 0.200; // Natural 200ms cadence when well-synchronized (<1.2s lead time)
+    if (queueLeadTime > 6.0) {
+      interChunkGap = 0.020;   // High backlog: tight 20ms pause (preserves acoustics, zero comb filtering)
+    } else if (queueLeadTime > 3.0) {
+      interChunkGap = 0.050;   // Moderate backlog: tight 50ms pause
+    } else if (queueLeadTime > 1.2) {
+      interChunkGap = 0.100;   // Slight backlog: 100ms pause
+    }
+
+    const isChaining = this.activeSources.size > 0 && this.nextStartTime > (now + 0.005);
+    const targetStartTime = isChaining ? (this.nextStartTime + interChunkGap) : (now + 0.050);
+    // HARD CLAMP: startTime must always be at least now + 10ms in the future
+    const startTime = Math.max(now + 0.010, targetStartTime);
     const duration = audioBuffer.duration / effectiveRate;
 
-    // Apply smooth linear 8ms equal-power cross-fade
-    const fade = Math.min(0.008, duration / 4);
+    // Apply smooth equal-power 12ms cross-fade to eliminate clicks
+    const fade = Math.min(0.012, duration / 4);
     if (fade > 0.002 && duration > fade * 2) {
       chunkGain.gain.setValueAtTime(0.001, startTime);
       chunkGain.gain.linearRampToValueAtTime(1.0, startTime + fade);
@@ -1089,28 +1195,74 @@ class AudioPlayerService {
     }
 
     sourceNode.start(startTime);
-    // Overlap consecutive chunks by 8ms to eliminate gaps and baches between utterances
-    this.nextStartTime = Math.max(now, startTime + duration - 0.008);
-    const activeItem = { sourceNode, chunkGain };
+    this.nextStartTime = Math.max(now, startTime + duration);
+    const activeItem = {
+      sourceNode,
+      chunkGain,
+      startTime,
+      duration,
+      endTime: startTime + duration,
+      seqId: packet?.seqId || null,
+      packetId: packet?.id || null,
+      coalescedSeqIds: packet?.coalescedSeqIds || [],
+      coalescedPacketIds: packet?.coalescedPacketIds || [],
+      startTimer: null
+    };
     this.activeSources.add(activeItem);
     this.isPlaying = true;
 
-    // Sincronización visual: vincular frase activa para resaltado en tiempo real en LiveCaptions
-    this.currentPlayingSeqId = packet?.seqId || null;
-    this.currentPlayingPacketId = packet?.id || null;
-    this.notifyState();
+    // Sincronización visual precisa: el resaltado se activa EXACTAMENTE cuando el audio entra al oído (currentTime >= startTime)
+    const activateVisualState = (item) => {
+      if (this.isDisposed || !item) return;
+      this.currentPlayingSeqId = item.seqId;
+      this.currentPlayingPacketId = item.packetId;
+      this.currentCoalescedSeqIds = item.coalescedSeqIds || [];
+      this.currentCoalescedPacketIds = item.coalescedPacketIds || [];
+      this.isPlaying = true;
+      this.notifyState();
+    };
+
+    const leadTimeMs = (startTime - now) * 1000;
+    if (leadTimeMs <= 35) {
+      activateVisualState(activeItem);
+    } else {
+      activeItem.startTimer = setTimeout(() => {
+        if (this.isDisposed) return;
+        if (this.activeSources.has(activeItem)) {
+          activateVisualState(activeItem);
+        }
+      }, Math.max(0, leadTimeMs));
+    }
 
     sourceNode.onended = () => {
       sourceNode.onended = null; // Break circular closure immediately to allow GC
+      if (activeItem.startTimer) {
+        clearTimeout(activeItem.startTimer);
+        activeItem.startTimer = null;
+      }
       this.activeSources.delete(activeItem);
       try {
         sourceNode.disconnect();
         chunkGain.disconnect();
-        sourceNode.buffer = null; // Free decompressed PCM audio buffer immediately for V8 GC
       } catch (e) {}
-      if (this.activeSources.size === 0) {
+
+      // Si otro chunk ya comenzó o está en cola inmediata, transferir el resaltado visual a él
+      const currentNow = this.audioCtx ? this.audioCtx.currentTime : 0;
+      if (this.activeSources.size > 0) {
+        let earliestItem = null;
+        for (const item of this.activeSources) {
+          if (!earliestItem || item.startTime < earliestItem.startTime) {
+            earliestItem = item;
+          }
+        }
+        if (earliestItem && currentNow <= earliestItem.endTime + 0.1) {
+          activateVisualState(earliestItem);
+        }
+      } else {
         this.currentPlayingSeqId = null;
         this.currentPlayingPacketId = null;
+        this.currentCoalescedSeqIds = [];
+        this.currentCoalescedPacketIds = [];
         this.decodeQueue = Promise.resolve(); // Break indefinite promise chaining during pauses
         if (this.audioCtx && this.audioCtx.currentTime >= this.nextStartTime) {
           this.isPlaying = false;
@@ -1397,7 +1549,9 @@ class AudioPlayerService {
       isPlaying: this.isPlaying,
       currentLanguage: this.currentLanguage,
       currentPlayingSeqId: this.currentPlayingSeqId || null,
-      currentPlayingPacketId: this.currentPlayingPacketId || null
+      currentPlayingPacketId: this.currentPlayingPacketId || null,
+      currentCoalescedSeqIds: this.currentCoalescedSeqIds || [],
+      currentCoalescedPacketIds: this.currentCoalescedPacketIds || []
     };
     for (const cb of this.onStateChangeCallbacks) {
       try { cb(state); } catch (e) {}

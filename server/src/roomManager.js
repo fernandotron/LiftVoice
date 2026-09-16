@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { geminiLiveBridge } from './services/geminiLiveBridge.js';
 
 export function generateMeetCode() {
   const chars = 'abcdefghijklmnopqrstuvwxyz';
@@ -24,6 +25,13 @@ export function normalizeRoomId(rawId) {
 class RoomManager {
   constructor() {
     this.rooms = new Map();
+    this.defaultPipelineMode = 'deepgram_gemini';
+    this.defaultGeminiLiveVoices = {
+      en: 'Aoede',
+      it: 'Kore',
+      pt: 'Fenrir',
+      es: 'Charon'
+    };
 
     // Inactive room reaper (runs every 2 minutes, cleans rooms idle for > 20 mins)
     const reaperInterval = setInterval(() => {
@@ -81,6 +89,7 @@ class RoomManager {
             }
           }
           import('./services/aiPipeline.js').then(m => m.aiPipeline.cleanupRoom(id)).catch(() => {});
+          try { geminiLiveBridge.closeRoom(id); } catch (e) {}
         }
       }
     }, 120 * 1000);
@@ -131,6 +140,13 @@ class RoomManager {
       },
       transcriptHistory: [],
       config: {
+        pipelineMode: this.defaultPipelineMode || 'deepgram_gemini',
+        geminiLiveVoices: { ...(this.defaultGeminiLiveVoices || {
+          en: 'Aoede',
+          it: 'Kore',
+          pt: 'Fenrir',
+          es: 'Charon'
+        }) },
         sttEngine: 'deepgram',
         targetLanguages: ['es', 'en', 'it', 'pt'],
         autoDetectSource: true,
@@ -229,8 +245,36 @@ class RoomManager {
     if (deleted) {
       console.log(`[RoomManager] Room deleted: ${roomId}`);
       import('./services/aiPipeline.js').then(m => m.aiPipeline.cleanupRoom(roomId)).catch(() => {});
+      try { geminiLiveBridge.closeRoom(roomId); } catch (e) {}
     }
     return deleted;
+  }
+
+  cleanupRoom(id) {
+    try { geminiLiveBridge.closeRoom(id); } catch (e) {}
+    return this.deleteRoom(id);
+  }
+
+  setDefaultPipelineMode(mode) {
+    if (typeof mode === 'string' && ['deepgram_gemini', 'gemini_live_s2s'].includes(mode.trim())) {
+      this.defaultPipelineMode = mode.trim();
+      for (const room of this.rooms.values()) {
+        if (room && room.config) {
+          room.config.pipelineMode = this.defaultPipelineMode;
+        }
+      }
+    }
+  }
+
+  setDefaultGeminiLiveVoices(voices) {
+    if (voices && typeof voices === 'object' && !Array.isArray(voices)) {
+      this.defaultGeminiLiveVoices = { ...this.defaultGeminiLiveVoices, ...voices };
+      for (const room of this.rooms.values()) {
+        if (room && room.config) {
+          room.config.geminiLiveVoices = { ...(room.config.geminiLiveVoices || {}), ...voices };
+        }
+      }
+    }
   }
 
   getRoom(roomId) {
@@ -266,7 +310,9 @@ class RoomManager {
       timestamp: transcriptItem.timestamp,
       originalText: transcriptItem.originalText,
       detectedLanguage: transcriptItem.detectedLanguage,
-      translations: transcriptItem.translations
+      translations: transcriptItem.translations,
+      isFinal: transcriptItem.isFinal !== undefined ? Boolean(transcriptItem.isFinal) : true,
+      engineUsed: transcriptItem.engineUsed || null
     };
 
     // 1. Send to host: complete telemetry if admin session, sanitized if standard host
@@ -322,7 +368,9 @@ class RoomManager {
       timestamp: fullItem.timestamp,
       originalText: fullItem.originalText,
       detectedLanguage: fullItem.detectedLanguage,
-      translations: fullItem.translations
+      translations: fullItem.translations,
+      isFinal: fullItem.isFinal !== undefined ? Boolean(fullItem.isFinal) : true,
+      engineUsed: fullItem.engineUsed || null
     };
 
     if (room.hostSocket && room.hostSocket.readyState === 1) {
@@ -691,6 +739,10 @@ class RoomManager {
       }
 
       console.log(`[RoomManager] Listener ${socketId} in room ${roomId} switched lang from ${oldLang} to ${newLang}`);
+      const activeLangs = this.getActiveLanguages(roomId);
+      if (!activeLangs.includes(oldLang)) {
+        import('./services/geminiLiveBridge.js').then(m => m.geminiLiveBridge.closeCabin(roomId, oldLang)).catch(() => {});
+      }
       this.broadcastStats(room.id);
       return true;
     }
@@ -706,6 +758,7 @@ class RoomManager {
       if (hasListener || isActiveSpeaker || isInQueue) {
         if (hasListener) {
           const listener = room.listeners.get(socketId);
+          const oldLang = listener?.lang;
           if (listener) {
             const leadKey = listener.email ? listener.email.toLowerCase() : (listener.attendeeId || socketId);
             if (room.registeredAttendees && room.registeredAttendees.has(leadKey)) {
@@ -713,6 +766,12 @@ class RoomManager {
             }
           }
           room.listeners.delete(socketId);
+          if (oldLang) {
+            const activeLangs = this.getActiveLanguages(room.id);
+            if (!activeLangs.includes(oldLang)) {
+              import('./services/geminiLiveBridge.js').then(m => m.geminiLiveBridge.closeCabin(room.id, oldLang)).catch(() => {});
+            }
+          }
         }
         // If queued question has a persistent attendeeId, keep it so reconnect restores socketId;
         // if anonymous without attendeeId, remove from queue

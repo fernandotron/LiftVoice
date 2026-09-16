@@ -88,26 +88,21 @@ export class WsolaTimeStretcher {
    * Procesa y extrae muestras con una tasa de velocidad `timeScale`
    */
   process(timeScale = 1.0, maxOutputSamples = null) {
-    // Cálculo riguroso del umbral mínimo requerido para garantizar que no haya lecturas fuera de límites
-    const minRequired = this.windowSize + this.maxSearchDelta * 2 + (this.hasOverlap ? 0 : this.halfWindow);
-    if (this.samplesAvailable < minRequired) {
-      return new Float32Array(0);
-    }
-
+    const bufLen = this.inputBuffer.length;
     const effectiveMax = (typeof maxOutputSamples === 'number' && maxOutputSamples > 0)
       ? maxOutputSamples
       : Math.max(4096, Math.ceil(this.samplesAvailable / Math.max(0.5, timeScale)) + 8192);
 
-    const bufLen = this.inputBuffer.length;
-
-    // Si la velocidad es aproximadamente 1.0x (dentro de banda muerta)
+    // 1. FAST BYPASS (1.0x nominal): Evaluate BEFORE minRequired check so chunks of any size drain directly
     if (Math.abs(timeScale - 1.0) < 0.005) {
       if (this.hasOverlap) {
         if (this.samplesAvailable < this.halfWindow) {
           return new Float32Array(0);
         }
         const blendCount = Math.min(this.halfWindow, this.samplesAvailable, effectiveMax);
-        const out = new Float32Array(blendCount);
+        const remainingToTake = Math.min(this.samplesAvailable - blendCount, Math.max(0, effectiveMax - blendCount));
+        const totalOut = blendCount + remainingToTake;
+        const out = new Float32Array(totalOut);
         for (let i = 0; i < blendCount; i++) {
           const inSample = this.inputBuffer[this._mod(this.inputReadPos + i, bufLen)];
           out[i] = this.overlapBuffer[i] * this.windowOverlap[i] + inSample * this.windowIn[i];
@@ -115,10 +110,17 @@ export class WsolaTimeStretcher {
         this.inputReadPos = this._mod(this.inputReadPos + blendCount, bufLen);
         this.samplesAvailable -= blendCount;
         this.hasOverlap = false;
+
+        for (let i = 0; i < remainingToTake; i++) {
+          out[blendCount + i] = this.inputBuffer[this.inputReadPos];
+          this.inputReadPos = this._mod(this.inputReadPos + 1, bufLen);
+        }
+        this.samplesAvailable -= remainingToTake;
         return out;
       }
 
-      // Bypass directo ultra-eficiente
+      // Direct bypass: take all available samples without artificial barrier
+      if (this.samplesAvailable === 0) return new Float32Array(0);
       const take = Math.min(this.samplesAvailable, effectiveMax);
       const out = new Float32Array(take);
       for (let i = 0; i < take; i++) {
@@ -127,6 +129,12 @@ export class WsolaTimeStretcher {
       }
       this.samplesAvailable -= take;
       return out;
+    }
+
+    // 2. ACTIVE WSOLA SEARCH: Required only when stretching or compressing
+    const minRequired = this.windowSize + this.maxSearchDelta * 2 + (this.hasOverlap ? 0 : this.halfWindow);
+    if (this.samplesAvailable < minRequired) {
+      return new Float32Array(0);
     }
 
     // Pre-asignación en typed array para cero presión en el Garbage Collector
@@ -215,6 +223,35 @@ export class WsolaTimeStretcher {
     }
 
     return bestDelta;
+  }
+
+  drain() {
+    const bufLen = this.inputBuffer.length;
+    let outCount = 0;
+    const out = new Float32Array(this.samplesAvailable + (this.hasOverlap ? this.halfWindow : 0));
+
+    if (this.hasOverlap) {
+      const blendCount = Math.min(this.halfWindow, this.samplesAvailable);
+      for (let i = 0; i < blendCount; i++) {
+        const inSample = this.inputBuffer[this._mod(this.inputReadPos + i, bufLen)];
+        out[outCount++] = this.overlapBuffer[i] * this.windowOverlap[i] + inSample * this.windowIn[i];
+      }
+      for (let i = blendCount; i < this.halfWindow; i++) {
+        out[outCount++] = this.overlapBuffer[i] * this.windowOverlap[i];
+      }
+      this.inputReadPos = this._mod(this.inputReadPos + blendCount, bufLen);
+      this.samplesAvailable -= blendCount;
+      this.hasOverlap = false;
+    }
+
+    while (this.samplesAvailable > 0) {
+      out[outCount++] = this.inputBuffer[this.inputReadPos];
+      this.inputReadPos = this._mod(this.inputReadPos + 1, bufLen);
+      this.samplesAvailable--;
+    }
+
+    this.reset();
+    return out.subarray(0, outCount);
   }
 
   reset() {

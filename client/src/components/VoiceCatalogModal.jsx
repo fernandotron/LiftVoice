@@ -21,6 +21,7 @@ const CABIN_NAMES = {
 
 export function getEngineDisplayName(engine) {
   switch (engine) {
+    case 'gemini_live': return 'Google Gemini Live (24kHz)';
     case 'edge':
     case 'google': return 'Edge / Google Neural';
     case 'deepgram': return 'Deepgram Aura-2';
@@ -40,6 +41,96 @@ function normalizeLangCode(lang) {
 }
 
 export const FALLBACK_VOICES = [
+  {
+    id: 'gemini-live-aoede',
+    engine: 'gemini_live',
+    name: 'Google Aoede (Gemini Live)',
+    gender: 'female',
+    tone: 'Cálida, Natural, Expresiva',
+    desc: 'Voz insignia de Google Gemini Live a 24kHz, ideal para conferencias generales.',
+    lang: 'all',
+    languages: ['es', 'en', 'it', 'pt'],
+    latency: '~80ms',
+    badge: 'Google Gemini Live • 24kHz ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Gemini Live S2S',
+    scenario: 'keynote',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'gemini-live-kore',
+    engine: 'gemini_live',
+    name: 'Google Kore (Gemini Live)',
+    gender: 'female',
+    tone: 'Serena, Académica, Pausada',
+    desc: 'Voz serena y académica a 24kHz, perfecta para simposios médicos y técnicos.',
+    lang: 'all',
+    languages: ['es', 'en', 'it', 'pt'],
+    latency: '~80ms',
+    badge: 'Google Gemini Live • 24kHz ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Gemini Live S2S',
+    scenario: 'panel',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'gemini-live-puck',
+    engine: 'gemini_live',
+    name: 'Google Puck (Gemini Live)',
+    gender: 'neutral',
+    tone: 'Ágil, Dinámica, Conversacional',
+    desc: 'Voz neutra y rápida a 24kHz, optimizada para rondas de preguntas y respuestas.',
+    lang: 'all',
+    languages: ['es', 'en', 'it', 'pt'],
+    latency: '~80ms',
+    badge: 'Google Gemini Live • 24kHz ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Gemini Live S2S',
+    scenario: 'conversational',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'gemini-live-charon',
+    engine: 'gemini_live',
+    name: 'Google Charon (Gemini Live)',
+    gender: 'male',
+    tone: 'Barítono, Profundo, Solemne',
+    desc: 'Voz masculina grave y solemne a 24kHz, excelente para alocuciones magistrales.',
+    lang: 'all',
+    languages: ['es', 'en', 'it', 'pt'],
+    latency: '~80ms',
+    badge: 'Google Gemini Live • 24kHz ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Gemini Live S2S',
+    scenario: 'keynote',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
+  {
+    id: 'gemini-live-fenrir',
+    engine: 'gemini_live',
+    name: 'Google Fenrir (Gemini Live)',
+    gender: 'male',
+    tone: 'Firme, Directo, Asertivo',
+    desc: 'Voz masculina enérgica y asertiva a 24kHz para debates y paneles ejecutivos.',
+    lang: 'all',
+    languages: ['es', 'en', 'it', 'pt'],
+    latency: '~80ms',
+    badge: 'Google Gemini Live • 24kHz ⚡',
+    tier: 'zero_cost',
+    tierLabel: 'Gemini Live S2S',
+    scenario: 'panel',
+    isFree: true,
+    requiresKey: false,
+    isConfigured: true
+  },
   {
     id: 'es-ES-ElviraNeural',
     engine: 'edge',
@@ -678,6 +769,7 @@ export default function VoiceCatalogModal({
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               {[
                 { id: 'all', label: `Todos` },
+                { id: 'gemini_live', label: 'Google Live' },
                 { id: 'edge', label: 'Edge Neural' },
                 { id: 'deepgram', label: 'Aura-2' },
                 { id: 'openai', label: 'OpenAI' },
