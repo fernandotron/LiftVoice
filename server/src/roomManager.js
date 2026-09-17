@@ -313,12 +313,7 @@ class RoomManager {
       translations: transcriptItem.translations,
       isFinal: transcriptItem.isFinal !== undefined ? Boolean(transcriptItem.isFinal) : true,
       engineUsed: transcriptItem.engineUsed || null,
-      medicalMode: Boolean(transcriptItem.medicalMode),
-      metrics: transcriptItem.metrics ? {
-        transMs: typeof transcriptItem.metrics.transMs === 'number' ? transcriptItem.metrics.transMs : 0,
-        sttMs: typeof transcriptItem.metrics.sttMs === 'number' ? transcriptItem.metrics.sttMs : 0,
-        totalMs: typeof transcriptItem.metrics.totalMs === 'number' ? transcriptItem.metrics.totalMs : 0
-      } : { transMs: 0, sttMs: 0, totalMs: 0 }
+      medicalMode: Boolean(transcriptItem.medicalMode)
     };
 
     // 1. Send to host: complete telemetry if admin session, sanitized if standard host
@@ -377,12 +372,7 @@ class RoomManager {
       translations: fullItem.translations,
       isFinal: fullItem.isFinal !== undefined ? Boolean(fullItem.isFinal) : true,
       engineUsed: fullItem.engineUsed || null,
-      medicalMode: Boolean(fullItem.medicalMode),
-      metrics: fullItem.metrics ? {
-        transMs: typeof fullItem.metrics.transMs === 'number' ? fullItem.metrics.transMs : 0,
-        sttMs: typeof fullItem.metrics.sttMs === 'number' ? fullItem.metrics.sttMs : 0,
-        totalMs: typeof fullItem.metrics.totalMs === 'number' ? fullItem.metrics.totalMs : 0
-      } : { transMs: 0, sttMs: 0, totalMs: 0 }
+      medicalMode: Boolean(fullItem.medicalMode)
     };
 
     if (room.hostSocket && room.hostSocket.readyState === 1) {
@@ -977,9 +967,9 @@ class RoomManager {
     const room = this.getRoom(roomId);
     if (!room) return null;
     const attendeeId = profile.attendeeId || socketId;
-    const name = profile.name || 'Asistente';
+    const name = typeof profile.name === 'string' ? profile.name.trim().slice(0, 80) : 'Asistente';
     const lang = (profile.lang || profile.nativeLang || profile.currentLang || 'es').toLowerCase();
-    const questionText = (profile.questionText || '').trim();
+    const questionText = typeof profile.questionText === 'string' ? profile.questionText.trim().slice(0, 500) : '';
 
     const existingIdx = room.qaQueue.findIndex(q => q.socketId === socketId || q.attendeeId === attendeeId);
     const item = {

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Volume2, VolumeX, Hand, Globe, Check, Type } from 'lucide-react';
+import { Volume2, VolumeX, Hand, Globe, Check, Type, Users } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from '../LanguageSelector.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
 import GeminiFluidWave from '../shared/GeminiFluidWave.jsx';
@@ -19,7 +19,10 @@ export default function MobileAudioDock({
   onTogglePlay = () => {},
   onToggleMute = () => {},
   onOpenLanguageSheet,
-  onOpenQA = () => {}
+  onOpenAudienceSheet = () => {},
+  onOpenQA = () => {},
+  attendeesCount = 0,
+  profileName = 'Oyente'
 }) {
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const [showSizeToast, setShowSizeToast] = useState(false);
@@ -54,11 +57,7 @@ export default function MobileAudioDock({
       }
     } catch (e) {}
 
-    if (onSelectLanguage) {
-      setIsLanguageMenuOpen((prev) => !prev);
-    } else if (onOpenLanguageSheet) {
-      onOpenLanguageSheet();
-    }
+    setIsLanguageMenuOpen((prev) => !prev);
   };
 
   const handleLanguageSwitch = (code) => {
@@ -99,7 +98,7 @@ export default function MobileAudioDock({
   const handleMuteClick = () => {
     try {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(15);
+        navigator.vibrate(isLive ? 24 : [16, 28]);
       }
     } catch (e) {}
     if (!isUnlocked) {
@@ -109,10 +108,25 @@ export default function MobileAudioDock({
     }
   };
 
+  const handleAttendeesClick = () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(10);
+      }
+    } catch (e) {}
+    setIsLanguageMenuOpen(false);
+    onOpenAudienceSheet();
+  };
+
   const isLive = isUnlocked && !isMuted;
   const activeLangCode = selectedLanguage || currentLanguage?.code || 'es';
   const sizeLabels = { sm: 'A-', md: 'A', lg: 'A+', xl: 'A++' };
   const captionSizeLabel = sizeLabels[captionSize] || 'A';
+  const effectiveAttendeesCount = Math.max(
+    attendeesCount || 0,
+    Object.values(languageBreakdown || {}).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0),
+    1
+  );
 
   return (
     <nav 
@@ -140,19 +154,12 @@ export default function MobileAudioDock({
                 aria-hidden="true"
               />
 
-              {/* Tarjeta flotante emergente encima del botón */}
               <div
                 role="menu"
                 aria-orientation="vertical"
                 aria-label="Seleccionar idioma de traducción"
                 className="absolute bottom-[calc(100%+14px)] left-0 z-50 w-64 max-w-[calc(100vw-24px)] rounded-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200/90 dark:border-zinc-800 shadow-2xl p-1.5 pointer-events-auto animate-fadeIn origin-bottom-left"
               >
-                <div className="px-2.5 pt-1.5 pb-1">
-                  <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                    Idioma de traducción
-                  </span>
-                </div>
-
                 <div className="space-y-0.5">
                   {SUPPORTED_LANGUAGES.map((lang) => {
                     const isSelected = activeLangCode === lang.code;
@@ -166,8 +173,8 @@ export default function MobileAudioDock({
                         onClick={() => handleLanguageSwitch(lang.code)}
                         className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs transition-colors cursor-pointer select-none ${
                           isSelected
-                            ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold'
-                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
+                            ? 'bg-transparent text-zinc-900 dark:text-zinc-100 font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800/40'
+                            : 'bg-transparent text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -245,59 +252,63 @@ export default function MobileAudioDock({
           )}
         </div>
 
-        {/* Centro: Master Audio Visualizer (Gemini Live 2026 Pure Living AI Pill) */}
-        <div className="flex items-center justify-center flex-shrink min-w-0">
-          <div className="relative w-22 sm:w-28 flex-shrink min-w-0 h-12 flex items-center justify-center">
-            {isLive && (
-              <div
-                className="absolute -inset-1.5 rounded-full gemini-aura-glow opacity-60 pointer-events-none"
-                aria-hidden="true"
-              />
-            )}
+        {/* Centro HERO: Master Audio Dynamic Morphing Capsule 2026 */}
+        <div className="relative inline-flex items-center justify-center shrink-0">
+          {isLive && (
+            <div
+              className="absolute -inset-1.5 rounded-full gemini-aura-glow opacity-60 pointer-events-none transition-opacity duration-300 will-change-transform"
+              aria-hidden="true"
+            />
+          )}
 
-            <button
-              type="button"
-              onClick={handleMuteClick}
-              className={`relative w-22 sm:w-28 flex-shrink min-w-0 h-12 rounded-full font-normal text-xs tracking-tight flex items-center justify-center transition-all cursor-pointer active:scale-95 touch-manipulation select-none overflow-hidden ${
-                !isUnlocked
-                  ? 'bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-500 shadow-xs'
-                  : isMuted
-                  ? 'bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 shadow-xs'
-                  : 'text-white shadow-lg shadow-purple-500/25 border border-white/30'
+          <button
+            type="button"
+            onClick={handleMuteClick}
+            className={`relative h-12 rounded-full font-medium text-xs tracking-tight flex items-center justify-center shadow-xs cursor-pointer active:scale-95 touch-manipulation select-none overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[width,background-color] ${
+              isLive
+                ? 'w-[118px] sm:w-[124px] border border-white/30 shadow-lg shadow-purple-500/25'
+                : 'w-12 px-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+            }`}
+            title={!isUnlocked ? 'Toca para sintonizar audio' : isMuted ? 'Toca para activar sonido' : 'Audio en vivo activo (Toca para silenciar)'}
+            aria-label={!isUnlocked ? 'Sintonizar audio' : isMuted ? 'Activar sonido' : 'Silenciar audio'}
+          >
+            {/* Contenido en Estado ACTIVO: Gemini Fluid Wave viva */}
+            <div 
+              className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out ${
+                isLive 
+                  ? 'opacity-100 scale-100 delay-75 pointer-events-auto' 
+                  : 'opacity-0 scale-75 pointer-events-none absolute'
               }`}
-              title={!isUnlocked ? 'Toca para sintonizar audio' : isMuted ? 'Toca para activar sonido' : 'Audio en vivo activo'}
-              aria-label={!isUnlocked ? 'Sintonizar audio' : isMuted ? 'Activar sonido' : 'Audio en vivo activo'}
             >
-              {isLive ? (
-                <GeminiFluidWave />
-              ) : isMuted ? (
-                <span className="relative z-10 text-[11px] font-normal tracking-tight text-zinc-500 dark:text-zinc-400 select-none">
-                  Silenciado
-                </span>
-              ) : !isUnlocked ? (
-                <span className="relative z-10 text-[11px] font-normal tracking-tight text-zinc-700 dark:text-zinc-300 select-none">
-                  Sintonizar
-                </span>
-              ) : null}
-            </button>
-          </div>
+              <GeminiFluidWave />
+            </div>
+
+            {/* Contenido en Estado REPOSO / SILENCIADO: Icono Centrado Puro (Sin texto ruidoso) */}
+            <div 
+              className={`flex items-center justify-center transition-all duration-150 ease-out ${
+                !isLive 
+                  ? 'opacity-100 scale-100' 
+                  : 'opacity-0 scale-75 pointer-events-none absolute'
+              }`}
+            >
+              {!isUnlocked ? (
+                <Volume2 className="w-5.5 h-5.5 text-zinc-700 dark:text-zinc-300 animate-pulse" strokeWidth={1.6} />
+              ) : (
+                <VolumeX className="w-5.5 h-5.5 text-zinc-600 dark:text-zinc-400" strokeWidth={1.6} />
+              )}
+            </div>
+          </button>
         </div>
 
-        {/* Satélite: Botón Mute / Sonido (Diseño 100% neutro) */}
+        {/* Satélite 4: Audiencia en Sala (Abre AudienceBottomSheet) */}
         <button
           type="button"
-          onClick={handleMuteClick}
-          className="relative w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-          title={!isUnlocked ? 'Sintonizar audio' : isMuted ? 'Activar sonido' : 'Silenciar audio'}
-          aria-label={!isUnlocked ? 'Sintonizar audio' : isMuted ? 'Activar sonido' : 'Silenciar audio'}
+          onClick={handleAttendeesClick}
+          className="relative w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          title="Ver audiencia de la sala"
+          aria-label="Ver audiencia de la sala"
         >
-          {!isUnlocked ? (
-            <Volume2 className="w-5.5 h-5.5 text-zinc-700 dark:text-zinc-300 transition-colors" strokeWidth={1.6} />
-          ) : isMuted ? (
-            <VolumeX className="w-5.5 h-5.5 text-rose-500 transition-colors" strokeWidth={1.6} />
-          ) : (
-            <Volume2 className="w-5.5 h-5.5 text-zinc-700 dark:text-zinc-300 transition-colors" strokeWidth={1.6} />
-          )}
+          <Users className="w-5 h-5" strokeWidth={1.7} />
         </button>
 
         {/* Satélite Derecho: Q&A / Pedir la palabra (Diseño 100% neutro, mano estática) */}

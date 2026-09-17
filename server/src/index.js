@@ -1241,8 +1241,49 @@ wss.on('connection', (ws, req) => {
             break;
           }
           const targetRoom = currentRoomId;
-          const item = roomManager.addHandRaise(targetRoom, socketId, msg.profile || {});
+          const cleanProfile = {
+            ...(msg.profile || {}),
+            name: typeof msg.profile?.name === 'string' ? msg.profile.name.trim().slice(0, 80) : 'Asistente',
+            questionText: typeof msg.profile?.questionText === 'string' ? msg.profile.questionText.trim().slice(0, 500) : ''
+          };
+          const item = roomManager.addHandRaise(targetRoom, socketId, cleanProfile);
           const room = roomManager.getRoom(targetRoom);
+
+          // Fast-path immediate confirmation to attendee (<5ms): eliminate UI lag while translation runs asynchronously
+          ws.send(JSON.stringify({
+            type: 'QA_HAND_RAISE_CONFIRMED',
+            status: 'queued',
+            questionId: item?.questionId
+          }));
+
+          if (item && item.questionText) {
+            try {
+              const { translationService } = await import('./services/translationService.js');
+              const hostTargetLang = room?.sourceLang || 'es';
+              const trans = await translationService.translateAll(item.questionText, item.nativeLang || 'auto');
+              const translated = trans?.translations?.[hostTargetLang] || trans?.translations?.['es'] || trans?.translations?.['en'] || item.questionText;
+              item.translatedText = translated;
+              item.targetLang = hostTargetLang;
+              if (trans?.detectedSource) item.detectedLang = trans.detectedSource;
+
+              const qIdx = room?.qaQueue?.findIndex(q => q.questionId === item.questionId);
+              if (room?.qaQueue && qIdx !== undefined && qIdx >= 0) {
+                room.qaQueue[qIdx].translatedText = translated;
+                room.qaQueue[qIdx].targetLang = hostTargetLang;
+                if (item.detectedLang) room.qaQueue[qIdx].detectedLang = item.detectedLang;
+              }
+              // Race-condition guard: If host approved speaker while translateAll was in-flight, update activeSpeaker atomically
+              if (room?.activeSpeaker && (room.activeSpeaker.questionId === item.questionId || room.activeSpeaker.attendeeId === item.attendeeId)) {
+                room.activeSpeaker.translatedText = translated;
+                room.activeSpeaker.targetLang = hostTargetLang;
+                if (item.detectedLang) room.activeSpeaker.detectedLang = item.detectedLang;
+              }
+            } catch (err) {
+              console.warn('[QA] Error translating question for host:', err?.message || err);
+              item.translatedText = item.questionText;
+            }
+          }
+
           if (room && room.hostSocket && room.hostSocket.readyState === 1) {
             room.hostSocket.send(JSON.stringify({
               type: 'QA_QUESTION_REQUESTED',
@@ -1250,10 +1291,6 @@ wss.on('connection', (ws, req) => {
               stats: roomManager.getHostStats(targetRoom)
             }));
           }
-          ws.send(JSON.stringify({
-            type: 'QA_HAND_RAISE_CONFIRMED',
-            status: 'queued'
-          }));
           break;
         }
 

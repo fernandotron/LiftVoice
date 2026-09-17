@@ -1496,8 +1496,14 @@ export default function HostView({
                   </div>
 
                   {q.questionText && (
-                    <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800/80 text-xs text-zinc-800 dark:text-zinc-200 font-medium leading-relaxed">
-                      &ldquo;{q.questionText}&rdquo;
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800/80 text-xs text-zinc-800 dark:text-zinc-200 font-medium leading-relaxed space-y-1.5">
+                      <div className="italic text-zinc-800 dark:text-zinc-200">&ldquo;{q.questionText}&rdquo;</div>
+                      {q.translatedText && q.translatedText.trim() !== q.questionText.trim() && (
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 border-t border-zinc-200/60 dark:border-zinc-800/80 pt-1.5 not-italic">
+                          <span className="font-semibold text-zinc-700 dark:text-zinc-300">Traducción ({q.targetLang || 'es'}): </span>
+                          {q.translatedText}
+                        </div>
+                      )}
                     </div>
                   )}
 

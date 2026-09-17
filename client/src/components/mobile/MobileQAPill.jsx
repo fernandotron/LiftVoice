@@ -119,15 +119,6 @@ export default function MobileQAPill({
         header={
           <div className="flex items-start justify-between gap-3 text-left">
             <div className="space-y-1 min-w-0">
-              <div className="mb-1.5">
-                <span className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">
-                  {qaState === 'speaking'
-                    ? 'Turno concedido'
-                    : qaState === 'requested'
-                    ? 'Turno de preguntas'
-                    : 'Preguntas y respuestas'}
-                </span>
-              </div>
               <h2 id="qa-sheet-title" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
                 Preguntar al ponente
               </h2>
@@ -151,7 +142,8 @@ export default function MobileQAPill({
         footer={
           <div className="w-full">
             {qaState === 'idle' ? (
-              <div className="grid grid-cols-2 gap-2.5 w-full">
+              <div className="w-full">
+                {/* Botón Dictar ocultado temporalmente para simplificar la interfaz
                 <button
                   type="button"
                   onClick={isRecording ? onStopRecord : onStartRecord}
@@ -174,12 +166,13 @@ export default function MobileQAPill({
                     </>
                   )}
                 </button>
+                */}
 
                 <button
                   type="button"
                   onClick={handleFormSubmit}
                   disabled={!questionText.trim()}
-                  className="h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
+                  className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
                 >
                   <Hand className="w-4 h-4" />
                   <span>Pedir la Palabra</span>
@@ -268,29 +261,13 @@ export default function MobileQAPill({
 
           {/* Form Input for Question: Only shown when idle */}
           {qaState === 'idle' && (
-            <div className="p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-transparent focus-within:border-zinc-400 dark:focus-within:border-zinc-600 transition-colors shadow-2xs space-y-2 text-left">
-              <div className="flex items-center justify-between">
-                <label htmlFor="mobile-qa-text" className="text-xs block cursor-pointer transition-colors">
-                  {isRecording ? (
-                    <span className="text-zinc-800 dark:text-zinc-200 font-medium animate-fadeIn">
-                      Escuchando tu voz...
-                    </span>
-                  ) : (
-                    <span className="text-zinc-400 dark:text-zinc-500 font-medium">
-                      Escribe o dicta tu consulta
-                    </span>
-                  )}
-                </label>
-                <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium">
-                  {langName}
-                </span>
-              </div>
+            <div className="p-3.5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-transparent focus-within:border-zinc-400 dark:focus-within:border-zinc-600 transition-colors shadow-2xs text-left">
               <textarea
                 id="mobile-qa-text"
                 rows={3}
                 value={questionText}
                 onChange={(e) => setQuestionText(e.target.value)}
-                placeholder={isRecording ? `Te escuchamos, habla ahora en ${langName}...` : `Escribe aquí tu consulta o duda en ${langName}...`}
+                placeholder="Escribe tu consulta en cualquier idioma (el ponente la recibirá traducida)..."
                 className="w-full bg-transparent border-0 p-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-0 resize-none leading-relaxed"
               />
             </div>

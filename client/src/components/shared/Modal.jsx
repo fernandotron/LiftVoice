@@ -183,7 +183,13 @@ export function Modal({
             {header}
           </div>
         )}
-        <div className={!stickyHeader && header ? "px-6 pb-2" : ""}>
+        <div
+          className={
+            !stickyHeader && header
+              ? `px-6 ${footer ? 'pb-2' : 'pb-6 sm:pb-7 pb-[max(1.5rem,calc(1.5rem+env(safe-area-inset-bottom,0px)))]'}`
+              : ''
+          }
+        >
           {children}
         </div>
       </div>

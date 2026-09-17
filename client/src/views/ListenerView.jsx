@@ -32,6 +32,7 @@ import LiveCaptions from '../components/LiveCaptions.jsx';
 import CountryFlag from '../components/shared/CountryFlag.jsx';
 import MobileAudioDock from '../components/mobile/MobileAudioDock.jsx';
 import LanguageBottomSheet from '../components/mobile/LanguageBottomSheet.jsx';
+import AudienceBottomSheet from '../components/mobile/AudienceBottomSheet.jsx';
 import MobileQAPill from '../components/mobile/MobileQAPill.jsx';
 import Banner from '../components/shared/Banner.jsx';
 import DesktopHeaderMenu from '../components/shared/DesktopHeaderMenu.jsx';
@@ -139,6 +140,7 @@ export default function ListenerView({
 
   const [selectedLanguage, setSelectedLanguage] = useState(() => detectBrowserLanguage());
   const [isLanguageSheetOpen, setIsLanguageSheetOpen] = useState(false);
+  const [isAudienceSheetOpen, setIsAudienceSheetOpen] = useState(false);
   const selectedLangRef = useRef(selectedLanguage);
 
   useEffect(() => {
@@ -567,29 +569,30 @@ export default function ListenerView({
       <div className="sm:hidden flex-1 flex flex-col min-h-0 bg-white dark:bg-zinc-950 overflow-hidden">
 
         {/* Mobile Stage Bar: unificado con el canvas de subtítulos sin línea divisoria */}
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:py-3 bg-white dark:bg-zinc-950 flex-shrink-0">
+        <div className="flex items-center justify-between gap-3 px-4 py-1.5 bg-white dark:bg-zinc-950 flex-shrink-0">
           <div className="flex items-center gap-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
             <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 animate-pulse" />
             <span>En directo · <strong className="text-zinc-800 dark:text-zinc-200 font-semibold">{currentLangObj.nativeName}</strong></span>
           </div>
-          <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800/70 px-2.5 py-1 rounded-full">
+          <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800/70 px-2 py-0.5 rounded-full">
             {socketLatency}ms
           </span>
         </div>
 
         {/* Audio Unlock Notification (móvil estilo Reness) */}
         {!isAudioUnlocked && (
-          <div className="px-4 pt-2.5 pb-1 flex-shrink-0">
+          <div className="px-4 pt-1 pb-1 flex-shrink-0">
             <Banner
               icon={<Volume2 className="w-4 h-4 text-white" strokeWidth={2.4} />}
               color="#3b82f6"
+              style={{ padding: '10px 14px' }}
               title="Activar audio en directo"
               desc="Toca para sincronizar y escuchar la traducción en tus auriculares."
               action={
                 <button
                   type="button"
                   onClick={handleUnlockAudio}
-                  className="min-h-[44px] px-4 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-medium shadow-2xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+                  className="min-h-[38px] px-4 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
                 >
                   Sintonizar
                 </button>
@@ -1030,23 +1033,18 @@ export default function ListenerView({
                     {qaState === 'idle' && (
                       <form onSubmit={handleSendQuestion} className="space-y-3">
                         <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
-                            <label htmlFor="desktop-qa-question" className="font-medium">
-                              Escribe tu consulta para pedir turno:
-                            </label>
-                            <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">{currentLangObj.nativeName}</span>
-                          </div>
                           <textarea
                             id="desktop-qa-question"
                             rows={3}
                             value={questionText}
                             onChange={(e) => setQuestionText(e.target.value)}
-                            placeholder="Escribe aquí tu duda o consulta..."
+                            placeholder="Escribe tu consulta en cualquier idioma (el ponente la recibirá traducida)..."
                             className="w-full bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 resize-none transition-all leading-relaxed"
                           />
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {/* Botón de Dictar ocultado temporalmente
                           <button
                             type="button"
                             onClick={isRecordingQuestion ? handleStopRecordingQuestion : handleStartRecordingQuestion}
@@ -1060,11 +1058,12 @@ export default function ListenerView({
                             <Mic className="w-3.5 h-3.5" />
                             <span>{isRecordingQuestion ? 'Detener' : 'Dictar'}</span>
                           </button>
+                          */}
 
                           <button
                             type="submit"
                             disabled={!questionText.trim()}
-                            className="flex-1 h-9 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                            className="w-full h-9 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
                           >
                             <Hand className="w-3.5 h-3.5" />
                             <span>Pedir la Palabra</span>
@@ -1383,9 +1382,12 @@ export default function ListenerView({
         onTogglePlay={!isAudioUnlocked ? handleUnlockAudio : handleToggleMute}
         onToggleMute={handleToggleMute}
         onOpenLanguageSheet={() => setIsLanguageSheetOpen(true)}
+        onOpenAudienceSheet={() => setIsAudienceSheetOpen(true)}
         onOpenQA={() => {
           setIsQASheetOpen(true);
         }}
+        attendeesCount={roomStats.attendees?.length || roomStats.totalListeners || 0}
+        profileName={profile.name || 'Oyente'}
       />
 
       {/* Mobile Language Bottom Sheet */}
@@ -1395,6 +1397,24 @@ export default function ListenerView({
         selectedLanguage={selectedLanguage}
         onSelectLanguage={handleSelectLanguage}
         languageBreakdown={roomStats.languageBreakdown || {}}
+      />
+
+      {/* Mobile Audience Bottom Sheet */}
+      <AudienceBottomSheet
+        isOpen={isAudienceSheetOpen}
+        onClose={() => setIsAudienceSheetOpen(false)}
+        roomTitle={roomStats.title || roomInfo?.title || 'Conferencia Principal'}
+        roomId={roomId}
+        effectiveAttendeesCount={Math.max(
+          roomStats.attendees?.length || roomStats.totalListeners || 0,
+          Object.values(roomStats.languageBreakdown || {}).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0),
+          1
+        )}
+        languageBreakdown={roomStats.languageBreakdown || {}}
+        activeLangCode={selectedLanguage}
+        onSelectLanguage={handleSelectLanguage}
+        profileName={profile.name || 'Oyente'}
+        latency={socketLatency}
       />
 
       {/* Mobile Q&A Pill Modal */}
