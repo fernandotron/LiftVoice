@@ -83,7 +83,14 @@ class StreamPlayoutProcessor extends AudioWorkletProcessor {
     const quantumSize = channelLeft.length; // Siempre 128 muestras en Web Audio
 
     if (this.isUnderrun || this.availableSamples < quantumSize) {
-      // SUBDESBORDAMIENTO (Underrun): Decaimiento exponencial suave a 0 para prevenir pop digital
+      if (!this.isUnderrun) {
+        this.isUnderrun = true;
+        this.port.postMessage({
+          type: 'status',
+          bufferedSamples: 0,
+          sampleRate: typeof sampleRate !== 'undefined' ? sampleRate : 48000
+        });
+      }
       this.isUnderrun = true;
       this.fadeInRemaining = 0;
       for (let i = 0; i < quantumSize; i++) {

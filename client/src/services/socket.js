@@ -18,6 +18,7 @@ class SocketService {
     this.isKicked = false;
     this.outboxQueue = [];
     this.currentHostKey = null;
+    this.currentSourceLanguage = 'es-ES';
 
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
@@ -26,7 +27,7 @@ class SocketService {
         this.connect().then(() => {
           if (this.currentRoomId) {
             if (this.currentRole === 'HOST') {
-              this.joinAsHost(this.currentRoomId);
+              this.joinAsHost(this.currentRoomId, null, this.currentSourceLanguage);
             } else if (this.currentRole === 'LISTENER') {
               this.joinAsListener(this.currentRoomId, this.currentLang || 'es', this.userProfile || {});
             }
@@ -141,6 +142,16 @@ class SocketService {
             }
             return;
           }
+          if (typeof Blob !== 'undefined' && event.data instanceof Blob) {
+            event.data.arrayBuffer().then(buf => {
+              try {
+                this.handleBinaryMessage(buf);
+              } catch (binErr) {
+                console.warn('[Socket] Corrupted binary blob packet dropped:', binErr);
+              }
+            }).catch(() => {});
+            return;
+          }
           try {
             const msg = JSON.parse(event.data);
             this.handleMessage(msg);
@@ -204,7 +215,7 @@ class SocketService {
         // Re-join previous room if any
         if (this.currentRoomId) {
           if (this.currentRole === 'HOST') {
-            this.joinAsHost(this.currentRoomId);
+            this.joinAsHost(this.currentRoomId, null, this.currentSourceLanguage);
             if (this.currentMonitoredBooth && this.currentMonitoredBooth !== 'none') {
               this.setMonitoredBooth(this.currentRoomId, this.currentMonitoredBooth);
             }
@@ -401,18 +412,30 @@ class SocketService {
 
     this.emit('audio_chunk', {
       type: 'AUDIO_CHUNK',
+      id: `bin_${seqId}_${lang}`,
       lang,
       seqId,
       timestamp,
       binaryPayload,
       isBinary: true,
-      isBoothAudio: this.currentRole === 'HOST'
+      isBoothAudio: this.currentRole === 'HOST',
+      isHostMonitoring: this.currentRole === 'HOST'
     });
   }
 
-  joinAsHost(roomId, token = null) {
+  joinAsHost(roomId, token = null, sourceLanguage = null) {
     this.currentRoomId = roomId;
     this.currentRole = 'HOST';
+    if (sourceLanguage) {
+      this.currentSourceLanguage = sourceLanguage;
+    } else if (!this.currentSourceLanguage) {
+      try {
+        const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('lv_stt_lang') : null;
+        this.currentSourceLanguage = saved || 'es-ES';
+      } catch (e) {
+        this.currentSourceLanguage = 'es-ES';
+      }
+    }
     let storedHostKey = null;
     try {
       if (typeof localStorage !== 'undefined' && roomId) {
@@ -429,6 +452,7 @@ class SocketService {
       roomId,
       hostKey: resolvedHostKey,
       token: adminToken,
+      sourceLanguage: this.currentSourceLanguage,
       supportsBinary: true
     });
   }

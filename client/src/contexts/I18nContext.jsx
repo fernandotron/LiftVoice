@@ -56,13 +56,34 @@ export function I18nProvider({ children }) {
   }, []);
 
   /**
-   * t(path, params)
+   * t(path, params, maybeDefault)
    * Examples:
+   *   t('languages.es', 'Español')
    *   t('listenerView.header.audioBanner.title')
    *   t('audienceBottomSheet.activeListenersDesc', { count: 5, room: 'Main' })
+   *   t('host.qa.activeSpeakerTitle', { name: 'Oyente', defaultValue: 'Oyente está hablando' })
    */
-  const t = useCallback((path, params = {}) => {
+  const t = useCallback((path, params = {}, maybeDefault = null) => {
     if (!path || typeof path !== 'string') return '';
+
+    // Extract defaultValue and interpolation parameters
+    let defaultValue = '';
+    let interpolationParams = {};
+
+    if (typeof params === 'string') {
+      defaultValue = params;
+      interpolationParams = typeof maybeDefault === 'object' && maybeDefault !== null ? maybeDefault : {};
+    } else if (typeof params === 'object' && params !== null) {
+      interpolationParams = params;
+      if (typeof params.defaultValue === 'string') {
+        defaultValue = params.defaultValue;
+      } else if (typeof maybeDefault === 'string') {
+        defaultValue = maybeDefault;
+      }
+    } else if (typeof maybeDefault === 'string') {
+      defaultValue = maybeDefault;
+    }
+
     const keys = path.split('.');
 
     // Search in current language
@@ -90,19 +111,30 @@ export function I18nProvider({ children }) {
       current = fallback;
     }
 
-    // If still missing, return key path as fallback
-    if (current === undefined) {
-      return path;
+    // If current is an object with a 'name', 'label' or 'title' property (e.g. languages.es -> { name: 'Español' })
+    if (current && typeof current === 'object') {
+      if (typeof current.name === 'string') {
+        current = current.name;
+      } else if (typeof current.label === 'string') {
+        current = current.label;
+      } else if (typeof current.title === 'string') {
+        current = current.title;
+      }
+    }
+
+    // If still missing or not string/number, fallback to defaultValue or key path
+    if (current === undefined || (typeof current !== 'string' && typeof current !== 'number')) {
+      return defaultValue || path;
     }
 
     if (typeof current !== 'string') {
-      return typeof current === 'number' ? String(current) : path;
+      current = String(current);
     }
 
     // Interpolate variables: {{name}} or {name}
     return current.replace(/\{\{\s*(\w+)\s*\}\}|\{\s*(\w+)\s*\}/g, (_, match1, match2) => {
       const varName = match1 || match2;
-      return params[varName] !== undefined ? params[varName] : `{{${varName}}}`;
+      return interpolationParams[varName] !== undefined ? interpolationParams[varName] : `{{${varName}}}`;
     });
   }, [language]);
 

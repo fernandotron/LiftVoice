@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 import { roomManager } from './roomManager.js';
 import { aiPipeline } from './services/aiPipeline.js';
 import { userManager } from './services/userManager.js';
-import { detectAudioMimeType } from './services/sttService.js';
+import { sttService, detectAudioMimeType } from './services/sttService.js';
 import { 
   createAdminSession, 
   invalidateAdminSession, 
@@ -539,7 +539,7 @@ app.get('/api/config', async (req, res) => {
       pipelineMode: aiPipeline.pipelineMode || 'deepgram_gemini',
       geminiLiveVoices: aiPipeline.geminiLiveVoices || { en: 'Aoede', it: 'Kore', pt: 'Fenrir', es: 'Charon' },
       preferredSttEngine: sttService.preferredSttEngine || 'deepgram',
-      sttLang: sttService.sttLanguage || 'auto',
+      sttLang: sttService.sttLanguage || 'es',
       sttVad: sttService.sttVad || 'standard',
       preferredTtsEngine: ttsService.preferredTtsEngine || 'auto',
       decalageMode: aiPipeline.decalageMode || 'natural',
@@ -571,7 +571,15 @@ app.get('/api/config', async (req, res) => {
   }
 });
 
-app.post('/api/config', requireAdminAuth, (req, res) => {
+app.post('/api/config', (req, res, next) => {
+  const bodyKeys = Object.keys(req.body || {});
+  const OPERATIONAL_KEYS = new Set(['sttLang', 'sourceLanguage', 'sttVad', 'decalageMode', 'roomId']);
+  const isOnlyOperational = bodyKeys.length > 0 && bodyKeys.every(k => OPERATIONAL_KEYS.has(k));
+  if (isOnlyOperational) {
+    return next();
+  }
+  return requireAdminAuth(req, res, next);
+}, (req, res) => {
   const resolveKey = (val, alt, keyName) => {
     const raw = val !== undefined ? val : alt;
     if (raw === undefined || raw === null) return undefined;
@@ -830,7 +838,7 @@ app.post('/api/rooms/:roomId/summary', async (req, res) => {
 // Rate limiter in memory for voice previews (prevents abuse and upstream quota exhaustion)
 const previewRateLimitMap = new Map();
 const PREVIEW_LIMIT_WINDOW_MS = 60 * 1000;
-const PREVIEW_MAX_REQUESTS = 40; // 40 previews per minute per IP
+const PREVIEW_MAX_REQUESTS = 120; // 120 previews per minute per IP
 
 function checkPreviewRateLimit(clientIp) {
   const now = Date.now();
@@ -1103,10 +1111,21 @@ wss.on('connection', (ws, req) => {
           }
           
           const currentRoom = roomManager.getRoom(currentRoomId);
-          if (currentRoom && currentRoom.config) {
-            if (msg.medicalMode !== undefined) currentRoom.config.medicalMode = Boolean(msg.medicalMode);
-            if (msg.medicalSpecialty !== undefined) currentRoom.config.medicalSpecialty = msg.medicalSpecialty;
-            if (Array.isArray(msg.customGlossary)) currentRoom.config.customGlossary = msg.customGlossary;
+          if (currentRoom) {
+            if (msg.sourceLanguage) {
+              const cleanSrc = String(msg.sourceLanguage).toLowerCase().slice(0, 5);
+              currentRoom.sourceLang = cleanSrc;
+              if (cleanSrc !== 'auto') {
+                if (currentRoom.config) currentRoom.config.autoDetectSource = false;
+                const lang2 = cleanSrc.slice(0, 2);
+                sttService.setLanguage(lang2);
+              }
+            }
+            if (currentRoom.config) {
+              if (msg.medicalMode !== undefined) currentRoom.config.medicalMode = Boolean(msg.medicalMode);
+              if (msg.medicalSpecialty !== undefined) currentRoom.config.medicalSpecialty = msg.medicalSpecialty;
+              if (Array.isArray(msg.customGlossary)) currentRoom.config.customGlossary = msg.customGlossary;
+            }
           }
           const hostHistory = (currentRoom?.transcriptHistory || []).slice(-50);
 

@@ -63,10 +63,10 @@ export default function VoicesView({
 
   const LANG_PILLS = useMemo(() => [
     { id: 'all', label: t('voiceCatalog.allLanguages', 'Todos los idiomas') },
-    { id: 'es', label: `🇪🇸 ${t('languages.es', 'Español')}` },
-    { id: 'en', label: `🇺🇸 ${t('languages.en', 'English')}` },
-    { id: 'it', label: `🇮🇹 ${t('languages.it', 'Italiano')}` },
-    { id: 'pt', label: `🇧🇷 ${t('languages.pt', 'Português')}` }
+    { id: 'es', label: `🇪🇸 ${t('languages.es.name', 'Español')}` },
+    { id: 'en', label: `🇺🇸 ${t('languages.en.name', 'English')}` },
+    { id: 'it', label: `🇮🇹 ${t('languages.it.name', 'Italiano')}` },
+    { id: 'pt', label: `🇧🇷 ${t('languages.pt.name', 'Português')}` }
   ], [t]);
 
   const [voices, setVoices] = useState([]);
@@ -750,7 +750,7 @@ export default function VoicesView({
                               <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
                                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
                                   {supportedLangs.length === 1
-                                    ? (supportedLangs[0] === 'es' ? `🇪🇸 ${t('languages.es', 'Español')}` : supportedLangs[0] === 'en' ? `🇺🇸 ${t('languages.en', 'English')}` : supportedLangs[0] === 'it' ? `🇮🇹 ${t('languages.it', 'Italiano')}` : `🇧🇷 ${t('languages.pt', 'Português')}`)
+                                    ? (supportedLangs[0] === 'es' ? `🇪🇸 ${t('languages.es.name', 'Español')}` : supportedLangs[0] === 'en' ? `🇺🇸 ${t('languages.en.name', 'English')}` : supportedLangs[0] === 'it' ? `🇮🇹 ${t('languages.it.name', 'Italiano')}` : `🇧🇷 ${t('languages.pt.name', 'Português')}`)
                                     : `🌐 Multilingüe (${supportedLangs.join(', ')})`}
                                 </span>
                                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-50 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800">

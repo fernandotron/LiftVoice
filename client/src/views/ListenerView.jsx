@@ -152,7 +152,35 @@ export default function ListenerView({
     try {
       localStorage.setItem('lv_preferred_lang', selectedLanguage);
     } catch (e) {}
+
+    // Sincronizar el parámetro ?lang= en la barra de direcciones del navegador
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('lang') !== selectedLanguage) {
+          url.searchParams.set('lang', selectedLanguage);
+          window.history.replaceState({}, '', url.pathname + url.search);
+        }
+      } catch (e) {}
+    }
   }, [selectedLanguage]);
+
+  // Sincronización con botones Atrás/Adelante del navegador
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const urlLang = params.get('lang');
+        const validLangs = ['es', 'en', 'it', 'pt'];
+        if (urlLang && validLangs.includes(urlLang.toLowerCase()) && urlLang.toLowerCase() !== selectedLangRef.current) {
+          handleSelectLanguage(urlLang.toLowerCase());
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const [isAudioUnlocked, setIsAudioUnlocked] = useState(() => audioPlayerService.isUnlocked);
   const [isMuted, setIsMuted] = useState(false);
@@ -415,6 +443,17 @@ export default function ListenerView({
       audioPlayerService.setLanguage(cleanLang);
       socketService.switchLanguage(roomId, cleanLang);
       setLanguage(cleanLang);
+
+      // Inmediata sincronización de la URL en la barra del navegador
+      if (typeof window !== 'undefined') {
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.get('lang') !== cleanLang) {
+            url.searchParams.set('lang', cleanLang);
+            window.history.replaceState({}, '', url.pathname + url.search);
+          }
+        } catch (e) {}
+      }
     }
 
     // Direct user tap: immediately unlock and resume Web Audio in OS

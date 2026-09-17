@@ -68,7 +68,7 @@ export class STTService {
     this.deepgramApiKey = config.deepgramApiKey || process.env.DEEPGRAM_API_KEY || '';
     this.geminiApiKey = config.geminiApiKey || process.env.GEMINI_API_KEY || '';
     this.preferredSttEngine = config.preferredSttEngine || 'deepgram';
-    this.sttLanguage = config.sttLanguage || 'auto';
+    this.sttLanguage = config.sttLanguage || 'es';
     this.sttVad = config.sttVad || 'standard';
   }
 
@@ -109,7 +109,7 @@ export class STTService {
 
     const cleanMime = detectAudioMimeType(audioBuffer, mimeType ? mimeType.split(';')[0].trim() : 'audio/webm');
 
-    const effectiveLang = (language && language !== 'auto') ? language : (this.sttLanguage && this.sttLanguage !== 'auto' ? this.sttLanguage : null);
+    const effectiveLang = (language && language !== 'auto') ? language : (this.sttLanguage && this.sttLanguage !== 'auto' ? this.sttLanguage : 'es');
     let cleanLang = null;
     if (effectiveLang) {
       const lower = effectiveLang.toLowerCase().trim();

@@ -873,10 +873,29 @@ export class TranslationService {
 
     result.isMedical = isMedical;
 
-    // Identity short-circuit: speaker's source language must match the cleanText verbatim
-    const realSource = (result.detectedSource || detectedSource || 'es').slice(0, 2).toLowerCase();
-    if (result && result.translations && result.translations[realSource] !== undefined) {
-      result.translations[realSource] = cleanText;
+    // Identity short-circuit with anti-misdetection protection (September 2026)
+    const detectedSourceShort = (result.detectedSource || '').slice(0, 2).toLowerCase();
+    const passedSourceShort = (detectedSource && detectedSource !== 'auto' && detectedSource !== 'multi') ? detectedSource.slice(0, 2).toLowerCase() : '';
+    const verifiedLang = this.detectRoughLanguage(cleanText);
+
+    let realSource = (detectedSourceShort && detectedSourceShort !== 'au')
+      ? detectedSourceShort
+      : (passedSourceShort || verifiedLang || 'es');
+
+    // Anti-misdetection protection:
+    // If realSource points to a target cabin (e.g. 'it') due to an STT false positive,
+    // but cleanText is demonstrably spoken in another language (e.g. 'es'),
+    // DO NOT overwrite the target cabin's generated translation with cleanText!
+    if (result && result.translations) {
+      if (verifiedLang && verifiedLang !== realSource) {
+        console.warn(`[TranslationService] 🛡️ Corrected source misattribution: claimed '${realSource}', but text is verified as '${verifiedLang}'. Preserving '${realSource}' translation.`);
+        if (result.translations[verifiedLang] !== undefined) {
+          result.translations[verifiedLang] = cleanText;
+        }
+        result.detectedSource = verifiedLang;
+      } else if (result.translations[realSource] !== undefined) {
+        result.translations[realSource] = cleanText;
+      }
     }
 
     // Post-process to guarantee canonical uppercase for medical acronyms and terminology
@@ -922,10 +941,17 @@ export class TranslationService {
     };
 
     const targets = options.targets || ['en', 'es', 'it', 'pt'];
-    const translations = {};
-    let realDetectedSource = (detectedSource && detectedSource !== 'auto')
+    let realDetectedSource = (detectedSource && detectedSource !== 'auto' && detectedSource !== 'multi')
       ? detectedSource.slice(0, 2).toLowerCase()
       : null;
+
+    const verifiedSource = this.detectRoughLanguage(text);
+    if (verifiedSource && realDetectedSource && verifiedSource !== realDetectedSource) {
+      console.warn(`[TranslationService] 🌐 DeepL source override: STT claimed '${realDetectedSource}', but text verified as '${verifiedSource}'.`);
+      realDetectedSource = verifiedSource;
+    } else if (!realDetectedSource && verifiedSource) {
+      realDetectedSource = verifiedSource;
+    }
 
     const normSourceCode = realDetectedSource ? sourceLangMap[realDetectedSource] : null;
 
@@ -1624,9 +1650,15 @@ ${schema}`;
       ? resolveTargetLangs(customTargets)
       : ['en', 'es', 'it', 'pt'];
     const translations = {};
-    let realDetectedSource = (detectedSource && detectedSource !== 'auto')
+    const verifiedSource = this.detectRoughLanguage(text);
+    let realDetectedSource = (detectedSource && detectedSource !== 'auto' && detectedSource !== 'multi')
       ? detectedSource.slice(0, 2).toLowerCase()
-      : (this.detectRoughLanguage(text) || 'es');
+      : (verifiedSource || 'es');
+
+    if (verifiedSource && realDetectedSource !== verifiedSource) {
+      console.warn(`[TranslationService] 🌐 FreeEngine source override: STT claimed '${realDetectedSource}', but text verified as '${verifiedSource}'.`);
+      realDetectedSource = verifiedSource;
+    }
 
     const BROWSER_HEADERS = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -1733,20 +1765,61 @@ ${schema}`;
   }
 
   detectRoughLanguage(text) {
-    const lower = text.toLowerCase();
-    if (/\b(the|and|is|in|to|we|are|you|today|welcome|please)\b/.test(lower)) return 'en';
-    if (/\b(el|la|los|las|de|que|en|es|hoy|bienvenidos|gracias|auriculares)\b/.test(lower)) return 'es';
-    if (/\b(il|la|di|che|in|sono|oggi|benvenuti|grazie|cuffie)\b/.test(lower)) return 'it';
-    if (/\b(o|a|os|as|do|da|que|em|hoje|bem-vindos|obrigado|fones)\b/.test(lower)) return 'pt';
-    if (/\b(le|la|les|de|et|est|un|une|pour|dans|merci)\b/.test(lower)) return 'fr';
-    if (/\b(der|die|das|und|ist|in|den|von|zu|mit|danke)\b/.test(lower)) return 'de';
+    if (!text || typeof text !== 'string') return 'es';
+    const lower = text.toLowerCase().trim();
+    if (!lower) return 'es';
+
+    // 1. Check non-Latin scripts first
     if (/[\u4e00-\u9fa5]/.test(lower)) return 'zh';
     if (/[\u3040-\u30ff]/.test(lower)) return 'ja';
     if (/[\u0600-\u06ff]/.test(lower)) return 'ar';
     if (/[\u0400-\u04ff]/.test(lower)) return 'ru';
     if (/[\uac00-\ud7af]/.test(lower)) return 'ko';
     if (/[\u0900-\u097f]/.test(lower)) return 'hi';
-    return 'es'; // default
+
+    // 2. Score candidate Western languages using distinct stopwords & morphosyntax
+    const scores = { es: 0, it: 0, pt: 0, en: 0, fr: 0, de: 0 };
+
+    // Distinctive diacritics & punctuation
+    if (/[¿¡ñ]/.test(lower)) scores.es += 3;
+    if (/[ãõ]/.test(lower)) scores.pt += 3;
+
+    // High-confidence distinctive vocabulary (weight 4)
+    if (/\b(estás|está|estamos|hablando|entonces|cómo|también|hacer|probando|puedes|auriculares|bienvenidos|buenos\s+días|buenas\s+tardes)\b/i.test(lower)) scores.es += 4;
+    if (/\b(quindi|stai|stiamo|parlando|com'è|perché|effettivamente|facendo|riesci|farlo|correttamente|cuffie|benvenuti|buongiorno|buonasera)\b/i.test(lower)) scores.it += 4;
+    if (/\b(você|vocês|está|estamos|falando|então|também|obrigado|obrigada|fones|bem-vindos|bom\s+dia|boa\s+tarde)\b/i.test(lower)) scores.pt += 4;
+    if (/\b(speaking|talking|really|welcome|please|thanks|thank\s+you|how\s+is|what\s+is|doing|good\s+morning)\b/i.test(lower)) scores.en += 4;
+    if (/\b(bonjour|merci|beaucoup|s'il\s+vous\s+plaît|comment|nous\s+sommes)\b/i.test(lower)) scores.fr += 4;
+    if (/\b(danke|bitte|guten\s+tag|wir\s+sprechen|wie\s+ist)\b/i.test(lower)) scores.de += 4;
+
+    // Standard stopwords (weight 1)
+    const words = lower.match(/[\p{L}\p{N}']+/gu) || [];
+    const esSet = new Set(['el', 'la', 'los', 'las', 'de', 'que', 'en', 'es', 'un', 'una', 'por', 'para', 'con', 'este', 'esta', 'pero', 'bien', 'bueno', 'hola', 'gracias', 'nada', 'algo', 'cuando', 'donde', 'hoy']);
+    const itSet = new Set(['il', 'lo', 'la', 'i', 'gli', 'le', 'di', 'che', 'in', 'è', 'un', 'una', 'uno', 'per', 'con', 'questo', 'questa', 'ma', 'anche', 'bene', 'buono', 'ciao', 'grazie', 'niente', 'quando', 'dove', 'oggi', 'sono', 'siamo', 'della', 'degli']);
+    const ptSet = new Set(['o', 'a', 'os', 'as', 'do', 'da', 'dos', 'das', 'que', 'em', 'é', 'um', 'uma', 'por', 'para', 'com', 'este', 'esta', 'mas', 'também', 'bem', 'bom', 'olá', 'obrigado', 'quando', 'onde', 'hoje']);
+    const enSet = new Set(['the', 'and', 'is', 'are', 'we', 'you', 'this', 'that', 'with', 'for', 'from', 'to', 'how', 'what', 'where', 'when', 'then', 'not', 'can', 'will', 'have', 'has']);
+    const frSet = new Set(['le', 'la', 'les', 'des', 'du', 'et', 'est', 'dans', 'avec', 'pour', 'nous', 'vous', 'qui', 'que', 'mais']);
+    const deSet = new Set(['der', 'die', 'das', 'den', 'dem', 'des', 'und', 'ist', 'sind', 'wir', 'ihr', 'sie', 'mit', 'für', 'von']);
+
+    for (const w of words) {
+      if (esSet.has(w)) scores.es += 1;
+      if (itSet.has(w)) scores.it += 1;
+      if (ptSet.has(w)) scores.pt += 1;
+      if (enSet.has(w)) scores.en += 1;
+      if (frSet.has(w)) scores.fr += 1;
+      if (deSet.has(w)) scores.de += 1;
+    }
+
+    let topLang = 'es';
+    let maxScore = 0;
+    for (const [lang, score] of Object.entries(scores)) {
+      if (score > maxScore) {
+        maxScore = score;
+        topLang = lang;
+      }
+    }
+
+    return maxScore > 0 ? topLang : 'es';
   }
 
   fallbackTranslate(text, detectedSource, customTargets = null) {

@@ -836,11 +836,33 @@ export class TTSService {
       hi: 'hi-IN-SwaraNeural'
     };
 
+    const edgeVoiceAliases = {
+      // Italian aliases and distinct fallbacks
+      'it-IT-CosimoNeural': 'it-IT-GiuseppeMultilingualNeural',
+      'aura-2-diana-it': 'it-IT-IsabellaNeural',
+      'aura-2-marcos-it': 'it-IT-GiuseppeMultilingualNeural',
+      '5345cf08-6fba-4089-a296-ee1a9673a726': 'it-IT-ElsaNeural', // Sonic Chiara
+      'nova': 'it-IT-IsabellaNeural',
+      'sage': 'it-IT-ElsaNeural',
+      'coral': 'it-IT-IsabellaNeural',
+      'echo': 'it-IT-DiegoNeural',
+      'ash': 'it-IT-DiegoNeural',
+      'onyx': 'it-IT-GiuseppeMultilingualNeural',
+      'alloy': 'it-IT-DiegoNeural',
+      'shimmer': 'it-IT-ElsaNeural',
+      'gemini-live-aoede': 'it-IT-ElsaNeural',
+      'gemini-live-kore': 'it-IT-IsabellaNeural',
+      'gemini-live-puck': 'it-IT-DiegoNeural',
+      'gemini-live-charon': 'it-IT-GiuseppeMultilingualNeural',
+      'gemini-live-fenrir': 'it-IT-DiegoNeural'
+    };
+
     let targetVoice = edgeVoiceMap[lang] || 'es-ES-ElviraNeural';
     if (typeof options.voice === 'string') {
       const candidate = options.voice.trim();
-      // Whitelist estricta: Previene inyección SSML en el atributo <voice name="...">
-      if (/^[a-z]{2,3}-[A-Z]{2,3}-[a-zA-Z0-9]+Neural$/.test(candidate)) {
+      if (edgeVoiceAliases[candidate]) {
+        targetVoice = edgeVoiceAliases[candidate];
+      } else if (/^[a-z]{2,3}-[A-Z]{2,3}-[a-zA-Z0-9]+Neural$/.test(candidate)) {
         targetVoice = candidate;
       }
     }
@@ -880,11 +902,12 @@ export class TTSService {
       } catch (e) {}
     };
 
+    const timeoutMs = options.timeoutMs || 9000;
     const timeoutPromise = new Promise((_, reject) => {
       timer = setTimeout(() => {
         cleanup();
-        reject(new Error(`Edge TTS timed out after 3500ms for ${targetVoice}`));
-      }, 3500);
+        reject(new Error(`Edge TTS timed out after ${timeoutMs}ms for ${targetVoice}`));
+      }, timeoutMs);
     });
 
     const synthesisPromise = (async () => {
@@ -952,8 +975,9 @@ export class TTSService {
     } catch (err) {
       cleanup();
       this.edgeConsecutiveFailures = (this.edgeConsecutiveFailures || 0) + 1;
-      if (this.edgeConsecutiveFailures >= 3 || err?.message?.includes('429') || err?.message?.includes('timed out')) {
-        this.tripCircuit('edge', 429, 2 * 60 * 1000);
+      // Only trip circuit after 3 consecutive failures or explicit upstream 429; never lock out on a single timeout
+      if (this.edgeConsecutiveFailures >= 3 || err?.message?.includes('429')) {
+        this.tripCircuit('edge', 429, 30 * 1000);
       }
       throw err;
     }
@@ -1404,9 +1428,9 @@ export class TTSService {
         isConfigured: true
       },
       {
-        id: 'it-IT-CosimoNeural',
+        id: 'it-IT-GiuseppeMultilingualNeural',
         engine: 'edge',
-        name: 'Cosimo Neural',
+        name: 'Giuseppe Neural',
         gender: 'male',
         tone: 'Pausado, Institucional',
         desc: 'Dicción solemne y pausada para foros diplomáticos y debates.',

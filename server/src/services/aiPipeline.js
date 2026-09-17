@@ -550,6 +550,9 @@ export class AIPipeline {
     if (shouldDispatch) {
       if (existingBuffer) {
         if (existingBuffer.timer) clearTimeout(existingBuffer.timer);
+        if (existingBuffer.opts?.sourceLanguage && existingBuffer.opts.sourceLanguage !== 'auto' && (!sourceLanguage || sourceLanguage === 'auto')) {
+          sourceLanguage = existingBuffer.opts.sourceLanguage;
+        }
         this.roomDecalageBuffers.delete(roomId);
       }
       cleanUtterance = candidateFullText;
@@ -596,9 +599,7 @@ export class AIPipeline {
     // FIN-01: Cost Protection / Lazy Cabins
     // Obtain active listening languages BEFORE LLM translation to avoid wasting tokens/quota
     const activeLangs = this.getActiveLanguages(roomId);
-    const rawTargetLangs = (forceLanguages && forceLanguages.length > 0)
-      ? Array.from(new Set(forceLanguages))
-      : activeLangs;
+    const rawTargetLangs = Array.from(new Set([...(forceLanguages || []), ...activeLangs]));
     const targetLangs = Array.from(new Set(
       rawTargetLangs.map(normalizePipelineLang).filter(l => l && l !== 'auto')
     ));
@@ -734,14 +735,25 @@ export class AIPipeline {
     };
 
     const isOmittedOrUntranslated = (lang) => {
-      if (lang === sourceShort) return false;
       if (reportedOmitted.has(lang)) return true;
       const tVal = (transResult.translations[lang] || '').trim();
       if (!tVal) return true;
-      // Normalizar quitando signos de puntuación y símbolos Unicode (comillas curvas, guiones, etc.) para evitar falsos negativos
+
+      // Normalizar quitando signos de puntuación y símbolos Unicode para comparar
       const normTVal = tVal.toLowerCase().replace(/[\p{P}\p{S}]/gu, ' ').replace(/\s+/g, ' ').trim();
       const normSpoken = cleanSpoken.replace(/[\p{P}\p{S}]/gu, ' ').replace(/\s+/g, ' ').trim();
-      if (normTVal === normSpoken && normSpoken.length > 5 && !isUniversalCognate(normSpoken)) return true;
+
+      // Si el texto en cabina es IDÉNTICO al hablado y no es un cognado universal:
+      if (normTVal === normSpoken && normSpoken.length > 5 && !isUniversalCognate(normSpoken)) {
+        const verifiedSpeakerLang = translationService.detectRoughLanguage(spokenText);
+        // Si el idioma de la cabina difiere del idioma real verificado del hablante,
+        // significa que esta cabina recibió texto sin traducir y debe sanarse de inmediato
+        if (lang !== verifiedSpeakerLang) {
+          return true;
+        }
+      }
+
+      if (lang === sourceShort) return false;
       return false;
     };
 

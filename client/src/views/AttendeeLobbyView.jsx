@@ -205,6 +205,15 @@ export default function AttendeeLobbyView({
                     onClick={() => {
                       setSelectedLang(c.code);
                       setLanguage(c.code);
+                      if (typeof window !== 'undefined') {
+                        try {
+                          const url = new URL(window.location.href);
+                          if (url.searchParams.get('lang') !== c.code) {
+                            url.searchParams.set('lang', c.code);
+                            window.history.replaceState({}, '', url.pathname + url.search);
+                          }
+                        } catch (e) {}
+                      }
                     }}
                     className={`h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-medium transition-all duration-150 cursor-pointer ${
                       isActive

@@ -177,7 +177,7 @@ export const buildSettingsSnapshot = (data = {}) => ({
     ? data.customGlossary
     : (Array.isArray(data.customGlossary) ? data.customGlossary.join(', ') : ''),
   decalageMode: data.decalageMode || 'natural',
-  sttLang: data.sttLang || 'auto',
+  sttLang: data.sttLang || 'es',
   sttVad: data.sttVad || 'standard',
   googleNeuralMode: data.googleNeuralMode || 'universal',
   qaMode: data.qaMode || 'always'
@@ -273,6 +273,16 @@ const STT_STRATEGY_OPTIONS = [
   { value: 'max_quality', label: 'Máxima Calidad VIP', description: 'Nova-3 + GPT-4o + ElevenLabs (Hiper-realismo)' },
   { value: 'custom', label: 'Configuración Personalizada', description: 'Ajuste manual modular de cada componente' }
 ];
+
+export const normalizeSttLang = (val) => {
+  if (!val || val === 'auto' || val === 'multi') return 'auto';
+  const l = String(val).toLowerCase().trim();
+  if (l.startsWith('es')) return 'es';
+  if (l.startsWith('en')) return 'en';
+  if (l.startsWith('it')) return 'it';
+  if (l.startsWith('pt')) return 'pt';
+  return l.slice(0, 2);
+};
 
 const STT_LANG_OPTIONS = [
   { value: 'auto', label: 'Detección Automática', description: 'Reconocimiento multilingüe dinámico (Nova-3 / Gemini)' },
@@ -480,7 +490,7 @@ export default function AdminSettingsShell({
   const [customGlossary, setCustomGlossary] = useState(() => safeGetItem('lv_custom_glossary'));
 
   const [decalageMode, setDecalageMode] = useState(() => safeGetItem('lv_decalage_mode', 'natural'));
-  const [sttLang, setSttLang] = useState(() => safeGetItem('lv_stt_lang', 'auto'));
+  const [sttLang, setSttLang] = useState(() => normalizeSttLang(safeGetItem('lv_stt_lang', 'es')));
   const [sttVad, setSttVad] = useState(() => safeGetItem('lv_stt_vad', 'standard'));
   const [aiStrategy, setAiStrategy] = useState(() => safeGetItem('lv_ai_strategy', 'json_single'));
   const [geminiTemp, setGeminiTemp] = useState(() => safeGetItem('lv_gemini_temp', '0.1'));
@@ -579,7 +589,7 @@ export default function AdminSettingsShell({
       if (initialState.medicalSpecialty !== undefined) setMedicalSpecialty(initialState.medicalSpecialty);
       if (initialState.customGlossary !== undefined) setCustomGlossary(initialState.customGlossary);
       if (initialState.decalageMode !== undefined) setDecalageMode(initialState.decalageMode);
-      if (initialState.sttLang !== undefined) setSttLang(initialState.sttLang);
+      if (initialState.sttLang !== undefined) setSttLang(normalizeSttLang(initialState.sttLang));
       if (initialState.sttVad !== undefined) setSttVad(initialState.sttVad);
       if (initialState.googleNeuralMode !== undefined) setGoogleNeuralMode(initialState.googleNeuralMode);
       if (initialState.qaMode !== undefined) setQaMode(initialState.qaMode);
@@ -709,9 +719,21 @@ export default function AdminSettingsShell({
       if (cfg.geminiLiveVoices) setGeminiLiveVoices(prev => ({ ...prev, ...cfg.geminiLiveVoices }));
       if (cfg.voiceConfig) setVoiceConfig(prev => ({ ...prev, ...cfg.voiceConfig }));
       if (cfg.voiceGender) setVoiceGender(prev => ({ ...prev, ...cfg.voiceGender }));
+      if (cfg.sttLang) setSttLang(normalizeSttLang(cfg.sttLang));
     };
+
+    const handleSpeakerLangChanged = (e) => {
+      if (e?.detail?.sttLang !== undefined) {
+        setSttLang(normalizeSttLang(e.detail.sttLang));
+      }
+    };
+
     window.addEventListener('liftvoice_config_saved', handleConfigEvent);
-    return () => window.removeEventListener('liftvoice_config_saved', handleConfigEvent);
+    window.addEventListener('liftvoice_speaker_lang_changed', handleSpeakerLangChanged);
+    return () => {
+      window.removeEventListener('liftvoice_config_saved', handleConfigEvent);
+      window.removeEventListener('liftvoice_speaker_lang_changed', handleSpeakerLangChanged);
+    };
   }, []);
 
   const PRESETS = {
@@ -747,6 +769,10 @@ export default function AdminSettingsShell({
 
   useEffect(() => {
     if (variant === 'page' || (variant === 'modal' && isOpen)) {
+      const localStt = safeGetItem('lv_stt_lang');
+      if (localStt) {
+        setSttLang(normalizeSttLang(localStt));
+      }
       fetch('/api/config')
         .then(res => res.json())
         .then(data => {
@@ -766,7 +792,7 @@ export default function AdminSettingsShell({
             const loadedVoiceCfg = data.voiceConfig ? { ...voiceConfig, ...data.voiceConfig } : voiceConfig;
             const loadedVoiceGender = data.voiceGender ? { ...voiceGender, ...data.voiceGender } : voiceGender;
             const loadedQwenTts = data.qwenTtsEndpoint !== undefined ? data.qwenTtsEndpoint : qwenTtsEndpoint;
-            const loadedSttLang = data.sttLang || sttLang;
+            const loadedSttLang = normalizeSttLang(data.sttLang || sttLang);
             const loadedSttVad = data.sttVad || sttVad;
             const loadedAiStrategy = data.aiStrategy || aiStrategy;
             const loadedGeminiModel = data.geminiModel || geminiModel;
@@ -786,7 +812,7 @@ export default function AdminSettingsShell({
             if (data.voiceConfig) setVoiceConfig(loadedVoiceCfg);
             if (data.voiceGender) setVoiceGender(loadedVoiceGender);
             if (data.qwenTtsEndpoint !== undefined) setQwenTtsEndpoint(data.qwenTtsEndpoint);
-            if (data.sttLang) setSttLang(data.sttLang);
+            if (data.sttLang) setSttLang(normalizeSttLang(data.sttLang));
             if (data.sttVad) setSttVad(data.sttVad);
             if (data.aiStrategy) setAiStrategy(data.aiStrategy);
             if (data.geminiModel) setGeminiModel(data.geminiModel);

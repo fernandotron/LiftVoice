@@ -58,25 +58,25 @@ export default function SidebarVoiceCatalog({
   const { t } = useI18n();
 
   const CABINS = useMemo(() => [
-    { code: 'es', label: t('languages.es', 'Español') },
-    { code: 'en', label: t('languages.en', 'English') },
-    { code: 'it', label: t('languages.it', 'Italiano') },
-    { code: 'pt', label: t('languages.pt', 'Português') }
+    { code: 'es', label: t('languages.es.name', 'Español') },
+    { code: 'en', label: t('languages.en.name', 'English') },
+    { code: 'it', label: t('languages.it.name', 'Italiano') },
+    { code: 'pt', label: t('languages.pt.name', 'Português') }
   ], [t]);
 
   const CABIN_NAMES = useMemo(() => ({
-    es: t('languages.es', 'Español'),
-    en: t('languages.en', 'English'),
-    it: t('languages.it', 'Italiano'),
-    pt: t('languages.pt', 'Português')
+    es: t('languages.es.name', 'Español'),
+    en: t('languages.en.name', 'English'),
+    it: t('languages.it.name', 'Italiano'),
+    pt: t('languages.pt.name', 'Português')
   }), [t]);
 
   const LANG_OPTIONS = useMemo(() => [
     { value: 'all', label: t('voiceCatalog.allLanguages', 'Todos los idiomas'), icon: Languages },
-    { value: 'es', label: t('languages.es', 'Español'), flag: 'es' },
-    { value: 'en', label: t('languages.en', 'Inglés'), flag: 'gb' },
-    { value: 'it', label: t('languages.it', 'Italiano'), flag: 'it' },
-    { value: 'pt', label: t('languages.pt', 'Português'), flag: 'br' }
+    { value: 'es', label: t('languages.es.name', 'Español'), flag: 'es' },
+    { value: 'en', label: t('languages.en.name', 'Inglés'), flag: 'gb' },
+    { value: 'it', label: t('languages.it.name', 'Italiano'), flag: 'it' },
+    { value: 'pt', label: t('languages.pt.name', 'Português'), flag: 'br' }
   ], [t]);
 
   const ENGINE_OPTIONS = useMemo(() => [
@@ -212,12 +212,12 @@ export default function SidebarVoiceCatalog({
         : (voice.langCode || (voice.id?.toLowerCase().includes('pt-br') ? 'pt' : (voice.lang === 'all' ? 'es' : (voice.lang || 'es'))));
 
       const sampleText = targetLang === 'es'
-        ? 'LiftVoice transmite traducción y subtítulos en directo con latencia ultra baja.'
+        ? 'LiftVoice: traducción simultánea y voz en directo.'
         : targetLang === 'it'
-          ? 'LiftVoice trasmette traduzione e sottotitoli in tempo reale con latenza minima.'
+          ? 'LiftVoice: traduzione simultanea e voce in tempo reale.'
           : targetLang === 'pt'
-            ? 'LiftVoice transmite tradução e legendas em tempo real com baixíssima latência.'
-            : 'LiftVoice streams real-time speech translation and captions with ultra low latency.';
+            ? 'LiftVoice: tradução simultânea e voz em tempo real.'
+            : 'LiftVoice: real-time speech translation and voice.';
 
       let serverAudio = null;
       let mimeType = 'audio/mp3';

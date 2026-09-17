@@ -377,6 +377,7 @@ class AudioPlayerService {
    */
   decodeAudioDataSafe(arrayBuffer) {
     return new Promise((resolve, reject) => {
+      this._ensureAudioGraph();
       if (!this.audioCtx) {
         return reject(new Error('No AudioContext initialized'));
       }
@@ -855,6 +856,8 @@ class AudioPlayerService {
       return;
     }
 
+    this._ensureAudioGraph();
+
     if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted') && !this.isMuted) {
       this.audioCtx.resume().catch(() => {});
     }
@@ -1012,9 +1015,18 @@ class AudioPlayerService {
     if (packet.binaryPayload instanceof ArrayBuffer) {
       this._enqueueDecodeTask(async () => {
         try {
+          this._ensureAudioGraph();
           if (this.audioCtx && (this.audioCtx.state === 'suspended' || this.audioCtx.state === 'interrupted') && !this.isMuted) {
-            await this.audioCtx.resume().catch(() => {});
+            try { await this.audioCtx.resume(); } catch (e) {}
           }
+
+          if (this.isContextSuspended()) {
+            if (!this.suspendedChunks) this.suspendedChunks = [];
+            this.suspendedChunks.push(packet);
+            if (this.suspendedChunks.length > 10) this.suspendedChunks.shift();
+            return;
+          }
+
           const startEpoch = this.playbackEpoch;
           const audioBuffer = await this.decodeAudioDataSafe(packet.binaryPayload);
           if (!audioBuffer || startEpoch !== this.playbackEpoch) return;
@@ -1025,9 +1037,15 @@ class AudioPlayerService {
           }
 
           if (this.workletReady && this.stretcher) {
-            const channelData = audioBuffer.getChannelData(0);
-            const ok = this.pushToWorklet(channelData, packet.timestamp, packet);
-            if (ok) return;
+            try {
+              const channelData = audioBuffer.getChannelData(0);
+              if (channelData && channelData.length > 0) {
+                const ok = this.pushToWorklet(channelData, packet.timestamp, packet);
+                if (ok) return;
+              }
+            } catch (e) {
+              console.warn('[AudioPlayer] Worklet push error in binary chunk, falling back to scheduled source:', e);
+            }
           }
           await this.processAndScheduleDecodedBuffer(audioBuffer, packet);
         } catch (e) {
@@ -1576,9 +1594,24 @@ export const VOICE_PROFILES = {
   'en-US-JennyNeural': { pitch: 1.05, rate: 1.02, detune: 50, gender: 'female', preferredName: 'Jenny' },
   'en-US-GuyNeural': { pitch: 0.82, rate: 0.98, detune: -300, gender: 'male', preferredName: 'Guy' },
   'it-IT-ElsaNeural': { pitch: 1.06, rate: 1.00, detune: 70, gender: 'female', preferredName: 'Elsa' },
-  'it-IT-CosimoNeural': { pitch: 0.84, rate: 0.96, detune: -280, gender: 'male', preferredName: 'Cosimo' },
+  'it-IT-DiegoNeural': { pitch: 0.82, rate: 0.98, detune: -300, gender: 'male', preferredName: 'Diego' },
+  'it-IT-IsabellaNeural': { pitch: 1.15, rate: 1.04, detune: 140, gender: 'female', preferredName: 'Isabella' },
+  'it-IT-GiuseppeMultilingualNeural': { pitch: 0.86, rate: 0.96, detune: -240, gender: 'male', preferredName: 'Giuseppe' },
+  'it-IT-CosimoNeural': { pitch: 0.86, rate: 0.96, detune: -240, gender: 'male', preferredName: 'Giuseppe' },
   'pt-BR-FranciscaNeural': { pitch: 1.08, rate: 1.02, detune: 80, gender: 'female', preferredName: 'Francisca' },
   'pt-BR-AntonioNeural': { pitch: 0.85, rate: 0.98, detune: -260, gender: 'male', preferredName: 'Antonio' },
+
+  // Gemini Live S2S Native Voices
+  'gemini-live-aoede': { pitch: 1.06, rate: 1.00, detune: 50, gender: 'female', preferredName: 'Aoede' },
+  'gemini-live-kore': { pitch: 1.14, rate: 0.95, detune: 120, gender: 'female', preferredName: 'Kore' },
+  'gemini-live-puck': { pitch: 1.00, rate: 1.06, detune: 0, gender: 'neutral', preferredName: 'Puck' },
+  'gemini-live-charon': { pitch: 0.74, rate: 0.92, detune: -400, gender: 'male', preferredName: 'Charon' },
+  'gemini-live-fenrir': { pitch: 0.82, rate: 1.00, detune: -280, gender: 'male', preferredName: 'Fenrir' },
+
+  // Deepgram Aura-2 (Italian)
+  'aura-2-diana-it': { pitch: 1.12, rate: 1.02, detune: 110, gender: 'female', preferredName: 'Diana' },
+  'aura-2-marcos-it': { pitch: 0.84, rate: 0.96, detune: -260, gender: 'male', preferredName: 'Marcos' },
+  '5345cf08-6fba-4089-a296-ee1a9673a726': { pitch: 1.10, rate: 1.02, detune: 90, gender: 'female', preferredName: 'Chiara' },
 
   // OpenAI TTS
   'nova': { pitch: 1.12, rate: 1.04, detune: 140, gender: 'female', preferredName: 'Nova' },
@@ -1586,6 +1619,9 @@ export const VOICE_PROFILES = {
   'echo': { pitch: 0.84, rate: 0.96, detune: -280, gender: 'male', preferredName: 'Echo' },
   'onyx': { pitch: 0.70, rate: 0.92, detune: -450, gender: 'male', preferredName: 'Onyx' },
   'shimmer': { pitch: 1.16, rate: 1.05, detune: 200, gender: 'female', preferredName: 'Shimmer' },
+  'sage': { pitch: 1.05, rate: 1.00, detune: 60, gender: 'female', preferredName: 'Sage' },
+  'coral': { pitch: 1.10, rate: 1.02, detune: 90, gender: 'female', preferredName: 'Coral' },
+  'ash': { pitch: 0.82, rate: 0.98, detune: -300, gender: 'male', preferredName: 'Ash' },
 
   // ElevenLabs
   '21m00Tcm4TlvDq8ikWAM': { pitch: 1.02, rate: 0.98, detune: 30, gender: 'female', preferredName: 'Rachel' },

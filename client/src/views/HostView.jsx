@@ -64,6 +64,13 @@ export const SPEAKER_LANGUAGES = [
   { code: 'auto', langCode: 'auto', label: 'Detección Automática', nativeName: 'Automático', voice: 'Detección automática' }
 ];
 
+export const resolveFullSpeakerLang = (lang) => {
+  if (!lang || lang === 'auto' || lang === 'multi') return 'auto';
+  const l = String(lang).toLowerCase().trim();
+  const found = SPEAKER_LANGUAGES.find(item => item.code === l || item.langCode.toLowerCase() === l || (l.length >= 2 && l.startsWith(item.code)));
+  return found ? found.langCode : lang;
+};
+
 
 export default function HostView({
   roomId = 'MAIN',
@@ -111,7 +118,7 @@ export default function HostView({
   const [sourceLanguage, setSourceLanguage] = useState(() => {
     try {
       const saved = localStorage.getItem('lv_stt_lang');
-      if (saved && saved !== 'auto') return saved;
+      if (saved) return resolveFullSpeakerLang(saved);
       return 'es-ES';
     } catch (e) {
       return 'es-ES';
@@ -120,7 +127,7 @@ export default function HostView({
   const lastExplicitSpeakerLangRef = useRef((() => {
     try {
       const saved = localStorage.getItem('lv_stt_lang');
-      if (saved && saved !== 'auto') return saved;
+      if (saved && saved !== 'auto') return resolveFullSpeakerLang(saved);
     } catch (e) {}
     return 'es-ES';
   })());
@@ -134,6 +141,36 @@ export default function HostView({
       localStorage.setItem('lv_stt_lang', sourceLanguage);
     } catch (e) {}
   }, [sourceLanguage]);
+
+  const updateSpeakerLanguage = useCallback((nextLang) => {
+    const target = nextLang || 'auto';
+    const resolved = resolveFullSpeakerLang(target);
+    setSourceLanguage(resolved);
+    if (resolved !== 'auto') {
+      lastExplicitSpeakerLangRef.current = resolved;
+    }
+    const norm = (!resolved || resolved === 'auto' || resolved === 'multi') ? 'auto' : resolved.slice(0, 2).toLowerCase();
+    try {
+      localStorage.setItem('lv_stt_lang', resolved);
+    } catch (err) {}
+    audioRecorderService.setLanguage?.(resolved);
+
+    // Notificar al panel de administración en tiempo real
+    window.dispatchEvent(new CustomEvent('liftvoice_speaker_lang_changed', {
+      detail: { sttLang: norm }
+    }));
+
+    // Persistir proactivamente en backend para que cualquier recarga o vista de admin esté sincronizada
+    const token = (typeof adminAuthService !== 'undefined' && adminAuthService.getToken) ? adminAuthService.getToken() : null;
+    fetch('/api/config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ sttLang: norm })
+    }).catch(() => {});
+  }, []);
 
   const isBroadcastingRef = useRef(isBroadcasting);
   useEffect(() => {
@@ -391,8 +428,25 @@ export default function HostView({
       if (savedDecalage) audioRecorderService.setDecalageMode?.(savedDecalage);
       const savedLang = localStorage.getItem('lv_stt_lang');
       if (savedLang) {
-        setSourceLanguage(savedLang);
-        audioRecorderService.setLanguage?.(savedLang);
+        const resolved = resolveFullSpeakerLang(savedLang);
+        setSourceLanguage(resolved);
+        audioRecorderService.setLanguage?.(resolved);
+      } else {
+        // En primera carga, fijar explícitamente español (es-ES) en localStorage, audioRecorder y servidor
+        const defaultSpeakerLang = 'es-ES';
+        setSourceLanguage(defaultSpeakerLang);
+        try {
+          localStorage.setItem('lv_stt_lang', defaultSpeakerLang);
+        } catch (e) {}
+        audioRecorderService.setLanguage?.(defaultSpeakerLang);
+        window.dispatchEvent(new CustomEvent('liftvoice_speaker_lang_changed', {
+          detail: { sttLang: 'es' }
+        }));
+        fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sttLang: 'es' })
+        }).catch(() => {});
       }
     } catch (e) {}
 
@@ -408,9 +462,11 @@ export default function HostView({
           setSttEngine(cfg.preferredSttEngine);
           audioRecorderService.setSttEngine?.(cfg.preferredSttEngine);
         }
-        if (cfg.sttLang && cfg.sttLang !== 'auto' && !localStorage.getItem('lv_stt_lang')) {
-          setSourceLanguage(cfg.sttLang);
-          audioRecorderService.setLanguage?.(cfg.sttLang);
+        if (cfg.sttLang && !localStorage.getItem('lv_stt_lang')) {
+          const resolved = resolveFullSpeakerLang(cfg.sttLang);
+          setSourceLanguage(resolved);
+          if (resolved !== 'auto') lastExplicitSpeakerLangRef.current = resolved;
+          audioRecorderService.setLanguage?.(resolved);
         }
         if (cfg.voiceConfig) setSelectedVoices(cfg.voiceConfig);
         if (cfg.voiceGender) setVoiceGender(cfg.voiceGender);
@@ -436,8 +492,10 @@ export default function HostView({
         hasServerKeysRef.current = true;
       }
       if (cfg.sttLang) {
-        setSourceLanguage(cfg.sttLang);
-        audioRecorderService.setLanguage?.(cfg.sttLang);
+        const resolved = resolveFullSpeakerLang(cfg.sttLang);
+        setSourceLanguage(resolved);
+        if (resolved !== 'auto') lastExplicitSpeakerLangRef.current = resolved;
+        audioRecorderService.setLanguage?.(resolved);
       }
       if (cfg.sttEngine) {
         let cleanEngine = cfg.sttEngine;
@@ -528,7 +586,7 @@ export default function HostView({
 
     socketService.connect().then(() => {
       if (!isMounted) return;
-      socketService.joinAsHost(roomId);
+      socketService.joinAsHost(roomId, null, sourceLanguageRef.current);
       const elapsed = Date.now() - startTime;
       const minWait = Math.max(0, 380 - elapsed);
       minWaitTimer = setTimeout(() => {
@@ -847,7 +905,11 @@ export default function HostView({
     const currentSrc = sourceLanguageRef.current;
     let sendLang = (!currentSrc || currentSrc === 'auto' || currentSrc === 'multi') ? 'auto' : currentSrc;
     if (sendLang === 'auto' && detectedLang && detectedLang !== 'auto' && detectedLang !== 'multi') {
-      sendLang = detectedLang;
+      // Guard against Nova-3 STT false positives when mentioning foreign language names (e.g. "en italiano", "in english")
+      const mentionsForeignLang = /\b(en\s+italiano|en\s+inglés|en\s+ingles|en\s+español|en\s+espanol|em\s+português|em\s+portugues|in\s+english|in\s+italian|in\s+spanish)\b/i.test(cleanText);
+      if (!mentionsForeignLang) {
+        sendLang = detectedLang;
+      }
     }
     if (sendLang !== 'auto') {
       const srcLower = sendLang.toLowerCase();
@@ -885,12 +947,14 @@ export default function HostView({
   const handleToggleMonitoring = async (langCode) => {
     if (langCode === 'none' || monitoredLang === langCode) {
       // Salir de la sala / Silenciar retorno
+      monitoredLangRef.current = 'none';
       setMonitoredLang('none');
       audioPlayerService.stopAll();
       socketService.setMonitoredBooth(roomId, 'none');
     } else {
-      audioPlayerService.stopAll();
+      monitoredLangRef.current = langCode;
       setMonitoredLang(langCode);
+      audioPlayerService.stopAll();
       socketService.setMonitoredBooth(roomId, langCode);
       try {
         await audioPlayerService.unlockAudio(roomId, langCode);
@@ -900,6 +964,7 @@ export default function HostView({
   };
 
   const handleStopMonitoring = () => {
+    monitoredLangRef.current = 'none';
     setMonitoredLang('none');
     audioPlayerService.stopAll();
     socketService.setMonitoredBooth(roomId, 'none');
@@ -910,6 +975,12 @@ export default function HostView({
     isTogglingRef.current = true;
     setIsTogglingBroadcast(true);
     setBroadcastError(null);
+
+    // Unlock / prime Web Audio synchronously within the user gesture context
+    const activeBoothLang = (monitoredLangRef.current && monitoredLangRef.current !== 'none')
+      ? monitoredLangRef.current
+      : ((sourceLanguageRef.current && sourceLanguageRef.current !== 'auto') ? sourceLanguageRef.current : 'es');
+    audioPlayerService.unlockAudio(roomId, activeBoothLang).catch(() => {});
 
     try {
       if (isBroadcasting) {
@@ -2102,9 +2173,7 @@ export default function HostView({
                           const next = sourceLanguage === 'auto'
                             ? (lastExplicitSpeakerLangRef.current || 'es-ES')
                             : 'auto';
-                          setSourceLanguage(next);
-                          try { localStorage.setItem('lv_stt_lang', next); } catch (err) {}
-                          audioRecorderService.setLanguage(next);
+                          updateSpeakerLanguage(next);
                         }}
                         className="sr-only outline-none focus:outline-none"
                       />
@@ -2141,10 +2210,7 @@ export default function HostView({
                           key={lang.code}
                           type="button"
                           onClick={() => {
-                            setSourceLanguage(lang.langCode);
-                            lastExplicitSpeakerLangRef.current = lang.langCode;
-                            try { localStorage.setItem('lv_stt_lang', lang.langCode); } catch (e) {}
-                            audioRecorderService.setLanguage(lang.langCode);
+                            updateSpeakerLanguage(lang.langCode);
                           }}
                           className={`p-3 min-w-[44px] min-h-[44px] rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between select-none ${
                             isSelected
@@ -2618,18 +2684,13 @@ export default function HostView({
         onClose={() => setIsStudioSettingsOpen(false)}
         sourceLanguage={sourceLanguage}
         onSelectSourceLanguage={(langCode) => {
-          setSourceLanguage(langCode);
-          lastExplicitSpeakerLangRef.current = langCode;
-          try { localStorage.setItem('lv_stt_lang', langCode); } catch (e) {}
-          audioRecorderService.setLanguage(langCode);
+          updateSpeakerLanguage(langCode);
         }}
         onToggleAutoLanguage={() => {
           const next = sourceLanguage === 'auto'
             ? (lastExplicitSpeakerLangRef.current || 'es-ES')
             : 'auto';
-          setSourceLanguage(next);
-          try { localStorage.setItem('lv_stt_lang', next); } catch (err) {}
-          audioRecorderService.setLanguage(next);
+          updateSpeakerLanguage(next);
         }}
         devices={devices}
         selectedDevice={selectedDevice}

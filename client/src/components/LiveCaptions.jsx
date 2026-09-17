@@ -294,9 +294,18 @@ function LiveCaptions({
       const prevItem = transcriptHistory[i - 1];
 
       const timeDiff = prevItem ? Math.abs((item.timestamp || 0) - (prevItem.timestamp || 0)) : 0;
+      const isLanguageMismatch = Boolean(
+        item.detectedLanguage &&
+        prevItem?.detectedLanguage &&
+        item.detectedLanguage !== 'auto' &&
+        prevItem.detectedLanguage !== 'auto' &&
+        item.detectedLanguage.slice(0, 2).toLowerCase() !== prevItem.detectedLanguage.slice(0, 2).toLowerCase()
+      );
+
       const isNewTurn = !prevItem ||
         Boolean(item.isAudienceQuestion) !== Boolean(prevItem.isAudienceQuestion) ||
         item.attendeeName !== prevItem.attendeeName ||
+        isLanguageMismatch ||
         timeDiff > 4000;
 
       if (isNewTurn || !currentGroup) {

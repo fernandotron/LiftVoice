@@ -149,7 +149,8 @@ class RoomManager {
         }) },
         sttEngine: 'deepgram',
         targetLanguages: ['es', 'en', 'it', 'pt'],
-        autoDetectSource: true,
+        autoDetectSource: false,
+        sourceLang: 'es',
         defaultLanguage: 'es',
         preferredTtsEngine: 'deepgram',
         voiceConfig: {
