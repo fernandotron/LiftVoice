@@ -167,7 +167,9 @@ class RoomManager {
         decalageMode: 'natural',
         decalageValue: 50,
         vadSensitivity: 'standard',
-        lazyCabins: true
+        lazyCabins: true,
+        qaMode: 'host_controlled',
+        qaEnabled: false
       }
     };
 
@@ -460,22 +462,17 @@ class RoomManager {
     const hasActiveHost = Boolean(room.hostSocket && room.hostSocket.readyState === 1 && room.hostSocketId !== socketId);
 
     // SEC-02: Protección contra Host Takeover no autorizado:
-    // 1. Si ya existe un host activo transmitiendo en la sala, la clave debe coincidir estrictamente
+    // Si la sala ya existe y tiene un hostKey configurado, exigir que coincida estrictamente
+    if (!isNewRoom && room.hostKey && room.hostKey !== hostKey) {
+      console.warn(`[RoomManager] [SEC-02] Intento no autorizado de HOST_JOIN en sala ${room.id} (socket: ${socketId})`);
+      return { success: false, error: 'INVALID_HOST_KEY' };
+    }
+
     if (hasActiveHost) {
-      if (room.hostKey && room.hostKey !== hostKey) {
-        console.warn(`[RoomManager] [SEC-02] Rechazado intento no autorizado de takeover HOST_JOIN en sala ${room.id} (socket: ${socketId})`);
-        return { success: false, error: 'INVALID_HOST_KEY' };
-      }
       console.log(`[RoomManager] Host takeover autorizado en sala ${room.id}: reemplazando socket ${room.hostSocketId} con ${socketId}`);
       try {
         room.hostSocket.close(4001, 'Host session replaced by authenticated connection');
       } catch (e) {}
-    } else {
-      // 2. Si la sala no tiene host activo pero el cliente presentó una clave explícitamente incorrecta
-      if (hostKey && room.hostKey && room.hostKey !== hostKey) {
-        console.warn(`[RoomManager] [SEC-02] Clave de host incorrecta en sala ${room.id} (socket: ${socketId})`);
-        return { success: false, error: 'INVALID_HOST_KEY' };
-      }
     }
 
     if (!room.hostKey) {
@@ -780,7 +777,8 @@ class RoomManager {
         if (room.qaQueue && room.qaQueue.length > 0) {
           room.qaQueue = room.qaQueue.map(q => {
             if (q.socketId === socketId) {
-              return q.attendeeId ? { ...q, socketId: null } : null;
+              const isAnonymous = !q.attendeeId || q.attendeeId === socketId;
+              return isAnonymous ? null : { ...q, socketId: null };
             }
             return q;
           }).filter(Boolean);
@@ -883,6 +881,9 @@ class RoomManager {
       totalListeners: effectiveTotal,
       languageBreakdown: langCounts,
       qaQueueCount: (room.qaQueue || []).length,
+      qaMode: room.config?.qaMode || 'host_controlled',
+      qaEnabled: Boolean(room.config?.qaEnabled),
+      isQAAllowed: (room.config?.qaMode === 'always') || Boolean(room.config?.qaEnabled),
       activeSpeaker: room.activeSpeaker ? { attendeeId: room.activeSpeaker.attendeeId, name: room.activeSpeaker.name, lang: room.activeSpeaker.lang } : null,
       attendees: sanitizedAttendees,
       metrics: room.metrics
@@ -963,17 +964,28 @@ class RoomManager {
   }
 
 
+  isQAAllowed(roomIdOrRoom) {
+    const room = typeof roomIdOrRoom === 'string' ? this.getRoom(roomIdOrRoom) : roomIdOrRoom;
+    if (!room || !room.config) return false;
+    const mode = room.config.qaMode || 'host_controlled';
+    if (mode === 'always') return true;
+    return Boolean(room.config.qaEnabled);
+  }
+
   addHandRaise(roomId, socketId, profile = {}) {
     const room = this.getRoom(roomId);
-    if (!room) return null;
+    if (!room || !this.isQAAllowed(room)) return null;
     const attendeeId = profile.attendeeId || socketId;
     const name = typeof profile.name === 'string' ? profile.name.trim().slice(0, 80) : 'Asistente';
-    const lang = (profile.lang || profile.nativeLang || profile.currentLang || 'es').toLowerCase();
+    const rawLang = typeof profile.lang === 'string' ? profile.lang : (typeof profile.nativeLang === 'string' ? profile.nativeLang : (typeof profile.currentLang === 'string' ? profile.currentLang : 'es'));
+    const lang = rawLang.trim().toLowerCase().slice(0, 10);
     const questionText = typeof profile.questionText === 'string' ? profile.questionText.trim().slice(0, 500) : '';
 
     const existingIdx = room.qaQueue.findIndex(q => q.socketId === socketId || q.attendeeId === attendeeId);
+    const serverGenId = `q_${Date.now().toString(36)}_${crypto.randomBytes(3).toString('hex')}`;
+    const assignedId = (existingIdx >= 0 && room.qaQueue[existingIdx].questionId) ? room.qaQueue[existingIdx].questionId : serverGenId;
     const item = {
-      questionId: profile.questionId || (existingIdx >= 0 ? room.qaQueue[existingIdx].questionId : `q_${Math.random().toString(36).slice(2, 8)}`),
+      questionId: assignedId,
       socketId,
       attendeeId,
       name,
@@ -1033,6 +1045,29 @@ class RoomManager {
       return true;
     }
     return false;
+  }
+
+  setQAMode(roomId, qaMode) {
+    const room = this.getRoom(roomId);
+    if (!room) return null;
+    if (!room.config) room.config = {};
+    const normalizedMode = qaMode === 'always' ? 'always' : 'host_controlled';
+    room.config.qaMode = normalizedMode;
+    this.broadcastStats(roomId, true);
+    return {
+      qaMode: room.config.qaMode,
+      qaEnabled: Boolean(room.config.qaEnabled),
+      isQAAllowed: this.isQAAllowed(room)
+    };
+  }
+
+  setQAEnabled(roomId, enabled) {
+    const room = this.getRoom(roomId);
+    if (!room) return false;
+    if (!room.config) room.config = {};
+    room.config.qaEnabled = Boolean(enabled);
+    this.broadcastStats(roomId, false);
+    return room.config.qaEnabled;
   }
 
   broadcastStats(roomId, immediate = false) {
@@ -1321,3 +1356,4 @@ class RoomManager {
 }
 
 export const roomManager = new RoomManager();
+export default roomManager;

@@ -203,6 +203,30 @@ export default function RoomsSection({
     }
   };
 
+  const handleUpdateQAMode = async (targetRoomId, newMode) => {
+    try {
+      const token = getAdminToken();
+      await fetch(`/api/rooms/${targetRoomId}/qa-config`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({ qaMode: newMode })
+      });
+      // Actualizar inmediatamente la sala seleccionada en la vista local
+      if (selectedRoom?.roomId === targetRoomId) {
+        setSelectedRoom(prev => prev ? {
+          ...prev,
+          config: { ...(prev.config || {}), qaMode: newMode }
+        } : prev);
+      }
+      fetchRooms(true);
+    } catch (e) {
+      console.warn('Error al actualizar qaMode en la sala:', e);
+    }
+  };
+
   const formatUptime = (createdAt) => {
     if (!createdAt) return 'En directo';
     const diffMs = Math.max(0, now - Number(createdAt));
@@ -501,6 +525,74 @@ export default function RoomsSection({
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                     URL pública directa para que los oyentes sigan la interpretación simultánea desde sus dispositivos.
                   </p>
+                </div>
+
+                {/* Modo de preguntas de la audiencia (Q&A) */}
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                      Modo de preguntas de la audiencia (Q&A)
+                    </label>
+                    <span className={`text-[11px] font-medium flex items-center gap-1.5 ${
+                      (selectedRoom.config?.qaMode || 'always') === 'always'
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }`}>
+                      {(selectedRoom.config?.qaMode || 'always') === 'always' ? 'Preguntas en cualquier momento' : 'Controlado por el ponente'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Opción 1: En cualquier momento */}
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateQAMode(selectedRoom.roomId, 'always')}
+                      className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                        (selectedRoom.config?.qaMode || 'always') === 'always'
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-zinc-900 dark:text-white shadow-2xs ring-1 ring-emerald-500/20'
+                          : 'bg-zinc-100/70 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          En cualquier momento
+                        </span>
+                        {(selectedRoom.config?.qaMode || 'always') === 'always' && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                            Activo
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                        Los oyentes pueden consultar durante toda la ponencia. Le llegan directamente al ponente y él decide cuándo responderlas.
+                      </p>
+                    </button>
+
+                    {/* Opción 2: El ponente decide */}
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateQAMode(selectedRoom.roomId, 'host_controlled')}
+                      className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                        selectedRoom.config?.qaMode === 'host_controlled'
+                          ? 'bg-amber-500/10 border-amber-500/30 text-zinc-900 dark:text-white shadow-2xs ring-1 ring-amber-500/20'
+                          : 'bg-zinc-100/70 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          El ponente decide
+                        </span>
+                        {selectedRoom.config?.qaMode === 'host_controlled' && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                            Activo
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                        Aparece un botón en el inspector del ponente para permitir o pausar las preguntas en vivo cuando él lo determine.
+                      </p>
+                    </button>
+                  </div>
                 </div>
               </div>
 

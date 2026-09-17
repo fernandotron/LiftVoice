@@ -467,6 +467,48 @@ app.post('/api/rooms/:roomId/voices', requireHostAuth, (req, res) => {
   });
 });
 
+// Room Q&A Toggle and Configuration endpoint
+const handleQAConfig = (req, res) => {
+  const room = roomManager.getRoom(req.params.roomId);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+
+  if (req.body.qaMode !== undefined) {
+    const rawMode = String(req.body.qaMode).trim().toLowerCase();
+    const nextMode = rawMode === 'always' ? 'always' : 'host_controlled';
+    roomManager.setQAMode(room.id, nextMode);
+  }
+
+  if (req.body.enabled !== undefined) {
+    let nextState;
+    if (typeof req.body.enabled === 'string') {
+      nextState = req.body.enabled.trim().toLowerCase() === 'true';
+    } else {
+      nextState = Boolean(req.body.enabled);
+    }
+    roomManager.setQAEnabled(room.id, nextState);
+  } else if (req.body.qaMode === undefined) {
+    const nextState = !room.config?.qaEnabled;
+    roomManager.setQAEnabled(room.id, nextState);
+  }
+
+  const isAllowed = roomManager.isQAAllowed(room);
+  roomManager.broadcastToRoom(room.id, {
+    type: 'QA_CONFIG_UPDATED',
+    qaMode: room.config.qaMode,
+    qaEnabled: room.config.qaEnabled,
+    isQAAllowed: isAllowed
+  });
+  return res.json({
+    success: true,
+    qaMode: room.config.qaMode,
+    qaEnabled: room.config.qaEnabled,
+    isQAAllowed: isAllowed
+  });
+};
+
+app.post('/api/rooms/:roomId/qa-toggle', requireHostAuth, handleQAConfig);
+app.post('/api/rooms/:roomId/qa-config', requireHostAuth, handleQAConfig);
+
 // Attendee Leads endpoints (CRIT-03)
 app.get('/api/rooms/:roomId/attendees', requireHostAuth, (req, res) => {
   const attendees = roomManager.getAttendeesList(req.params.roomId);
@@ -963,6 +1005,9 @@ wss.on('close', () => {
   clearInterval(heartbeatInterval);
 });
 
+// Cooldown map to prevent Q&A flooding and LLM exhaustion (socketId -> timestamp)
+const qaRateLimitMap = new Map();
+
 wss.on('connection', (ws, req) => {
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
@@ -1241,13 +1286,38 @@ wss.on('connection', (ws, req) => {
             break;
           }
           const targetRoom = currentRoomId;
+          const room = roomManager.getRoom(targetRoom);
+          if (!room || !roomManager.isQAAllowed(room)) {
+            ws.send(JSON.stringify({
+              type: 'ERROR',
+              code: 'QA_DISABLED',
+              message: 'El ponente no ha habilitado todavía la opción de preguntas'
+            }));
+            break;
+          }
+
+          // Rate limit: 1 request every 1000ms per socket to prevent LLM quota exhaustion
+          const lastAttempt = qaRateLimitMap.get(socketId) || 0;
+          const now = Date.now();
+          if (now - lastAttempt < 1000) {
+            ws.send(JSON.stringify({
+              type: 'ERROR',
+              code: 'QA_RATE_LIMITED',
+              message: 'Por favor, espera un momento antes de volver a enviar tu pregunta.'
+            }));
+            break;
+          }
+          qaRateLimitMap.set(socketId, now);
+
+          const listener = room?.listeners?.get(socketId);
+          const verifiedAttendeeId = listener?.attendeeId || socketId;
           const cleanProfile = {
-            ...(msg.profile || {}),
-            name: typeof msg.profile?.name === 'string' ? msg.profile.name.trim().slice(0, 80) : 'Asistente',
+            attendeeId: verifiedAttendeeId,
+            name: typeof msg.profile?.name === 'string' ? msg.profile.name.trim().slice(0, 80) : (listener?.name || 'Asistente'),
+            lang: typeof msg.profile?.lang === 'string' ? msg.profile.lang.trim().slice(0, 10) : (typeof msg.profile?.nativeLang === 'string' ? msg.profile.nativeLang.trim().slice(0, 10) : (listener?.lang || 'es')),
             questionText: typeof msg.profile?.questionText === 'string' ? msg.profile.questionText.trim().slice(0, 500) : ''
           };
           const item = roomManager.addHandRaise(targetRoom, socketId, cleanProfile);
-          const room = roomManager.getRoom(targetRoom);
 
           // Fast-path immediate confirmation to attendee (<5ms): eliminate UI lag while translation runs asynchronously
           ws.send(JSON.stringify({
@@ -1284,7 +1354,10 @@ wss.on('connection', (ws, req) => {
             }
           }
 
-          if (room && room.hostSocket && room.hostSocket.readyState === 1) {
+          // Ensure question is still active in queue or active speaker (user didn't lower hand during in-flight translation)
+          const stillInQueue = room?.qaQueue?.some(q => q.questionId === item?.questionId);
+          const isStillActiveSpeaker = room?.activeSpeaker?.questionId === item?.questionId;
+          if (room && room.hostSocket && room.hostSocket.readyState === 1 && (stillInQueue || isStillActiveSpeaker)) {
             room.hostSocket.send(JSON.stringify({
               type: 'QA_QUESTION_REQUESTED',
               request: item,
@@ -1305,9 +1378,10 @@ wss.on('connection', (ws, req) => {
             break;
           }
           const targetRoom = currentRoomId;
-          const attId = msg.attendeeId || socketId;
-          roomManager.removeHandRaise(targetRoom, attId);
           const room = roomManager.getRoom(targetRoom);
+          const listener = room?.listeners?.get(socketId);
+          const attId = listener?.attendeeId || socketId;
+          roomManager.removeHandRaise(targetRoom, attId);
           if (room && room.hostSocket && room.hostSocket.readyState === 1) {
             room.hostSocket.send(JSON.stringify({
               type: 'QA_HAND_LOWERED',
@@ -1442,6 +1516,81 @@ wss.on('connection', (ws, req) => {
             roomManager.broadcastToRoom(targetRoom, {
               type: 'QA_QUESTION_CLOSED'
             });
+          }
+          break;
+        }
+
+        case 'HOST_TOGGLE_QA': {
+          if (clientRole !== 'HOST') {
+            console.warn(`[WS] [RBAC] Unauthorized HOST_TOGGLE_QA attempt from socket ${socketId} (role: ${clientRole})`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can configure Q&A.' }));
+            break;
+          }
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. No active room joined.' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Host attempted to manage room ${msg.roomId} but active room is ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only manage your own active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
+          const room = roomManager.getRoom(targetRoom);
+          if (room) {
+            if (msg.qaMode !== undefined) {
+              const rawMode = String(msg.qaMode).trim().toLowerCase();
+              const nextMode = rawMode === 'always' ? 'always' : 'host_controlled';
+              roomManager.setQAMode(targetRoom, nextMode);
+            }
+            if (msg.enabled !== undefined) {
+              const isEnabled = typeof msg.enabled === 'string' ? msg.enabled.trim().toLowerCase() === 'true' : Boolean(msg.enabled);
+              roomManager.setQAEnabled(targetRoom, isEnabled);
+            } else if (msg.qaMode === undefined) {
+              const nextState = !room.config?.qaEnabled;
+              roomManager.setQAEnabled(targetRoom, nextState);
+            }
+            const isAllowed = roomManager.isQAAllowed(room);
+            roomManager.broadcastToRoom(targetRoom, {
+              type: 'QA_CONFIG_UPDATED',
+              qaMode: room.config.qaMode,
+              qaEnabled: room.config.qaEnabled,
+              isQAAllowed: isAllowed
+            });
+            console.log(`[RoomManager] ❓ Q&A modo: ${room.config.qaMode}, habilitado: ${room.config.qaEnabled} en sala ${targetRoom}`);
+          }
+          break;
+        }
+
+        case 'HOST_SET_QA_MODE': {
+          if (clientRole !== 'HOST') {
+            console.warn(`[WS] [RBAC] Unauthorized HOST_SET_QA_MODE attempt from socket ${socketId} (role: ${clientRole})`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. Only host can configure Q&A mode.' }));
+            break;
+          }
+          if (!currentRoomId) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Unauthorized. No active room joined.' }));
+            break;
+          }
+          if (msg.roomId && msg.roomId.toUpperCase() !== currentRoomId) {
+            console.warn(`[WS] [IDOR] Host attempted to set QA mode in ${msg.roomId} but active room is ${currentRoomId}`);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Forbidden. You can only manage your active room' }));
+            break;
+          }
+          const targetRoom = currentRoomId;
+          const room = roomManager.getRoom(targetRoom);
+          if (room) {
+            const rawMode = String(msg.qaMode || '').trim().toLowerCase();
+            const nextMode = rawMode === 'always' ? 'always' : 'host_controlled';
+            roomManager.setQAMode(targetRoom, nextMode);
+            const isAllowed = roomManager.isQAAllowed(room);
+            roomManager.broadcastToRoom(targetRoom, {
+              type: 'QA_CONFIG_UPDATED',
+              qaMode: room.config.qaMode,
+              qaEnabled: room.config.qaEnabled,
+              isQAAllowed: isAllowed
+            });
+            console.log(`[RoomManager] ❓ Q&A modo configurado a: ${room.config.qaMode} en sala ${targetRoom}`);
           }
           break;
         }
@@ -1691,6 +1840,7 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     console.log(`[WS] Connection closed: ${socketId} (${clientRole || 'UNSPECIFIED'})`);
+    qaRateLimitMap.delete(socketId);
     if (clientRole === 'HOST') {
       roomManager.removeHost(socketId);
     }

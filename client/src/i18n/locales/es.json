@@ -79,20 +79,22 @@
         "placeholder": "Escribe tu consulta en cualquier idioma (el ponente la recibirá traducida)...",
         "dictateButton": "Dictar",
         "dictateStop": "Detener",
-        "submitButton": "Pedir la Palabra",
+        "submitButton": "Enviar Pregunta",
         "visibleName": "Nombre visible:",
         "requestedBanner": {
-          "title": "Turno solicitado",
-          "desc": "El ponente ha recibido tu consulta. Se te notificará cuando se te conceda la palabra."
+          "title": "Pregunta enviada",
+          "desc": "El ponente ha recibido tu consulta y te responderá durante la ponencia."
         },
         "speakingBanner": {
-          "title": "¡Tienes la palabra!",
-          "desc": "El ponente te ha dado paso en directo."
+          "title": "¡Turno de tu pregunta!",
+          "desc": "El ponente está atendiendo tu pregunta en directo."
         },
         "yourSentQuery": "Tu consulta enviada:",
         "yourQuery": "Tu consulta:",
-        "cancelTurn": "Cancelar turno y bajar la mano",
-        "finishIntervention": "Finalizar intervención"
+        "cancelTurn": "Cancelar pregunta",
+        "finishIntervention": "Finalizar intervención",
+        "disabledTitle": "Preguntas no habilitadas",
+        "disabledNotice": "El ponente no ha habilitado todavía la opción de preguntas"
       },
       "suggestions": {
         "title": "Preguntas recomendadas",
@@ -179,12 +181,12 @@
       "aria": "Ver audiencia de la sala"
     },
     "qaButton": {
-      "requestedTitle": "Mano levantada (esperando turno)",
-      "requestedAria": "Mano levantada (esperando turno)",
-      "speakingTitle": "Tienes la palabra",
-      "speakingAria": "Tienes la palabra",
-      "defaultTitle": "Pedir la palabra / Q&A",
-      "defaultAria": "Pedir la palabra al ponente"
+      "requestedTitle": "Pregunta enviada (en espera)",
+      "requestedAria": "Pregunta enviada (en espera)",
+      "speakingTitle": "Tu pregunta en directo",
+      "speakingAria": "Tu pregunta en directo",
+      "defaultTitle": "Hacer una pregunta / Q&A",
+      "defaultAria": "Hacer una pregunta al ponente"
     }
   },
   "languageBottomSheet": {
@@ -202,21 +204,21 @@
   },
   "mobileQAPill": {
     "floatingButton": {
-      "speakingAria": "Tu turno de hablar activo. Toca para abrir micrófono.",
-      "requestedAria": "Mano levantada enviada. Toca para ver estado.",
+      "speakingAria": "Tu pregunta activa. Toca para ver detalles.",
+      "requestedAria": "Pregunta enviada. Toca para ver estado.",
       "defaultAria": "Preguntar al ponente en vivo",
       "speakingText": "¡Tu turno!",
-      "requestedText": "Mano enviada",
+      "requestedText": "Enviada",
       "defaultText": "Preguntar"
     },
     "modal": {
       "title": "Preguntar al ponente",
       "speakingSubtitle": "Habla en {{language}}. El ponente te escuchará traducido en tiempo real.",
-      "defaultSubtitle": "Envía tu duda por escrito o solicita la palabra para intervenir en directo.",
+      "defaultSubtitle": "Envía tu duda o pregunta al ponente en cualquier idioma.",
       "closeAria": "Cerrar ventana de preguntas",
       "placeholder": "Escribe tu consulta en cualquier idioma (el ponente la recibirá traducida)...",
-      "raiseHandButton": "Pedir la Palabra",
-      "cancelTurnButton": "Bajar la mano y cancelar turno",
+      "raiseHandButton": "Enviar Pregunta",
+      "cancelTurnButton": "Cancelar pregunta",
       "finishButton": "Finalizar intervención",
       "speakingBannerSubtitle": "Micrófono abierto en directo",
       "speakingBannerDesc": "Habla en {{language}}. El ponente te escuchará traducido en tiempo real en su auricular.",
@@ -539,15 +541,33 @@
     "qa": {
       "title": "Turnos de Pregunta (Q&A)",
       "subtitle": "Intervenciones y preguntas de oyentes en vivo",
-      "desc": "Los oyentes pueden pulsar \"Pedir la palabra\" para intervenir en su idioma nativo.",
+      "desc": "Los oyentes pueden enviar preguntas en su idioma nativo.",
+      "toggleLabel": "Permitir preguntas",
+      "modeTitle": "Modo de preguntas en la sala",
+      "modeAlways": "En cualquier momento",
+      "modeAlwaysDesc": "Los oyentes pueden enviar preguntas durante toda la ponencia. Tú decides cuándo responderlas.",
+      "modeControlled": "El ponente decide",
+      "modeControlledDesc": "Aparece un botón en tu inspector para permitir o pausar las preguntas en vivo.",
+      "statusAlwaysOpen": "Siempre abiertas",
+      "alwaysOpenDesc": "Los oyentes pueden enviar preguntas en cualquier momento. Te llegarán en directo y tú decides cuándo responderlas.",
+      "changeModeAria": "Cambiar modo de preguntas",
+      "openSettings": "Ajustes de sala",
+      "enabledDesc": "Los oyentes pueden enviar preguntas en su idioma nativo.",
+      "disabledDesc": "Preguntas pausadas. Los oyentes verán que la opción de preguntas aún no ha sido habilitada.",
+      "statusLabel": "Estado:",
+      "statusEnabled": "Habilitadas",
+      "statusPaused": "Pausadas",
+      "stateEnabled": "Habilitar preguntas",
+      "statePaused": "Pausar preguntas",
+      "closeAria": "Cerrar panel de preguntas",
       "emptyPending": "No hay preguntas pendientes",
-      "emptyPendingDesc": "Los participantes aparecerán aquí cuando levanten la mano o envíen una pregunta.",
+      "emptyPendingDesc": "Las preguntas de los oyentes aparecerán aquí en tiempo real cuando las envíen.",
       "activeSpeakerTitle": "{{name}} está hablando",
       "activeSpeakerSubtitle": "Canal nativo: {{lang}} ➔ traducción a tu auricular",
       "activeSpeakerEarpieceListening": "Escuchando intervención en tu auricular...",
       "translationToEar": "Traducción a tu oído: \"{{text}}\"",
-      "endTurn": "Finalizar Turno de Pregunta",
-      "giveFloor": "Dar la palabra",
+      "endTurn": "Finalizar pregunta",
+      "giveFloor": "Atender pregunta",
       "dismiss": "Descartar",
       "waitingBadge": "En espera",
       "nativeLangLabel": "Idioma nativo: {{lang}}",

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X, Hand, Mic, CheckCircle2, XCircle } from 'lucide-react';
 import Banner from '../shared/Banner.jsx';
+import { useI18n } from '../../contexts/I18nContext.jsx';
 
 /**
  * QABottomSheet — LiftVoice Studio 2026
@@ -18,8 +19,14 @@ export default function QABottomSheet({
   activeQuestion = null,
   incomingQuestionAudio = null,
   onApproveQuestion = () => {},
-  onCloseQuestion = () => {}
+  onCloseQuestion = () => {},
+  qaEnabled = false,
+  qaMode = 'always',
+  onSetQAMode = () => {},
+  onToggleQA = () => {}
 }) {
+  const { t } = useI18n();
+
   useEffect(() => {
     if (!isOpen) return;
     const originalOverflow = document.body.style.overflow;
@@ -51,7 +58,7 @@ export default function QABottomSheet({
       <div
         className="flex-1 w-full cursor-pointer"
         onClick={onClose}
-        aria-label="Cerrar panel de preguntas"
+        aria-label={t('host.qa.closeAria', 'Cerrar panel de preguntas')}
       />
 
       {/* Sheet Container */}
@@ -62,7 +69,7 @@ export default function QABottomSheet({
             <div>
               <div className="flex items-center gap-2">
                 <h3 id="qa-sheet-title" className="font-bold text-sm text-zinc-900 dark:text-white truncate">
-                  Turnos de Pregunta (Q&A)
+                  {t('host.qa.title', 'Turnos de Pregunta (Q&A)')}
                 </h3>
                 {pendingQuestions.length > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-mono text-xs font-bold shrink-0">
@@ -71,7 +78,7 @@ export default function QABottomSheet({
                 )}
               </div>
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                Intervenciones y preguntas de oyentes en vivo
+                {t('host.qa.subtitle', 'Intervenciones y preguntas de oyentes en vivo')}
               </p>
             </div>
           </div>
@@ -79,7 +86,7 @@ export default function QABottomSheet({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Cerrar panel de preguntas"
+            aria-label={t('host.qa.closeAria', 'Cerrar panel de preguntas')}
             className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation flex-shrink-0"
           >
             <X className="w-4 h-4" />
@@ -89,17 +96,56 @@ export default function QABottomSheet({
         {/* Contenido Scrolleable */}
         <div className="p-5 space-y-4 overflow-y-auto overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] no-scrollbar">
           
+          {/* Bloque de Modo y Control de Preguntas */}
+          {/* Tarjeta de Turnos de Pregunta (Q&A) - Diseño fiel y limpio */}
+          <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 space-y-1.5 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Hand className={`w-4 h-4 ${(qaMode === 'always' || qaEnabled) ? 'text-amber-500' : 'text-zinc-400'}`} />
+                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                  {t('host.qa.title', 'Turnos de Pregunta (Q&A)')}
+                </span>
+              </div>
+              {qaMode === 'host_controlled' && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={qaEnabled}
+                  aria-label={t('host.qa.toggleLabel', 'Permitir preguntas')}
+                  onClick={onToggleQA}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-zinc-600 focus:outline-none touch-manipulation ${
+                    qaEnabled ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-300 dark:bg-zinc-700'
+                  }`}
+                  title={qaEnabled ? t('host.qa.statePaused', 'Pausar preguntas') : t('host.qa.stateEnabled', 'Habilitar preguntas')}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full shadow-xs transition duration-200 ease-in-out mt-0.75 ${
+                      qaEnabled ? 'translate-x-4.5 bg-white dark:bg-zinc-900' : 'translate-x-0.75 bg-white'
+                    }`}
+                  />
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              {qaMode === 'always'
+                ? t('host.qa.alwaysOpenDesc', 'Los oyentes pueden enviar preguntas en cualquier momento. Te llegarán en directo y tú decides cuándo responderlas.')
+                : (qaEnabled
+                    ? t('host.qa.enabledDesc', 'Los oyentes pueden enviar preguntas en su idioma nativo.')
+                    : t('host.qa.disabledDesc', 'Preguntas pausadas. Los oyentes verán que la opción de preguntas aún no ha sido habilitada.'))}
+            </p>
+          </div>
+
           {/* Oyente Activo en Directo */}
           {activeQuestion && (
             <Banner
               icon={<Mic className="w-4 h-4 text-white animate-pulse" strokeWidth={2.4} />}
               color="#10b981"
-              title={`${activeQuestion.name || 'Oyente'} está hablando`}
-              subtitle={`Canal nativo: ${activeQuestion.nativeLang || 'en'} ➔ traducción a tu auricular`}
+              title={t('host.qa.activeSpeakerTitle', { name: activeQuestion.name || 'Oyente' })}
+              subtitle={t('host.qa.activeSpeakerSubtitle', { lang: activeQuestion.nativeLang || 'en' })}
               desc={
                 incomingQuestionAudio?.translatedText
-                  ? `Traducción en vivo: "${incomingQuestionAudio.translatedText}"`
-                  : 'Escuchando intervención en tu auricular...'
+                  ? t('host.qa.translationToEar', { text: incomingQuestionAudio.translatedText })
+                  : t('host.qa.activeSpeakerEarpieceListening', 'Escuchando intervención en tu auricular...')
               }
               bottomAction={
                 <button
@@ -108,7 +154,7 @@ export default function QABottomSheet({
                   className="w-full h-10 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all active:scale-98 touch-manipulation"
                 >
                   <XCircle className="w-4 h-4 text-rose-500" />
-                  <span>Finalizar Turno de Pregunta</span>
+                  <span>{t('host.qa.endTurn', 'Finalizar pregunta')}</span>
                 </button>
               }
             />
@@ -123,10 +169,10 @@ export default function QABottomSheet({
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                    No hay preguntas pendientes
+                    {t('host.qa.emptyPending', 'No hay preguntas pendientes')}
                   </p>
                   <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 leading-relaxed max-w-xs mx-auto">
-                    Los oyentes pueden pulsar &ldquo;Pedir la palabra&rdquo; desde sus móviles para intervenir en su idioma.
+                    {t('host.qa.emptyPendingDesc', 'Las preguntas de los oyentes aparecerán aquí en tiempo real cuando las envíen.')}
                   </p>
                 </div>
               </div>
@@ -148,12 +194,12 @@ export default function QABottomSheet({
                             {q.name || 'Oyente'}
                           </div>
                           <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
-                            Idioma nativo: {q.nativeLang || 'es'}
+                            {t('host.qa.nativeLangLabel', { lang: q.nativeLang || 'es' })}
                           </div>
                         </div>
                       </div>
                       <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 flex-shrink-0 font-medium">
-                        En espera
+                        {t('host.qa.waitingBadge', 'En espera')}
                       </span>
                     </div>
 
@@ -162,7 +208,9 @@ export default function QABottomSheet({
                         <div className="italic text-zinc-800 dark:text-zinc-200">&ldquo;{q.questionText}&rdquo;</div>
                         {q.translatedText && q.translatedText.trim() !== q.questionText.trim() && (
                           <div className="text-[11px] text-zinc-500 dark:text-zinc-400 border-t border-zinc-200/60 dark:border-zinc-800/80 pt-1.5 not-italic">
-                            <span className="font-semibold text-zinc-700 dark:text-zinc-300">Traducción: </span>
+                            <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                              {t('host.qa.translationLabel', { lang: '' })}
+                            </span>
                             {q.translatedText}
                           </div>
                         )}
@@ -177,13 +225,14 @@ export default function QABottomSheet({
                         className="flex-1 h-9 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-40 text-white dark:text-zinc-950 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs active:scale-95 touch-manipulation"
                       >
                         <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-600" />
-                        <span>Dar la palabra</span>
+                        <span>{t('host.qa.giveFloor', 'Atender pregunta')}</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => onCloseQuestion(q.questionId)}
                         className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-full border border-zinc-200 dark:border-zinc-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer flex items-center justify-center active:scale-95 touch-manipulation"
-                        title="Descartar pregunta"
+                        title={t('host.qa.dismiss', 'Descartar')}
+                        aria-label={t('host.qa.dismiss', 'Descartar')}
                       >
                         <XCircle className="w-4 h-4" />
                       </button>

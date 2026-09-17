@@ -6,6 +6,7 @@ import { useI18n } from '../../contexts/I18nContext.jsx';
 
 export default function MobileQAPill({
   qaState = 'idle', // 'idle' | 'requested' | 'speaking' | 'completed'
+  isQAEnabled = false,
   currentLanguage = { nativeName: 'Español', code: 'es' },
   questionText = '',
   setQuestionText = () => {},
@@ -127,6 +128,8 @@ export default function MobileQAPill({
               <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed pt-0.5">
                 {qaState === 'speaking'
                   ? t('mobileQAPill.modal.speakingSubtitle', { language: langName })
+                  : (!isQAEnabled && qaState === 'idle')
+                  ? t('listenerView.assistant.qa.disabledNotice', 'El ponente no ha habilitado todavía la opción de preguntas')
                   : t('mobileQAPill.modal.defaultSubtitle')}
               </p>
             </div>
@@ -142,20 +145,21 @@ export default function MobileQAPill({
           </div>
         }
         footer={
-          <div className="w-full">
-            {qaState === 'idle' ? (
-              <div className="w-full">
-                <button
-                  type="button"
-                  onClick={handleFormSubmit}
-                  disabled={!questionText.trim()}
-                  className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
-                >
-                  <Hand className="w-4 h-4" />
-                  <span>{t('mobileQAPill.modal.raiseHandButton')}</span>
-                </button>
-              </div>
-            ) : qaState === 'requested' ? (
+          (!isQAEnabled && qaState === 'idle') ? null : (
+            <div className="w-full">
+              {qaState === 'idle' ? (
+                <div className="w-full">
+                  <button
+                    type="button"
+                    onClick={handleFormSubmit}
+                    disabled={!questionText.trim()}
+                    className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
+                  >
+                    <Hand className="w-4 h-4" />
+                    <span>{t('mobileQAPill.modal.raiseHandButton')}</span>
+                  </button>
+                </div>
+              ) : qaState === 'requested' ? (
               <button
                 type="button"
                 onClick={() => {
@@ -188,7 +192,7 @@ export default function MobileQAPill({
               </button>
             )}
           </div>
-        }
+        )}
       >
         <div className="space-y-3.5 pt-1.5">
           {/* Hand Raised Status Banner */}
@@ -242,16 +246,37 @@ export default function MobileQAPill({
 
           {/* Form Input for Question: Only shown when idle */}
           {qaState === 'idle' && (
-            <div className="p-3.5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-transparent focus-within:border-zinc-400 dark:focus-within:border-zinc-600 transition-colors shadow-2xs text-left">
-              <textarea
-                id="mobile-qa-text"
-                rows={3}
-                value={questionText}
-                onChange={(e) => setQuestionText(e.target.value)}
-                placeholder={t('mobileQAPill.modal.placeholder')}
-                className="w-full bg-transparent border-0 p-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-0 resize-none leading-relaxed"
-              />
-            </div>
+            !isQAEnabled ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="p-5 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 text-center space-y-3 animate-fadeIn"
+              >
+                <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center mx-auto text-zinc-400 dark:text-zinc-500">
+                  <Hand className="w-5 h-5 opacity-40" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                    {t('listenerView.assistant.qa.disabledTitle', 'Preguntas no habilitadas')}
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-xs mx-auto">
+                    {t('listenerView.assistant.qa.disabledNotice', 'El ponente no ha habilitado todavía la opción de preguntas')}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-transparent focus-within:border-zinc-400 dark:focus-within:border-zinc-600 transition-colors shadow-2xs text-left">
+                <textarea
+                  id="mobile-qa-text"
+                  rows={3}
+                  value={questionText}
+                  onChange={(e) => setQuestionText(e.target.value)}
+                  placeholder={t('mobileQAPill.modal.placeholder')}
+                  aria-label={t('mobileQAPill.modal.placeholder', 'Escribe tu pregunta...')}
+                  className="w-full bg-transparent border-0 p-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-0 resize-none leading-relaxed"
+                />
+              </div>
+            )
           )}
         </div>
       </Modal>

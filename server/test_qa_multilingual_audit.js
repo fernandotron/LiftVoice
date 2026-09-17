@@ -15,17 +15,28 @@ async function runQaTests() {
     const roomId1 = 'AUDIT-QA-RESILIENCE';
     const room1 = roomManager.createRoom(roomId1, 'Q&A Resilience Test');
     
-    // Simulate translation failure (timeout or upstream 503)
-    translationService.translateAll = async () => {
-      throw new Error('TRANSLATION_UPSTREAM_TIMEOUT (Simulated Gemini 503)');
-    };
-
     const attendeeSocketId = 'sock_attendee_1';
     const profile1 = {
       attendeeId: 'att_1',
       name: 'Dr. John Doe',
       lang: 'en',
       questionText: 'Could you elaborate on the dosage of amiodarone for ventricular tachycardia?'
+    };
+
+    // Verify default qaEnabled is false and hand raise is rejected
+    assert.equal(room1.config?.qaEnabled, false, 'qaEnabled must default to false upon room creation');
+    const blockedItem = roomManager.addHandRaise(roomId1, attendeeSocketId, profile1);
+    assert.equal(blockedItem, null, 'addHandRaise must be blocked when qaEnabled is false');
+    console.log('    ✓ Default Q&A disabled state correctly blocked hand raise');
+
+    // Host enables Q&A
+    roomManager.setQAEnabled(roomId1, true);
+    assert.equal(room1.config?.qaEnabled, true, 'qaEnabled must now be true');
+    assert.equal(roomManager.getPublicStats(roomId1).qaEnabled, true, 'Public stats must reflect qaEnabled: true');
+
+    // Simulate translation failure (timeout or upstream 503)
+    translationService.translateAll = async () => {
+      throw new Error('TRANSLATION_UPSTREAM_TIMEOUT (Simulated Gemini 503)');
     };
 
     // Simulate what index.js AUDIENCE_RAISE_HAND does:
@@ -56,6 +67,7 @@ async function runQaTests() {
     console.log('\n--- TEST 2: Security & Payload Sanitization (DoS / Prompt Bloat) ---');
     const roomId2 = 'AUDIT-QA-SECURITY';
     const room2 = roomManager.createRoom(roomId2, 'Q&A Security Test');
+    roomManager.setQAEnabled(roomId2, true);
 
     const hugeText = 'A'.repeat(10000); // 10,000 characters
     const item2 = roomManager.addHandRaise(roomId2, 'sock_attacker', {
@@ -79,6 +91,8 @@ async function runQaTests() {
     const roomB = 'QA-ROOM-BETA';
     const rA = roomManager.createRoom(roomA, 'Room A');
     const rB = roomManager.createRoom(roomB, 'Room B');
+    roomManager.setQAEnabled(roomA, true);
+    roomManager.setQAEnabled(roomB, true);
 
     roomManager.addHandRaise(roomA, 'sock_a1', {
       attendeeId: 'att_a1',
@@ -115,6 +129,7 @@ async function runQaTests() {
     console.log('\n--- TEST 4: Race Condition between translateAll and Host Approval ---');
     const roomId4 = 'AUDIT-QA-RACE';
     const room4 = roomManager.createRoom(roomId4, 'Race Test');
+    roomManager.setQAEnabled(roomId4, true);
 
     const item4 = roomManager.addHandRaise(roomId4, 'sock_fast', {
       attendeeId: 'att_fast',
@@ -142,6 +157,57 @@ async function runQaTests() {
     console.log('    ✓ Race condition solved: activeSpeaker received translatedText seamlessly');
 
     roomManager.cleanupRoom(roomId4);
+
+    // =========================================================================
+    // TEST 5: Q&A Host Toggle Lifecycle & Dynamic State Enforcement
+    // =========================================================================
+    console.log('\n--- TEST 5: Q&A Host Toggle Lifecycle & Dynamic State Enforcement ---');
+    const roomId5 = 'AUDIT-QA-TOGGLE';
+    const room5 = roomManager.createRoom(roomId5, 'Toggle Lifecycle Test');
+    
+    // Check initial state
+    assert.equal(roomManager.getPublicStats(roomId5).qaEnabled, false, 'Initial public stats must have qaEnabled: false');
+    assert.equal(roomManager.getHostStats(roomId5).qaEnabled, false, 'Initial host stats must have qaEnabled: false');
+    assert.equal(room5.config.qaEnabled, false, 'Initial room.config must have qaEnabled: false');
+
+    // Attempt hand raise when disabled
+    const blockedAttempt1 = roomManager.addHandRaise(roomId5, 'sock_listener', {
+      attendeeId: 'att_blocked',
+      name: 'Listener 1',
+      questionText: 'Is this allowed?'
+    });
+    assert.equal(blockedAttempt1, null, 'Hand raise must be blocked when qaEnabled is false');
+
+    // Host turns QA ON
+    const updatedStats1 = roomManager.setQAEnabled(roomId5, true);
+    assert.equal(updatedStats1, true, 'setQAEnabled must return true');
+    assert.equal(roomManager.getPublicStats(roomId5).qaEnabled, true, 'Public stats must reflect qaEnabled: true');
+
+    // Now hand raise should succeed
+    const allowedAttempt = roomManager.addHandRaise(roomId5, 'sock_listener', {
+      attendeeId: 'att_allowed',
+      name: 'Listener 1',
+      questionText: 'Now it should be allowed!'
+    });
+    assert(allowedAttempt, 'Hand raise must succeed when qaEnabled is true');
+    assert.equal(room5.qaQueue.length, 1, 'Question must be queued');
+
+    // Host turns QA OFF (pauses Q&A)
+    const updatedStats2 = roomManager.setQAEnabled(roomId5, false);
+    assert.equal(updatedStats2, false, 'setQAEnabled must return false');
+    assert.equal(roomManager.getPublicStats(roomId5).qaEnabled, false, 'Public stats must reflect qaEnabled: false');
+
+    // New hand raises should be blocked again
+    const blockedAttempt2 = roomManager.addHandRaise(roomId5, 'sock_listener_2', {
+      attendeeId: 'att_blocked_2',
+      name: 'Listener 2',
+      questionText: 'Can I ask now?'
+    });
+    assert.equal(blockedAttempt2, null, 'Hand raise must be blocked again when qaEnabled is toggled back to false');
+    assert.equal(room5.qaQueue.length, 1, 'Existing queue must not be corrupted by blocked attempts');
+
+    console.log('    ✓ Dynamic Q&A toggle lifecycle, state propagation, and enforcement verified successfully');
+    roomManager.cleanupRoom(roomId5);
 
     console.log('\n=============================================================');
     console.log('🏁 AUDIT DIAGNOSTIC RUN COMPLETE');

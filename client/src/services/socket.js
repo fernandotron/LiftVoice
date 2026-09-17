@@ -506,6 +506,23 @@ class SocketService {
     });
   }
 
+  toggleQA(roomId, enabled = undefined, qaMode = undefined) {
+    return this.send({
+      type: 'HOST_TOGGLE_QA',
+      roomId: (roomId || this.currentRoomId || 'MAIN').toUpperCase(),
+      enabled,
+      qaMode
+    });
+  }
+
+  setQAMode(roomId, qaMode) {
+    return this.send({
+      type: 'HOST_SET_QA_MODE',
+      roomId: (roomId || this.currentRoomId || 'MAIN').toUpperCase(),
+      qaMode
+    });
+  }
+
   kickAttendee(roomId, attendeeId, name = '', reason = '') {
     return this.send({
       type: 'HOST_KICK_ATTENDEE',

@@ -15,6 +15,7 @@ export default function MobileAudioDock({
   isMuted = false,
   latency = 14,
   qaState = 'idle', // 'idle' | 'requested' | 'speaking' | 'completed'
+  isQAEnabled = false,
   captionSize = 'md',
   onCycleCaptionSize = () => {},
   onTogglePlay = () => {},
@@ -316,16 +317,39 @@ export default function MobileAudioDock({
         {/* Satélite Derecho: Q&A / Pedir la palabra (Diseño 100% neutro, mano estática) */}
         <button
           type="button"
+          aria-haspopup="dialog"
           onClick={handleQAClick}
-          className="relative w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-          title={qaState === 'requested' ? t('mobileAudioDock.qaButton.requestedTitle') : qaState === 'speaking' ? t('mobileAudioDock.qaButton.speakingTitle') : t('mobileAudioDock.qaButton.defaultTitle')}
-          aria-label={qaState === 'requested' ? t('mobileAudioDock.qaButton.requestedAria') : qaState === 'speaking' ? t('mobileAudioDock.qaButton.speakingAria') : t('mobileAudioDock.qaButton.defaultAria')}
+          className={`relative w-12 h-12 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 ${
+            !isQAEnabled && qaState === 'idle'
+              ? 'text-zinc-400 dark:text-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+              : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+          }`}
+          title={
+            !isQAEnabled && qaState === 'idle'
+              ? t('listenerView.assistant.qa.disabledNotice', 'El ponente no ha habilitado todavía la opción de preguntas')
+              : qaState === 'requested'
+              ? t('mobileAudioDock.qaButton.requestedTitle')
+              : qaState === 'speaking'
+              ? t('mobileAudioDock.qaButton.speakingTitle')
+              : t('mobileAudioDock.qaButton.defaultTitle')
+          }
+          aria-label={
+            !isQAEnabled && qaState === 'idle'
+              ? t('listenerView.assistant.qa.disabledNotice', 'El ponente no ha habilitado todavía la opción de preguntas')
+              : qaState === 'requested'
+              ? t('mobileAudioDock.qaButton.requestedAria')
+              : qaState === 'speaking'
+              ? t('mobileAudioDock.qaButton.speakingAria')
+              : t('mobileAudioDock.qaButton.defaultAria')
+          }
         >
           <Hand className={`w-5.5 h-5.5 transition-colors ${
             qaState === 'requested'
               ? 'text-amber-500'
               : qaState === 'speaking'
               ? 'text-emerald-500'
+              : !isQAEnabled
+              ? 'text-zinc-400 dark:text-zinc-600'
               : 'text-zinc-700 dark:text-zinc-300'
           }`} strokeWidth={1.6} />
           {qaState === 'requested' && (

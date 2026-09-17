@@ -142,7 +142,7 @@ export default function AttendeesBottomSheet({
                 </span>
               </div>
               {activeTelemetry && (
-                <div className="pt-1.5 border-t border-zinc-200/70 dark:border-zinc-800/70 grid grid-cols-3 gap-1.5 text-center font-mono text-[10px]">
+                <div className="grid grid-cols-3 gap-1.5 text-center font-mono text-[10px] pt-0.5">
                   <div className="p-1.5 rounded-xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/50">
                     <div className="text-[9px] text-zinc-400">STT</div>
                     <div className="font-bold text-zinc-800 dark:text-zinc-200">{activeTelemetry.sttMs || 0}ms</div>

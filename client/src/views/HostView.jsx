@@ -28,6 +28,7 @@ import SidebarSessionSummary from '../components/sidebar/SidebarSessionSummary.j
 import SelectDropdown from '../components/shared/SelectDropdown.jsx';
 import UserMenu from '../components/shared/UserMenu.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useI18n } from '../contexts/I18nContext.jsx';
 import { audioRecorderService } from '../services/audioRecorder.js';
 import { audioPlayerService } from '../services/audioPlayer.js';
 import { socketService } from '../services/socket.js';
@@ -72,6 +73,7 @@ export default function HostView({
   onOpenSettings = () => {}
 }) {
   const { resolvedTheme, toggleTheme } = useTheme();
+  const { t } = useI18n();
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [isTogglingBroadcast, setIsTogglingBroadcast] = useState(false);
   const isTogglingRef = useRef(false);
@@ -274,6 +276,8 @@ export default function HostView({
   const [qaQueue, setQaQueue] = useState([]);
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [incomingQuestionAudio, setIncomingQuestionAudio] = useState(null);
+  const [qaEnabled, setQaEnabled] = useState(false);
+  const [qaMode, setQaMode] = useState('always');
 
   // ElevenLabs Precision Sliders State
   const [speechRate, setSpeechRate] = useState(1.0);
@@ -537,6 +541,12 @@ export default function HostView({
     const applyStatsUpdate = (stats) => {
       if (!isMounted || !stats) return;
       setRoomStats(stats);
+      if (stats.qaMode !== undefined) {
+        setQaMode(stats.qaMode);
+      }
+      if (stats.qaEnabled !== undefined) {
+        setQaEnabled(Boolean(stats.qaEnabled));
+      }
       if (Array.isArray(stats.qaQueue)) {
         setQaQueue(stats.qaQueue.map(q => ({
           ...q,
@@ -547,6 +557,16 @@ export default function HostView({
         setActiveQuestion(stats.activeSpeaker);
       }
     };
+
+    const unsubQaConfig = socketService.on('qa_config_updated', (msg) => {
+      if (!isMounted || !msg) return;
+      if (msg.qaMode !== undefined) {
+        setQaMode(msg.qaMode);
+      }
+      if (msg.qaEnabled !== undefined) {
+        setQaEnabled(Boolean(msg.qaEnabled));
+      }
+    });
 
     const unsubStats = socketService.on('room_stats', applyStatsUpdate);
     const unsubJoined = socketService.on('joined_success', (msg) => {
@@ -733,6 +753,7 @@ export default function HostView({
       unsubQaSpeaker();
       unsubQaClosed();
       unsubQaLowered();
+      unsubQaConfig();
       unsubEarpiece();
     };
   }, [roomId]);
@@ -1179,6 +1200,38 @@ export default function HostView({
     }
   };
 
+  const handleSetQAMode = (mode) => {
+    const nextMode = mode === 'host_controlled' ? 'host_controlled' : 'always';
+    setQaMode(nextMode);
+    socketService.setQAMode?.(roomId, nextMode);
+    if (roomId) {
+      const token = adminAuthService.getToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      fetch(`/api/rooms/${roomId}/qa-toggle`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ qaMode: nextMode })
+      }).catch(e => console.warn('[HostView] Error al actualizar qaMode:', e));
+    }
+  };
+
+  const handleToggleQA = () => {
+    const next = !qaEnabled;
+    setQaEnabled(next);
+    socketService.toggleQA(roomId, next);
+    if (roomId) {
+      const token = adminAuthService.getToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      fetch(`/api/rooms/${roomId}/qa-toggle`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ enabled: next })
+      }).catch(e => console.warn('[HostView] Error al alternar toggle Q&A:', e));
+    }
+  };
+
   const handleApproveQuestion = (questionId) => {
     socketService.approveQuestion(roomId, questionId);
   };
@@ -1429,18 +1482,40 @@ export default function HostView({
       {/* Tab: Q&A */}
       {inspectorTab === 'qa' && (
         <div className="space-y-4 text-left animate-fadeIn">
-          <div className="p-3.5 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 space-y-1.5 shadow-2xs">
+          <div className="p-3.5 rounded-2xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 space-y-1.5 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Hand className="w-4 h-4 text-amber-500" />
-                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Turnos de Pregunta (Q&A)</span>
+                <Hand className={`w-4 h-4 ${(qaMode === 'always' || qaEnabled) ? 'text-amber-500' : 'text-zinc-400'}`} />
+                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                  {t('host.qa.title', 'Turnos de Pregunta (Q&A)')}
+                </span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono font-bold">
-                {qaQueue.length}
-              </span>
+              {qaMode === 'host_controlled' && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={qaEnabled}
+                  aria-label={t('host.qa.toggleLabel', 'Permitir preguntas')}
+                  onClick={handleToggleQA}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-zinc-600 focus:outline-none ${
+                    qaEnabled ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-300 dark:bg-zinc-700'
+                  }`}
+                  title={qaEnabled ? t('host.qa.statePaused', 'Pausar preguntas') : t('host.qa.stateEnabled', 'Habilitar preguntas')}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full shadow-xs transition duration-200 ease-in-out mt-0.75 ${
+                      qaEnabled ? 'translate-x-4.5 bg-white dark:bg-zinc-900' : 'translate-x-0.75 bg-white'
+                    }`}
+                  />
+                </button>
+              )}
             </div>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Los oyentes pueden pulsar &quot;Pedir la palabra&quot; para intervenir en su idioma nativo.
+              {qaMode === 'always'
+                ? t('host.qa.alwaysOpenDesc', 'Los oyentes pueden enviar preguntas en cualquier momento. Te llegarán en directo y tú decides cuándo responderlas.')
+                : (qaEnabled
+                    ? t('host.qa.enabledDesc', 'Los oyentes pueden enviar preguntas en su idioma nativo.')
+                    : t('host.qa.disabledDesc', 'Preguntas pausadas. Los oyentes verán que la opción de preguntas aún no ha sido habilitada.'))}
             </p>
           </div>
 
@@ -1448,12 +1523,12 @@ export default function HostView({
             <Banner
               icon={<Mic className="w-4 h-4 text-white animate-pulse" strokeWidth={2.4} />}
               color="#10b981"
-              title={`${activeQuestion.name || 'Oyente'} está hablando`}
-              subtitle={`Canal nativo: ${activeQuestion.nativeLang || 'en'} ➔ traducción a tu auricular`}
+              title={t('host.qa.activeSpeakerTitle', { name: activeQuestion.name || 'Oyente', defaultValue: `${activeQuestion.name || 'Oyente'} está hablando` })}
+              subtitle={t('host.qa.activeSpeakerSubtitle', { lang: activeQuestion.nativeLang || 'en', defaultValue: `Canal nativo: ${activeQuestion.nativeLang || 'en'} ➔ traducción a tu auricular` })}
               desc={
                 incomingQuestionAudio?.translatedText
-                  ? `Traducción a tu oído: "${incomingQuestionAudio.translatedText}"`
-                  : 'Escuchando intervención en tu auricular...'
+                  ? t('host.qa.translationToEar', { text: incomingQuestionAudio.translatedText, defaultValue: `Traducción a tu oído: "${incomingQuestionAudio.translatedText}"` })
+                  : t('host.qa.activeSpeakerEarpieceListening', 'Escuchando intervención en tu auricular...')
               }
               bottomAction={
                 <button
@@ -1462,7 +1537,7 @@ export default function HostView({
                   className="w-full h-9 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all active:scale-98"
                 >
                   <XCircle className="w-3.5 h-3.5" />
-                  <span>Finalizar Turno de Pregunta</span>
+                  <span>{t('host.qa.endTurn', 'Finalizar pregunta')}</span>
                 </button>
               }
             />
@@ -1472,7 +1547,9 @@ export default function HostView({
             {qaQueue.filter(q => q.status === 'pending').length === 0 ? (
               <div className="p-8 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 text-center space-y-1.5 bg-transparent dark:bg-zinc-900/30">
                 <Hand className="w-5 h-5 text-zinc-400 dark:text-zinc-500 mx-auto" />
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">No hay preguntas pendientes</p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+                  {t('host.qa.emptyPending', 'No hay preguntas pendientes')}
+                </p>
               </div>
             ) : (
               qaQueue.filter(q => q.status === 'pending').map((q) => (
@@ -1487,11 +1564,13 @@ export default function HostView({
                       </div>
                       <div>
                         <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{q.name || 'Oyente'}</div>
-                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">Idioma: {q.nativeLang || 'es'}</div>
+                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
+                          {t('host.qa.nativeLangLabel', { lang: q.nativeLang || 'es', defaultValue: `Idioma nativo: ${q.nativeLang || 'es'}` })}
+                        </div>
                       </div>
                     </div>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex-shrink-0 font-medium">
-                      En espera
+                      {t('host.qa.waitingBadge', 'En espera')}
                     </span>
                   </div>
 
@@ -1500,7 +1579,9 @@ export default function HostView({
                       <div className="italic text-zinc-800 dark:text-zinc-200">&ldquo;{q.questionText}&rdquo;</div>
                       {q.translatedText && q.translatedText.trim() !== q.questionText.trim() && (
                         <div className="text-[11px] text-zinc-500 dark:text-zinc-400 border-t border-zinc-200/60 dark:border-zinc-800/80 pt-1.5 not-italic">
-                          <span className="font-semibold text-zinc-700 dark:text-zinc-300">Traducción ({q.targetLang || 'es'}): </span>
+                          <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                            {t('host.qa.translationLabel', { lang: q.targetLang || 'es', defaultValue: `Traducción (${q.targetLang || 'es'}): ` })}
+                          </span>
                           {q.translatedText}
                         </div>
                       )}
@@ -1509,17 +1590,20 @@ export default function HostView({
 
                   <div className="flex items-center gap-2 pt-1">
                     <button
+                      type="button"
                       onClick={() => handleApproveQuestion(q.questionId)}
                       disabled={!!activeQuestion}
                       className="flex-1 py-1.5 px-4 rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-40 text-white dark:text-zinc-950 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
-                      <span>Dar la palabra</span>
+                      <span>{t('host.qa.giveFloor', 'Atender pregunta')}</span>
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleCloseQuestion(q.questionId)}
                       className="p-1.5 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                      title="Descartar"
+                      title={t('host.qa.dismiss', 'Descartar')}
+                      aria-label={t('host.qa.dismiss', 'Descartar')}
                     >
                       <XCircle className="w-4 h-4" />
                     </button>
@@ -1592,7 +1676,7 @@ export default function HostView({
                         {activeTelemetry.engineUsed || 'Google Gemini 3.8 Live'}
                       </span>
                     </div>
-                    <div className="pt-1.5 border-t border-zinc-200/70 dark:border-zinc-800/70 grid grid-cols-3 gap-1.5 text-center font-mono text-[10px]">
+                    <div className="grid grid-cols-3 gap-1.5 text-center font-mono text-[10px] pt-0.5">
                       <div className="p-1.5 rounded-xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/50">
                         <div className="text-[9px] text-zinc-400">STT</div>
                         <div className="font-bold text-zinc-800 dark:text-zinc-200">{activeTelemetry.sttMs || 0}ms</div>
@@ -2600,6 +2684,10 @@ export default function HostView({
         incomingQuestionAudio={incomingQuestionAudio}
         onApproveQuestion={handleApproveQuestion}
         onCloseQuestion={handleCloseQuestion}
+        qaEnabled={qaEnabled}
+        qaMode={qaMode}
+        onSetQAMode={handleSetQAMode}
+        onToggleQA={handleToggleQA}
       />
 
       {/* Mobile Attendees Bottom Sheet (Sección Exclusiva de Participantes) */}

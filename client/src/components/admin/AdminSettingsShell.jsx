@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { audioPlayerService } from '../../services/audioPlayer.js';
 import { audioRecorderService } from '../../services/audioRecorder.js';
+import { socketService } from '../../services/socket.js';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
 import SelectDropdown from '../shared/SelectDropdown.jsx';
@@ -178,7 +179,8 @@ export const buildSettingsSnapshot = (data = {}) => ({
   decalageMode: data.decalageMode || 'natural',
   sttLang: data.sttLang || 'auto',
   sttVad: data.sttVad || 'standard',
-  googleNeuralMode: data.googleNeuralMode || 'universal'
+  googleNeuralMode: data.googleNeuralMode || 'universal',
+  qaMode: data.qaMode || 'always'
 });
 
 const GEMINI_LIVE_PREBUILT_VOICES = [
@@ -403,6 +405,19 @@ export default function AdminSettingsShell({
     }
   }, [isOpen, variant]);
 
+  useEffect(() => {
+    if (effectiveRoomId && (isOpen || variant === 'page')) {
+      fetch(`/api/rooms/${effectiveRoomId}/stats`)
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.qaMode) {
+            setQaMode(data.qaMode);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [effectiveRoomId, isOpen, variant]);
+
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -445,6 +460,7 @@ export default function AdminSettingsShell({
       return saved ? { ...DEFAULT_GENDERS, ...JSON.parse(saved) } : DEFAULT_GENDERS;
     } catch (e) { return DEFAULT_GENDERS; }
   });
+  const [qaMode, setQaMode] = useState(() => safeGetItem('lv_qa_mode', 'always'));
 
   const [previewingLang, setPreviewingLang] = useState(null);
 
@@ -484,14 +500,14 @@ export default function AdminSettingsShell({
     deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
     qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
     preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
-    sttLang, sttVad, googleNeuralMode
+    sttLang, sttVad, googleNeuralMode, qaMode
   }), [
     pipelineMode, geminiLiveVoices,
     sttEngine, preferredTtsEngine, voiceConfig, voiceGender,
     deepgramKey, geminiKey, geminiModel, geminiTemp, elevenLabsKey, openaiKey, openaiModel, openaiTemp,
     qwenKey, qwenModel, qwenTemp, qwenEndpoint, qwenTtsEndpoint,
     preferredEngine, aiStrategy, medicalMode, medicalSpecialty, customGlossary, decalageMode,
-    sttLang, sttVad, googleNeuralMode
+    sttLang, sttVad, googleNeuralMode, qaMode
   ]);
 
   useEffect(() => {
@@ -566,6 +582,7 @@ export default function AdminSettingsShell({
       if (initialState.sttLang !== undefined) setSttLang(initialState.sttLang);
       if (initialState.sttVad !== undefined) setSttVad(initialState.sttVad);
       if (initialState.googleNeuralMode !== undefined) setGoogleNeuralMode(initialState.googleNeuralMode);
+      if (initialState.qaMode !== undefined) setQaMode(initialState.qaMode);
       setIsDirty(false);
       setTouchedKeys(new Set());
     }
@@ -999,6 +1016,7 @@ export default function AdminSettingsShell({
       safeSetItem('lv_custom_glossary', customGlossary);
       safeSetItem('lv_decalage_mode', decalageMode);
       safeSetItem('lv_google_neural_mode', googleNeuralMode);
+      safeSetItem('lv_qa_mode', qaMode);
 
       // Propagar al grabador de audio en vivo del cliente
       try {
@@ -1017,6 +1035,17 @@ export default function AdminSettingsShell({
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ voiceConfig, voiceGender, preferredTtsEngine, decalageMode, pipelineMode, geminiLiveVoices })
         }).catch(() => {});
+
+        const hostToken = adminAuthService.getToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (hostToken) headers['Authorization'] = `Bearer ${hostToken}`;
+        fetch(`/api/rooms/${effectiveRoomId}/qa-config`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ qaMode })
+        }).catch(() => {});
+
+        socketService?.setQAMode?.(effectiveRoomId, qaMode);
       }
 
       const savedCfg = {
@@ -1721,6 +1750,79 @@ export default function AdminSettingsShell({
                   Evita transcripciones involuntarias por toses, murmullos del público o pausas largas del orador.
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Card: Modo de Preguntas de la Audiencia (Q&A) */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-4">
+            <div>
+              <div className="flex items-center justify-between">
+                <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
+                  Modo de preguntas de la audiencia (Q&A)
+                </h4>
+                <span className={`text-[11px] font-medium flex items-center gap-1.5 ${
+                  qaMode === 'always'
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-amber-600 dark:text-amber-400'
+                }`}>
+                  {qaMode === 'always' ? 'Preguntas en cualquier momento' : 'Controlado por el ponente'}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
+                Define cómo podrán participar los oyentes durante la ponencia en directo.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Opción 1: En cualquier momento */}
+              <button
+                type="button"
+                onClick={() => { setQaMode('always'); setIsDirty(true); }}
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                  qaMode === 'always'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-zinc-900 dark:text-white shadow-2xs ring-1 ring-emerald-500/20'
+                    : 'bg-zinc-100/70 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    En cualquier momento
+                  </span>
+                  {qaMode === 'always' && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                      Activo
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Los oyentes pueden consultar durante toda la ponencia. Le llegan directamente al ponente y él decide cuándo responderlas.
+                </p>
+              </button>
+
+              {/* Opción 2: El ponente decide */}
+              <button
+                type="button"
+                onClick={() => { setQaMode('host_controlled'); setIsDirty(true); }}
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                  qaMode === 'host_controlled'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-zinc-900 dark:text-white shadow-2xs ring-1 ring-amber-500/20'
+                    : 'bg-zinc-100/70 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    El ponente decide
+                  </span>
+                  {qaMode === 'host_controlled' && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                      Activo
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Aparece un botón en el inspector del ponente para permitir o pausar las preguntas en vivo cuando él lo determine.
+                </p>
+              </button>
             </div>
           </div>
         </div>

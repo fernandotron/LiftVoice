@@ -58,9 +58,9 @@ export default function QABannerAlert({
         <Banner
           icon={<Hand className="w-4 h-4 text-white" strokeWidth={2.4} />}
           color="#f59e0b"
-          title={`${nextQ.name || 'Oyente'} pide la palabra`}
+          title={`${nextQ.name || 'Oyente'} ha enviado una pregunta`}
           subtitle={`Idioma: ${nextQ.nativeLang || 'en'}`}
-          desc="Ha levantado la mano para intervenir en directo."
+          desc={nextQ.questionText ? `“${nextQ.questionText}”` : 'Ha enviado una pregunta en directo.'}
           action={
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
@@ -69,7 +69,7 @@ export default function QABannerAlert({
                 className="min-h-[44px] min-w-[44px] px-4 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
-                <span>Dar palabra</span>
+                <span>Atender</span>
               </button>
               <button
                 type="button"

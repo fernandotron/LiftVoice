@@ -173,6 +173,9 @@ export default function ListenerView({
   const [qaState, setQaState] = useState('idle'); // 'idle' | 'requested' | 'speaking' | 'completed'
   const [questionText, setQuestionText] = useState('');
   const [isRecordingQuestion, setIsRecordingQuestion] = useState(false);
+  const isQAEnabled = roomStats?.isQAAllowed !== undefined
+    ? Boolean(roomStats.isQAAllowed)
+    : (roomStats?.qaMode === 'always' || Boolean(roomStats?.qaEnabled));
   const recognitionRef = useRef(null);
 
   // Dynamic Caption Size for Audience Reading Comfort ('sm' | 'md' | 'lg' | 'xl')
@@ -299,12 +302,35 @@ export default function ListenerView({
       const speaker = msg.speaker || msg;
       if (speaker && (speaker.attendeeId === profile.attendeeId || speaker.name === profileNameRef.current || speaker.name === profile.name)) {
         setQaState('speaking');
+        setIsQASheetOpen(true);
       }
     });
 
     const unsubQaClosed = socketService.on('qa_question_closed', () => {
       setQaState('idle');
       setIsRecordingQuestion(false);
+    });
+
+    const unsubQaConfig = socketService.on('qa_config_updated', (msg) => {
+      if (msg) {
+        setRoomStats(prev => ({
+          ...prev,
+          qaMode: msg.qaMode !== undefined ? msg.qaMode : prev?.qaMode,
+          qaEnabled: msg.qaEnabled !== undefined ? msg.qaEnabled : prev?.qaEnabled,
+          isQAAllowed: msg.isQAAllowed !== undefined ? msg.isQAAllowed : prev?.isQAAllowed
+        }));
+      }
+    });
+
+    const unsubError = socketService.on('error', (err) => {
+      if (err?.code === 'QA_DISABLED') {
+        setQaState('idle');
+        setRoomStats(prev => ({
+          ...prev,
+          qaEnabled: false,
+          isQAAllowed: false
+        }));
+      }
     });
 
     const unsubKicked = socketService.on('kicked_by_host', (data) => {
@@ -343,6 +369,8 @@ export default function ListenerView({
       unsubQaConfirmed();
       unsubQaSpeaker();
       unsubQaClosed();
+      unsubQaConfig();
+      unsubError();
       unsubKicked();
       audioPlayerService.stopAll();
       audioPlayerService.disposeSession();
@@ -1050,43 +1078,59 @@ export default function ListenerView({
                     </div>
 
                     {qaState === 'idle' && (
-                      <form onSubmit={handleSendQuestion} className="space-y-3">
-                        <div className="space-y-1.5">
-                          <textarea
-                            id="desktop-qa-question"
-                            rows={3}
-                            value={questionText}
-                            onChange={(e) => setQuestionText(e.target.value)}
-                            placeholder={t('listenerView.assistant.qa.placeholder')}
-                            className="w-full bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 resize-none transition-all leading-relaxed"
-                          />
+                      !isQAEnabled ? (
+                        <div className="p-4 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 text-center space-y-2.5 animate-fadeIn">
+                          <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center mx-auto text-zinc-400 dark:text-zinc-500">
+                            <Hand className="w-4.5 h-4.5 opacity-40" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                              {t('listenerView.assistant.qa.disabledTitle', 'Preguntas no habilitadas')}
+                            </p>
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-xs mx-auto">
+                              {t('listenerView.assistant.qa.disabledNotice', 'El ponente no ha habilitado todavía la opción de preguntas')}
+                            </p>
+                          </div>
                         </div>
+                      ) : (
+                        <form onSubmit={handleSendQuestion} className="space-y-3">
+                          <div className="space-y-1.5">
+                            <textarea
+                              id="desktop-qa-question"
+                              rows={3}
+                              value={questionText}
+                              onChange={(e) => setQuestionText(e.target.value)}
+                              placeholder={t('listenerView.assistant.qa.placeholder')}
+                              className="w-full bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 resize-none transition-all leading-relaxed"
+                            />
+                          </div>
 
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="submit"
-                            disabled={!questionText.trim()}
-                            className="w-full h-9 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
-                          >
-                            <Hand className="w-3.5 h-3.5" />
-                            <span>{t('listenerView.assistant.qa.submitButton')}</span>
-                          </button>
-                        </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="submit"
+                              disabled={!questionText.trim()}
+                              className="w-full h-9 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                            >
+                              <Hand className="w-3.5 h-3.5" />
+                              <span>{t('listenerView.assistant.qa.submitButton')}</span>
+                            </button>
+                          </div>
 
-                        <div className="flex items-center justify-between px-0.5 text-[11px] text-zinc-400 dark:text-zinc-500 pt-0.5">
-                          <span className="truncate">{t('listenerView.assistant.qa.visibleName')} <strong className="text-zinc-700 dark:text-zinc-300 font-medium">{profile.name || t('common.defaultAttendeeName') || 'Oyente'}</strong></span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditName(profile.name || 'Oyente');
-                              setIsProfilePopoverOpen(true);
-                            }}
-                            className="text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 underline cursor-pointer flex-shrink-0"
-                          >
-                            {t('common.change')}
-                          </button>
-                        </div>
-                      </form>
+                          <div className="flex items-center justify-between px-0.5 text-[11px] text-zinc-400 dark:text-zinc-500 pt-0.5">
+                            <span className="truncate">{t('listenerView.assistant.qa.visibleName')} <strong className="text-zinc-700 dark:text-zinc-300 font-medium">{profile.name || t('common.defaultAttendeeName') || 'Oyente'}</strong></span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditName(profile.name || 'Oyente');
+                                setIsProfilePopoverOpen(true);
+                              }}
+                              className="text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 underline cursor-pointer flex-shrink-0"
+                            >
+                              {t('common.change')}
+                            </button>
+                          </div>
+                        </form>
+                      )
                     )}
 
                     {qaState === 'requested' && (
@@ -1384,6 +1428,7 @@ export default function ListenerView({
         isMuted={isMuted}
         latency={socketLatency}
         qaState={qaState}
+        isQAEnabled={isQAEnabled}
         captionSize={captionSize}
         onCycleCaptionSize={handleCycleCaptionSize}
         onTogglePlay={!isAudioUnlocked ? handleUnlockAudio : handleToggleMute}
@@ -1430,6 +1475,7 @@ export default function ListenerView({
         onClose={() => setIsQASheetOpen(false)}
         showFloatingButton={false}
         qaState={qaState}
+        isQAEnabled={isQAEnabled}
         currentLanguage={currentLangObj}
         questionText={questionText}
         setQuestionText={setQuestionText}

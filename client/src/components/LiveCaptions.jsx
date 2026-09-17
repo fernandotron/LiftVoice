@@ -420,9 +420,12 @@ function LiveCaptions({
                           </span>
                         )}
                         {(p.engineUsed?.includes('Clinical') || medicalMode) && (
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-mono text-[9px] border border-emerald-200 dark:border-emerald-800">
-                            {t('liveCaptions.badges.clinical')}
-                          </span>
+                          <>
+                            <span className="text-zinc-400 dark:text-zinc-600 select-none">·</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                              {t('liveCaptions.badges.clinical')}
+                            </span>
+                          </>
                         )}
                         {isAdmin && p.sttEngineUsed && (
                           <span
@@ -526,9 +529,12 @@ function LiveCaptions({
                         </>
                       )}
                       {(item.engineUsed?.includes('Clinical') || medicalMode) && (
-                        <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-mono text-[9px] border border-emerald-200 dark:border-emerald-800">
-                          Clínico
-                        </span>
+                        <>
+                          <span className="text-zinc-400 dark:text-zinc-600 select-none">·</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                            {t('liveCaptions.badges.clinical', 'Clínico')}
+                          </span>
+                        </>
                       )}
                       {isAdmin && item.sttEngineUsed && (
                         <span
