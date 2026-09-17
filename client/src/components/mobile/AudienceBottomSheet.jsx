@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import Modal from '../shared/Modal.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
 import { SUPPORTED_LANGUAGES } from '../LanguageSelector.jsx';
+import { useI18n } from '../../contexts/I18nContext.jsx';
 
 /**
  * AudienceBottomSheet — LiftVoice 2026
@@ -21,6 +22,8 @@ export default function AudienceBottomSheet({
   profileName = 'Oyente',
   latency = 0
 }) {
+  const { t } = useI18n();
+
   return (
     <Modal
       isOpen={isOpen}
@@ -35,12 +38,12 @@ export default function AudienceBottomSheet({
               id="audience-sheet-title"
               className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight"
             >
-              Audiencia en directo
+              {t('audienceBottomSheet.title')}
             </h2>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed pt-0.5">
               {effectiveAttendeesCount === 1
-                ? '1 persona conectada a la sesión en tiempo real.'
-                : `${effectiveAttendeesCount} personas conectadas a la sesión en tiempo real.`}
+                ? (t('common.peopleConnected_one') || '1 persona conectada a la sesión en tiempo real.')
+                : (t('common.peopleConnected_other', { count: effectiveAttendeesCount }) || `${effectiveAttendeesCount} personas conectadas a la sesión en tiempo real.`)}
             </p>
           </div>
 
@@ -48,7 +51,7 @@ export default function AudienceBottomSheet({
             type="button"
             onClick={onClose}
             className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation shrink-0"
-            aria-label="Cerrar panel de audiencia"
+            aria-label={t('audienceBottomSheet.closeAria')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -61,6 +64,9 @@ export default function AudienceBottomSheet({
           {SUPPORTED_LANGUAGES.map((lang) => {
             const count = languageBreakdown[lang.code] || (lang.code === activeLangCode ? 1 : 0);
             const isUserLang = lang.code === activeLangCode;
+            const listenerLabel = count === 1 
+              ? (t('common.listeners_one') || 'oyente') 
+              : (t('common.listeners_other') || 'oyentes');
 
             return (
               <button
@@ -91,7 +97,7 @@ export default function AudienceBottomSheet({
                       </span>
                       {isUserLang && (
                         <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium shrink-0">
-                          Tu canal
+                          {t('audienceBottomSheet.yourChannel')}
                         </span>
                       )}
                     </div>
@@ -110,7 +116,7 @@ export default function AudienceBottomSheet({
                     {count}
                   </span>
                   <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-sans">
-                    {count === 1 ? 'oyente' : 'oyentes'}
+                    {listenerLabel}
                   </span>
                 </div>
               </button>
@@ -122,16 +128,16 @@ export default function AudienceBottomSheet({
         <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-zinc-50/50 dark:bg-zinc-800/20 border border-zinc-200/80 dark:border-zinc-800">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-[11px] font-bold text-zinc-700 dark:text-zinc-200 uppercase shrink-0">
-              {(profileName || 'Oyente').charAt(0)}
+              {(profileName || t('common.defaultAttendeeName') || 'Oyente').charAt(0)}
             </div>
             <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-              {profileName || 'Oyente'}
+              {profileName || t('common.defaultAttendeeName') || 'Oyente'}
             </span>
           </div>
 
           {roomId && (
             <div className="flex items-center gap-1.5 shrink-0 font-mono text-xs text-zinc-400 dark:text-zinc-500">
-              <span className="text-[10px] font-sans">Sala</span>
+              <span className="text-[10px] font-sans">{t('common.room')}</span>
               <span className="font-medium text-zinc-600 dark:text-zinc-400">{roomId}</span>
             </div>
           )}

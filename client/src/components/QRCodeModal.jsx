@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import CountryFlag from './shared/CountryFlag.jsx';
 import Banner from './shared/Banner.jsx';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 export default function QRCodeModal({
   roomId = 'MAIN',
@@ -15,6 +16,7 @@ export default function QRCodeModal({
   onClose = () => {},
   localIp = '192.168.1.12'
 }) {
+  const { t } = useI18n();
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedRoomCode, setCopiedRoomCode] = useState(false);
@@ -129,7 +131,7 @@ export default function QRCodeModal({
     roomTitle === 'Conferencia Principal' ||
     roomTitle === 'Conferencia Principal 2026' ||
     roomTitle === 'Keynote 2026';
-  const modalDisplayTitle = isGenericTitle ? 'Traducción Simultánea de Voz' : roomTitle;
+  const modalDisplayTitle = isGenericTitle ? t('qrModal.fullScreen.defaultTitle') : roomTitle;
 
   const handleStartTunnel = async () => {
     setIsGeneratingTunnel(true);
@@ -145,12 +147,12 @@ export default function QRCodeModal({
         setPublicUrl(data.publicUrl);
         setNetworkMode('public');
       } else {
-        setTunnelError(data.error || 'No se pudo generar el túnel público 4G/5G. Utiliza la conexión Wi-Fi local.');
+        setTunnelError(data.error || t('qrModal.standard.tunnelErrorGeneric'));
         setNetworkMode('local');
       }
     } catch (err) {
       console.warn('Could not start public tunnel:', err);
-      setTunnelError('Error al contactar con el túnel público. Utiliza la Red Wi-Fi local de la sala.');
+      setTunnelError(t('qrModal.standard.tunnelErrorNetwork'));
       setNetworkMode('local');
     } finally {
       setIsGeneratingTunnel(false);
@@ -198,7 +200,7 @@ export default function QRCodeModal({
         className="fixed inset-0 z-[1000] w-screen h-screen min-h-screen bg-zinc-950 text-white flex flex-col justify-between p-4 sm:p-10 lg:p-12 select-none overflow-y-auto animate-fadeIn"
         role="dialog"
         aria-modal="true"
-        aria-label="Modo Auditorio - Acceso a la Sala"
+        aria-label={t('qrModal.fullScreen.dialogAria')}
       >
         {/* Barra Superior Discreta de Control */}
         <header className="flex items-center justify-between w-full max-w-7xl mx-auto shrink-0">
@@ -217,8 +219,8 @@ export default function QRCodeModal({
               type="button"
               onClick={toggleFullScreen}
               className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-zinc-200 hover:text-white flex items-center justify-center cursor-pointer transition-colors shadow-2xs active:scale-95"
-              title="Salir de pantalla completa (Esc)"
-              aria-label="Salir de pantalla completa"
+              title={t('qrModal.fullScreen.exitTitle')}
+              aria-label={t('qrModal.fullScreen.exitAria')}
             >
               <Minimize2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
@@ -226,7 +228,7 @@ export default function QRCodeModal({
               type="button"
               onClick={handleClose}
               className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-zinc-200 hover:text-white flex items-center justify-center cursor-pointer transition-colors shadow-2xs active:scale-95"
-              title="Cerrar"
+              title={t('qrModal.fullScreen.closeTitle')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -253,7 +255,7 @@ export default function QRCodeModal({
             {/* Código de Sala Destacado */}
             <div className="flex items-center justify-center gap-3 px-6 py-2.5 rounded-2xl bg-white/5 border border-white/10 w-full max-w-xs shadow-inner">
               <span className="text-xs font-mono text-zinc-400">
-                Sala:
+                {t('qrModal.fullScreen.roomLabel')}
               </span>
               <span className="font-mono text-xl sm:text-2xl font-bold text-white tracking-widest">
                 {roomId}
@@ -272,7 +274,7 @@ export default function QRCodeModal({
                 {modalDisplayTitle}
               </h1>
               <p className="text-sm sm:text-lg text-zinc-400 mt-2 sm:mt-3 leading-relaxed">
-                Escucha la conferencia traducida en tiempo real directamente desde tu teléfono móvil.
+                {t('qrModal.fullScreen.subtitle')}
               </p>
             </div>
 
@@ -284,10 +286,10 @@ export default function QRCodeModal({
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-white">
-                    Escanea el código QR con tu móvil
+                    {t('qrModal.fullScreen.step1Title')}
                   </h3>
                   <p className="text-sm text-zinc-400 mt-0.5 leading-relaxed">
-                    Abre la cámara de tu smartphone. Conexión instantánea sin descargas ni registros.
+                    {t('qrModal.fullScreen.step1Desc')}
                   </p>
                 </div>
               </div>
@@ -298,10 +300,10 @@ export default function QRCodeModal({
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-white">
-                    Conecta tus auriculares
+                    {t('qrModal.fullScreen.step2Title')}
                   </h3>
                   <p className="text-sm text-zinc-400 mt-0.5 leading-relaxed">
-                    Usa auriculares Bluetooth o con cable para una escucha nítida sin interferir con la sala.
+                    {t('qrModal.fullScreen.step2Desc')}
                   </p>
                 </div>
               </div>
@@ -312,7 +314,7 @@ export default function QRCodeModal({
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="text-base font-semibold text-white">
-                    Elige tu cabina de idioma
+                    {t('qrModal.fullScreen.step3Title')}
                   </h3>
                   <div className="flex flex-wrap gap-2 mt-2.5">
                     <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 text-xs font-medium text-zinc-200">
@@ -341,9 +343,9 @@ export default function QRCodeModal({
         {/* Pie Discreto de Proyección */}
         <footer className="flex items-center justify-between text-xs text-zinc-500 border-t border-white/10 pt-4 w-full max-w-7xl mx-auto shrink-0">
           <div className="flex items-center gap-2">
-            <span>Red Wi-Fi: {effectiveIp}:{typeof window !== 'undefined' && window.location.port ? window.location.port : '5174'}</span>
+            <span>{t('qrModal.fullScreen.footerWifi', { ip: effectiveIp, port: typeof window !== 'undefined' && window.location.port ? window.location.port : '5174' })}</span>
           </div>
-          <span className="text-zinc-500 hidden sm:inline">Presiona Esc para salir del modo proyector</span>
+          <span className="text-zinc-500 hidden sm:inline">{t('qrModal.fullScreen.footerEsc')}</span>
         </footer>
       </div>
     );
@@ -372,10 +374,10 @@ export default function QRCodeModal({
         <header className="flex items-center justify-between px-4 sm:px-8 pt-[max(0.875rem,env(safe-area-inset-top,0px))] pb-3.5 sm:py-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shrink-0">
           <div className="min-w-0">
             <h2 id="qr-modal-title" className="text-sm sm:text-lg font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
-              Acceso a la Sala • Audiencia
+              {t('qrModal.standard.dialogTitle')}
             </h2>
             <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-              Escaneo instantáneo para sintonizar las cabinas de voz en directo
+              {t('qrModal.standard.dialogSubtitle')}
             </p>
           </div>
 
@@ -384,8 +386,8 @@ export default function QRCodeModal({
               type="button"
               onClick={toggleFullScreen}
               className="hidden sm:flex w-9 h-9 rounded-full items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              title="Modo Auditorio / Proyector (Pantalla completa)"
-              aria-label="Modo Auditorio"
+              title={t('qrModal.standard.auditoriumTitle')}
+              aria-label={t('qrModal.standard.auditoriumAria')}
             >
               <Maximize2 className="w-4 h-4" />
             </button>
@@ -393,8 +395,8 @@ export default function QRCodeModal({
               type="button"
               onClick={handleClose}
               className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation"
-              title="Cerrar modal"
-              aria-label="Cerrar"
+              title={t('qrModal.standard.closeTitle')}
+              aria-label={t('qrModal.standard.closeAria')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -424,7 +426,7 @@ export default function QRCodeModal({
             <div className="flex items-center justify-between gap-3 px-4 py-2 bg-zinc-100/90 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-full w-full max-w-[280px]">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500">
-                  Sala:
+                  {t('qrModal.standard.roomLabel')}
                 </span>
                 <span className="font-mono text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-wider truncate">
                   {roomId}
@@ -434,8 +436,8 @@ export default function QRCodeModal({
                 type="button"
                 onClick={handleCopyRoomCode}
                 className="p-1.5 rounded-full hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer flex-shrink-0"
-                title="Copiar código de sala"
-                aria-label="Copiar código de sala"
+                title={t('qrModal.standard.copyCodeTitle')}
+                aria-label={t('qrModal.standard.copyCodeAria')}
               >
                 {copiedRoomCode ? <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 stroke-[2.5]" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
@@ -457,7 +459,7 @@ export default function QRCodeModal({
                         : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-transparent'
                     }`}
                   >
-                    <span>Red Wi-Fi</span>
+                    <span>{t('qrModal.standard.tabWifi')}</span>
                   </button>
 
                   <button
@@ -475,7 +477,7 @@ export default function QRCodeModal({
                     {isGeneratingTunnel && (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     )}
-                    <span>Datos 4G/5G</span>
+                    <span>{t('qrModal.standard.tabCellular')}</span>
                   </button>
                 </div>
 
@@ -486,12 +488,12 @@ export default function QRCodeModal({
                     color="#f59e0b"
                     title={
                       tunnelError.toLowerCase().includes('unauthorized') || tunnelError.toLowerCase().includes('admin')
-                        ? 'Acceso administrativo'
-                        : 'Aviso de conexión'
+                        ? t('qrModal.standard.tunnelErrorAdminTitle')
+                        : t('qrModal.standard.tunnelErrorNoticeTitle')
                     }
                     desc={
                       tunnelError.toLowerCase().includes('unauthorized') || tunnelError.toLowerCase().includes('admin')
-                        ? 'Se requiere acceso de administrador para activar el túnel 4G/5G. Utiliza la Red Wi-Fi local.'
+                        ? t('qrModal.standard.tunnelErrorAdminDesc')
                         : tunnelError
                     }
                     action={
@@ -499,8 +501,8 @@ export default function QRCodeModal({
                         type="button"
                         onClick={() => setTunnelError(null)}
                         className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                        title="Cerrar aviso"
-                        aria-label="Cerrar aviso"
+                        title={t('qrModal.standard.bannerCloseAria')}
+                        aria-label={t('qrModal.standard.bannerCloseAria')}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -515,8 +517,8 @@ export default function QRCodeModal({
                 <Banner
                   icon={<Globe className="w-4 h-4 text-white" strokeWidth={2.2} />}
                   color="#10b981"
-                  title="QR universal seguro"
-                  desc="Válido para conexión Wi-Fi y datos móviles 4G/5G."
+                  title={t('qrModal.standard.bannerUniversalTitle')}
+                  desc={t('qrModal.standard.bannerUniversalDesc')}
                   className="shadow-xs"
                   style={{ padding: '12px 14px', borderRadius: 20 }}
                 />
@@ -532,7 +534,7 @@ export default function QRCodeModal({
                 {modalDisplayTitle}
               </h3>
               <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
-                Escucha la conferencia en tu idioma con tus auriculares en tiempo real.
+                {t('qrModal.standard.stepsSubtitle')}
               </p>
             </div>
 
@@ -544,10 +546,10 @@ export default function QRCodeModal({
                 </div>
                 <div className="min-w-0">
                   <h4 className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    Escanea el código QR
+                    {t('qrModal.standard.step1Title')}
                   </h4>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
-                    Abre la cámara de tu teléfono móvil (iOS o Android). No requiere descargar aplicaciones.
+                    {t('qrModal.standard.step1Desc')}
                   </p>
                 </div>
               </div>
@@ -558,10 +560,10 @@ export default function QRCodeModal({
                 </div>
                 <div className="min-w-0">
                   <h4 className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    Conecta tus auriculares
+                    {t('qrModal.standard.step2Title')}
                   </h4>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
-                    AirPods, Bluetooth o cable. Puedes apagar la pantalla y la sintonía seguirá sonando.
+                    {t('qrModal.standard.step2Desc')}
                   </p>
                 </div>
               </div>
@@ -572,7 +574,7 @@ export default function QRCodeModal({
                 </div>
                 <div className="min-w-0">
                   <h4 className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    Elige tu cabina de idioma
+                    {t('qrModal.standard.step3Title')}
                   </h4>
                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 shadow-2xs">
@@ -600,7 +602,7 @@ export default function QRCodeModal({
             <div className="p-3 rounded-2xl bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-400 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-medium text-zinc-800 dark:text-zinc-200">
-                  <span>Wi-Fi local: {effectiveIp}:{typeof window !== 'undefined' && window.location.port ? window.location.port : '5174'}</span>
+                  <span>{t('qrModal.standard.wifiDiagnostic', { ip: effectiveIp, port: typeof window !== 'undefined' && window.location.port ? window.location.port : '5174' })}</span>
                 </div>
                 {isLoopback && availableIps.length > 1 && (
                   <button
@@ -608,14 +610,14 @@ export default function QRCodeModal({
                     onClick={() => setIsEditingIp(!isEditingIp)}
                     className="text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer font-medium underline transition-colors"
                   >
-                    {isEditingIp ? 'Cerrar' : 'Cambiar IP'}
+                    {isEditingIp ? t('qrModal.standard.closeIp') : t('qrModal.standard.changeIp')}
                   </button>
                 )}
               </div>
 
               {isEditingIp && (
                 <div className="pt-2 space-y-2 animate-fadeIn border-t border-zinc-200 dark:border-white/10">
-                  <div className="text-[11px] text-zinc-500">Selecciona el adaptador de red de tu Wi-Fi:</div>
+                  <div className="text-[11px] text-zinc-500">{t('qrModal.standard.selectAdapter')}</div>
                   <div className="flex flex-wrap gap-1.5">
                     {availableIps.map((iface, idx) => (
                       <button
@@ -645,7 +647,7 @@ export default function QRCodeModal({
         <footer className="px-4 sm:px-8 py-3.5 sm:py-4 bg-zinc-50/95 dark:bg-zinc-900/90 backdrop-blur-md border-t border-zinc-200/80 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="hidden sm:block w-full sm:w-auto flex-1 min-w-0 text-left">
             <div className="text-[10px] sm:text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-              Vínculo directo de oyente
+              {t('qrModal.standard.directLinkLabel')}
             </div>
             <div className="text-xs font-mono text-zinc-700 dark:text-zinc-300 truncate max-w-full sm:max-w-md mt-0.5 select-all">
               {listenUrl}
@@ -661,12 +663,12 @@ export default function QRCodeModal({
               {copied ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 stroke-[2.5]" />
-                  <span>Enlace copiado</span>
+                  <span>{t('qrModal.standard.copiedLink')}</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-                  <span>Copiar enlace</span>
+                  <span>{t('qrModal.standard.copyLink')}</span>
                 </>
               )}
             </button>
@@ -675,10 +677,10 @@ export default function QRCodeModal({
               type="button"
               onClick={handleDownloadQR}
               className="flex-1 sm:flex-none h-10 px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 hover:bg-zinc-200/80 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-200 font-medium text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-95 touch-manipulation"
-              title="Descargar código QR"
+              title={t('qrModal.standard.downloadQrTitle')}
             >
               <Download className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-              <span>Descargar QR</span>
+              <span>{t('qrModal.standard.downloadQr')}</span>
             </button>
           </div>
         </footer>

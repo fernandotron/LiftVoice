@@ -2,6 +2,7 @@ import React from 'react';
 import { Users, Zap, Clock, ShieldCheck, Radio, CheckCircle, AudioLines, Activity } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from './LanguageSelector.jsx';
 import CountryFlag from './shared/CountryFlag.jsx';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 export default function AudienceMetrics({
   totalListeners = 0,
@@ -10,6 +11,7 @@ export default function AudienceMetrics({
   latestPipelineMetric = null,
   socketLatency = 14
 }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-4 text-left">
       {/* Top Counters Grid (ElevenLabs Dashboard Style) */}
@@ -18,26 +20,26 @@ export default function AudienceMetrics({
           <div className="flex items-center justify-between text-xs text-zinc-400 mb-2">
             <span className="flex items-center gap-1.5 text-xs">
               <Users className="w-3.5 h-3.5 text-emerald-400" />
-              Oyentes Activos
+              {t('audienceMetrics.activeListeners')}
             </span>
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           </div>
           <div className="text-3xl font-bold text-white font-mono">
             {totalListeners}
           </div>
-          <div className="text-[11px] text-zinc-500 mt-1">Conectados en sala</div>
+          <div className="text-[11px] text-zinc-500 mt-1">{t('audienceMetrics.connectedInRoom')}</div>
         </div>
 
         <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs text-zinc-400 mb-2">
             <span className="flex items-center gap-1.5 text-xs">
               <Zap className="w-3.5 h-3.5 text-emerald-400" />
-              Latencia Pipeline IA
+              {t('audienceMetrics.pipelineLatency')}
             </span>
             <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
               latestPipelineMetric ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-400'
             }`}>
-              {latestPipelineMetric ? 'En vivo' : 'En espera'}
+              {latestPipelineMetric ? t('audienceMetrics.live') : t('audienceMetrics.waiting')}
             </span>
           </div>
           <div className="text-3xl font-bold text-white font-mono">
@@ -70,23 +72,23 @@ export default function AudienceMetrics({
           <div className="flex items-center justify-between text-xs text-zinc-400 mb-2">
             <span className="flex items-center gap-1.5 text-xs">
               <Clock className="w-3.5 h-3.5 text-zinc-300" />
-              Frases
+              {t('audienceMetrics.sentences')}
             </span>
             <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
           </div>
           <div className="text-3xl font-bold text-white font-mono">
             {metrics.sentencesProcessed || 0}
           </div>
-          <div className="text-[11px] text-zinc-500 mt-1">Traducidas a 4 idiomas</div>
+          <div className="text-[11px] text-zinc-500 mt-1">{t('audienceMetrics.translatedTo4Languages')}</div>
         </div>
 
         <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs text-zinc-400 mb-2">
             <span className="flex items-center gap-1.5 text-xs">
               <AudioLines className="w-3.5 h-3.5 text-white" />
-              Cabinas de Voz
+              {t('audienceMetrics.voiceCabins')}
             </span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono">4 activas</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono">{t('audienceMetrics.activeCabinsCount')}</span>
           </div>
           <div className="text-3xl font-bold text-white font-mono">
             4
@@ -98,8 +100,8 @@ export default function AudienceMetrics({
       {/* Language Breakdown Cards */}
       <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl p-5 shadow-lg space-y-3">
         <div className="text-xs font-semibold text-zinc-300 flex items-center justify-between">
-          <span>Distribución de Audiencia por Canal</span>
-          <span className="text-[11px] text-zinc-500 font-mono">Tiempo real</span>
+          <span>{t('audienceMetrics.audienceDistribution')}</span>
+          <span className="text-[11px] text-zinc-500 font-mono">{t('audienceMetrics.realTime')}</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -134,7 +136,7 @@ export default function AudienceMetrics({
         <div className="p-3.5 rounded-xl bg-zinc-950 border border-white/10 text-xs font-mono flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-zinc-300 text-xs flex-wrap">
             <Radio className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
-            <span className="font-semibold">Telemetría de Pipeline IA:</span>
+            <span className="font-semibold">{t('audienceMetrics.pipelineTelemetryTitle')}</span>
             {latestPipelineMetric.engineUsed && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium">
                 {latestPipelineMetric.engineUsed}

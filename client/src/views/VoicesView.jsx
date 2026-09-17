@@ -1,46 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Search, Play, Square, Loader2, Volume2, Check, Sparkles, Filter, SlidersHorizontal,
   Home, Radio, Layers, Settings, QrCode, Users, Globe, ArrowRight, ShieldCheck,
   ChevronRight, Mic, Menu, X
 } from 'lucide-react';
 import { audioPlayerService } from '../services/audioPlayer.js';
-
-const VOICE_CATEGORIES = [
-  { id: 'all', label: 'Todos los motores' },
-  { id: 'edge', label: 'Edge Neural 🌐' },
-  { id: 'deepgram', label: 'Deepgram Aura-2 ⚡' },
-  { id: 'openai', label: 'OpenAI TTS 🤖' },
-  { id: 'elevenlabs', label: 'ElevenLabs Flash 🌟' },
-  { id: 'cartesia', label: 'Cartesia Sonic 🚀' }
-];
-
-const TIER_FILTERS = [
-  { id: 'all', label: 'Todos los niveles' },
-  { id: 'zero_cost', label: '⚡ Gratuito (Zero-Cost)' },
-  { id: 'premium_studio', label: '🌟 Studio Pro (Cloud Keys)' }
-];
-
-const GENDER_FILTERS = [
-  { id: 'all', label: 'Todos los géneros' },
-  { id: 'female', label: '♀ Femenina' },
-  { id: 'male', label: '♂ Masculina' }
-];
-
-const SCENARIO_FILTERS = [
-  { id: 'all', label: 'Todos los escenarios' },
-  { id: 'keynote', label: '🎤 Keynote & Plenaria' },
-  { id: 'panel', label: '💬 Panel & Debate' },
-  { id: 'medical', label: '🩺 Médico & Clínico' }
-];
-
-const LANG_PILLS = [
-  { id: 'all', label: 'Todos los idiomas' },
-  { id: 'es', label: '🇪🇸 Español' },
-  { id: 'en', label: '🇺🇸 English' },
-  { id: 'it', label: '🇮🇹 Italiano' },
-  { id: 'pt', label: '🇧🇷 Português' }
-];
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 const DEFAULT_ACTIVE_VOICES = {
   es: 'es-ES-ElviraNeural',
@@ -66,6 +31,44 @@ export default function VoicesView({
   onOpenSettings = () => {},
   onOpenQR = () => {}
 }) {
+  const { t } = useI18n();
+
+  const VOICE_CATEGORIES = useMemo(() => [
+    { id: 'all', label: t('voiceCatalog.allProviders', 'Todos los motores') },
+    { id: 'edge', label: 'Edge Neural 🌐' },
+    { id: 'deepgram', label: 'Deepgram Aura-2 ⚡' },
+    { id: 'openai', label: 'OpenAI TTS 🤖' },
+    { id: 'elevenlabs', label: 'ElevenLabs Flash 🌟' },
+    { id: 'cartesia', label: 'Cartesia Sonic 🚀' }
+  ], [t]);
+
+  const TIER_FILTERS = useMemo(() => [
+    { id: 'all', label: t('voiceCatalog.tierAll', 'Todos los niveles') },
+    { id: 'zero_cost', label: t('voiceCatalog.tierZeroCost', '⚡ Gratuito (Zero-Cost)') },
+    { id: 'premium_studio', label: t('voiceCatalog.tierStudioPro', '🌟 Studio Pro (Cloud Keys)') }
+  ], [t]);
+
+  const GENDER_FILTERS = useMemo(() => [
+    { id: 'all', label: t('voiceCatalog.genderAll', 'Todos los géneros') },
+    { id: 'female', label: t('voiceCatalog.genderFemale', '♀ Femenina') },
+    { id: 'male', label: t('voiceCatalog.genderMale', '♂ Masculina') }
+  ], [t]);
+
+  const SCENARIO_FILTERS = useMemo(() => [
+    { id: 'all', label: t('voiceCatalog.tierAll', 'Todos los escenarios') },
+    { id: 'keynote', label: t('voicesView.scenarioKeynote', '🎤 Keynote & Plenaria') },
+    { id: 'panel', label: t('voicesView.scenarioPanel', '💬 Panel & Debate') },
+    { id: 'medical', label: t('voicesView.scenarioMedical', '🩺 Médico & Clínico') }
+  ], [t]);
+
+  const LANG_PILLS = useMemo(() => [
+    { id: 'all', label: t('voiceCatalog.allLanguages', 'Todos los idiomas') },
+    { id: 'es', label: `🇪🇸 ${t('languages.es', 'Español')}` },
+    { id: 'en', label: `🇺🇸 ${t('languages.en', 'English')}` },
+    { id: 'it', label: `🇮🇹 ${t('languages.it', 'Italiano')}` },
+    { id: 'pt', label: `🇧🇷 ${t('languages.pt', 'Português')}` }
+  ], [t]);
+
   const [voices, setVoices] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -320,7 +323,7 @@ export default function VoicesView({
             <button
               onClick={() => setIsMobileNavOpen(false)}
               className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 cursor-pointer"
-              title="Cerrar menú"
+              title={t('common.close', 'Cerrar')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -337,13 +340,13 @@ export default function VoicesView({
             className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
           >
             <Home className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
-            <span>Inicio</span>
+            <span>{t('navbar.home', 'Inicio')}</span>
           </button>
 
           <div className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-zinc-950 dark:text-zinc-100 bg-zinc-200/80 dark:bg-zinc-800/80 shadow-xs">
             <div className="flex items-center gap-3">
               <Layers className="w-4 h-4 text-zinc-950 dark:text-zinc-100" />
-              <span>Voces</span>
+              <span>{t('voicesView.title', 'Voces')}</span>
             </div>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
           </div>
@@ -367,14 +370,14 @@ export default function VoicesView({
             className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
           >
             <Settings className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
-            <span>Configuración</span>
+            <span>{t('navbar.settings', 'Configuración')}</span>
           </button>
         </div>
 
         {/* Fijado / Sala Activa */}
         <div className="p-3 pt-3 space-y-1 border-t border-zinc-200 dark:border-zinc-800">
           <div className="px-3.5 pb-1.5 text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 font-mono">
-            Sala activa
+            {t('host.activeRoom', 'Sala activa')}
           </div>
 
           <button
@@ -386,7 +389,7 @@ export default function VoicesView({
           >
             <div className="flex items-center gap-2.5">
               <Mic className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100" />
-              <span>Cabina {roomId}</span>
+              <span>{t('voiceCatalog.footerBoothLabel', { cabin: roomId })}</span>
             </div>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           </button>
@@ -400,7 +403,7 @@ export default function VoicesView({
           >
             <div className="flex items-center gap-2.5">
               <QrCode className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
-              <span>Proyectar QR</span>
+              <span>{t('navbar.shareQR', 'Proyectar QR')}</span>
             </div>
             <ChevronRight className="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
           </button>
@@ -410,10 +413,10 @@ export default function VoicesView({
       {/* Sidebar Footer info */}
       <div className="p-3.5 m-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-1 shadow-xs">
         <div className="text-[11px] font-semibold text-zinc-900 dark:text-zinc-100">
-          Catálogo Multi-Motor
+          {t('voiceCatalog.sidebarTitle', 'Catálogo de Voces')}
         </div>
         <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-          Deepgram Aura, Google Neural y OpenAI listos para emisión multicanal.
+          {t('voiceCatalog.sidebarSubtitle', 'Voces neuronales para emisión multicanal')}
         </p>
       </div>
     </div>
@@ -456,16 +459,16 @@ export default function VoicesView({
             <button
               onClick={() => setIsMobileNavOpen(true)}
               className="lg:hidden p-2 -ml-1.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
-              title="Abrir menú"
+              title={t('common.menu', 'Abrir menú')}
             >
               <Menu className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-1.5 sm:gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
               <Layers className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
-              <span>Voces</span>
+              <span>{t('voicesView.title', 'Voces')}</span>
               <span className="text-zinc-300 dark:text-zinc-700">&rsaquo;</span>
-              <span className="font-semibold text-zinc-950 dark:text-zinc-100">Explorar</span>
+              <span className="font-semibold text-zinc-950 dark:text-zinc-100">{t('voicesView.exploreTab', 'Explorar')}</span>
             </div>
           </div>
 
@@ -473,7 +476,7 @@ export default function VoicesView({
           <div className="hidden lg:flex items-center w-72 h-8.5 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-3.5 text-xs text-zinc-400 dark:text-zinc-500 justify-between transition-colors cursor-pointer">
             <div className="flex items-center gap-2">
               <Search className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
-              <span>Buscar en todo...</span>
+              <span>{t('voicesView.searchAll', 'Buscar en todo...')}</span>
             </div>
             <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-zinc-400 dark:text-zinc-400 shadow-xs">⌘K</kbd>
           </div>
@@ -484,7 +487,7 @@ export default function VoicesView({
               className="h-8.5 px-3 sm:px-4 rounded-2xl bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
             >
               <Radio className="w-3.5 h-3.5" />
-              <span>Volver al Studio</span>
+              <span>{t('voicesView.returnToStudio', 'Volver al Studio')}</span>
             </button>
             <div className="hidden sm:flex w-7.5 h-7.5 rounded-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 items-center justify-center text-xs font-bold font-mono">
               LV
@@ -506,11 +509,10 @@ export default function VoicesView({
                 <div className="flex items-center gap-2 min-w-0">
                   <Check className={`w-4 h-4 flex-shrink-0 ${assignedFeedback.unassigned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
                   <span className="truncate sm:whitespace-normal">
-                    {assignedFeedback.unassigned ? (
-                      <>Voz <b>{assignedFeedback.name}</b> deseleccionada de la cabina <b>{assignedFeedback.lang}</b>.</>
-                    ) : (
-                      <>Voz <b>{assignedFeedback.name}</b> asignada con éxito a la cabina <b>{assignedFeedback.lang}</b>.</>
-                    )}
+                    {assignedFeedback.unassigned
+                      ? t('voicesView.unassignedFeedback', { name: assignedFeedback.name, lang: assignedFeedback.lang })
+                      : t('voicesView.assignedSuccessFeedback', { name: assignedFeedback.name, lang: assignedFeedback.lang })
+                    }
                   </span>
                 </div>
                 <button
@@ -519,7 +521,7 @@ export default function VoicesView({
                     assignedFeedback.unassigned ? 'bg-amber-700 hover:bg-amber-800' : 'bg-emerald-600 hover:bg-emerald-700'
                   }`}
                 >
-                  Ir al Studio &rarr;
+                  {t('voicesView.goToStudio', 'Ir al Studio →')}
                 </button>
               </div>
             )}
@@ -528,19 +530,19 @@ export default function VoicesView({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
               <div className="flex items-center justify-between sm:justify-start gap-3 sm:gap-4">
                 <h1 className="text-xl sm:text-2xl font-bold text-zinc-950 dark:text-zinc-100 tracking-tight">
-                  Voces
+                  {t('voicesView.title', 'Voces')}
                 </h1>
                 
                 {/* Pill Tabs: Explorar | Mis Voces */}
                 <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900 p-1 rounded-full border border-zinc-200 dark:border-zinc-800">
                   <button className="px-3 py-1 sm:px-3.5 rounded-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-xs text-xs font-medium">
-                    Explorar
+                    {t('voicesView.exploreTab', 'Explorar')}
                   </button>
                   <button
                     onClick={onOpenSettings}
                     className="px-3 py-1 sm:px-3.5 rounded-full text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors"
                   >
-                    Mis Voces
+                    {t('voicesView.myVoicesTab', 'Mis Voces')}
                   </button>
                 </div>
               </div>
@@ -550,13 +552,13 @@ export default function VoicesView({
                   onClick={onOpenSettings}
                   className="h-8.5 px-3 sm:px-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-xs"
                 >
-                  Ganancias
+                  {t('voicesView.earningsButton', 'Ganancias')}
                 </button>
                 <button
                   onClick={onOpenSettings}
                   className="h-8.5 px-3.5 sm:px-4 rounded-2xl bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
-                  <span>+ Crear voz</span>
+                  <span>{t('voicesView.createVoiceButton', '+ Crear voz')}</span>
                 </button>
               </div>
             </div>
@@ -569,13 +571,13 @@ export default function VoicesView({
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar en las voces de la biblioteca..."
+                  placeholder={t('voicesView.searchLibraryPlaceholder', 'Buscar en las voces de la biblioteca...')}
                   className="w-full h-10 sm:h-11 pl-10 sm:pl-11 pr-22 sm:pr-24 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400 focus:ring-1 focus:ring-zinc-950 dark:focus:ring-zinc-400 shadow-xs transition-all"
                 />
                 <div className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                   <button className="h-7 px-2.5 sm:px-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium flex items-center gap-1 transition-colors">
                     <Filter className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
-                    <span>Filtros</span>
+                    <span>{t('voicesView.filtersButton', 'Filtros')}</span>
                   </button>
                 </div>
               </div>
@@ -678,23 +680,23 @@ export default function VoicesView({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-zinc-950 dark:text-zinc-100 tracking-tight flex items-center gap-1.5">
-                  <span>Voces en tendencia ({filteredVoices.length})</span>
+                  <span>{t('voicesView.trendingVoicesTitle', { count: filteredVoices.length })}</span>
                   <ChevronRight className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
                 </h2>
                 <span className="text-[10px] sm:text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
-                  Clic en ▶ para audicionar con guion contextual
+                  {t('voicesView.auditionInstruction', 'Clic en ▶ para audicionar con guion contextual')}
                 </span>
               </div>
 
               {isLoading ? (
                 <div className="py-16 text-center space-y-3">
                   <Loader2 className="w-7 h-7 text-zinc-900 dark:text-zinc-100 animate-spin mx-auto" />
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Cargando catálogo de voces...</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('voiceCatalog.loadingCatalog', 'Cargando catálogo de voces...')}</p>
                 </div>
               ) : filteredVoices.length === 0 ? (
                 <div className="py-16 text-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-2">
-                  <p className="text-xs font-semibold text-zinc-950 dark:text-zinc-100">No se encontraron voces</p>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Intenta buscar con otros términos o cambia los filtros de idioma, género o nivel.</p>
+                  <p className="text-xs font-semibold text-zinc-950 dark:text-zinc-100">{t('voiceCatalog.emptyVoicesTitle', 'No se encontraron voces')}</p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t('voiceCatalog.emptyVoicesDesc', 'Intenta buscar con otros términos o cambia los filtros de idioma, género o nivel.')}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -730,15 +732,15 @@ export default function VoicesView({
                                   {voice.name}
                                 </h3>
                                 <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-zinc-700/60">
-                                  {voice.gender === 'female' ? '♀ Fem' : voice.gender === 'male' ? '♂ Masc' : 'Neutro'}
+                                  {voice.gender === 'female' ? t('voiceCatalog.genderFemale', '♀ Fem') : voice.gender === 'male' ? t('voiceCatalog.genderMale', '♂ Masc') : t('voiceCatalog.genderNeutral', 'Neutro')}
                                 </span>
                                 {voice.tier === 'zero_cost' || voice.isFree ? (
                                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
-                                    ⚡ Zero-Cost
+                                    {t('voiceCatalog.tierZeroCost', '⚡ Zero-Cost')}
                                   </span>
                                 ) : (
                                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
-                                    🌟 Studio Pro
+                                    {t('voiceCatalog.tierStudioPro', '🌟 Studio Pro')}
                                   </span>
                                 )}
                               </div>
@@ -748,7 +750,7 @@ export default function VoicesView({
                               <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
                                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
                                   {supportedLangs.length === 1
-                                    ? (supportedLangs[0] === 'es' ? '🇪🇸 Español' : supportedLangs[0] === 'en' ? '🇺🇸 English' : supportedLangs[0] === 'it' ? '🇮🇹 Italiano' : '🇧🇷 Português')
+                                    ? (supportedLangs[0] === 'es' ? `🇪🇸 ${t('languages.es', 'Español')}` : supportedLangs[0] === 'en' ? `🇺🇸 ${t('languages.en', 'English')}` : supportedLangs[0] === 'it' ? `🇮🇹 ${t('languages.it', 'Italiano')}` : `🇧🇷 ${t('languages.pt', 'Português')}`)
                                     : `🌐 Multilingüe (${supportedLangs.join(', ')})`}
                                 </span>
                                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-50 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800">
@@ -772,7 +774,7 @@ export default function VoicesView({
                                 ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 animate-pulse'
                                 : 'bg-zinc-100 dark:bg-zinc-850 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
                             }`}
-                            title="Audicionar voz en tiempo real"
+                            title={isPlaying ? t('voiceCatalog.stopAuditionTooltip', 'Detener muestra') : t('voiceCatalog.playAuditionTooltip', { name: voice.name })}
                           >
                             {isPlaying ? (
                               <Square className="w-3 h-3 fill-current" />
@@ -785,7 +787,7 @@ export default function VoicesView({
                         {/* Bottom Assignment Action Buttons */}
                         <div className="mt-3.5 pt-2.5 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
                           <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
-                            Asignar a cabina:
+                            {t('voicesView.assignToBoothLabel', 'Asignar a cabina:')}
                           </span>
                           <div className="flex items-center gap-1 flex-wrap">
                             {supportedLangs.map((lang) => {
@@ -799,7 +801,7 @@ export default function VoicesView({
                                       ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-xs font-bold ring-1 ring-zinc-950 dark:ring-zinc-100'
                                       : 'bg-zinc-100 dark:bg-zinc-850 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
                                   }`}
-                                  title={isCurrent ? `Deseleccionar de la cabina ${lang}` : `Asignar ${voice.name} a la cabina de ${lang}`}
+                                  title={isCurrent ? t('voicesView.unassignFromBoothTooltip', { lang }) : t('voicesView.assignVoiceToBoothTooltip', { name: voice.name, lang })}
                                 >
                                   {lang}
                                 </button>
@@ -817,7 +819,7 @@ export default function VoicesView({
             {/* Section: Seleccionado para tu caso de uso */}
             <div className="space-y-3 pt-2">
               <h2 className="text-sm font-bold text-zinc-950 dark:text-zinc-100 tracking-tight">
-                Seleccionado para tu caso de uso
+                {t('voicesView.selectedForUseCaseTitle', 'Seleccionado para tu caso de uso')}
               </h2>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -826,22 +828,22 @@ export default function VoicesView({
                     Motor V3
                   </div>
                   <h4 className="font-bold text-sm text-white">
-                    Best voices for Live Interpretation
+                    {t('voicesView.cardEngineV3Title', 'Best voices for Live Interpretation')}
                   </h4>
                   <p className="text-[11px] text-zinc-300 leading-relaxed">
-                    Modelos optimizados para conferencias sin latencia perceptible.
+                    {t('voicesView.cardEngineV3Desc', 'Modelos optimizados para conferencias sin latencia perceptible.')}
                   </p>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-zinc-800 via-zinc-850 to-zinc-900 text-white space-y-2 shadow-xs border border-zinc-700/80">
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-zinc-800 via-zinc-855 to-zinc-900 text-white space-y-2 shadow-xs border border-zinc-700/80">
                   <div className="text-[10px] font-mono font-bold text-zinc-400">
                     Keynote Pro
                   </div>
                   <h4 className="font-bold text-sm text-white">
-                    Studio-Quality Conversational Voices
+                    {t('voicesView.cardKeynoteProTitle', 'Studio-Quality Conversational Voices')}
                   </h4>
                   <p className="text-[11px] text-zinc-300 leading-relaxed">
-                    Voces con entonación oratoria y cadencia natural para eventos magistrales.
+                    {t('voicesView.cardKeynoteProDesc', 'Voces con entonación oratoria y cadencia natural para eventos magistrales.')}
                   </p>
                 </div>
 
@@ -850,10 +852,10 @@ export default function VoicesView({
                     Clínico CIE-11
                   </div>
                   <h4 className="font-bold text-sm text-white">
-                    Medical & Technical Certified Voices
+                    {t('voicesView.cardMedicalTitle', 'Medical & Technical Certified Voices')}
                   </h4>
                   <p className="text-[11px] text-zinc-300 leading-relaxed">
-                    Pronunciación milimétrica para congresos médicos y farmacéuticos.
+                    {t('voicesView.cardMedicalDesc', 'Pronunciación milimétrica para congresos médicos y farmacéuticos.')}
                   </p>
                 </div>
               </div>

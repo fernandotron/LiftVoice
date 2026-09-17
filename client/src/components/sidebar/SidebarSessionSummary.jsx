@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sparkles, Copy, Check, Download, RefreshCw, Loader2, AlertCircle, FileText } from 'lucide-react';
+import { useI18n } from '../../contexts/I18nContext.jsx';
 
 export default function SidebarSessionSummary({
   roomId = 'MAIN',
@@ -8,9 +9,11 @@ export default function SidebarSessionSummary({
   error = null,
   onGenerate = () => {}
 }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
-  const title = (summaryData?.title === 'Conferencia Principal 2026') ? 'Conferencia Principal' : (summaryData?.title || 'Conferencia Principal');
+  const defaultTitle = t('sessionSummary.defaultTitle', 'Conferencia Principal');
+  const title = (summaryData?.title === 'Conferencia Principal 2026' || summaryData?.title === 'Conferencia Principal') ? defaultTitle : (summaryData?.title || defaultTitle);
   const execSummary = summaryData?.executiveSummary || summaryData?.summaryEs || summaryData?.summaryEn || '';
   const keyPoints = summaryData?.keyPoints || summaryData?.keyTakeawaysEs || summaryData?.keyTakeawaysEn || [];
   const actionItems = summaryData?.actionItems || (summaryData?.conclusions ? [summaryData.conclusions] : []);
@@ -74,10 +77,10 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
       <div className="h-14 px-5 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0">
         <div>
           <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            Resumen de Sesión IA
+            {t('sessionSummary.sidebarTitle', 'Resumen de Sesión IA')}
           </h2>
           <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
-            Minuta estructurada con IA
+            {t('sessionSummary.sidebarSubtitle', 'Minuta estructurada con IA')}
           </p>
         </div>
 
@@ -89,7 +92,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                 type="button"
                 onClick={handleCopyMarkdown}
                 className="w-7 h-7 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
-                title="Copiar resumen en Markdown"
+                title={t('sessionSummary.copyMarkdown', 'Copiar resumen en Markdown')}
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
@@ -97,7 +100,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                 type="button"
                 onClick={handleDownloadMarkdown}
                 className="w-7 h-7 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
-                title="Descargar archivo Markdown"
+                title={t('sessionSummary.downloadMarkdown', 'Descargar archivo Markdown')}
               >
                 <Download className="w-3.5 h-3.5" />
               </button>
@@ -108,10 +111,10 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
             onClick={onGenerate}
             disabled={isLoading}
             className="h-7 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-1 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
-            title="Generar o actualizar resumen"
+            title={summaryData ? t('sessionSummary.refreshButton', 'Actualizar') : t('sessionSummary.generateButton', 'Generar')}
           >
             <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>{summaryData ? 'Actualizar' : 'Generar'}</span>
+            <span>{summaryData ? t('sessionSummary.refreshButton', 'Actualizar') : t('sessionSummary.generateButton', 'Generar')}</span>
           </button>
         </div>
       </div>
@@ -124,10 +127,10 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
           <div className="py-16 text-center space-y-3">
             <Loader2 className="w-8 h-8 text-zinc-900 dark:text-zinc-100 animate-spin mx-auto" />
             <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-              Analizando la transcripción de la ponencia...
+              {t('sessionSummary.loadingTitle', 'Analizando la transcripción de la ponencia...')}
             </div>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto leading-relaxed">
-              La Inteligencia Artificial está extrayendo ideas centrales, argumentos y acuerdos de la sesión.
+              {t('sessionSummary.loadingDesc', 'La Inteligencia Artificial está extrayendo ideas centrales, argumentos y acuerdos de la sesión.')}
             </p>
           </div>
         )}
@@ -136,14 +139,14 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
           <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 text-xs flex items-start gap-2.5">
             <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500 mt-0.5" />
             <div className="min-w-0 flex-1">
-              <b className="block font-semibold mb-0.5">No se pudo generar el resumen</b>
+              <b className="block font-semibold mb-0.5">{t('sessionSummary.errorTitle', 'No se pudo generar el resumen')}</b>
               <p className="leading-relaxed text-[11px]">{error}</p>
               <button
                 type="button"
                 onClick={onGenerate}
                 className="mt-2 px-2.5 py-1 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 text-[10.5px] font-semibold hover:underline cursor-pointer"
               >
-                Reintentar
+                {t('sessionSummary.retryButton', 'Reintentar')}
               </button>
             </div>
           </div>
@@ -156,10 +159,10 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
             </div>
             <div>
               <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                Minuta no generada
+                {t('sessionSummary.emptyStateTitle', 'Minuta no generada')}
               </div>
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 max-w-xs mx-auto leading-relaxed">
-                Genera un resumen inteligente a partir de las intervenciones registradas en el estudio.
+                {t('sessionSummary.emptyStateDesc', 'Genera un resumen inteligente a partir de las intervenciones registradas en el estudio.')}
               </p>
             </div>
             <button
@@ -168,7 +171,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Generar Resumen Ahora</span>
+              <span>{t('sessionSummary.generateNowButton', 'Generar Resumen Ahora')}</span>
             </button>
           </div>
         )}
@@ -178,21 +181,21 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
             {/* Métricas */}
             <div className="grid grid-cols-3 gap-2">
               <div className="p-2.5 rounded-xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center">
-                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Duración</div>
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">{t('sessionSummary.duration', 'Duración')}</div>
                 <div className="text-sm font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
-                  {duration} <span className="text-[10px] font-normal text-zinc-500">min</span>
+                  {duration} <span className="text-[10px] font-normal text-zinc-500">{t('sessionSummary.minutesUnit', 'min')}</span>
                 </div>
               </div>
 
               <div className="p-2.5 rounded-xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center">
-                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Frases</div>
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">{t('sessionSummary.sentences', 'Frases')}</div>
                 <div className="text-sm font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
                   {totalSentences}
                 </div>
               </div>
 
               <div className="p-2.5 rounded-xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center">
-                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Oyentes</div>
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">{t('sessionSummary.listeners', 'Oyentes')}</div>
                 <div className="text-sm font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
                   {totalListeners}
                 </div>
@@ -202,10 +205,10 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
             {/* Resumen Ejecutivo */}
             <div className="space-y-1.5">
               <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                Resumen Ejecutivo
+                {t('sessionSummary.execSummaryTitle', 'Resumen Ejecutivo')}
               </div>
               <div className="p-3 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
-                {execSummary || 'No se detectaron discursos durante esta sesión para resumir.'}
+                {execSummary || t('sessionSummary.noSpeechDetected', 'No se detectaron discursos durante esta sesión para resumir.')}
               </div>
             </div>
 
@@ -213,7 +216,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
             {keyPoints.length > 0 && (
               <div className="space-y-1.5">
                 <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                  Puntos Clave y Argumentos
+                  {t('sessionSummary.keyPointsTitle', 'Puntos Clave y Argumentos')}
                 </div>
                 <div className="p-3 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 space-y-2">
                   {keyPoints.map((point, i) => (
@@ -229,7 +232,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
             {/* Conclusiones y Próximos Pasos */}
             <div className="space-y-1.5">
               <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                Conclusiones y Próximos Pasos
+                {t('sessionSummary.conclusionsTitle', 'Conclusiones y Próximos Pasos')}
               </div>
               <div className="p-3 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 space-y-2">
                 {actionItems.length > 0 ? (
@@ -242,7 +245,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                 ) : (
                   <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600 flex-shrink-0" />
-                    <span>Sin contenido registrado.</span>
+                    <span>{t('sessionSummary.noContent', 'Sin contenido registrado.')}</span>
                   </div>
                 )}
               </div>

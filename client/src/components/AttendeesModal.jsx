@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Download, X, Search, Mail, Phone, Globe, UserX, RotateCcw } from 'lucide-react';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 export default function AttendeesModal({
   roomId = 'MAIN',
@@ -9,6 +10,7 @@ export default function AttendeesModal({
   onKickAttendee = () => {},
   onUnbanAttendee = () => {}
 }) {
+  const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -62,14 +64,14 @@ export default function AttendeesModal({
             <div className="min-w-0 space-y-0.5">
               <div className="flex items-center gap-2">
                 <h3 id="attendees-dialog-title" className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
-                  Registro de Asistentes
+                  {t('attendees.title')}
                 </h3>
                 <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs font-mono font-medium text-zinc-600 dark:text-zinc-400 shrink-0">
                   {attendees.length}
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 truncate">
-                Participantes y oyentes registrados en la sala <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">{roomId}</span>
+                {t('attendees.subtitle', { roomId })}
               </p>
             </div>
           </div>
@@ -80,17 +82,17 @@ export default function AttendeesModal({
               onClick={handleDownloadCsv}
               disabled={attendees.length === 0}
               className="h-9 px-3.5 sm:px-4 rounded-full sm:rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 font-medium text-xs sm:text-sm transition-colors cursor-pointer shrink-0 shadow-2xs flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Descargar reporte en formato CSV"
+              title={t('attendees.exportCsvTooltip')}
             >
               <Download className="w-4 h-4" />
-              <span className="hidden xs:inline">Exportar reporte</span>
+              <span className="hidden xs:inline">{t('attendees.exportCsv')}</span>
               <span className="xs:hidden">CSV</span>
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              aria-label="Cerrar modal de asistentes"
+              aria-label={t('attendees.closeModal')}
               className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation shrink-0"
             >
               <X className="w-4 h-4" />
@@ -108,7 +110,7 @@ export default function AttendeesModal({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por nombre, correo, teléfono o idioma..."
+              placeholder={t('attendees.searchPlaceholder')}
               className="w-full h-11 pl-10 pr-4 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all shadow-2xs"
             />
           </div>
@@ -122,12 +124,12 @@ export default function AttendeesModal({
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    {searchTerm ? 'No se encontraron asistentes' : 'No hay asistentes registrados aún'}
+                    {searchTerm ? t('attendees.emptySearchTitle') : t('attendees.emptyListTitle')}
                   </p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto leading-relaxed">
                     {searchTerm
-                      ? 'Prueba modificando los términos del buscador.'
-                      : 'Los participantes aparecerán aquí automáticamente en tiempo real al unirse a la sala.'}
+                      ? t('attendees.emptySearchDesc')
+                      : t('attendees.emptyListDesc')}
                   </p>
                 </div>
               </div>
@@ -138,12 +140,12 @@ export default function AttendeesModal({
                   <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap">
                     <thead className="sticky top-0 z-10 bg-zinc-50/90 dark:bg-zinc-800/80 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/10 text-zinc-500 dark:text-zinc-400 font-medium">
                       <tr>
-                        <th className="px-5 py-3 font-medium">Asistente</th>
-                        <th className="px-5 py-3 font-medium">Contacto</th>
-                        <th className="px-5 py-3 font-medium">Canal</th>
-                        <th className="px-5 py-3 font-medium">Hora</th>
-                        <th className="px-5 py-3 font-medium">Estado</th>
-                        <th className="px-5 py-3 font-medium text-right">Acciones</th>
+                        <th className="px-5 py-3 font-medium">{t('attendees.colAttendee')}</th>
+                        <th className="px-5 py-3 font-medium">{t('attendees.colContact')}</th>
+                        <th className="px-5 py-3 font-medium">{t('attendees.colChannel')}</th>
+                        <th className="px-5 py-3 font-medium">{t('attendees.colTime')}</th>
+                        <th className="px-5 py-3 font-medium">{t('attendees.colStatus')}</th>
+                        <th className="px-5 py-3 font-medium text-right">{t('attendees.colActions')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-200/60 dark:divide-white/5">
@@ -155,7 +157,7 @@ export default function AttendeesModal({
                                 {att.name ? att.name.charAt(0).toUpperCase() : 'A'}
                               </div>
                               <div className="min-w-0">
-                                <div className="font-semibold text-zinc-900 dark:text-zinc-100">{att.name || 'Anónimo'}</div>
+                                <div className="font-semibold text-zinc-900 dark:text-zinc-100">{att.name || t('attendees.anonymous')}</div>
                                 <div className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
                                   ID: {(att.id || att.attendeeId || '—').slice(-6)}
                                 </div>
@@ -196,12 +198,12 @@ export default function AttendeesModal({
                             {att.isKicked ? (
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
                                 <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-red-500" />
-                                Expulsado
+                                {t('attendees.statusKicked')}
                               </span>
                             ) : (
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400">
                                 <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500" />
-                                Activo
+                                {t('attendees.statusActive')}
                               </span>
                             )}
                           </td>
@@ -212,20 +214,20 @@ export default function AttendeesModal({
                                 type="button"
                                 onClick={() => onUnbanAttendee(att.id || att.attendeeId)}
                                 className="h-8 px-3 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100/80 text-emerald-700 dark:text-emerald-300 text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                                title="Readmitir asistente"
+                                title={t('attendees.actionUnbanTitle')}
                               >
                                 <RotateCcw className="w-3.5 h-3.5" />
-                                <span>Readmitir</span>
+                                <span>{t('attendees.actionUnban')}</span>
                               </button>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => onKickAttendee(att.id || att.attendeeId, att.name)}
                                 className="h-8 px-3 rounded-xl border border-zinc-200/80 dark:border-white/10 hover:border-red-200 hover:bg-red-50 dark:hover:border-red-800/60 dark:hover:bg-red-950/40 text-zinc-500 hover:text-red-600 dark:hover:text-red-400 text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                                title="Expulsar asistente"
+                                title={t('attendees.actionKickTitle')}
                               >
                                 <UserX className="w-3.5 h-3.5" />
-                                <span>Expulsar</span>
+                                <span>{t('attendees.actionKick')}</span>
                               </button>
                             )}
                           </td>
@@ -245,17 +247,17 @@ export default function AttendeesModal({
                             {att.name ? att.name.charAt(0).toUpperCase() : 'A'}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate">{att.name || 'Anónimo'}</div>
+                            <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate">{att.name || t('attendees.anonymous')}</div>
                             <div className="text-[10px] text-zinc-400 font-mono">ID: {(att.id || att.attendeeId || '—').slice(-6)}</div>
                           </div>
                         </div>
                         {att.isKicked ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400 shrink-0">
-                            Expulsado
+                            {t('attendees.statusKicked')}
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400 shrink-0">
-                            Activo
+                            {t('attendees.statusActive')}
                           </span>
                         )}
                       </div>
@@ -290,7 +292,7 @@ export default function AttendeesModal({
                             className="h-7 px-3 rounded-full border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium inline-flex items-center gap-1 cursor-pointer active:scale-95 touch-manipulation"
                           >
                             <RotateCcw className="w-3 h-3" />
-                            <span>Readmitir</span>
+                            <span>{t('attendees.actionUnban')}</span>
                           </button>
                         ) : (
                           <button
@@ -299,7 +301,7 @@ export default function AttendeesModal({
                             className="h-7 px-3 rounded-full border border-zinc-200/80 dark:border-white/10 text-zinc-500 hover:text-red-600 text-[11px] font-medium inline-flex items-center gap-1 cursor-pointer active:scale-95 touch-manipulation"
                           >
                             <UserX className="w-3 h-3" />
-                            <span>Expulsar</span>
+                            <span>{t('attendees.actionKick')}</span>
                           </button>
                         )}
                       </div>
@@ -314,10 +316,10 @@ export default function AttendeesModal({
         {/* Footer matching AdminSettingsShell modal */}
         <footer className="px-4 sm:px-8 py-3 sm:py-4 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-4 bg-zinc-50/80 dark:bg-zinc-900/60 border-t border-zinc-200/80 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 text-xs text-zinc-500 dark:text-zinc-400 font-mono flex-shrink-0">
           <div className="flex items-center gap-2">
-            <span>{filteredAttendees.length} de {attendees.length} asistentes registrados</span>
+            <span>{t('attendees.footerCount', { filtered: filteredAttendees.length, total: attendees.length })}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span>Sincronizado en tiempo real &bull; Exportable a .CSV</span>
+            <span>{t('attendees.footerSync')}</span>
           </div>
         </footer>
 

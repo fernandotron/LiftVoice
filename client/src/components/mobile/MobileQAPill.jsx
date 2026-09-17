@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Hand, Mic, MicOff, Send, X, CheckCircle2, Square } from 'lucide-react';
 import Modal from '../shared/Modal.jsx';
 import Banner from '../shared/Banner.jsx';
+import { useI18n } from '../../contexts/I18nContext.jsx';
 
 export default function MobileQAPill({
   qaState = 'idle', // 'idle' | 'requested' | 'speaking' | 'completed'
@@ -18,6 +19,7 @@ export default function MobileQAPill({
   onClose = () => {},
   showFloatingButton = false
 }) {
+  const { t } = useI18n();
   const [internalSheetOpen, setInternalSheetOpen] = useState(false);
   const isSheetOpen = isOpen !== undefined ? isOpen : internalSheetOpen;
 
@@ -91,19 +93,19 @@ export default function MobileQAPill({
             }`}
             aria-label={
               qaState === 'speaking'
-                ? 'Tu turno de hablar activo. Toca para abrir micrófono.'
+                ? t('mobileQAPill.floatingButton.speakingAria')
                 : qaState === 'requested'
-                ? 'Mano levantada enviada. Toca para ver estado.'
-                : 'Preguntar al ponente en vivo'
+                ? t('mobileQAPill.floatingButton.requestedAria')
+                : t('mobileQAPill.floatingButton.defaultAria')
             }
           >
             <Hand className={`w-4 h-4 ${qaState === 'requested' ? 'animate-bounce text-zinc-950' : 'text-amber-400'}`} />
             <span className="text-[11px] font-medium">
               {qaState === 'speaking'
-                ? '¡Tu turno!'
+                ? t('mobileQAPill.floatingButton.speakingText')
                 : qaState === 'requested'
-                ? 'Mano enviada'
-                : 'Preguntar'}
+                ? t('mobileQAPill.floatingButton.requestedText')
+                : t('mobileQAPill.floatingButton.defaultText')}
             </span>
           </button>
         </div>
@@ -120,12 +122,12 @@ export default function MobileQAPill({
           <div className="flex items-start justify-between gap-3 text-left">
             <div className="space-y-1 min-w-0">
               <h2 id="qa-sheet-title" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
-                Preguntar al ponente
+                {t('mobileQAPill.modal.title')}
               </h2>
               <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed pt-0.5">
                 {qaState === 'speaking'
-                  ? `Habla en ${langName}. El ponente te escuchará traducido en tiempo real.`
-                  : 'Envía tu duda por escrito o solicita la palabra para intervenir en directo.'}
+                  ? t('mobileQAPill.modal.speakingSubtitle', { language: langName })
+                  : t('mobileQAPill.modal.defaultSubtitle')}
               </p>
             </div>
 
@@ -133,7 +135,7 @@ export default function MobileQAPill({
               type="button"
               onClick={handleClose}
               className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation shrink-0"
-              aria-label="Cerrar ventana de preguntas"
+              aria-label={t('mobileQAPill.modal.closeAria')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -143,31 +145,6 @@ export default function MobileQAPill({
           <div className="w-full">
             {qaState === 'idle' ? (
               <div className="w-full">
-                {/* Botón Dictar ocultado temporalmente para simplificar la interfaz
-                <button
-                  type="button"
-                  onClick={isRecording ? onStopRecord : onStartRecord}
-                  className={`h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 border shadow-xs ${
-                    isRecording
-                      ? 'bg-rose-600 text-white border-transparent animate-pulse'
-                      : 'bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border-zinc-200/60 dark:border-zinc-700/60'
-                  }`}
-                  title={isRecording ? 'Detener dictado por voz' : 'Dictar pregunta con tu voz'}
-                >
-                  {isRecording ? (
-                    <>
-                      <Square className="w-3.5 h-3.5 fill-current text-white" />
-                      <span>Detener</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
-                      <span>Dictar</span>
-                    </>
-                  )}
-                </button>
-                */}
-
                 <button
                   type="button"
                   onClick={handleFormSubmit}
@@ -175,7 +152,7 @@ export default function MobileQAPill({
                   className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
                 >
                   <Hand className="w-4 h-4" />
-                  <span>Pedir la Palabra</span>
+                  <span>{t('mobileQAPill.modal.raiseHandButton')}</span>
                 </button>
               </div>
             ) : qaState === 'requested' ? (
@@ -188,7 +165,7 @@ export default function MobileQAPill({
                 className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer active:scale-[0.99]"
               >
                 <X className="w-4 h-4" />
-                <span>Bajar la mano y cancelar turno</span>
+                <span>{t('mobileQAPill.modal.cancelTurnButton')}</span>
               </button>
             ) : qaState === 'speaking' ? (
               <button
@@ -199,7 +176,7 @@ export default function MobileQAPill({
                 }}
                 className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 transition-colors cursor-pointer"
               >
-                <span>Finalizar intervención</span>
+                <span>{t('mobileQAPill.modal.finishButton')}</span>
               </button>
             ) : (
               <button
@@ -207,7 +184,7 @@ export default function MobileQAPill({
                 onClick={handleClose}
                 className="w-full h-12 rounded-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer"
               >
-                <span>Cerrar</span>
+                <span>{t('common.close')}</span>
               </button>
             )}
           </div>
@@ -220,12 +197,14 @@ export default function MobileQAPill({
               <Banner
                 icon={<Hand className="w-4 h-4 text-white animate-bounce" strokeWidth={2.4} />}
                 color="#f59e0b"
-                title="Turno solicitado"
-                desc="El ponente ha recibido tu consulta. Se te notificará cuando se te conceda la palabra."
+                title={t('listenerView.assistant.qa.requestedBanner.title')}
+                desc={t('listenerView.assistant.qa.requestedBanner.desc')}
               />
               {questionText && (
                 <div className="p-3.5 rounded-2xl border border-zinc-200/60 dark:border-zinc-700/60 text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium text-left">
-                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block mb-1">Tu consulta enviada:</span>
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block mb-1">
+                    {t('listenerView.assistant.qa.yourSentQuery')}
+                  </span>
                   &ldquo;{questionText}&rdquo;
                 </div>
               )}
@@ -237,13 +216,15 @@ export default function MobileQAPill({
               <Banner
                 icon={<Mic className="w-4 h-4 text-white animate-pulse" strokeWidth={2.4} />}
                 color="#00e5ff"
-                title="¡Tienes la palabra!"
-                subtitle="Micrófono abierto en directo"
-                desc={`Habla en ${langName}. El ponente te escuchará traducido en tiempo real en su auricular.`}
+                title={t('listenerView.assistant.qa.speakingBanner.title')}
+                subtitle={t('mobileQAPill.modal.speakingBannerSubtitle')}
+                desc={t('mobileQAPill.modal.speakingBannerDesc', { language: langName })}
               />
               {questionText && (
                 <div className="p-3.5 rounded-2xl border border-emerald-500/30 text-xs text-emerald-800 dark:text-emerald-200 leading-relaxed font-medium text-left">
-                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 block mb-1">Tu consulta:</span>
+                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 block mb-1">
+                    {t('listenerView.assistant.qa.yourQuery')}
+                  </span>
                   &ldquo;{questionText}&rdquo;
                 </div>
               )}
@@ -254,8 +235,8 @@ export default function MobileQAPill({
             <Banner
               icon={<CheckCircle2 className="w-4 h-4 text-white" strokeWidth={2.4} />}
               color="#10b981"
-              title="Pregunta enviada"
-              desc="Tu duda ha sido enviada al ponente en tiempo real."
+              title={t('mobileQAPill.modal.completedTitle')}
+              desc={t('mobileQAPill.modal.completedDesc')}
             />
           )}
 
@@ -267,7 +248,7 @@ export default function MobileQAPill({
                 rows={3}
                 value={questionText}
                 onChange={(e) => setQuestionText(e.target.value)}
-                placeholder="Escribe tu consulta en cualquier idioma (el ponente la recibirá traducida)..."
+                placeholder={t('mobileQAPill.modal.placeholder')}
                 className="w-full bg-transparent border-0 p-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-0 resize-none leading-relaxed"
               />
             </div>

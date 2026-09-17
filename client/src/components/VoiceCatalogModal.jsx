@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { audioPlayerService } from '../services/audioPlayer.js';
 import CountryFlag from './shared/CountryFlag.jsx';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 const CABINS = [
   { code: 'es', label: 'Español' },
@@ -352,6 +353,7 @@ export default function VoiceCatalogModal({
   onSelectVoice = () => {},
   configuredEngines = { deepgram: true, google: true, openai: false, elevenlabs: false, cartesia: false }
 }) {
+  const { t } = useI18n();
   const [voices, setVoices] = useState(() => cachedModalVoices || FALLBACK_VOICES);
   const [isLoadingVoices, setIsLoadingVoices] = useState(!cachedModalVoices && isOpen);
   const [search, setSearch] = useState('');
@@ -687,14 +689,14 @@ export default function VoiceCatalogModal({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h3 id="voice-catalog-title" className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
-                  Catálogo de Voces de Interpretación
+                  {t('voiceCatalog.modalTitle')}
                 </h3>
                 <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs font-mono font-medium text-zinc-600 dark:text-zinc-400 shrink-0">
-                  {voices.length} disponibles
+                  {t('voiceCatalog.availableCount', { count: voices.length })}
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
-                Audiciona y asigna timbres neuronales a las cabinas de traducción en tiempo real.
+                {t('voiceCatalog.modalSubtitle')}
               </p>
             </div>
           </div>
@@ -709,8 +711,8 @@ export default function VoiceCatalogModal({
                 onClose();
               }}
               className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation shrink-0"
-              title="Cerrar catálogo (Esc)"
-              aria-label="Cerrar catálogo"
+              title={t('voiceCatalog.closeEsc')}
+              aria-label={t('voiceCatalog.closeEsc')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -727,7 +729,7 @@ export default function VoiceCatalogModal({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nombre de voz, tono o estilo..."
+                placeholder={t('voiceCatalog.searchPlaceholderModal')}
                 className="w-full h-10 pl-10 pr-4 bg-transparent dark:bg-zinc-900/80 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all shadow-2xs"
               />
             </div>
@@ -849,7 +851,7 @@ export default function VoiceCatalogModal({
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-zinc-400">
               <Loader2 className="w-7 h-7 animate-spin text-zinc-900 dark:text-zinc-100" />
               <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                Cargando catálogo consolidado de voces...
+                {t('voiceCatalog.loadingCatalog')}
               </span>
             </div>
           ) : filteredVoices.length === 0 ? (
@@ -858,10 +860,10 @@ export default function VoiceCatalogModal({
                 <SlidersHorizontal className="w-5 h-5" />
               </div>
               <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-                No se encontraron voces
+                {t('voiceCatalog.emptyVoicesTitle')}
               </p>
               <p className="text-xs max-w-sm mx-auto leading-relaxed">
-                Prueba ajustando los términos de búsqueda o seleccionando otro motor de locución.
+                {t('voiceCatalog.emptyVoicesDesc')}
               </p>
             </div>
           ) : (
@@ -1002,16 +1004,16 @@ export default function VoiceCatalogModal({
             {isSaved ? (
               <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">
                 <Check className="w-4 h-4 stroke-[2.5] text-emerald-500 shrink-0" />
-                <span>Voces guardadas y sincronizadas con éxito</span>
+                <span>{t('voiceCatalog.footerSavedSuccess')}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 truncate">
                 <span>
-                  Cabina: <strong className="font-semibold text-zinc-800 dark:text-zinc-200">{CABIN_NAMES[targetLang] || targetLang.toUpperCase()}</strong>
+                  {t('voiceCatalog.footerBoothLabel', { cabin: CABIN_NAMES[targetLang] || targetLang.toUpperCase() })}
                 </span>
                 <span className="text-zinc-300 dark:text-zinc-700 hidden sm:inline">•</span>
                 <span className="hidden sm:inline truncate font-mono text-[11px]">
-                  Voz activa: <strong className="text-zinc-700 dark:text-zinc-300">{activeDraftVoiceForLang || 'Por defecto'}</strong>
+                  {t('voiceCatalog.footerActiveVoice', { voice: activeDraftVoiceForLang || t('voiceCatalog.footerDefaultVoice') })}
                 </span>
               </div>
             )}
@@ -1025,7 +1027,7 @@ export default function VoiceCatalogModal({
                 disabled={isSaving}
                 className="flex-1 sm:flex-initial h-12 sm:h-10 px-4 sm:px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-semibold flex items-center justify-center transition-all cursor-pointer active:scale-[0.99] sm:active:scale-95 shadow-2xs disabled:opacity-50 whitespace-nowrap"
               >
-                Descartar
+                {t('voiceCatalog.discardButton')}
               </button>
             )}
 
@@ -1047,17 +1049,17 @@ export default function VoiceCatalogModal({
               {isSaving ? (
                 <>
                   <Loader2 size={15} className="animate-spin text-zinc-400 dark:text-zinc-600" />
-                  <span>Guardando...</span>
+                  <span>{t('voiceCatalog.savingButton')}</span>
                 </>
               ) : isSaved ? (
                 <>
                   <Check size={15} className="stroke-[3]" />
-                  <span>Guardado</span>
+                  <span>{t('voiceCatalog.savedButton')}</span>
                 </>
               ) : isDirty ? (
-                <span>Guardar cambios</span>
+                <span>{t('voiceCatalog.saveChangesButton')}</span>
               ) : (
-                <span>Listo</span>
+                <span>{t('voiceCatalog.readyButton')}</span>
               )}
             </button>
           </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Mic, Headphones } from 'lucide-react';
 import { normalizeRoomCode } from '../App.jsx';
 import { SUPPORTED_LANGUAGES } from '../components/LanguageSelector.jsx';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 /**
  * HomeView — LiftVoice 2026
@@ -17,6 +18,7 @@ export default function HomeView({
   isAttendeeOnly = true,
   isCreatorOnly = false
 }) {
+  const { t } = useI18n();
   const [joinPin, setJoinPin] = useState('');
   const [customRoomName, setCustomRoomName] = useState('');
   const [recentRoom, setRecentRoom] = useState(null);
@@ -35,7 +37,9 @@ export default function HomeView({
         if (isFresh && !isBanned && parsed.roomId) {
           const langObj = SUPPORTED_LANGUAGES.find(l => l.code === parsed.lang) || SUPPORTED_LANGUAGES[0];
           const diffMinutes = Math.max(1, Math.round((Date.now() - parsed.timestamp) / 60000));
-          const timeAgo = diffMinutes < 60 ? `${diffMinutes}m` : `${Math.round(diffMinutes / 60)}h`;
+          const timeAgo = diffMinutes < 60
+            ? t('home.recentRoom.timeAgoMinutes', { count: diffMinutes })
+            : t('home.recentRoom.timeAgoHours', { count: Math.round(diffMinutes / 60) });
 
           setRecentRoom({
             roomId: parsed.roomId,
@@ -76,17 +80,17 @@ export default function HomeView({
         {/* Clean Hero */}
         <div className="text-center max-w-xl mx-auto space-y-3.5 sm:space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium shadow-2xs">
-            <span>{isCreatorMode ? 'Emisión y conferencia en directo' : 'Interpretación simultánea en directo'}</span>
+            <span>{isCreatorMode ? t('home.hero.badgeCreator') : t('home.hero.badgeAttendee')}</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 leading-[1.15]">
-            {isCreatorMode ? 'Crear sala de emisión' : 'Traducción de voz en directo'}
+            {isCreatorMode ? t('home.hero.titleCreator') : t('home.hero.titleAttendee')}
           </h1>
 
           <p className="text-sm sm:text-base text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto leading-relaxed">
             {isCreatorMode
-              ? 'Inicia una sala para retransmitir tu conferencia desde tu micrófono en directo a los asistentes en múltiples idiomas.'
-              : 'Ingresa el código de la reunión para escuchar la conferencia y leer subtítulos sincronizados en tu idioma.'}
+              ? t('home.hero.descCreator')
+              : t('home.hero.descAttendee')}
           </p>
         </div>
 
@@ -96,13 +100,13 @@ export default function HomeView({
             <div className="py-2.5 pl-4.5 pr-2 rounded-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-2xs flex items-center justify-between gap-3">
               <div className="flex flex-col justify-center min-w-0">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">Última sala:</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{t('home.recentRoom.label')}</span>
                   <span className="font-mono font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 truncate">
                     {recentRoom.roomId}
                   </span>
                 </div>
                 <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono leading-none mt-1">
-                  hace {recentRoom.timeAgo}
+                  {recentRoom.timeAgo}
                 </span>
               </div>
 
@@ -112,16 +116,16 @@ export default function HomeView({
                   onClick={() => onJoinRoom(recentRoom.roomId, recentRoom.lang)}
                   className="h-9 px-4 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 font-semibold text-xs flex items-center justify-center hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all cursor-pointer shadow-2xs active:scale-95"
                 >
-                  <span>Entrar</span>
+                  <span>{t('home.recentRoom.join')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleDismissRecentRoom}
                   className="h-9 px-3.5 rounded-full text-xs font-medium bg-zinc-200/80 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white border border-zinc-300/60 dark:border-zinc-700/60 transition-all cursor-pointer flex items-center justify-center shadow-2xs active:scale-95"
-                  title="Descartar"
-                  aria-label="Descartar sala reciente"
+                  title={t('home.recentRoom.dismiss')}
+                  aria-label={t('home.recentRoom.dismissAria')}
                 >
-                  <span>Descartar</span>
+                  <span>{t('home.recentRoom.dismiss')}</span>
                 </button>
               </div>
             </div>
@@ -140,10 +144,10 @@ export default function HomeView({
 
                 <div className="space-y-1.5">
                   <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    Crear sala de emisión
+                    {t('home.creatorCard.title')}
                   </h2>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Inicia una conferencia en tiempo real desde tu micrófono para transmitir traducción simultánea.
+                    {t('home.creatorCard.desc')}
                   </p>
                 </div>
               </div>
@@ -153,14 +157,14 @@ export default function HomeView({
                   type="text"
                   value={customRoomName}
                   onChange={(e) => setCustomRoomName(e.target.value)}
-                  placeholder="Código personalizado (opcional)"
+                  placeholder={t('home.creatorCard.pinPlaceholder')}
                   className="w-full h-12 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-5 text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all"
                 />
                 <button
                   type="submit"
                   className="w-full h-12 rounded-full sm:rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm cursor-pointer transition-all active:scale-[0.99]"
                 >
-                  <span>{customRoomName.trim() ? 'Crear sala con código' : 'Crear sala instantánea'}</span>
+                  <span>{customRoomName.trim() ? t('home.creatorCard.createWithCode') : t('home.creatorCard.createInstant')}</span>
                 </button>
               </form>
 
@@ -174,7 +178,7 @@ export default function HomeView({
                   className="text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <Headphones className="w-3.5 h-3.5" />
-                  <span>¿Buscas unirte a una sala existente? Acceder como oyente</span>
+                  <span>{t('home.creatorCard.switchAttendee')}</span>
                 </button>
               </div>
             </div>
@@ -188,10 +192,10 @@ export default function HomeView({
 
                 <div className="space-y-1.5">
                   <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    Entrar como oyente
+                    {t('home.attendeeCard.title')}
                   </h2>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Ingresa el código de la reunión para escuchar la conferencia y leer los subtítulos en tu idioma.
+                    {t('home.attendeeCard.desc')}
                   </p>
                 </div>
               </div>
@@ -201,7 +205,7 @@ export default function HomeView({
                   type="text"
                   value={joinPin}
                   onChange={(e) => setJoinPin(e.target.value)}
-                  placeholder="Código de sala (ej: abc-defg-hij)"
+                  placeholder={t('home.attendeeCard.pinPlaceholder')}
                   className="w-full h-12 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-5 text-sm font-mono tracking-wider placeholder:font-sans placeholder:tracking-normal text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-900 dark:focus:border-zinc-100 transition-all"
                 />
                 <button
@@ -209,7 +213,7 @@ export default function HomeView({
                   disabled={!joinPin.trim()}
                   className="w-full h-12 rounded-full sm:rounded-2xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm flex items-center justify-center shadow-sm disabled:opacity-40 cursor-pointer transition-all active:scale-[0.99]"
                 >
-                  <span>Entrar a la sala</span>
+                  <span>{t('home.attendeeCard.joinButton')}</span>
                 </button>
               </form>
             </div>
@@ -224,19 +228,19 @@ export default function HomeView({
           {/* Brand Identity & Mission */}
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3 text-center sm:text-left">
             <span className="font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight text-xs sm:text-sm">
-              LiftVoice
+              {t('home.footer.brand')}
             </span>
             <span className="text-zinc-300 dark:text-zinc-700 select-none">&bull;</span>
             <span className="text-zinc-500 dark:text-zinc-400 text-xs sm:text-sm">
-              Interpretación simultánea en directo
+              {t('home.footer.tagline')}
             </span>
           </div>
 
           {/* Status & Copyright Meta */}
           <div className="flex items-center gap-2.5 text-xs text-zinc-400 dark:text-zinc-500 font-mono">
-            <span>Audio sincronizado</span>
+            <span>{t('home.footer.audioSynced')}</span>
             <span className="text-zinc-300 dark:text-zinc-700 select-none">&bull;</span>
-            <span>&copy; {new Date().getFullYear()}</span>
+            <span>{t('home.footer.copyright', { year: new Date().getFullYear() })}</span>
           </div>
         </div>
       </footer>

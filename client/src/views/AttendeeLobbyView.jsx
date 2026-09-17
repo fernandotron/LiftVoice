@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import CountryFlag from '../components/shared/CountryFlag.jsx';
 import { detectBrowserLanguage } from './ListenerView.jsx';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 const CABIN_CHOICES = [
   { code: 'es', label: 'Español', flag: 'ES' },
@@ -68,6 +69,7 @@ export default function AttendeeLobbyView({
   onBack = () => {},
   onSubmit = () => {}
 }) {
+  const { t, setLanguage } = useI18n();
   const [name, setName] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('lv_attendee_profile') || '{}');
@@ -128,8 +130,8 @@ export default function AttendeeLobbyView({
         type="button"
         onClick={onBack}
         className="absolute top-5 left-5 sm:top-7 sm:left-7 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-100 dark:bg-zinc-800/90 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer shadow-xs"
-        aria-label="Volver al inicio"
-        title="Volver"
+        aria-label={t('lobby.backAria')}
+        title={t('lobby.backTitle')}
       >
         <ArrowLeft className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
       </button>
@@ -140,13 +142,13 @@ export default function AttendeeLobbyView({
         {/* Header */}
         <div className="text-center mb-8 space-y-1">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
-            Entrar
+            {t('lobby.title')}
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Bienvenido a la sala de conferencias
+            {t('lobby.subtitle')}
           </p>
           <p className="text-xs text-zinc-400 dark:text-zinc-500 font-mono pt-0.5">
-            Sala <span className="font-semibold text-zinc-700 dark:text-zinc-300">{roomId}</span>
+            {t('lobby.roomLabel', { roomId })}
           </p>
         </div>
 
@@ -156,8 +158,8 @@ export default function AttendeeLobbyView({
           {/* Nombre y Apellido */}
           <FloatingCapsuleInput
             id="name"
-            label="Nombre y apellido"
-            placeholder="Introduce tu nombre y apellido"
+            label={t('lobby.nameLabel')}
+            placeholder={t('lobby.namePlaceholder')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -169,8 +171,8 @@ export default function AttendeeLobbyView({
           <FloatingCapsuleInput
             id="email"
             type="email"
-            label="Correo electrónico"
-            placeholder="Introduce tu correo electrónico"
+            label={t('lobby.emailLabel')}
+            placeholder={t('lobby.emailPlaceholder')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -181,8 +183,8 @@ export default function AttendeeLobbyView({
           <FloatingCapsuleInput
             id="phone"
             type="tel"
-            label="WhatsApp (opcional)"
-            placeholder="WhatsApp (opcional)"
+            label={t('lobby.phoneLabel')}
+            placeholder={t('lobby.phonePlaceholder')}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             autoComplete="tel"
@@ -191,7 +193,7 @@ export default function AttendeeLobbyView({
           {/* Selector de Cabina Lingüística */}
           <div className="space-y-1.5 pt-1">
             <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 pl-1">
-              Idioma de interpretación
+              {t('lobby.languageLabel')}
             </label>
             <div className="grid grid-cols-4 gap-1.5 bg-zinc-100 dark:bg-[#141416] p-1 rounded-2xl border border-zinc-200/80 dark:border-zinc-800">
               {CABIN_CHOICES.map(c => {
@@ -200,7 +202,10 @@ export default function AttendeeLobbyView({
                   <button
                     key={c.code}
                     type="button"
-                    onClick={() => setSelectedLang(c.code)}
+                    onClick={() => {
+                      setSelectedLang(c.code);
+                      setLanguage(c.code);
+                    }}
                     className={`h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-medium transition-all duration-150 cursor-pointer ${
                       isActive
                         ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs font-semibold'
@@ -225,7 +230,7 @@ export default function AttendeeLobbyView({
                 : 'bg-zinc-100 dark:bg-[#141416] text-zinc-400 dark:text-zinc-600 cursor-not-allowed border border-zinc-200 dark:border-zinc-800/60'
             }`}
           >
-            <span>Continuar</span>
+            <span>{isSubmitting ? t('lobby.submitting') : t('lobby.submitButton')}</span>
             {isSubmitting && (
               <span className="animate-spin">
                 <Loader2 className="w-4 h-4" />

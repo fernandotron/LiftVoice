@@ -1,6 +1,7 @@
 import React from 'react';
 import { Volume2, Check, Radio, Sparkles, User } from 'lucide-react';
 import CountryFlag from './shared/CountryFlag.jsx';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 export const SUPPORTED_LANGUAGES = [
   {
@@ -48,6 +49,8 @@ export default function LanguageSelector({
   variant = 'grid', // 'grid' | 'pills'
   disabled = false
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="w-full">
       {variant === 'grid' && (
@@ -78,7 +81,7 @@ export default function LanguageSelector({
                     </span>
                   ) : listenerCount > 0 ? (
                     <span className="flex-shrink-0 text-xs px-2 py-0.5 rounded-full bg-transparent dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 font-mono">
-                      {listenerCount} {listenerCount === 1 ? 'oyente' : 'oyentes'}
+                      {listenerCount === 1 ? t('common.listeners_one', { count: 1 }) : t('common.listeners_other', { count: listenerCount })}
                     </span>
                   ) : null}
                 </div>
@@ -98,12 +101,12 @@ export default function LanguageSelector({
                   isSelected ? 'border-zinc-300 dark:border-zinc-700' : 'border-zinc-100 dark:border-zinc-800'
                 }`}>
                   <span className="truncate text-xs text-zinc-400 dark:text-zinc-500">
-                    {lang.description}
+                    {t(`languageSelector.descriptions.${lang.code}`) || lang.description}
                   </span>
                   {isSelected && (
                     <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-semibold flex-shrink-0 ml-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Sintonizado
+                      {t('languageSelector.tuned')}
                     </span>
                   )}
                 </div>

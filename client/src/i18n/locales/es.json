@@ -1,0 +1,748 @@
+{
+  "common": {
+    "live": "En directo",
+    "liveBadge": "En Vivo",
+    "change": "cambiar",
+    "close": "Cerrar",
+    "room": "Sala",
+    "you": "Tú",
+    "defaultAttendeeName": "Oyente",
+    "defaultHostName": "Ponente",
+    "listeners_one": "{{count}} oyente",
+    "listeners_other": "{{count}} oyentes",
+    "peopleConnected_one": "1 persona conectada a la sesión en tiempo real.",
+    "peopleConnected_other": "{{count}} personas conectadas a la sesión en tiempo real."
+  },
+  "listenerView": {
+    "loading": {
+      "title": "Sintonizando sala",
+      "description": "Conectando con la cabina de audio e interpretación en directo..."
+    },
+    "header": {
+      "exitTitle": "Salir de la sala",
+      "exitAria": "Salir de la sala",
+      "copyLinkTitle": "Toca para copiar vínculo de la reunión",
+      "copyLinkDesktopTitle": "Copiar vínculo de la sala",
+      "themeLight": "Cambiar a modo claro",
+      "themeDark": "Cambiar a modo oscuro",
+      "stageLive": "En directo ·",
+      "audioBanner": {
+        "title": "Activar audio en directo",
+        "desc": "Toca para sincronizar y escuchar la traducción en tus auriculares.",
+        "action": "Sintonizar"
+      },
+      "toggleAssistantHide": "Ocultar panel Asistente",
+      "toggleAssistantShow": "Mostrar panel Asistente"
+    },
+    "profile": {
+      "pillTitle": "Tu perfil en la sala",
+      "pillAria": "Tu perfil en la sala",
+      "popoverTitle": "Identidad en Sala",
+      "connectedStatus": "Audiencia conectada",
+      "nameLabel": "Nombre para preguntas al ponente:",
+      "namePlaceholder": "Tu nombre...",
+      "saveButton": "Guardar Nombre"
+    },
+    "receptionBooth": {
+      "title": "Cabina de Oyente",
+      "subtitle": "Sincronización de audio y texto en tiempo real",
+      "settings": "Configuración",
+      "channelLabel": "Canal de recepción",
+      "statusLabel": "Estado de recepción",
+      "statusMuted": "Audio silenciado",
+      "statusPlaying": "Reproduciendo audio",
+      "statusSynced": "Audio sincronizado",
+      "statusWaiting": "Audio en espera",
+      "visualizerActive": "Audio en vivo activo",
+      "buttonStart": "Iniciar Sintonización",
+      "buttonResume": "Reanudar Audio",
+      "buttonMute": "Silenciar Audio"
+    },
+    "transcriptionCanvas": {
+      "title": "Transcripción en Tiempo Real",
+      "subtitle": "La transcripción aparecerá aquí cuando esté disponible",
+      "changeFontSize": "Cambiar tamaño de fuente"
+    },
+    "assistant": {
+      "title": "Asistente",
+      "subtitle": "Intervenciones en tiempo real",
+      "tabs": {
+        "actions": "Acciones",
+        "suggestions": "Sugerencias",
+        "room": "Sala"
+      },
+      "qa": {
+        "sectionTitle": "Preguntas al Ponente",
+        "stateIdle": "Inactivo",
+        "stateRequested": "En espera",
+        "stateSpeaking": "En directo",
+        "placeholder": "Escribe tu consulta en cualquier idioma (el ponente la recibirá traducida)...",
+        "dictateButton": "Dictar",
+        "dictateStop": "Detener",
+        "submitButton": "Pedir la Palabra",
+        "visibleName": "Nombre visible:",
+        "requestedBanner": {
+          "title": "Turno solicitado",
+          "desc": "El ponente ha recibido tu consulta. Se te notificará cuando se te conceda la palabra."
+        },
+        "speakingBanner": {
+          "title": "¡Tienes la palabra!",
+          "desc": "El ponente te ha dado paso en directo."
+        },
+        "yourSentQuery": "Tu consulta enviada:",
+        "yourQuery": "Tu consulta:",
+        "cancelTurn": "Cancelar turno y bajar la mano",
+        "finishIntervention": "Finalizar intervención"
+      },
+      "suggestions": {
+        "title": "Preguntas recomendadas",
+        "desc": "Puedes pulsar cualquiera de estas frases para cargarlas en el campo de texto:",
+        "preset1": "¿Podría profundizar más en el último punto?",
+        "preset2": "¿Cómo impacta esto en la implementación práctica?",
+        "preset3": "¿Cuál es el siguiente paso previsto en la hoja de ruta?"
+      },
+      "roomTab": {
+        "totalListeners": "Total Oyentes:",
+        "listeningChannel": "Canal de Escucha:",
+        "socketLatency": "Latencia WebSocket:",
+        "participantsTitle": "Participantes en Sala",
+        "searchPlaceholder": "Buscar participante...",
+        "noMatches": "No hay participantes que coincidan",
+        "hostSubtitle": "Anfitrión de la sala",
+        "selfSubtitle": "Tu sesión",
+        "attendeeSubtitle": "Oyente conectado"
+      },
+      "tip": {
+        "title": "Consejo de traducción",
+        "desc": "Puedes escribir tus preguntas en tu idioma; la IA las interpretará en tiempo real para el ponente."
+      }
+    },
+    "alerts": {
+      "kicked": "Has sido expulsado de la sala por el anfitrión.",
+      "speechUnsupported": "Tu navegador no soporta reconocimiento de voz por API. Por favor escribe tu pregunta en el cuadro de texto."
+    }
+  },
+  "liveCaptions": {
+    "empty": {
+      "title": "No hay transcripción disponible",
+      "desc": "La transcripción y subtítulos aparecerán aquí en cuanto el orador comience a hablar.",
+      "adminReady": "Admin: Motor STT listo ({{engine}})"
+    },
+    "badges": {
+      "audienceQuestion": "Pregunta de {{name}}",
+      "clinical": "Clínico",
+      "stt": "STT: {{engine}}",
+      "sttTooltip": "Motor de transcripción: {{engine}} ({{model}})"
+    },
+    "actions": {
+      "copyParagraph": "Copiar párrafo completo",
+      "copyParagraphAria": "Copiar texto del párrafo",
+      "copyCaption": "Copiar texto",
+      "copyCaptionAria": "Copiar texto del subtítulo"
+    },
+    "streaming": {
+      "consolidating": "Consolidando traducción...",
+      "aiDictation": "Transcripción y dictado IA en vivo...",
+      "sttLabel": "Transcripción: {{label}}"
+    },
+    "floatingScroll": {
+      "backToLive": "Volver a la lectura",
+      "backToLiveAria": "Volver a la lectura en directo",
+      "newPhrases": "Nuevas frases ({{count}})",
+      "newPhrasesAria": "Ver las nuevas frases recibidas"
+    }
+  },
+  "mobileAudioDock": {
+    "navAria": "Controles de audio del oyente",
+    "languageMenuAria": "Seleccionar idioma de traducción",
+    "globeTitle": "Idioma: {{language}}. Toca para cambiar.",
+    "globeAria": "Idioma actual: {{language}}. Toca para cambiar.",
+    "fontSizeTitle": "Tamaño de subtítulos: {{size}}. Toca para cambiar.",
+    "fontSizeAria": "Tamaño de subtítulos: {{size}}. Toca para cambiar.",
+    "toastPrefix": "Subtítulos:",
+    "sizeNames": {
+      "sm": "Pequeño (A-)",
+      "md": "Normal (A)",
+      "lg": "Grande (A+)",
+      "xl": "Inmersivo (A++)"
+    },
+    "audioButton": {
+      "tuneTitle": "Toca para sintonizar audio",
+      "tuneAria": "Sintonizar audio",
+      "unmuteTitle": "Toca para activar sonido",
+      "unmuteAria": "Activar sonido",
+      "liveMuteTitle": "Audio en vivo activo (Toca para silenciar)",
+      "liveMuteAria": "Silenciar audio"
+    },
+    "audienceButton": {
+      "title": "Ver audiencia de la sala",
+      "aria": "Ver audiencia de la sala"
+    },
+    "qaButton": {
+      "requestedTitle": "Mano levantada (esperando turno)",
+      "requestedAria": "Mano levantada (esperando turno)",
+      "speakingTitle": "Tienes la palabra",
+      "speakingAria": "Tienes la palabra",
+      "defaultTitle": "Pedir la palabra / Q&A",
+      "defaultAria": "Pedir la palabra al ponente"
+    }
+  },
+  "languageBottomSheet": {
+    "title": "Idioma de traducción",
+    "subtitle": "Audio y subtítulos sincronizados en directo",
+    "closeAria": "Cerrar panel de idiomas",
+    "confirmButton": "Entendido",
+    "footerNote": "Sintonización instantánea con Web Audio",
+    "activeBadge": "Activo"
+  },
+  "audienceBottomSheet": {
+    "title": "Audiencia en directo",
+    "closeAria": "Cerrar panel de audiencia",
+    "yourChannel": "Tu canal"
+  },
+  "mobileQAPill": {
+    "floatingButton": {
+      "speakingAria": "Tu turno de hablar activo. Toca para abrir micrófono.",
+      "requestedAria": "Mano levantada enviada. Toca para ver estado.",
+      "defaultAria": "Preguntar al ponente en vivo",
+      "speakingText": "¡Tu turno!",
+      "requestedText": "Mano enviada",
+      "defaultText": "Preguntar"
+    },
+    "modal": {
+      "title": "Preguntar al ponente",
+      "speakingSubtitle": "Habla en {{language}}. El ponente te escuchará traducido en tiempo real.",
+      "defaultSubtitle": "Envía tu duda por escrito o solicita la palabra para intervenir en directo.",
+      "closeAria": "Cerrar ventana de preguntas",
+      "placeholder": "Escribe tu consulta en cualquier idioma (el ponente la recibirá traducida)...",
+      "raiseHandButton": "Pedir la Palabra",
+      "cancelTurnButton": "Bajar la mano y cancelar turno",
+      "finishButton": "Finalizar intervención",
+      "speakingBannerSubtitle": "Micrófono abierto en directo",
+      "speakingBannerDesc": "Habla en {{language}}. El ponente te escuchará traducido en tiempo real en su auricular.",
+      "completedTitle": "Pregunta enviada",
+      "completedDesc": "Tu duda ha sido enviada al ponente en tiempo real."
+    }
+  },
+  "languageSelector": {
+    "tuned": "Sintonizado",
+    "voices": {
+      "es": "Voz en directo",
+      "en": "Direct Voice",
+      "it": "Voce in diretta",
+      "pt": "Voz em direto"
+    },
+    "descriptions": {
+      "es": "Audio y transcripción en español",
+      "en": "Audio y transcripción en inglés",
+      "it": "Audio y transcripción en italiano",
+      "pt": "Audio y transcripción en portugués"
+    }
+  },
+  "desktopHeaderMenu": {
+    "menuTriggerAria": "Menú principal",
+    "menuAria": "Menú de opciones",
+    "returnHome": "Volver al inicio",
+    "theme": "Tema",
+    "copyLink": "Copiar vínculo de sala",
+    "linkCopied": "¡Enlace copiado!",
+    "themeSelectAria": "Seleccionar tema",
+    "themes": {
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    }
+  },
+  "home": {
+    "hero": {
+      "badgeCreator": "Emisión y conferencia en directo",
+      "badgeAttendee": "Interpretación simultánea en directo",
+      "titleCreator": "Crear sala de emisión",
+      "titleAttendee": "Traducción de voz en directo",
+      "descCreator": "Inicia una sala para retransmitir tu conferencia desde tu micrófono en directo a los asistentes en múltiples idiomas.",
+      "descAttendee": "Ingresa el código de la reunión para escuchar la conferencia y leer subtítulos sincronizados en tu idioma."
+    },
+    "recentRoom": {
+      "label": "Última sala:",
+      "timeAgoMinutes": "hace {{count}}m",
+      "timeAgoHours": "hace {{count}}h",
+      "join": "Entrar",
+      "dismiss": "Descartar",
+      "dismissAria": "Descartar sala reciente"
+    },
+    "creatorCard": {
+      "title": "Crear sala de emisión",
+      "desc": "Inicia una conferencia en tiempo real desde tu micrófono para transmitir traducción simultánea.",
+      "pinPlaceholder": "Código personalizado (opcional)",
+      "createWithCode": "Crear sala con código",
+      "createInstant": "Crear sala instantánea",
+      "switchAttendee": "¿Buscas unirte a una sala existente? Acceder como oyente"
+    },
+    "attendeeCard": {
+      "title": "Entrar como oyente",
+      "desc": "Ingresa el código de la reunión para escuchar la conferencia y leer los subtítulos en tu idioma.",
+      "pinPlaceholder": "Código de sala (ej: abc-defg-hij)",
+      "joinButton": "Entrar a la sala"
+    },
+    "footer": {
+      "brand": "LiftVoice",
+      "tagline": "Interpretación simultánea en directo",
+      "audioSynced": "Audio sincronizado",
+      "copyright": "© {{year}}"
+    }
+  },
+  "lobby": {
+    "backTitle": "Volver",
+    "backAria": "Volver al inicio",
+    "title": "Entrar",
+    "subtitle": "Bienvenido a la sala de conferencias",
+    "roomLabel": "Sala {{roomId}}",
+    "nameLabel": "Nombre y apellido",
+    "namePlaceholder": "Introduce tu nombre y apellido",
+    "emailLabel": "Correo electrónico",
+    "emailPlaceholder": "Introduce tu correo electrónico",
+    "phoneLabel": "WhatsApp (opcional)",
+    "phonePlaceholder": "WhatsApp (opcional)",
+    "languageLabel": "Idioma de interpretación",
+    "submitButton": "Continuar",
+    "submitting": "Conectando..."
+  },
+  "postLeave": {
+    "kickerKicked": "Sesión finalizada",
+    "kickerVoluntary": "Sesión cerrada",
+    "titleKicked": "Has sido retirado de la sala",
+    "titleVoluntary": "Has salido de la reunión",
+    "descVoluntary": "La conexión de audio en directo y los subtítulos simultáneos se han detenido.",
+    "descKickedDefault": "El anfitrión ha finalizado tu sesión en esta sala.",
+    "closeAria": "Cerrar y volver al inicio",
+    "btnAcknowledge": "Entendido",
+    "btnRejoin": "Volver a unirse",
+    "bannerRestrictedTitle": "Acceso restringido",
+    "bannerRestrictedDesc": "No es posible volver a ingresar a esta sala debido a la moderación del anfitrión.",
+    "roomCardTitle": "Sala de conferencia",
+    "copyRoomLink": "Copiar enlace de la sala",
+    "copiedRoomLink": "Enlace copiado",
+    "audioChannelTitle": "Canal de audio",
+    "feedback": {
+      "prompt": "¿Cómo calificarías la calidad del audio y la traducción?",
+      "poor": "Muy deficiente",
+      "fair": "Mejorable",
+      "good": "Aceptable",
+      "veryGood": "Buena",
+      "excellent": "Excelente",
+      "comment": "Comentarios adicionales sobre tu experiencia (opcional)...",
+      "submit": "Enviar valoración",
+      "thankYou": "¡Gracias por tu valoración!"
+    }
+  },
+  "navbar": {
+    "brand": "LiftVoice",
+    "roleHost": "Estudio de Emisión",
+    "roleListener": "Cabina de Oyente",
+    "copyLinkTitle": "Copiar vínculo de la reunión",
+    "copyLinkText": "Copiar",
+    "copiedLinkText": "¡Copiado!",
+    "roomSettings": "Ajustes de Sala",
+    "projectQrTitle": "Proyectar Código QR en Sala",
+    "projectQrButton": "Proyectar QR",
+    "themeTitle": "Tema actual: {{theme}}. Clic para alternar claro/oscuro.",
+    "themeSystem": "Sistema",
+    "themeLight": "Claro",
+    "themeDark": "Oscuro",
+    "themeAria": "Alternar tema claro y oscuro",
+    "adminSettingsTitle": "Configuración de Administrador",
+    "adminSettingsAria": "Configuración de Administrador"
+  },
+  "qrModal": {
+    "fullScreen": {
+      "dialogAria": "Modo Auditorio - Acceso a la Sala",
+      "exitTitle": "Salir de pantalla completa (Esc)",
+      "exitAria": "Salir de pantalla completa",
+      "closeTitle": "Cerrar",
+      "roomLabel": "Sala:",
+      "defaultTitle": "Traducción Simultánea de Voz",
+      "subtitle": "Escucha la conferencia traducida en tiempo real directamente desde tu teléfono móvil.",
+      "step1Title": "Escanea el código QR con tu móvil",
+      "step1Desc": "Abre la cámara de tu smartphone. Conexión instantánea sin descargas ni registros.",
+      "step2Title": "Conecta tus auriculares",
+      "step2Desc": "Usa auriculares Bluetooth o con cable para una escucha nítida sin interferir con la sala.",
+      "step3Title": "Elige tu cabina de idioma",
+      "footerWifi": "Red Wi-Fi: {{ip}}:{{port}}",
+      "footerEsc": "Presiona Esc para salir del modo proyector"
+    },
+    "standard": {
+      "dialogTitle": "Acceso a la Sala • Audiencia",
+      "dialogSubtitle": "Escaneo instantáneo para sintonizar las cabinas de voz en directo",
+      "auditoriumTitle": "Modo Auditorio / Proyector (Pantalla completa)",
+      "auditoriumAria": "Modo Auditorio",
+      "closeTitle": "Cerrar modal",
+      "closeAria": "Cerrar",
+      "roomLabel": "Sala:",
+      "copyCodeTitle": "Copiar código de sala",
+      "copyCodeAria": "Copiar código de sala",
+      "tabWifi": "Red Wi-Fi",
+      "tabCellular": "Datos 4G/5G",
+      "tunnelErrorAdminTitle": "Acceso administrativo",
+      "tunnelErrorAdminDesc": "Se requiere acceso de administrador para activar el túnel 4G/5G. Utiliza la Red Wi-Fi local.",
+      "tunnelErrorNoticeTitle": "Aviso de conexión",
+      "tunnelErrorGeneric": "No se pudo generar el túnel público 4G/5G. Utiliza la conexión Wi-Fi local.",
+      "tunnelErrorNetwork": "Error al contactar con el túnel público. Utiliza la Red Wi-Fi local de la sala.",
+      "bannerCloseAria": "Cerrar aviso",
+      "bannerUniversalTitle": "QR universal seguro",
+      "bannerUniversalDesc": "Válido para conexión Wi-Fi y datos móviles 4G/5G.",
+      "stepsHeading": "Traducción Simultánea de Voz",
+      "stepsSubtitle": "Escucha la conferencia en tu idioma con tus auriculares en tiempo real.",
+      "step1Title": "Escanea el código QR",
+      "step1Desc": "Abre la cámara de tu teléfono móvil (iOS o Android). No requiere descargar aplicaciones.",
+      "step2Title": "Conecta tus auriculares",
+      "step2Desc": "AirPods, Bluetooth o cable. Puedes apagar la pantalla y la sintonía seguirá sonando.",
+      "step3Title": "Elige tu cabina de idioma",
+      "wifiDiagnostic": "Wi-Fi local: {{ip}}:{{port}}",
+      "changeIp": "Cambiar IP",
+      "closeIp": "Cerrar",
+      "selectAdapter": "Selecciona el adaptador de red de tu Wi-Fi:",
+      "directLinkLabel": "Vínculo directo de oyente",
+      "copyLink": "Copiar enlace",
+      "copiedLink": "Enlace copiado",
+      "downloadQr": "Descargar QR",
+      "downloadQrTitle": "Descargar código QR"
+    }
+  },
+  "languages": {
+    "es": {
+      "name": "Español",
+      "voice": "Voz en directo",
+      "desc": "Audio y transcripción en español"
+    },
+    "en": {
+      "name": "Inglés",
+      "voice": "Voz en directo",
+      "desc": "Audio y subtítulos en tiempo real"
+    },
+    "it": {
+      "name": "Italiano",
+      "voice": "Voz en directo",
+      "desc": "Audio y subtítulos en tiempo real"
+    },
+    "pt": {
+      "name": "Portugués",
+      "voice": "Voz en directo",
+      "desc": "Audio y subtítulos en tiempo real"
+    },
+    "listenerSingular": "oyente",
+    "listenerPlural": "oyentes",
+    "tunedIn": "Sintonizado"
+  },
+  "host": {
+    "titles": {
+      "stageTitleDefault": "Transcripción en Directo",
+      "studioTitle": "Estudio de Emisión",
+      "studioSubtitle": "Control de captura y locución en directo",
+      "inspectorTitle": "Inspector de Sala",
+      "inspectorSubtitle": "Cabinas, Q&A y audiencia en vivo",
+      "initializingTitle": "Iniciando estudio de emisión...",
+      "profileTitle": "Ponente",
+      "profileHostBadge": "Anfitrión",
+      "youHost": "Tú (Anfitrión)",
+      "mainBroadcast": "Emisión principal"
+    },
+    "tabs": {
+      "studio": "Estudio",
+      "catalog": "Catálogo",
+      "summary": "Resumen",
+      "cabins": "Cabinas",
+      "qa": "Q&A",
+      "room": "Sala"
+    },
+    "header": {
+      "copyLink": "Copiar vínculo de la sala",
+      "copied": "Copiado",
+      "projectQr": "Proyectar código QR",
+      "createRoom": "Crear otra sala",
+      "roomSettings": "Ajustes de Sala",
+      "exitHome": "Salir al inicio",
+      "inspectorToggleOpen": "Mostrar Inspector de Sala",
+      "inspectorToggleClose": "Ocultar Inspector de Sala",
+      "liveStatus": "En directo · {{time}}",
+      "pausedStatus": "En pausa",
+      "listenersConnected": "{{count}} oyente conectado",
+      "listenersConnectedPlural": "{{count}} oyentes conectados",
+      "neuralBoothsSub": "Emisión neuronal en 4 cabinas",
+      "fontSizeLabel": "Tamaño de subtítulos: {{size}}"
+    },
+    "broadcastControl": {
+      "startBroadcast": "Iniciar Emisión",
+      "stopBroadcast": "Detener Emisión",
+      "readyToBroadcast": "Listo para emitir",
+      "live": "En directo",
+      "micActiveTitle": "Micrófono en Emisión Activa",
+      "micPausedTitle": "Transmisión en Pausa",
+      "micActiveDesc": "Capturando tu voz y traduciendo a las 4 cabinas de audio en tiempo real.",
+      "micPausedDesc": "Haz clic en el micrófono para comenzar la emisión en directo."
+    },
+    "audioInput": {
+      "micLabel": "Micrófono de Entrada",
+      "defaultMic": "Micrófono Predeterminado",
+      "micSignal": "Señal Micrófono",
+      "speakerLang": "Idioma del Ponente",
+      "speakerLangSub": "Reconocimiento de voz de tu locución",
+      "autoDetection": "Auto",
+      "autoDetectionTitle": "Detección automática del idioma del ponente",
+      "speakerVoice": "Voz del ponente",
+      "liveDetecting": "Detectando en vivo desde micrófono:",
+      "liveDetectingPlaceholder": "Habla ahora, tus palabras se transcribirán aquí al instante...",
+      "cadenceLabel": "Cadencia / Décalage",
+      "cadenceQuick": "Rápido (2.5s - 3.5s)",
+      "cadenceNatural": "Ponencia (4.0s - 5.0s)",
+      "speechRateLabel": "Velocidad de Locución",
+      "speechRateSlower": "Más lento",
+      "speechRateFaster": "Más rápido",
+      "vadSilence": "Silencio",
+      "vadVoiceActive": "Voz activa",
+      "vadOptimal": "Óptimo",
+      "vadClipping": "¡Saturando!",
+      "availableMicsCount": "{{count}} disponibles",
+      "activeDeviceTapToChange": "Dispositivo activo · Toca para cambiar",
+      "selectADevice": "Selecciona un dispositivo:",
+      "singleActiveDevice": "Dispositivo activo único"
+    },
+    "promptInput": {
+      "placeholder": "Escribe cualquier frase aquí para emitir por voz en las 4 cabinas...",
+      "broadcast4Booths": "Emisión en 4 cabinas",
+      "enterToEmit": "Enter para emitir · Shift+Enter para salto de línea",
+      "emitButton": "Emitir mensaje por voz",
+      "emitAction": "Emitir"
+    },
+    "cabins": {
+      "title": "Cabinas de Traducción",
+      "subtitle": "Control de canales simultáneos e idiomas",
+      "voiceCatalogLink": "Catálogo de Voces",
+      "headphoneReturn": "Retorno de Auriculares",
+      "headphoneReturnMutedDesc": "Silenciado para no escuchar eco mientras hablas. Selecciona una cabina para audicionar su locución.",
+      "headphoneReturnActiveDesc": "Monitoreando retorno en directo en {{lang}}. Silencia cuando hables al micrófono para evitar eco.",
+      "headphoneWarningBroadcasting": "Usa auriculares obligatoriamente para evitar que el sonido de los altavoces entre por tu micrófono.",
+      "headphoneWarningRecommendation": "Recomendación: Usa auriculares al activar el retorno para evitar acople acústico cuando hables.",
+      "testToneButton": "Probar",
+      "testToneTitle": "Probar sonido de altavoz o auriculares locales",
+      "headphoneVolume": "Volumen Auriculares",
+      "mute": "Silencio",
+      "max": "Máximo",
+      "listenBooth": "Escuchar retorno en directo de {{booth}}",
+      "muteBooth": "Silenciar retorno de {{booth}}",
+      "auditionVoice": "Audicionar muestra de voz",
+      "stopVoice": "Detener reproducción de voz",
+      "waitingSpeech": "Esperando locución...",
+      "standbyZeroListeners": "En reposo (0 oyentes)",
+      "activeCabinsLabel": "Cabinas activas (4 canales IA)",
+      "changeVoiceForCabin": "Cambiar voz para {{cabin}}"
+    },
+    "qa": {
+      "title": "Turnos de Pregunta (Q&A)",
+      "subtitle": "Intervenciones y preguntas de oyentes en vivo",
+      "desc": "Los oyentes pueden pulsar \"Pedir la palabra\" para intervenir en su idioma nativo.",
+      "emptyPending": "No hay preguntas pendientes",
+      "emptyPendingDesc": "Los participantes aparecerán aquí cuando levanten la mano o envíen una pregunta.",
+      "activeSpeakerTitle": "{{name}} está hablando",
+      "activeSpeakerSubtitle": "Canal nativo: {{lang}} ➔ traducción a tu auricular",
+      "activeSpeakerEarpieceListening": "Escuchando intervención en tu auricular...",
+      "translationToEar": "Traducción a tu oído: \"{{text}}\"",
+      "endTurn": "Finalizar Turno de Pregunta",
+      "giveFloor": "Dar la palabra",
+      "dismiss": "Descartar",
+      "waitingBadge": "En espera",
+      "nativeLangLabel": "Idioma nativo: {{lang}}",
+      "translationLabel": "Traducción ({{lang}}): "
+    },
+    "roomInspect": {
+      "totalListeners": "Total Oyentes:",
+      "speakerChannel": "Canal de Ponente:",
+      "networkLatency": "Latencia Red:",
+      "activeSttEngine": "Motor STT Activo:",
+      "sttModel": "Modelo STT:",
+      "captureMode": "Modo Captura:",
+      "llmEngine": "Motor LLM:",
+      "participantsInRoom": "Participantes en Sala",
+      "viewAll": "Ver todos",
+      "searchParticipantPlaceholder": "Buscar participante...",
+      "anonymous": "Anónimo",
+      "listener": "Oyente",
+      "listenerConnected": "Oyente conectado",
+      "disconnected": "Desconectado",
+      "kick": "Expulsar",
+      "confirmKick": "¿Estás seguro de que deseas expulsar a \"{{name}}\" de la sala?",
+      "inRoom": "En Sala",
+      "waitingListenersJoin": "Esperando a que entren oyentes a la sala",
+      "noParticipantsMatch": "No hay participantes que coincidan"
+    },
+    "hostControls": {
+      "translationEngineTitle": "Motor de Traducción IA",
+      "activeEngineLabel": "Activo: {{engine}}",
+      "voicePlaygroundTitle": "Simulador de voz & frases de prueba",
+      "quickTest": "Prueba rápida",
+      "customTextPlaceholder": "O escribe cualquier texto para traducir y sintetizar en directo..."
+    },
+    "toasts": {
+      "voiceUpdatedInBooth": "Voz actualizada en cabina {{booth}}",
+      "voicesSavedAndSynced": "Voces de cabina guardadas y sincronizadas",
+      "voicesUpdatedSuccess": "Voces actualizadas correctamente",
+      "hotMicSwitchError": "No se pudo conmutar al nuevo micrófono. Se mantiene el dispositivo previo.",
+      "firefoxSafariNotice": "Tu navegador (Firefox / Safari) no admite transcripción de voz local gratuita. Para emitir gratis en modo Zero-Cost, utiliza Google Chrome o Microsoft Edge, o bien añade una clave de Deepgram en Ajustes."
+    }
+  },
+  "audienceMetrics": {
+    "activeListeners": "Oyentes Activos",
+    "connectedInRoom": "Conectados en sala",
+    "aiPipelineLatency": "Latencia Pipeline IA",
+    "liveBadge": "En vivo",
+    "waitingBadge": "En espera",
+    "pingWebSocket": "Ping WebSocket: {{ping}}ms",
+    "sentences": "Frases",
+    "translatedTo4Languages": "Traducidas a 4 idiomas",
+    "voiceCabins": "Cabinas de Voz",
+    "activeCabinsCount": "4 activas",
+    "audienceDistribution": "Distribución de Audiencia por Canal",
+    "realTime": "Tiempo real",
+    "pipelineTelemetryTitle": "Telemetría de Pipeline IA:",
+    "sttLatency": "STT: {{ms}}ms",
+    "transLatency": "Traducción: {{ms}}ms",
+    "ttsLatency": "Síntesis TTS: {{ms}}ms",
+    "totalE2E": "Total E2E: {{ms}}ms"
+  },
+  "attendees": {
+    "title": "Registro de Asistentes",
+    "subtitle": "Participantes y oyentes registrados en la sala {{roomId}}",
+    "exportCsv": "Exportar reporte",
+    "exportCsvTooltip": "Descargar reporte en formato CSV",
+    "closeModal": "Cerrar modal de asistentes",
+    "searchPlaceholder": "Buscar por nombre, correo, teléfono o idioma...",
+    "emptySearchTitle": "No se encontraron asistentes",
+    "emptySearchDesc": "Prueba modificando los términos del buscador.",
+    "emptyListTitle": "No hay asistentes registrados aún",
+    "emptyListDesc": "Los participantes aparecerán aquí automáticamente en tiempo real al unirse a la sala.",
+    "colAttendee": "Asistente",
+    "colContact": "Contacto",
+    "colChannel": "Canal",
+    "colTime": "Hora",
+    "colStatus": "Estado",
+    "colActions": "Acciones",
+    "anonymous": "Anónimo",
+    "statusActive": "Activo",
+    "statusKicked": "Expulsado",
+    "actionKick": "Expulsar",
+    "actionKickTitle": "Expulsar asistente",
+    "actionUnban": "Readmitir",
+    "actionUnbanTitle": "Readmitir asistente",
+    "footerCount": "{{filtered}} de {{total}} asistentes registrados",
+    "footerSync": "Sincronizado en tiempo real • Exportable a .CSV"
+  },
+  "sessionSummary": {
+    "title": "Resumen Ejecutivo con IA",
+    "sidebarTitle": "Resumen de Sesión IA",
+    "subtitle": "Minuta estructurada de la sala {{roomId}}",
+    "sidebarSubtitle": "Minuta estructurada con IA",
+    "closeModal": "Cerrar modal",
+    "loadingTitle": "Analizando la transcripción de la ponencia...",
+    "loadingDesc": "La Inteligencia Artificial está extrayendo ideas centrales, argumentos clave y acuerdos de la sesión.",
+    "errorTitle": "No se pudo generar el resumen",
+    "retryButton": "Reintentar",
+    "duration": "Duración",
+    "minutesUnit": "min",
+    "sentences": "Frases",
+    "listeners": "Oyentes",
+    "defaultTitle": "Conferencia Principal",
+    "execSummaryTitle": "Resumen Ejecutivo",
+    "noSpeechDetected": "No se detectaron discursos durante esta sesión para resumir.",
+    "keyPointsTitle": "Puntos Clave y Argumentos",
+    "conclusionsTitle": "Conclusiones y Próximos Pasos",
+    "noContent": "Sin contenido registrado.",
+    "emptyStateTitle": "Minuta no generada",
+    "emptyStateDesc": "Genera un resumen inteligente a partir de las intervenciones registradas en el estudio.",
+    "generateNowButton": "Generar Resumen Ahora",
+    "generateButton": "Generar",
+    "refreshButton": "Actualizar",
+    "copyMarkdown": "Copiar Markdown",
+    "copied": "Copiado",
+    "downloadMarkdown": "Descargar (.md)",
+    "footerBrand": "LiftVoice Studio Summary"
+  },
+  "voiceCatalog": {
+    "modalTitle": "Catálogo de Voces de Interpretación",
+    "modalSubtitle": "Audiciona y asigna timbres neuronales a las cabinas de traducción en tiempo real.",
+    "sidebarTitle": "Catálogo de Voces",
+    "sidebarSubtitle": "Voces neuronales para emisión multicanal",
+    "availableCount": "{{count}} disponibles",
+    "closeEsc": "Cerrar catálogo (Esc)",
+    "searchPlaceholderModal": "Buscar por nombre de voz, tono o estilo...",
+    "searchPlaceholderSidebar": "Buscar por nombre o tono de voz...",
+    "engineFilterAll": "Todos",
+    "engineFilterEdge": "Edge Neural",
+    "engineFilterDeepgram": "Aura-2",
+    "engineFilterOpenai": "OpenAI",
+    "engineFilterEleven": "ElevenLabs",
+    "engineFilterCartesia": "Cartesia",
+    "engineFilterGoogleLive": "Google Live",
+    "tierAll": "Todos",
+    "tierZeroCost": "⚡ Zero-Cost",
+    "tierStudioPro": "🌟 Studio Pro",
+    "genderAll": "Todos los géneros",
+    "genderFemale": "♀ Fem",
+    "genderMale": "♂ Masc",
+    "genderNeutral": "Neutro",
+    "loadingCatalog": "Cargando catálogo consolidado de voces...",
+    "emptyVoicesTitle": "No se encontraron voces",
+    "emptyVoicesDesc": "Prueba ajustando los términos de búsqueda o seleccionando otro motor de locución.",
+    "playAuditionTooltip": "Audicionar muestra de {{name}}",
+    "stopAuditionTooltip": "Detener muestra",
+    "selectVoiceAria": "Seleccionar voz {{name}} para cabina de {{cabin}}",
+    "footerBoothLabel": "Cabina: {{cabin}}",
+    "footerActiveVoice": "Voz activa: {{voice}}",
+    "footerDefaultVoice": "Por defecto",
+    "footerSavedSuccess": "Voces guardadas y sincronizadas con éxito",
+    "discardButton": "Descartar",
+    "saveChangesButton": "Guardar cambios",
+    "savingButton": "Guardando...",
+    "savedButton": "Guardado",
+    "readyButton": "Listo",
+    "assignToBoothAction": "Asignar a cabina",
+    "activeVoiceForBooth": "Voz activa para {{cabin}}",
+    "assignToBoothSpecific": "Asignar a cabina de {{cabin}}",
+    "assignedToMultiple": "Asignada a {{cabins}} (clic para cambiar)",
+    "filterByLanguage": "Filtrar por idioma",
+    "filterByProvider": "Filtrar por proveedor",
+    "allLanguages": "Todos los idiomas",
+    "allProviders": "Todos los proveedores"
+  },
+  "voicesView": {
+    "title": "Voces",
+    "breadcrumb": "Voces > Explorar",
+    "searchAll": "Buscar en todo...",
+    "returnToStudio": "Volver al Studio",
+    "assignedSuccessFeedback": "Voz {{name}} asignada con éxito a la cabina {{lang}}.",
+    "unassignedFeedback": "Voz {{name}} deseleccionada de la cabina {{lang}}.",
+    "goToStudio": "Ir al Studio →",
+    "exploreTab": "Explorar",
+    "myVoicesTab": "Mis Voces",
+    "earningsButton": "Ganancias",
+    "createVoiceButton": "+ Crear voz",
+    "searchLibraryPlaceholder": "Buscar en las voces de la biblioteca...",
+    "filtersButton": "Filtros",
+    "scenarioKeynote": "🎤 Keynote & Plenaria",
+    "scenarioPanel": "💬 Panel & Debate",
+    "scenarioMedical": "🩺 Médico & Clínico",
+    "trendingVoicesTitle": "Voces en tendencia ({{count}})",
+    "auditionInstruction": "Clic en ▶ para audicionar con guion contextual",
+    "assignToBoothLabel": "Asignar a cabina:",
+    "unassignFromBoothTooltip": "Deseleccionar de la cabina {{lang}}",
+    "assignVoiceToBoothTooltip": "Asignar {{name}} a la cabina de {{lang}}",
+    "selectedForUseCaseTitle": "Seleccionado para tu caso de uso",
+    "cardEngineV3Title": "Best voices for Live Interpretation",
+    "cardEngineV3Desc": "Modelos optimizados para conferencias sin latencia perceptible.",
+    "cardKeynoteProTitle": "Studio-Quality Conversational Voices",
+    "cardKeynoteProDesc": "Voces con entonación oratoria y cadencia natural para eventos magistrales.",
+    "cardMedicalTitle": "Medical & Technical Certified Voices",
+    "cardMedicalDesc": "Pronunciación milimétrica para congresos médicos y farmacéuticos.",
+    "contextualScriptsKeynote": "Damas y caballeros, bienvenidos a la sesión plenaria de LiftVoice. Hoy exploraremos el futuro de la interpretación simultánea con inteligencia artificial.",
+    "contextualScriptsMedical": "Protocolo clínico asistencial: la administración endovenosa requiere monitorización hemodinámica continua y control estricto de saturación de oxígeno.",
+    "contextualScriptsPanel": "Hola, esta es una demostración en vivo de mi voz neuronal para paneles de debate, fluidez conversacional y traducción simultánea."
+  }
+}

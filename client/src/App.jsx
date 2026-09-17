@@ -9,6 +9,7 @@ import VoicesView from './views/VoicesView.jsx';
 import PostLeaveView from './views/PostLeaveView.jsx';
 import AttendeeLobbyView from './views/AttendeeLobbyView.jsx';
 import AdminSettingsView from './views/AdminSettingsView.jsx';
+import ErrorBoundary from './components/shared/ErrorBoundary.jsx';
 import { socketService } from './services/socket.js';
 import { audioPlayerService } from './services/audioPlayer.js';
 
@@ -278,8 +279,8 @@ export default function App() {
   };
 
   const handleCheckInComplete = (profileData) => {
-    if (!pendingJoinRoom) return;
-    const { roomId: targetRoomId, lang: initialTargetLang } = pendingJoinRoom;
+    const targetRoomId = pendingJoinRoom?.roomId || roomId || localStorage.getItem('lv_active_room_id') || 'MAIN';
+    const initialTargetLang = pendingJoinRoom?.lang;
     const targetLang = profileData?.lang || initialTargetLang || 'es';
     const cleanId = normalizeRoomCode(targetRoomId);
 
@@ -481,22 +482,26 @@ export default function App() {
         )}
 
         {currentView === 'lobby' && (
-          <AttendeeLobbyView
-            roomId={pendingJoinRoom?.roomId || roomId || 'MAIN'}
-            initialLang={pendingJoinRoom?.lang}
-            onBack={handleCheckInClose}
-            onSubmit={handleCheckInComplete}
-          />
+          <ErrorBoundary onReset={() => setCurrentView('join')}>
+            <AttendeeLobbyView
+              roomId={pendingJoinRoom?.roomId || roomId || 'MAIN'}
+              initialLang={pendingJoinRoom?.lang}
+              onBack={handleCheckInClose}
+              onSubmit={handleCheckInComplete}
+            />
+          </ErrorBoundary>
         )}
 
         {currentView === 'host' && (
-          <HostView
-            roomId={roomId}
-            roomTitle={roomTitle}
-            onLeave={handleLeave}
-            localIp={localIp}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-          />
+          <ErrorBoundary onReset={() => setCurrentView('home')}>
+            <HostView
+              roomId={roomId}
+              roomTitle={roomTitle}
+              onLeave={handleLeave}
+              localIp={localIp}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+          </ErrorBoundary>
         )}
 
         {currentView === 'voices' && (
@@ -510,10 +515,13 @@ export default function App() {
         )}
 
         {currentView === 'listener' && (
-          <ListenerView
-            roomId={roomId}
-            onLeave={handleLeave}
-          />
+          <ErrorBoundary onReset={() => setCurrentView('join')}>
+            <ListenerView
+              roomId={roomId}
+              roomTitle={roomTitle}
+              onLeave={handleLeave}
+            />
+          </ErrorBoundary>
         )}
 
         {currentView === 'post-leave' && (

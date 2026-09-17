@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Copy, Check, ArrowDown, Mic } from 'lucide-react';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 function LiveCaptions({
   transcriptHistory = [],
@@ -19,6 +20,7 @@ function LiveCaptions({
   activeCoalescedPacketIds = [],
   isPlayingAudio = false
 }) {
+  const { t } = useI18n();
   const fontClassMap = {
     sm: 'text-xs sm:text-sm leading-relaxed',
     md: 'text-sm sm:text-base leading-relaxed',
@@ -30,6 +32,11 @@ function LiveCaptions({
   const scrollRef = useRef(null);
   const bottomRef = useRef(null);
   const isUserScrolledUpRef = useRef(false);
+  const isProgrammaticScrollRef = useRef(false);
+  const programmaticScrollTimeoutRef = useRef(null);
+  const lastUserInteractionTimeRef = useRef(0);
+  const lastScrollTopRef = useRef(0);
+  const copyTimerRef = useRef(null);
   const [copiedId, setCopiedId] = useState(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -43,6 +50,14 @@ function LiveCaptions({
   const [displayedInterim, setDisplayedInterim] = useState(interimText || '');
   const [isConsolidating, setIsConsolidating] = useState(false);
   const consolidatingTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (consolidatingTimerRef.current) clearTimeout(consolidatingTimerRef.current);
+      if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (interimText) {
@@ -70,21 +85,75 @@ function LiveCaptions({
     }
   }, [transcriptHistory]);
 
+  const markProgrammaticScroll = (duration = 650) => {
+    isProgrammaticScrollRef.current = true;
+    if (programmaticScrollTimeoutRef.current) {
+      clearTimeout(programmaticScrollTimeoutRef.current);
+    }
+    programmaticScrollTimeoutRef.current = setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, duration);
+  };
+
+  const handleUserInteraction = () => {
+    lastUserInteractionTimeRef.current = Date.now();
+  };
+
+  // Pure vertical centered scroll without horizontal shifts or WebKit inline span glitches
+  const scrollToReadingElement = (activeEl) => {
+    const container = scrollRef.current;
+    if (!container || !activeEl) return;
+    markProgrammaticScroll(700);
+
+    const targetEl = activeEl.closest('.gemini-reading-card') || activeEl;
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+    const dockHeight = typeof window !== 'undefined' && window.innerWidth < 640 ? 120 : 30;
+
+    const relativeTop = targetRect.top - containerRect.top;
+    const visibleHeight = container.clientHeight - dockHeight;
+    const targetOffset = container.scrollTop + relativeTop - (visibleHeight / 2) + (targetRect.height / 2);
+
+    container.scrollTo({
+      top: Math.max(0, targetOffset),
+      behavior: 'smooth'
+    });
+  };
+
   // 1. Follow active speech playback sentence smoothly when audio is reading
   useEffect(() => {
-    if (!isPlayingAudio || isUserScrolledUpRef.current || !autoScroll) return;
+    if (!isPlayingAudio) return;
 
-    requestAnimationFrame(() => {
-      const activeEl = scrollRef.current?.querySelector('.gemini-reading-highlight');
+    // Respect user autonomy: do not force snatch if user scrolled up to read history
+    if (isUserScrolledUpRef.current || !autoScroll) return;
+
+    let timeoutId;
+    const attemptScroll = () => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const activeEl = el.querySelector('.gemini-reading-highlight') || el.querySelector('.gemini-reading-card');
       if (activeEl) {
-        activeEl.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-          inline: 'nearest'
-        });
+        scrollToReadingElement(activeEl);
       }
+    };
+
+    const rafId = requestAnimationFrame(() => {
+      timeoutId = setTimeout(attemptScroll, 30);
     });
-  }, [isPlayingAudio, activePlayingSeqId, activePlayingPacketId, activeCoalescedSeqIds, activeCoalescedPacketIds, autoScroll]);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [
+    isPlayingAudio,
+    activePlayingSeqId,
+    activePlayingPacketId,
+    activeCoalescedSeqIds,
+    activeCoalescedPacketIds,
+    transcriptHistory,
+    autoScroll
+  ]);
 
   // 2. Automatic scrolling: follow live streaming subtitles and incoming dictation stream smoothly
   useEffect(() => {
@@ -97,16 +166,12 @@ function LiveCaptions({
     prevCountRef.current = transcriptHistory.length;
     prevLastIdRef.current = currentLastId;
 
-    if (autoScroll && !isUserScrolledUpRef.current) {
-      requestAnimationFrame(() => {
-        // If an audio sentence is currently being read aloud, prioritize keeping that reading focus
-        const activeReadingEl = scrollRef.current?.querySelector('.gemini-reading-highlight');
-        if (isPlayingAudio && activeReadingEl) {
-          activeReadingEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-          return;
-        }
+    // When audio is reading, Effect 1 exclusively manages the reading focus
+    if (isPlayingAudio) return;
 
-        // Keep incoming live speech stream comfortably in view without violent jumps
+    if (autoScroll && !isUserScrolledUpRef.current) {
+      const rafId = requestAnimationFrame(() => {
+        markProgrammaticScroll(450);
         if (bottomRef.current) {
           bottomRef.current.scrollIntoView({ behavior: isNewItem ? 'smooth' : 'auto', block: 'nearest' });
         } else {
@@ -114,6 +179,7 @@ function LiveCaptions({
         }
       });
       setUnreadCount(0);
+      return () => cancelAnimationFrame(rafId);
     } else if (isNewItem && isUserScrolledUpRef.current) {
       setUnreadCount(prev => prev + 1);
     }
@@ -122,29 +188,71 @@ function LiveCaptions({
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    
-    // If user scrolled up by more than 80px, pause auto-scroll to let them read history
-    if (distanceFromBottom > 80) {
-      isUserScrolledUpRef.current = true;
-      if (autoScroll) setAutoScroll(false);
+
+    if (isProgrammaticScrollRef.current) {
+      lastScrollTopRef.current = el.scrollTop;
+      return;
+    }
+
+    const currentScrollTop = el.scrollTop;
+    const deltaY = currentScrollTop - lastScrollTopRef.current;
+    lastScrollTopRef.current = currentScrollTop;
+
+    const distanceFromBottom = el.scrollHeight - currentScrollTop - el.clientHeight;
+    const isRecentGesture = Date.now() - lastUserInteractionTimeRef.current < 2500;
+    const isUpwardUserScroll = deltaY < -2;
+
+    if (isPlayingAudio) {
+      const activeEl = el.querySelector('.gemini-reading-highlight') || el.querySelector('.gemini-reading-card');
+      if (activeEl) {
+        const containerRect = el.getBoundingClientRect();
+        const activeRect = activeEl.getBoundingClientRect();
+        const dockBottomInset = typeof window !== 'undefined' && window.innerWidth < 640 ? 130 : 40;
+        const isOutOfView = activeRect.bottom < containerRect.top + 20 || activeRect.top > containerRect.bottom - dockBottomInset;
+
+        if (isOutOfView && (isRecentGesture || isUpwardUserScroll)) {
+          isUserScrolledUpRef.current = true;
+          if (autoScroll) setAutoScroll(false);
+        } else if (!isOutOfView && !isUpwardUserScroll) {
+          isUserScrolledUpRef.current = false;
+          if (!autoScroll) {
+            setAutoScroll(true);
+            setUnreadCount(0);
+          }
+        }
+      } else if (distanceFromBottom > 160 && (isRecentGesture || isUpwardUserScroll)) {
+        isUserScrolledUpRef.current = true;
+        if (autoScroll) setAutoScroll(false);
+      }
     } else {
-      isUserScrolledUpRef.current = false;
-      if (!autoScroll) {
-        setAutoScroll(true);
-        setUnreadCount(0);
+      const threshold = 160;
+      if (distanceFromBottom > threshold && (isRecentGesture || isUpwardUserScroll)) {
+        isUserScrolledUpRef.current = true;
+        if (autoScroll) setAutoScroll(false);
+      } else if (distanceFromBottom <= threshold) {
+        isUserScrolledUpRef.current = false;
+        if (!autoScroll) {
+          setAutoScroll(true);
+          setUnreadCount(0);
+        }
       }
     }
   };
 
-  const scrollToBottom = () => {
+  const scrollToActiveOrBottom = () => {
     isUserScrolledUpRef.current = false;
     setAutoScroll(true);
     setUnreadCount(0);
+
     requestAnimationFrame(() => {
-      if (bottomRef.current) {
+      const activeEl = scrollRef.current?.querySelector('.gemini-reading-highlight') || scrollRef.current?.querySelector('.gemini-reading-card');
+      if (isPlayingAudio && activeEl) {
+        scrollToReadingElement(activeEl);
+      } else if (bottomRef.current) {
+        markProgrammaticScroll(600);
         bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
       } else if (scrollRef.current) {
+        markProgrammaticScroll(600);
         scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
       }
     });
@@ -218,14 +326,16 @@ function LiveCaptions({
     const textToCopy = item.translations?.[currentLanguage] || item.originalText;
     navigator.clipboard.writeText(textToCopy);
     setCopiedId(item.id);
-    setTimeout(() => setCopiedId(null), 2000);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopiedId(null), 2000);
   };
 
   const handleCopyParagraph = (p) => {
     const textToCopy = p.items.map(it => it.translations?.[currentLanguage] || it.originalText).join(' ');
     navigator.clipboard.writeText(textToCopy);
     setCopiedId(p.id);
-    setTimeout(() => setCopiedId(null), 2000);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopiedId(null), 2000);
   };
 
   const lastParagraph = paragraphs.length > 0 ? paragraphs[paragraphs.length - 1] : null;
@@ -244,7 +354,10 @@ function LiveCaptions({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto w-full bg-transparent scrollbar-custom scrollbar-fina ${maxHeightClass}`}
+        onWheel={handleUserInteraction}
+        onTouchMove={handleUserInteraction}
+        onPointerDown={handleUserInteraction}
+        className={`flex-1 overflow-y-auto w-full bg-transparent scrollbar-custom scrollbar-fina scroll-pb-36 sm:scroll-pb-10 ${maxHeightClass}`}
         role="log"
         aria-live="polite"
       >
@@ -259,15 +372,15 @@ function LiveCaptions({
                 T
               </div>
               <p className="text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                No hay transcripción disponible
+                {t('liveCaptions.empty.title')}
               </p>
               <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 max-w-xs">
-                La transcripción y subtítulos aparecerán aquí en cuanto el orador comience a hablar.
+                {t('liveCaptions.empty.desc')}
               </p>
               {isAdmin && activeSttInfo?.label && (
                 <div className="mt-3 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5 shadow-2xs">
                   <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500" />
-                  <span>Admin: Motor STT listo ({activeSttInfo.label})</span>
+                  <span>{t('liveCaptions.empty.adminReady', { engine: activeSttInfo.label })}</span>
                 </div>
               )}
             </div>
@@ -303,12 +416,12 @@ function LiveCaptions({
                         )}
                         {p.isAudienceQuestion && (
                           <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-medium text-[9px] border border-blue-200 dark:border-blue-800">
-                            Pregunta de {p.attendeeName || 'Audiencia'}
+                            {t('liveCaptions.badges.audienceQuestion', { name: p.attendeeName || t('common.defaultAttendeeName') || 'Audiencia' })}
                           </span>
                         )}
                         {(p.engineUsed?.includes('Clinical') || medicalMode) && (
                           <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-mono text-[9px] border border-emerald-200 dark:border-emerald-800">
-                            Clínico
+                            {t('liveCaptions.badges.clinical')}
                           </span>
                         )}
                         {isAdmin && p.sttEngineUsed && (
@@ -316,7 +429,7 @@ function LiveCaptions({
                             className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono text-[9px] border border-zinc-200 dark:border-zinc-700 flex items-center gap-1"
                           >
                             <span className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-500" />
-                            <span>STT: {p.sttEngineUsed}</span>
+                            <span>{t('liveCaptions.badges.stt', { engine: p.sttEngineUsed })}</span>
                           </span>
                         )}
                       </div>
@@ -325,8 +438,8 @@ function LiveCaptions({
                         <button
                           onClick={() => handleCopyParagraph(p)}
                           className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                          title="Copiar párrafo completo"
-                          aria-label="Copiar texto del párrafo"
+                          title={t('liveCaptions.actions.copyParagraph')}
+                          aria-label={t('liveCaptions.actions.copyParagraphAria')}
                         >
                           {copiedId === p.id ? (
                             <Check className="w-3 h-3 text-zinc-700 dark:text-zinc-200" />
@@ -432,8 +545,8 @@ function LiveCaptions({
                       <button
                         onClick={() => handleCopy(item)}
                         className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                        title="Copiar texto"
-                        aria-label="Copiar texto del subtítulo"
+                        title={t('liveCaptions.actions.copyCaption')}
+                        aria-label={t('liveCaptions.actions.copyCaptionAria')}
                       >
                         {copiedId === item.id ? (
                           <Check className="w-3 h-3 text-zinc-700 dark:text-zinc-200" />
@@ -476,10 +589,10 @@ function LiveCaptions({
                   </div>
                   <span className={isConsolidating ? 'text-amber-700 dark:text-amber-400 font-medium' : 'text-purple-700 dark:text-purple-300 font-semibold'}>
                     {isConsolidating
-                      ? 'Consolidando traducción...'
+                      ? t('liveCaptions.streaming.consolidating')
                       : isAdmin && activeSttInfo?.label
-                      ? `Transcripción: ${activeSttInfo.label}`
-                      : 'Transcripción y dictado IA en vivo...'}
+                      ? t('liveCaptions.streaming.sttLabel', { label: activeSttInfo.label })
+                      : t('liveCaptions.streaming.aiDictation')}
                   </span>
                 </div>
                 {isAdmin && activeSttInfo?.label && (
@@ -506,16 +619,17 @@ function LiveCaptions({
         </div>
       </div>
 
-      {/* Floating Pill when user scrolled up and new text arrives */}
-      {unreadCount > 0 && (
-        <div className="absolute bottom-24 sm:bottom-3 left-1/2 -translate-x-1/2 z-10 animate-bounce">
+      {/* Floating Pill when user scrolled up and new text arrives or audio is reading */}
+      {(unreadCount > 0 || (!autoScroll && isPlayingAudio)) && (
+        <div className="absolute bottom-36 sm:bottom-4 left-1/2 -translate-x-1/2 z-30 animate-fadeIn">
           <button
-            onClick={scrollToBottom}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-medium shadow-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors cursor-pointer"
-            aria-label="Ver las nuevas frases recibidas"
+            type="button"
+            onClick={scrollToActiveOrBottom}
+            className="flex items-center gap-2 h-10 px-4 rounded-full bg-zinc-900/95 dark:bg-zinc-100/95 text-white dark:text-zinc-900 text-xs font-semibold shadow-xl border border-white/20 dark:border-zinc-800 backdrop-blur-md active:scale-95 transition-all cursor-pointer"
+            aria-label={isPlayingAudio ? t('liveCaptions.floatingScroll.backToLiveAria') : t('liveCaptions.floatingScroll.newPhrasesAria')}
           >
-            <ArrowDown className="w-3 h-3" />
-            <span>Nuevas frases ({unreadCount})</span>
+            <ArrowDown className="w-3.5 h-3.5 animate-pulse" />
+            <span>{isPlayingAudio ? t('liveCaptions.floatingScroll.backToLive') : t('liveCaptions.floatingScroll.newPhrases', { count: unreadCount })}</span>
           </button>
         </div>
       )}

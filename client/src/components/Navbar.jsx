@@ -1,6 +1,7 @@
 import React from 'react';
 import { QrCode, Settings, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 export default function Navbar({
   currentRole = null, // 'host' | 'listener' | null
@@ -12,6 +13,7 @@ export default function Navbar({
   onNavigateHome = () => {}
 }) {
   const { theme, resolvedTheme, toggleTheme } = useTheme();
+  const { t } = useI18n();
   const [hasCopied, setHasCopied] = React.useState(false);
   const handleCopyLink = () => {
     if (!roomId) return;
@@ -51,18 +53,18 @@ export default function Navbar({
           {/* Breadcrumb info with one-click Google Meet room copy */}
           {roomId && (
             <div className="hidden md:flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 border-l border-zinc-200 dark:border-zinc-800 pl-6">
-              <span>{currentRole === 'host' ? 'Estudio de Emisión' : 'Cabina de Oyente'}</span>
+              <span>{currentRole === 'host' ? t('navbar.roleHost') : t('navbar.roleListener')}</span>
               <span className="text-zinc-300 dark:text-zinc-700">•</span>
               <button
                 onClick={handleCopyLink}
-                title="Copiar vínculo de la reunión"
+                title={t('navbar.copyLinkTitle')}
                 className="font-mono font-medium text-xs text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-700 px-3 py-1 rounded-full border border-zinc-200 dark:border-zinc-700 flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
               >
                 <span>{roomId}</span>
                 {hasCopied ? (
-                  <span className="text-[10px] text-zinc-700 dark:text-zinc-300 font-sans font-medium">¡Copiado!</span>
+                  <span className="text-[10px] text-zinc-700 dark:text-zinc-300 font-sans font-medium">{t('navbar.copiedLinkText')}</span>
                 ) : (
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-sans font-normal">Copiar</span>
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-sans font-normal">{t('navbar.copyLinkText')}</span>
                 )}
               </button>
             </div>
@@ -79,7 +81,7 @@ export default function Navbar({
                 onClick={onOpenSettings}
                 className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
               >
-                Ajustes de Sala
+                {t('navbar.roomSettings')}
               </button>
             </div>
           )}
@@ -96,10 +98,10 @@ export default function Navbar({
             <button
               onClick={onOpenQR}
               className="h-9 sm:h-10 px-4 rounded-2xl bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-2xs transition-all"
-              title="Proyectar Código QR en Sala"
+              title={t('navbar.projectQrTitle')}
             >
               <QrCode className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
-              <span className="hidden sm:inline">Proyectar QR</span>
+              <span className="hidden sm:inline">{t('navbar.projectQrButton')}</span>
             </button>
           )}
 
@@ -107,8 +109,8 @@ export default function Navbar({
           <button
             onClick={toggleTheme}
             className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer shadow-2xs"
-            title={`Tema actual: ${theme === 'system' ? 'Sistema (' + resolvedTheme + ')' : theme}. Clic para alternar claro/oscuro.`}
-            aria-label="Alternar tema claro y oscuro"
+            title={t('navbar.themeTitle', { theme: theme === 'system' ? t('navbar.themeSystem') : theme === 'dark' ? t('navbar.themeDark') : t('navbar.themeLight') })}
+            aria-label={t('navbar.themeAria')}
           >
             {resolvedTheme === 'dark' ? (
               <Sun className="w-4 h-4 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-transform active:rotate-45" />
@@ -122,8 +124,8 @@ export default function Navbar({
             <button
               onClick={onOpenSettings}
               className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
-              title="Configuración de Administrador"
-              aria-label="Configuración de Administrador"
+              title={t('navbar.adminSettingsTitle')}
+              aria-label={t('navbar.adminSettingsAria')}
             >
               <Settings className="w-4 h-4" />
             </button>

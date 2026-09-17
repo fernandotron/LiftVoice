@@ -1020,7 +1020,7 @@ class AudioPlayerService {
           if (!audioBuffer || startEpoch !== this.playbackEpoch) return;
 
           // Descartar si el oyente cambió de canal o idioma durante la decodificación
-          if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && !packet.isHostMonitoring && !packet.isListenerDirect && packet.lang !== this.currentLanguage) {
+          if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && !packet.isHostMonitoring && packet.lang !== this.currentLanguage) {
             return;
           }
 
@@ -1092,7 +1092,7 @@ class AudioPlayerService {
     if (!audioBuffer || currentEpoch !== this.playbackEpoch) return;
 
     // Discard chunk if language changed while decoding was asynchronously running
-    if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && !packet.isHostMonitoring && !packet.isListenerDirect && packet.lang !== this.currentLanguage) {
+    if (packet.lang && !packet.isBoothAudio && !packet.isHostPreview && !packet.isHostMonitoring && packet.lang !== this.currentLanguage) {
       return;
     }
 

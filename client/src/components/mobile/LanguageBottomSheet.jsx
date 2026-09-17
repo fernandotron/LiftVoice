@@ -3,6 +3,7 @@ import { X, Check } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from '../LanguageSelector.jsx';
 import Modal from '../shared/Modal.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
+import { useI18n } from '../../contexts/I18nContext.jsx';
 
 /**
  * LanguageBottomSheet — LiftVoice 2026 (Estilo Reness)
@@ -17,6 +18,8 @@ export default function LanguageBottomSheet({
   onSelectLanguage = () => {},
   languageBreakdown = {}
 }) {
+  const { t } = useI18n();
+
   const handleSelect = (code) => {
     try {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -38,17 +41,17 @@ export default function LanguageBottomSheet({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 id="lang-sheet-title" className="font-bold text-base sm:text-lg text-zinc-900 dark:text-white tracking-tight">
-              Idioma de traducción
+              {t('languageBottomSheet.title')}
             </h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Audio y subtítulos sincronizados en directo
+              {t('languageBottomSheet.subtitle')}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation shrink-0"
-            aria-label="Cerrar panel de idiomas"
+            aria-label={t('languageBottomSheet.closeAria')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -61,10 +64,10 @@ export default function LanguageBottomSheet({
             onClick={onClose}
             className="w-full py-3.5 rounded-full bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 font-semibold text-sm transition-all shadow-sm active:scale-[0.99] cursor-pointer"
           >
-            Entendido
+            {t('languageBottomSheet.confirmButton')}
           </button>
           <p className="text-[11px] text-zinc-400 dark:text-zinc-500 text-center font-medium">
-            Sintonización instantánea con Web Audio
+            {t('languageBottomSheet.footerNote')}
           </p>
         </div>
       }
@@ -73,6 +76,9 @@ export default function LanguageBottomSheet({
         {SUPPORTED_LANGUAGES.map((lang) => {
           const isSelected = selectedLanguage === lang.code;
           const count = languageBreakdown[lang.code] || 0;
+          const listenerLabel = count === 1 
+            ? (t('common.listeners_one') || 'oyente') 
+            : (t('common.listeners_other') || 'oyentes');
 
           return (
             <button
@@ -95,12 +101,12 @@ export default function LanguageBottomSheet({
                     </span>
                     {isSelected && (
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-600">
-                        Activo
+                        {t('languageBottomSheet.activeBadge')}
                       </span>
                     )}
                   </div>
                   <p className="text-xs mt-0.5 truncate text-zinc-500 dark:text-zinc-400">
-                    {lang.name} {count > 0 ? `· ${count} ${count === 1 ? 'oyente' : 'oyentes'}` : ''}
+                    {lang.name} {count > 0 ? `· ${count} ${listenerLabel}` : ''}
                   </p>
                 </div>
               </div>

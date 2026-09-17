@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Copy, Check, Download, FileText, CheckCircle2, Clock, Users, MessageSquare, Loader2, AlertCircle } from 'lucide-react';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 export default function SessionSummaryModal({
   isOpen = false,
@@ -9,6 +10,7 @@ export default function SessionSummaryModal({
   isLoading = false,
   error = null
 }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -99,17 +101,17 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
         <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-5 sm:px-8 pt-4 sm:pt-6 pb-3.5 sm:pb-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md">
           <div className="min-w-0 flex-1">
             <h3 id="summary-dialog-title" className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">
-              Resumen Ejecutivo con IA
+              {t('sessionSummary.title')}
             </h3>
             <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-              Minuta estructurada de la sala <span className="font-mono text-zinc-700 dark:text-zinc-300 font-medium">{roomId}</span>
+              {t('sessionSummary.subtitle', { roomId })}
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            aria-label="Cerrar modal"
+            aria-label={t('sessionSummary.closeModal')}
             className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation shrink-0"
           >
             <X className="w-4 h-4" />
@@ -123,10 +125,10 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
             <div className="py-16 text-center space-y-3">
               <Loader2 className="w-8 h-8 text-zinc-900 dark:text-zinc-100 animate-spin mx-auto" />
               <div className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                Analizando la transcripción de la ponencia...
+                {t('sessionSummary.loadingTitle')}
               </div>
               <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto leading-relaxed">
-                La Inteligencia Artificial está extrayendo ideas centrales, argumentos clave y acuerdos de la sesión.
+                {t('sessionSummary.loadingDesc')}
               </p>
             </div>
           )}
@@ -135,7 +137,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
             <div className="p-4 sm:p-5 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 text-xs sm:text-sm flex items-start gap-3.5">
               <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500 mt-0.5" />
               <div className="min-w-0 flex-1">
-                <b className="block text-red-900 dark:text-red-200 font-semibold mb-1">No se pudo generar el resumen</b>
+                <b className="block text-red-900 dark:text-red-200 font-semibold mb-1">{t('sessionSummary.errorTitle')}</b>
                 <p className="leading-relaxed">{error}</p>
               </div>
             </div>
@@ -148,16 +150,16 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                 <div className="grid grid-cols-3 gap-3 sm:gap-4">
                   <div className="p-3.5 sm:p-4 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800">
                     <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Duración
+                      {t('sessionSummary.duration')}
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white font-mono mt-1">
-                      {duration} <span className="text-xs font-normal text-zinc-500 font-sans">min</span>
+                      {duration} <span className="text-xs font-normal text-zinc-500 font-sans">{t('sessionSummary.minutesUnit')}</span>
                     </div>
                   </div>
 
                   <div className="p-3.5 sm:p-4 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800">
                     <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Frases
+                      {t('sessionSummary.sentences')}
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white font-mono mt-1">
                       {totalSentences}
@@ -166,7 +168,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
 
                   <div className="p-3.5 sm:p-4 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800">
                     <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Oyentes
+                      {t('sessionSummary.listeners')}
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white font-mono mt-1">
                       {totalListeners}
@@ -188,7 +190,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                 ) : (
                   <div className="p-4 sm:p-5 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-3">
                     <FileText className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-                    <span>No se detectaron discursos durante esta sesión para resumir.</span>
+                    <span>{t('sessionSummary.noSpeechDetected')}</span>
                   </div>
                 )}
               </div>
@@ -197,7 +199,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
               {keyPoints.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
-                    Puntos Clave y Argumentos
+                    {t('sessionSummary.keyPointsTitle')}
                   </h4>
                   <div className="p-4 sm:p-5 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
                     {keyPoints.map((point, i) => (
@@ -213,7 +215,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
               {/* Sección 4: Conclusiones y Próximos Pasos */}
               <div className="space-y-2">
                 <h4 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
-                  Conclusiones y Próximos Pasos
+                  {t('sessionSummary.conclusionsTitle')}
                 </h4>
                 
                 {actionItems.length > 0 ? (
@@ -228,7 +230,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                 ) : (
                   <div className="p-4 sm:p-5 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-3">
                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600 flex-shrink-0" />
-                    <span>Sin contenido registrado.</span>
+                    <span>{t('sessionSummary.noContent')}</span>
                   </div>
                 )}
               </div>
@@ -240,7 +242,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
         {/* Footer idéntico al del panel de administración */}
         <footer className="relative z-20 flex shrink-0 items-center justify-between gap-3 sm:gap-4 px-4 sm:px-8 py-3.5 sm:py-5 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-5 border-t border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md">
           <div className="text-xs text-zinc-400 dark:text-zinc-500 font-mono hidden sm:block">
-            LiftVoice Studio Summary
+            {t('sessionSummary.footerBrand')}
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
@@ -253,12 +255,12 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
               {copied ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 stroke-[3]" />
-                  <span>Copiado</span>
+                  <span>{t('sessionSummary.copied')}</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-                  <span>Copiar Markdown</span>
+                  <span>{t('sessionSummary.copyMarkdown')}</span>
                 </>
               )}
             </button>
@@ -270,7 +272,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
               className="h-10 px-6 rounded-full bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 text-xs sm:text-sm font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Descargar (.md)</span>
+              <span>{t('sessionSummary.downloadMarkdown')}</span>
             </button>
           </div>
         </footer>

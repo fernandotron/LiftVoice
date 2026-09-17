@@ -1,0 +1,748 @@
+{
+  "common": {
+    "live": "Live",
+    "liveBadge": "Live",
+    "change": "change",
+    "close": "Close",
+    "room": "Room",
+    "you": "You",
+    "defaultAttendeeName": "Listener",
+    "defaultHostName": "Speaker",
+    "listeners_one": "{{count}} listener",
+    "listeners_other": "{{count}} listeners",
+    "peopleConnected_one": "1 person connected in real time.",
+    "peopleConnected_other": "{{count}} people connected in real time."
+  },
+  "listenerView": {
+    "loading": {
+      "title": "Tuning into room",
+      "description": "Connecting to live audio and interpretation booth..."
+    },
+    "header": {
+      "exitTitle": "Leave room",
+      "exitAria": "Leave room",
+      "copyLinkTitle": "Tap to copy meeting link",
+      "copyLinkDesktopTitle": "Copy room link",
+      "themeLight": "Switch to light mode",
+      "themeDark": "Switch to dark mode",
+      "stageLive": "Live ·",
+      "audioBanner": {
+        "title": "Enable live audio",
+        "desc": "Tap to sync and listen to translation in your headphones.",
+        "action": "Tune in"
+      },
+      "toggleAssistantHide": "Hide Assistant panel",
+      "toggleAssistantShow": "Show Assistant panel"
+    },
+    "profile": {
+      "pillTitle": "Your room profile",
+      "pillAria": "Your room profile",
+      "popoverTitle": "Room Identity",
+      "connectedStatus": "Audience connected",
+      "nameLabel": "Name displayed for speaker questions:",
+      "namePlaceholder": "Your name...",
+      "saveButton": "Save Name"
+    },
+    "receptionBooth": {
+      "title": "Listener Booth",
+      "subtitle": "Real-time audio & text synchronization",
+      "settings": "Settings",
+      "channelLabel": "Reception channel",
+      "statusLabel": "Reception status",
+      "statusMuted": "Audio muted",
+      "statusPlaying": "Playing audio",
+      "statusSynced": "Audio synchronized",
+      "statusWaiting": "Audio on standby",
+      "visualizerActive": "Live audio active",
+      "buttonStart": "Start Tuning",
+      "buttonResume": "Resume Audio",
+      "buttonMute": "Mute Audio"
+    },
+    "transcriptionCanvas": {
+      "title": "Real-Time Transcription",
+      "subtitle": "Captions will appear here once available",
+      "changeFontSize": "Change font size"
+    },
+    "assistant": {
+      "title": "Assistant",
+      "subtitle": "Real-time interventions",
+      "tabs": {
+        "actions": "Actions",
+        "suggestions": "Suggestions",
+        "room": "Room"
+      },
+      "qa": {
+        "sectionTitle": "Speaker Questions",
+        "stateIdle": "Idle",
+        "stateRequested": "Waiting",
+        "stateSpeaking": "Live",
+        "placeholder": "Type your question in any language (the speaker will receive it translated)...",
+        "dictateButton": "Dictate",
+        "dictateStop": "Stop",
+        "submitButton": "Request to Speak",
+        "visibleName": "Display name:",
+        "requestedBanner": {
+          "title": "Turn requested",
+          "desc": "The speaker has received your question. You will be notified once granted the floor."
+        },
+        "speakingBanner": {
+          "title": "You have the floor!",
+          "desc": "The speaker has brought you on live."
+        },
+        "yourSentQuery": "Your submitted question:",
+        "yourQuery": "Your question:",
+        "cancelTurn": "Cancel turn & lower hand",
+        "finishIntervention": "End intervention"
+      },
+      "suggestions": {
+        "title": "Suggested questions",
+        "desc": "Tap any prompt below to load it into the text field:",
+        "preset1": "Could you elaborate more on the last point?",
+        "preset2": "How does this impact real-world implementation?",
+        "preset3": "What is the planned next step on the roadmap?"
+      },
+      "roomTab": {
+        "totalListeners": "Total Listeners:",
+        "listeningChannel": "Listening Channel:",
+        "socketLatency": "WebSocket Latency:",
+        "participantsTitle": "Room Participants",
+        "searchPlaceholder": "Search participant...",
+        "noMatches": "No matching participants found",
+        "hostSubtitle": "Room Host",
+        "selfSubtitle": "Your session",
+        "attendeeSubtitle": "Connected listener"
+      },
+      "tip": {
+        "title": "Translation tip",
+        "desc": "You can write your questions in your language; AI will interpret them in real time for the speaker."
+      }
+    },
+    "alerts": {
+      "kicked": "You have been removed from the room by the host.",
+      "speechUnsupported": "Your browser does not support Web Speech Recognition API. Please type your question."
+    }
+  },
+  "liveCaptions": {
+    "empty": {
+      "title": "No transcription available",
+      "desc": "Transcription and captions will appear here as soon as the speaker begins talking.",
+      "adminReady": "Admin: STT engine ready ({{engine}})"
+    },
+    "badges": {
+      "audienceQuestion": "Question from {{name}}",
+      "clinical": "Clinical",
+      "stt": "STT: {{engine}}",
+      "sttTooltip": "Transcription engine: {{engine}} ({{model}})"
+    },
+    "actions": {
+      "copyParagraph": "Copy full paragraph",
+      "copyParagraphAria": "Copy paragraph text",
+      "copyCaption": "Copy text",
+      "copyCaptionAria": "Copy caption text"
+    },
+    "streaming": {
+      "consolidating": "Consolidating translation...",
+      "aiDictation": "Live AI transcription & dictation...",
+      "sttLabel": "Transcription: {{label}}"
+    },
+    "floatingScroll": {
+      "backToLive": "Back to reading",
+      "backToLiveAria": "Return to live reading stream",
+      "newPhrases": "New phrases ({{count}})",
+      "newPhrasesAria": "View incoming phrases"
+    }
+  },
+  "mobileAudioDock": {
+    "navAria": "Listener audio controls",
+    "languageMenuAria": "Select translation language",
+    "globeTitle": "Language: {{language}}. Tap to change.",
+    "globeAria": "Current language: {{language}}. Tap to change.",
+    "fontSizeTitle": "Caption size: {{size}}. Tap to change.",
+    "fontSizeAria": "Caption size: {{size}}. Tap to change.",
+    "toastPrefix": "Captions:",
+    "sizeNames": {
+      "sm": "Small (A-)",
+      "md": "Normal (A)",
+      "lg": "Large (A+)",
+      "xl": "Immersive (A++)"
+    },
+    "audioButton": {
+      "tuneTitle": "Tap to tune in audio",
+      "tuneAria": "Tune in audio",
+      "unmuteTitle": "Tap to unmute",
+      "unmuteAria": "Unmute audio",
+      "liveMuteTitle": "Live audio active (Tap to mute)",
+      "liveMuteAria": "Mute audio"
+    },
+    "audienceButton": {
+      "title": "View room audience",
+      "aria": "View room audience"
+    },
+    "qaButton": {
+      "requestedTitle": "Hand raised (waiting for turn)",
+      "requestedAria": "Hand raised (waiting for turn)",
+      "speakingTitle": "You have the floor",
+      "speakingAria": "You have the floor",
+      "defaultTitle": "Request to speak / Q&A",
+      "defaultAria": "Request to speak to the host"
+    }
+  },
+  "languageBottomSheet": {
+    "title": "Translation Language",
+    "subtitle": "Real-time synchronized audio & captions",
+    "closeAria": "Close language panel",
+    "confirmButton": "Got it",
+    "footerNote": "Instant tuning with Web Audio",
+    "activeBadge": "Active"
+  },
+  "audienceBottomSheet": {
+    "title": "Live Audience",
+    "closeAria": "Close audience panel",
+    "yourChannel": "Your channel"
+  },
+  "mobileQAPill": {
+    "floatingButton": {
+      "speakingAria": "Your turn to speak is active. Tap to open mic.",
+      "requestedAria": "Hand raised. Tap to view status.",
+      "defaultAria": "Ask speaker live",
+      "speakingText": "Your turn!",
+      "requestedText": "Hand raised",
+      "defaultText": "Ask"
+    },
+    "modal": {
+      "title": "Ask the speaker",
+      "speakingSubtitle": "Speak in {{language}}. The speaker will hear you translated in real time.",
+      "defaultSubtitle": "Submit your question in writing or request to speak live.",
+      "closeAria": "Close question window",
+      "placeholder": "Type your question in any language (the speaker will receive it translated)...",
+      "raiseHandButton": "Request to Speak",
+      "cancelTurnButton": "Lower hand & cancel turn",
+      "finishButton": "End intervention",
+      "speakingBannerSubtitle": "Live microphone open",
+      "speakingBannerDesc": "Speak in {{language}}. The speaker will hear you translated in real time in their earpiece.",
+      "completedTitle": "Question sent",
+      "completedDesc": "Your question was delivered to the speaker in real time."
+    }
+  },
+  "languageSelector": {
+    "tuned": "Tuned",
+    "voices": {
+      "es": "Live Voice",
+      "en": "Direct Voice",
+      "it": "Direct Voice",
+      "pt": "Direct Voice"
+    },
+    "descriptions": {
+      "es": "Spanish audio & transcription",
+      "en": "Real-time audio & captions",
+      "it": "Italian audio & transcription",
+      "pt": "Portuguese audio & transcription"
+    }
+  },
+  "desktopHeaderMenu": {
+    "menuTriggerAria": "Main menu",
+    "menuAria": "Options menu",
+    "returnHome": "Back to home",
+    "theme": "Theme",
+    "copyLink": "Copy room link",
+    "linkCopied": "Link copied!",
+    "themeSelectAria": "Select theme",
+    "themes": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
+  },
+  "home": {
+    "hero": {
+      "badgeCreator": "Live Broadcast & Conference",
+      "badgeAttendee": "Live Simultaneous Interpretation",
+      "titleCreator": "Create Broadcast Room",
+      "titleAttendee": "Live Voice Translation",
+      "descCreator": "Start a room to broadcast your conference from your microphone in real time to attendees in multiple languages.",
+      "descAttendee": "Enter the meeting code to listen to the conference and read synchronized subtitles in your language."
+    },
+    "recentRoom": {
+      "label": "Recent room:",
+      "timeAgoMinutes": "{{count}}m ago",
+      "timeAgoHours": "{{count}}h ago",
+      "join": "Join",
+      "dismiss": "Dismiss",
+      "dismissAria": "Dismiss recent room"
+    },
+    "creatorCard": {
+      "title": "Create Broadcast Room",
+      "desc": "Start a real-time conference from your microphone to stream simultaneous translations.",
+      "pinPlaceholder": "Custom room code (optional)",
+      "createWithCode": "Create Room with Code",
+      "createInstant": "Create Instant Room",
+      "switchAttendee": "Looking to join an existing room? Access as listener"
+    },
+    "attendeeCard": {
+      "title": "Join as Listener",
+      "desc": "Enter the meeting code to listen to the conference and read subtitles in your language.",
+      "pinPlaceholder": "Room code (e.g. abc-defg-hij)",
+      "joinButton": "Join Room"
+    },
+    "footer": {
+      "brand": "LiftVoice",
+      "tagline": "Live Simultaneous Interpretation",
+      "audioSynced": "Synchronized audio",
+      "copyright": "© {{year}}"
+    }
+  },
+  "lobby": {
+    "backTitle": "Back",
+    "backAria": "Back to home",
+    "title": "Join",
+    "subtitle": "Welcome to the conference room",
+    "roomLabel": "Room {{roomId}}",
+    "nameLabel": "Full name",
+    "namePlaceholder": "Enter your full name",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "Enter your email address",
+    "phoneLabel": "WhatsApp (optional)",
+    "phonePlaceholder": "WhatsApp (optional)",
+    "languageLabel": "Interpretation language",
+    "submitButton": "Continue",
+    "submitting": "Connecting..."
+  },
+  "postLeave": {
+    "kickerKicked": "Session ended",
+    "kickerVoluntary": "Session closed",
+    "titleKicked": "You have been removed from the room",
+    "titleVoluntary": "You have left the meeting",
+    "descVoluntary": "The live audio connection and simultaneous captions have been stopped.",
+    "descKickedDefault": "The host has ended your session in this room.",
+    "closeAria": "Close and return to home",
+    "btnAcknowledge": "Got it",
+    "btnRejoin": "Rejoin",
+    "bannerRestrictedTitle": "Restricted access",
+    "bannerRestrictedDesc": "Rejoining this room is not permitted due to host moderation.",
+    "roomCardTitle": "Conference room",
+    "copyRoomLink": "Copy room link",
+    "copiedRoomLink": "Link copied",
+    "audioChannelTitle": "Audio channel",
+    "feedback": {
+      "prompt": "How would you rate the audio and translation quality?",
+      "poor": "Poor",
+      "fair": "Fair",
+      "good": "Good",
+      "veryGood": "Very good",
+      "excellent": "Excellent",
+      "comment": "Additional comments regarding your experience (optional)...",
+      "submit": "Submit rating",
+      "thankYou": "Thank you for your feedback!"
+    }
+  },
+  "navbar": {
+    "brand": "LiftVoice",
+    "roleHost": "Broadcast Studio",
+    "roleListener": "Listener Booth",
+    "copyLinkTitle": "Copy meeting link",
+    "copyLinkText": "Copy",
+    "copiedLinkText": "Copied!",
+    "roomSettings": "Room Settings",
+    "projectQrTitle": "Project QR Code in Room",
+    "projectQrButton": "Project QR",
+    "themeTitle": "Current theme: {{theme}}. Click to toggle light/dark.",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeAria": "Toggle light and dark theme",
+    "adminSettingsTitle": "Administrator Settings",
+    "adminSettingsAria": "Administrator Settings"
+  },
+  "qrModal": {
+    "fullScreen": {
+      "dialogAria": "Auditorium Mode - Room Access",
+      "exitTitle": "Exit full screen (Esc)",
+      "exitAria": "Exit full screen",
+      "closeTitle": "Close",
+      "roomLabel": "Room:",
+      "defaultTitle": "Simultaneous Voice Translation",
+      "subtitle": "Listen to the translated conference in real time directly from your mobile phone.",
+      "step1Title": "Scan the QR code with your phone",
+      "step1Desc": "Open your smartphone camera. Instant connection without apps or sign-up.",
+      "step2Title": "Connect your headphones",
+      "step2Desc": "Use Bluetooth or wired headphones for clear audio without room interference.",
+      "step3Title": "Choose your language booth",
+      "footerWifi": "Wi-Fi Network: {{ip}}:{{port}}",
+      "footerEsc": "Press Esc to exit projector mode"
+    },
+    "standard": {
+      "dialogTitle": "Room Access • Audience",
+      "dialogSubtitle": "Instant scan to tune in to live voice booths",
+      "auditoriumTitle": "Auditorium / Projector Mode (Full screen)",
+      "auditoriumAria": "Auditorium Mode",
+      "closeTitle": "Close modal",
+      "closeAria": "Close",
+      "roomLabel": "Room:",
+      "copyCodeTitle": "Copy room code",
+      "copyCodeAria": "Copy room code",
+      "tabWifi": "Wi-Fi Network",
+      "tabCellular": "4G/5G Cellular",
+      "tunnelErrorAdminTitle": "Administrative Access",
+      "tunnelErrorAdminDesc": "Administrator access is required to activate the 4G/5G tunnel. Please use the local Wi-Fi network.",
+      "tunnelErrorNoticeTitle": "Connection Notice",
+      "tunnelErrorGeneric": "Could not establish 4G/5G public tunnel. Please use local Wi-Fi connection.",
+      "tunnelErrorNetwork": "Failed to reach the public tunnel. Please use the room's local Wi-Fi network.",
+      "bannerCloseAria": "Dismiss notice",
+      "bannerUniversalTitle": "Secure Universal QR",
+      "bannerUniversalDesc": "Valid for Wi-Fi and 4G/5G mobile data connections.",
+      "stepsHeading": "Simultaneous Voice Translation",
+      "stepsSubtitle": "Listen to the conference in your language using headphones in real time.",
+      "step1Title": "Scan the QR code",
+      "step1Desc": "Open your mobile camera (iOS or Android). No app installation required.",
+      "step2Title": "Connect your headphones",
+      "step2Desc": "AirPods, Bluetooth or cable. Audio continues playback even with screen locked.",
+      "step3Title": "Choose your language booth",
+      "wifiDiagnostic": "Local Wi-Fi: {{ip}}:{{port}}",
+      "changeIp": "Change IP",
+      "closeIp": "Close",
+      "selectAdapter": "Select your Wi-Fi network adapter:",
+      "directLinkLabel": "Direct listener link",
+      "copyLink": "Copy link",
+      "copiedLink": "Link copied",
+      "downloadQr": "Download QR",
+      "downloadQrTitle": "Download QR code"
+    }
+  },
+  "languages": {
+    "es": {
+      "name": "Spanish",
+      "voice": "Direct Voice",
+      "desc": "Spanish audio & transcription"
+    },
+    "en": {
+      "name": "English",
+      "voice": "Direct Voice",
+      "desc": "Real-time audio & captions"
+    },
+    "it": {
+      "name": "Italian",
+      "voice": "Direct Voice",
+      "desc": "Real-time audio & subtitles"
+    },
+    "pt": {
+      "name": "Portuguese",
+      "voice": "Direct Voice",
+      "desc": "Real-time audio & subtitles"
+    },
+    "listenerSingular": "listener",
+    "listenerPlural": "listeners",
+    "tunedIn": "Tuned in"
+  },
+  "host": {
+    "titles": {
+      "stageTitleDefault": "Live Transcription",
+      "studioTitle": "Broadcast Studio",
+      "studioSubtitle": "Live audio capture and speech control",
+      "inspectorTitle": "Room Inspector",
+      "inspectorSubtitle": "Booths, Q&A, and live audience",
+      "initializingTitle": "Starting broadcast studio...",
+      "profileTitle": "Speaker",
+      "profileHostBadge": "Host",
+      "youHost": "You (Host)",
+      "mainBroadcast": "Main broadcast"
+    },
+    "tabs": {
+      "studio": "Studio",
+      "catalog": "Catalog",
+      "summary": "Summary",
+      "cabins": "Booths",
+      "qa": "Q&A",
+      "room": "Room"
+    },
+    "header": {
+      "copyLink": "Copy room link",
+      "copied": "Copied",
+      "projectQr": "Project QR code",
+      "createRoom": "Create another room",
+      "roomSettings": "Room Settings",
+      "exitHome": "Exit to home",
+      "inspectorToggleOpen": "Show Room Inspector",
+      "inspectorToggleClose": "Hide Room Inspector",
+      "liveStatus": "Live · {{time}}",
+      "pausedStatus": "Paused",
+      "listenersConnected": "{{count}} connected listener",
+      "listenersConnectedPlural": "{{count}} connected listeners",
+      "neuralBoothsSub": "Neural broadcast across 4 booths",
+      "fontSizeLabel": "Caption size: {{size}}"
+    },
+    "broadcastControl": {
+      "startBroadcast": "Start Broadcast",
+      "stopBroadcast": "Stop Broadcast",
+      "readyToBroadcast": "Ready to broadcast",
+      "live": "Live",
+      "micActiveTitle": "Microphone Actively Broadcasting",
+      "micPausedTitle": "Broadcast Paused",
+      "micActiveDesc": "Capturing your voice and translating into 4 audio booths in real time.",
+      "micPausedDesc": "Click the microphone to start broadcasting live."
+    },
+    "audioInput": {
+      "micLabel": "Input Microphone",
+      "defaultMic": "Default Microphone",
+      "micSignal": "Microphone Signal",
+      "speakerLang": "Speaker Language",
+      "speakerLangSub": "Speech recognition of your voice",
+      "autoDetection": "Auto",
+      "autoDetectionTitle": "Automatic speaker language detection",
+      "speakerVoice": "Speaker voice",
+      "liveDetecting": "Detecting live from microphone:",
+      "liveDetectingPlaceholder": "Speak now, your words will transcribe here instantly...",
+      "cadenceLabel": "Cadence / Décalage",
+      "cadenceQuick": "Quick (2.5s - 3.5s)",
+      "cadenceNatural": "Keynote (4.0s - 5.0s)",
+      "speechRateLabel": "Speech Rate",
+      "speechRateSlower": "Slower",
+      "speechRateFaster": "Faster",
+      "vadSilence": "Silence",
+      "vadVoiceActive": "Speech active",
+      "vadOptimal": "Optimal",
+      "vadClipping": "Clipping!",
+      "availableMicsCount": "{{count}} available",
+      "activeDeviceTapToChange": "Active device · Tap to change",
+      "selectADevice": "Select a device:",
+      "singleActiveDevice": "Single active device"
+    },
+    "promptInput": {
+      "placeholder": "Type any sentence here to broadcast via voice across all 4 booths...",
+      "broadcast4Booths": "Broadcast to 4 booths",
+      "enterToEmit": "Enter to broadcast · Shift+Enter for new line",
+      "emitButton": "Broadcast voice message",
+      "emitAction": "Broadcast"
+    },
+    "cabins": {
+      "title": "Translation Booths",
+      "subtitle": "Simultaneous channels and languages control",
+      "voiceCatalogLink": "Voice Catalog",
+      "headphoneReturn": "Headphone Monitor",
+      "headphoneReturnMutedDesc": "Muted to prevent echo while you speak. Select a booth to monitor its audio.",
+      "headphoneReturnActiveDesc": "Monitoring live return in {{lang}}. Mute when speaking into microphone to prevent echo.",
+      "headphoneWarningBroadcasting": "Headphones are required to prevent speaker audio from leaking into your microphone.",
+      "headphoneWarningRecommendation": "Recommendation: Use headphones when monitoring to avoid acoustic feedback when you speak.",
+      "testToneButton": "Test Tone",
+      "testToneTitle": "Test sound on local speaker or headphones",
+      "headphoneVolume": "Headphone Volume",
+      "mute": "Mute",
+      "max": "Maximum",
+      "listenBooth": "Monitor live return from {{booth}}",
+      "muteBooth": "Mute return from {{booth}}",
+      "auditionVoice": "Audition voice sample",
+      "stopVoice": "Stop voice playback",
+      "waitingSpeech": "Waiting for speech...",
+      "standbyZeroListeners": "Standby (0 listeners)",
+      "activeCabinsLabel": "Active booths (4 AI channels)",
+      "changeVoiceForCabin": "Change voice for {{cabin}}"
+    },
+    "qa": {
+      "title": "Question Turns (Q&A)",
+      "subtitle": "Interventions and questions from live listeners",
+      "desc": "Listeners can press \"Request to speak\" to participate in their native language.",
+      "emptyPending": "No pending questions",
+      "emptyPendingDesc": "Participants will appear here when they raise their hand or submit a question.",
+      "activeSpeakerTitle": "{{name}} is speaking",
+      "activeSpeakerSubtitle": "Native channel: {{lang}} ➔ translated to your ear",
+      "activeSpeakerEarpieceListening": "Listening to speech in your earpiece...",
+      "translationToEar": "Translation in your ear: \"{{text}}\"",
+      "endTurn": "End Question Turn",
+      "giveFloor": "Give the floor",
+      "dismiss": "Dismiss",
+      "waitingBadge": "Waiting",
+      "nativeLangLabel": "Native language: {{lang}}",
+      "translationLabel": "Translation ({{lang}}): "
+    },
+    "roomInspect": {
+      "totalListeners": "Total Listeners:",
+      "speakerChannel": "Speaker Channel:",
+      "networkLatency": "Network Latency:",
+      "activeSttEngine": "Active STT Engine:",
+      "sttModel": "STT Model:",
+      "captureMode": "Capture Mode:",
+      "llmEngine": "LLM Engine:",
+      "participantsInRoom": "Participants in Room",
+      "viewAll": "View all",
+      "searchParticipantPlaceholder": "Search participant...",
+      "anonymous": "Anonymous",
+      "listener": "Listener",
+      "listenerConnected": "Listener connected",
+      "disconnected": "Disconnected",
+      "kick": "Kick",
+      "confirmKick": "Are you sure you want to kick \"{{name}}\" from the room?",
+      "inRoom": "In Room",
+      "waitingListenersJoin": "Waiting for listeners to join the room",
+      "noParticipantsMatch": "No matching participants found"
+    },
+    "hostControls": {
+      "translationEngineTitle": "AI Translation Engine",
+      "activeEngineLabel": "Active: {{engine}}",
+      "voicePlaygroundTitle": "Voice playground & test phrases",
+      "quickTest": "Quick test",
+      "customTextPlaceholder": "Or type any text to translate and synthesize live..."
+    },
+    "toasts": {
+      "voiceUpdatedInBooth": "Voice updated in {{booth}} booth",
+      "voicesSavedAndSynced": "Booth voices saved and synchronized",
+      "voicesUpdatedSuccess": "Voices successfully updated",
+      "hotMicSwitchError": "Could not switch to the new microphone. Keeping the previous device.",
+      "firefoxSafariNotice": "Your browser (Firefox / Safari) does not support free local speech recognition. To broadcast for free in Zero-Cost mode, please use Google Chrome or Microsoft Edge, or add a Deepgram key in Settings."
+    }
+  },
+  "audienceMetrics": {
+    "activeListeners": "Active Listeners",
+    "connectedInRoom": "Connected in room",
+    "aiPipelineLatency": "AI Pipeline Latency",
+    "liveBadge": "Live",
+    "waitingBadge": "Standby",
+    "pingWebSocket": "WebSocket Ping: {{ping}}ms",
+    "sentences": "Sentences",
+    "translatedTo4Languages": "Translated into 4 languages",
+    "voiceCabins": "Voice Booths",
+    "activeCabinsCount": "4 active",
+    "audienceDistribution": "Audience Breakdown by Channel",
+    "realTime": "Real-time",
+    "pipelineTelemetryTitle": "AI Pipeline Telemetry:",
+    "sttLatency": "STT: {{ms}}ms",
+    "transLatency": "Translation: {{ms}}ms",
+    "ttsLatency": "TTS Synthesis: {{ms}}ms",
+    "totalE2E": "Total E2E: {{ms}}ms"
+  },
+  "attendees": {
+    "title": "Attendees Registry",
+    "subtitle": "Participants and listeners registered in room {{roomId}}",
+    "exportCsv": "Export report",
+    "exportCsvTooltip": "Download report in CSV format",
+    "closeModal": "Close attendees modal",
+    "searchPlaceholder": "Search by name, email, phone or language...",
+    "emptySearchTitle": "No attendees found",
+    "emptySearchDesc": "Try adjusting your search terms.",
+    "emptyListTitle": "No attendees registered yet",
+    "emptyListDesc": "Participants will automatically appear here in real time as they join the room.",
+    "colAttendee": "Attendee",
+    "colContact": "Contact",
+    "colChannel": "Channel",
+    "colTime": "Time",
+    "colStatus": "Status",
+    "colActions": "Actions",
+    "anonymous": "Anonymous",
+    "statusActive": "Active",
+    "statusKicked": "Kicked",
+    "actionKick": "Kick",
+    "actionKickTitle": "Kick attendee",
+    "actionUnban": "Re-admit",
+    "actionUnbanTitle": "Re-admit attendee",
+    "footerCount": "{{filtered}} of {{total}} registered attendees",
+    "footerSync": "Synchronized in real time • Exportable to .CSV"
+  },
+  "sessionSummary": {
+    "title": "AI Executive Summary",
+    "sidebarTitle": "AI Session Summary",
+    "subtitle": "Structured minutes for room {{roomId}}",
+    "sidebarSubtitle": "Structured minutes with AI",
+    "closeModal": "Close modal",
+    "loadingTitle": "Analyzing conference transcript...",
+    "loadingDesc": "Artificial Intelligence is extracting core ideas, key arguments, and session takeaways.",
+    "errorTitle": "Could not generate summary",
+    "retryButton": "Retry",
+    "duration": "Duration",
+    "minutesUnit": "min",
+    "sentences": "Sentences",
+    "listeners": "Listeners",
+    "defaultTitle": "Main Keynote",
+    "execSummaryTitle": "Executive Summary",
+    "noSpeechDetected": "No speech was detected during this session to summarize.",
+    "keyPointsTitle": "Key Points & Arguments",
+    "conclusionsTitle": "Conclusions & Next Steps",
+    "noContent": "No content recorded.",
+    "emptyStateTitle": "Minutes not generated yet",
+    "emptyStateDesc": "Generate an intelligent summary from the speeches recorded in the studio.",
+    "generateNowButton": "Generate Summary Now",
+    "generateButton": "Generate",
+    "refreshButton": "Refresh",
+    "copyMarkdown": "Copy Markdown",
+    "copied": "Copied",
+    "downloadMarkdown": "Download (.md)",
+    "footerBrand": "LiftVoice Studio Summary"
+  },
+  "voiceCatalog": {
+    "modalTitle": "Interpretation Voice Catalog",
+    "modalSubtitle": "Audition and assign neural timbres to real-time translation booths.",
+    "sidebarTitle": "Voice Catalog",
+    "sidebarSubtitle": "Neural voices for multichannel broadcast",
+    "availableCount": "{{count}} available",
+    "closeEsc": "Close catalog (Esc)",
+    "searchPlaceholderModal": "Search by voice name, tone or style...",
+    "searchPlaceholderSidebar": "Search by name or voice tone...",
+    "engineFilterAll": "All",
+    "engineFilterEdge": "Edge Neural",
+    "engineFilterDeepgram": "Aura-2",
+    "engineFilterOpenai": "OpenAI",
+    "engineFilterEleven": "ElevenLabs",
+    "engineFilterCartesia": "Cartesia",
+    "engineFilterGoogleLive": "Google Live",
+    "tierAll": "All",
+    "tierZeroCost": "⚡ Zero-Cost",
+    "tierStudioPro": "🌟 Studio Pro",
+    "genderAll": "All genders",
+    "genderFemale": "♀ Female",
+    "genderMale": "♂ Male",
+    "genderNeutral": "Neutral",
+    "loadingCatalog": "Loading consolidated voice catalog...",
+    "emptyVoicesTitle": "No voices found",
+    "emptyVoicesDesc": "Try adjusting your search terms or selecting a different speech engine.",
+    "playAuditionTooltip": "Audition {{name}} sample",
+    "stopAuditionTooltip": "Stop sample",
+    "selectVoiceAria": "Select voice {{name}} for {{cabin}} booth",
+    "footerBoothLabel": "Booth: {{cabin}}",
+    "footerActiveVoice": "Active voice: {{voice}}",
+    "footerDefaultVoice": "Default",
+    "footerSavedSuccess": "Voices successfully saved and synchronized",
+    "discardButton": "Discard",
+    "saveChangesButton": "Save changes",
+    "savingButton": "Saving...",
+    "savedButton": "Saved",
+    "readyButton": "Done",
+    "assignToBoothAction": "Assign to booth",
+    "activeVoiceForBooth": "Active voice for {{cabin}}",
+    "assignToBoothSpecific": "Assign to {{cabin}} booth",
+    "assignedToMultiple": "Assigned to {{cabins}} (click to change)",
+    "filterByLanguage": "Filter by language",
+    "filterByProvider": "Filter by provider",
+    "allLanguages": "All languages",
+    "allProviders": "All providers"
+  },
+  "voicesView": {
+    "title": "Voices",
+    "breadcrumb": "Voices > Explore",
+    "searchAll": "Search everywhere...",
+    "returnToStudio": "Back to Studio",
+    "assignedSuccessFeedback": "Voice {{name}} successfully assigned to the {{lang}} booth.",
+    "unassignedFeedback": "Voice {{name}} unassigned from the {{lang}} booth.",
+    "goToStudio": "Go to Studio →",
+    "exploreTab": "Explore",
+    "myVoicesTab": "My Voices",
+    "earningsButton": "Earnings",
+    "createVoiceButton": "+ Create voice",
+    "searchLibraryPlaceholder": "Search library voices...",
+    "filtersButton": "Filters",
+    "scenarioKeynote": "🎤 Keynote & Plenary",
+    "scenarioPanel": "💬 Panel & Debate",
+    "scenarioMedical": "🩺 Medical & Clinical",
+    "trendingVoicesTitle": "Trending voices ({{count}})",
+    "auditionInstruction": "Click ▶ to audition with contextual script",
+    "assignToBoothLabel": "Assign to booth:",
+    "unassignFromBoothTooltip": "Unassign from {{lang}} booth",
+    "assignVoiceToBoothTooltip": "Assign {{name}} to {{lang}} booth",
+    "selectedForUseCaseTitle": "Curated for your use case",
+    "cardEngineV3Title": "Best voices for Live Interpretation",
+    "cardEngineV3Desc": "Models optimized for conferences with zero noticeable latency.",
+    "cardKeynoteProTitle": "Studio-Quality Conversational Voices",
+    "cardKeynoteProDesc": "Voices with oratorical inflection and natural cadence for keynote events.",
+    "cardMedicalTitle": "Medical & Technical Certified Voices",
+    "cardMedicalDesc": "Pinpoint precision pronunciation for medical and pharmaceutical congresses.",
+    "contextualScriptsKeynote": "Ladies and gentlemen, welcome to the LiftVoice keynote session. Today we explore the future of real-time simultaneous AI interpretation.",
+    "contextualScriptsMedical": "Clinical care protocol: intravenous administration requires continuous hemodynamic monitoring and strict arterial oxygen saturation control.",
+    "contextualScriptsPanel": "Hello, this is a live demonstration of my neural voice for conversational panels, debates and real-time translation."
+  }
+}

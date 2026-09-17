@@ -4,6 +4,7 @@ import { SUPPORTED_LANGUAGES } from '../components/LanguageSelector.jsx';
 import Modal from '../components/shared/Modal.jsx';
 import Banner from '../components/shared/Banner.jsx';
 import CountryFlag from '../components/shared/CountryFlag.jsx';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 /**
  * PostLeaveView — LiftVoice 2026 (Estilo Reness Bottom Sheet)
@@ -20,6 +21,7 @@ export default function PostLeaveView({
   onRejoin = () => {},
   onNavigateHome = () => {}
 }) {
+  const { t } = useI18n();
   const [hasCopied, setHasCopied] = useState(false);
   const langObj = SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage) || SUPPORTED_LANGUAGES[0];
   const isKicked = leaveReason === 'kicked';
@@ -50,16 +52,16 @@ export default function PostLeaveView({
           <div className="space-y-1 min-w-0">
             <div className="mb-1.5">
               <span className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">
-                {isKicked ? 'Sesión finalizada' : 'Sesión cerrada'}
+                {isKicked ? t('postLeave.kickerKicked') : t('postLeave.kickerVoluntary')}
               </span>
             </div>
             <h2 id="post-leave-title" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
-              {isKicked ? 'Has sido retirado de la sala' : 'Has salido de la reunión'}
+              {isKicked ? t('postLeave.titleKicked') : t('postLeave.titleVoluntary')}
             </h2>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed pt-0.5">
               {isKicked
-                ? (leaveMessage || 'El anfitrión ha finalizado tu sesión en esta sala.')
-                : 'La conexión de audio en directo y los subtítulos simultáneos se han detenido.'}
+                ? (leaveMessage || t('postLeave.descKickedDefault'))
+                : t('postLeave.descVoluntary')}
             </p>
           </div>
 
@@ -67,7 +69,7 @@ export default function PostLeaveView({
             type="button"
             onClick={onNavigateHome}
             className="w-9 h-9 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-95 touch-manipulation shrink-0"
-            aria-label="Cerrar y volver al inicio"
+            aria-label={t('postLeave.closeAria')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -82,14 +84,14 @@ export default function PostLeaveView({
                 onClick={onNavigateHome}
                 className="h-12 rounded-full sm:rounded-2xl bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors cursor-pointer"
               >
-                Entendido
+                {t('postLeave.btnAcknowledge')}
               </button>
               <button
                 type="button"
                 onClick={() => onRejoin(roomId, selectedLanguage)}
                 className="h-12 rounded-full sm:rounded-2xl text-xs sm:text-sm font-semibold flex items-center justify-center shadow-xs transition-all cursor-pointer bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 active:scale-[0.99]"
               >
-                Volver a unirse
+                {t('postLeave.btnRejoin')}
               </button>
             </div>
           ) : (
@@ -98,7 +100,7 @@ export default function PostLeaveView({
               onClick={onNavigateHome}
               className="w-full h-12 rounded-full sm:rounded-2xl bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors cursor-pointer"
             >
-              Entendido
+              {t('postLeave.btnAcknowledge')}
             </button>
           )}
         </div>
@@ -109,8 +111,8 @@ export default function PostLeaveView({
           <Banner
             icon={<AlertCircle className="w-4 h-4 text-white" strokeWidth={2.4} />}
             color="#f43f5e"
-            title="Acceso restringido"
-            desc={leaveMessage || "No es posible volver a ingresar a esta sala debido a la moderación del anfitrión."}
+            title={t('postLeave.bannerRestrictedTitle')}
+            desc={leaveMessage || t('postLeave.bannerRestrictedDesc')}
           />
         )}
 
@@ -120,7 +122,7 @@ export default function PostLeaveView({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <span className="text-xs text-zinc-400 dark:text-zinc-500 block">
-                Sala de conferencia
+                {t('postLeave.roomCardTitle')}
               </span>
               <span className="font-mono text-sm sm:text-base font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight block truncate">
                 {roomId || '—'}
@@ -130,8 +132,8 @@ export default function PostLeaveView({
             <button
               type="button"
               onClick={handleCopyCode}
-              title={hasCopied ? "Enlace copiado" : "Copiar enlace de la sala"}
-              aria-label={hasCopied ? "Enlace copiado" : "Copiar enlace de la sala"}
+              title={hasCopied ? t('postLeave.copiedRoomLink') : t('postLeave.copyRoomLink')}
+              aria-label={hasCopied ? t('postLeave.copiedRoomLink') : t('postLeave.copyRoomLink')}
               className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/50 transition-colors cursor-pointer active:scale-95 flex-shrink-0"
             >
               {hasCopied ? (
@@ -146,7 +148,7 @@ export default function PostLeaveView({
           <div className="flex items-center justify-between gap-3 pt-3 border-t border-zinc-200 dark:border-zinc-700/70">
             <div className="min-w-0">
               <span className="text-xs text-zinc-400 dark:text-zinc-500 block">
-                Canal de audio
+                {t('postLeave.audioChannelTitle')}
               </span>
               <div className="flex items-center gap-2">
                 <CountryFlag code={selectedLanguage} className="w-3.5 h-3.5 shrink-0" title={langObj.nativeName} />

@@ -1,41 +1,24 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Play, Square, Loader2, Headphones, Check, Sparkles, Plus, Languages } from 'lucide-react';
 import { audioPlayerService } from '../../services/audioPlayer.js';
+import { useI18n } from '../../contexts/I18nContext.jsx';
 import CountryFlag from '../shared/CountryFlag.jsx';
 import SelectDropdown from '../shared/SelectDropdown.jsx';
 import { FALLBACK_VOICES, getEngineDisplayName } from '../VoiceCatalogModal.jsx';
 
-const CABINS = [
+const DEFAULT_CABINS = [
   { code: 'es', label: 'Español' },
   { code: 'en', label: 'English' },
   { code: 'it', label: 'Italiano' },
   { code: 'pt', label: 'Português' }
 ];
 
-const CABIN_NAMES = {
+const DEFAULT_CABIN_NAMES = {
   es: 'Español',
   en: 'English',
   it: 'Italiano',
   pt: 'Português'
 };
-
-const LANG_OPTIONS = [
-  { value: 'all', label: 'Todos los idiomas', icon: Languages },
-  { value: 'es', label: 'Español', flag: 'es' },
-  { value: 'en', label: 'Inglés', flag: 'gb' },
-  { value: 'it', label: 'Italiano', flag: 'it' },
-  { value: 'pt', label: 'Português', flag: 'br' }
-];
-
-const ENGINE_OPTIONS = [
-  { value: 'all', label: 'Todos los proveedores' },
-  { value: 'gemini_live', label: 'Google Gemini Live' },
-  { value: 'edge', label: 'Azure / Edge' },
-  { value: 'deepgram', label: 'Deepgram' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'elevenlabs', label: 'ElevenLabs' },
-  { value: 'cartesia', label: 'Cartesia' }
-];
 
 // Module-level memory cache to eliminate any mount flicker and provide 0ms instant renders
 let cachedCatalogVoices = null;
@@ -72,6 +55,40 @@ export default function SidebarVoiceCatalog({
   targetLang = 'all',
   navNonce = 0
 }) {
+  const { t } = useI18n();
+
+  const CABINS = useMemo(() => [
+    { code: 'es', label: t('languages.es', 'Español') },
+    { code: 'en', label: t('languages.en', 'English') },
+    { code: 'it', label: t('languages.it', 'Italiano') },
+    { code: 'pt', label: t('languages.pt', 'Português') }
+  ], [t]);
+
+  const CABIN_NAMES = useMemo(() => ({
+    es: t('languages.es', 'Español'),
+    en: t('languages.en', 'English'),
+    it: t('languages.it', 'Italiano'),
+    pt: t('languages.pt', 'Português')
+  }), [t]);
+
+  const LANG_OPTIONS = useMemo(() => [
+    { value: 'all', label: t('voiceCatalog.allLanguages', 'Todos los idiomas'), icon: Languages },
+    { value: 'es', label: t('languages.es', 'Español'), flag: 'es' },
+    { value: 'en', label: t('languages.en', 'Inglés'), flag: 'gb' },
+    { value: 'it', label: t('languages.it', 'Italiano'), flag: 'it' },
+    { value: 'pt', label: t('languages.pt', 'Português'), flag: 'br' }
+  ], [t]);
+
+  const ENGINE_OPTIONS = useMemo(() => [
+    { value: 'all', label: t('voiceCatalog.allProviders', 'Todos los proveedores') },
+    { value: 'gemini_live', label: 'Google Gemini Live' },
+    { value: 'edge', label: 'Azure / Edge' },
+    { value: 'deepgram', label: 'Deepgram' },
+    { value: 'openai', label: 'OpenAI' },
+    { value: 'elevenlabs', label: 'ElevenLabs' },
+    { value: 'cartesia', label: 'Cartesia' }
+  ], [t]);
+
   const [voices, setVoices] = useState(() => cachedCatalogVoices || FALLBACK_VOICES);
   const [isLoading, setIsLoading] = useState(!cachedCatalogVoices);
   const [search, setSearch] = useState('');
@@ -320,14 +337,14 @@ export default function SidebarVoiceCatalog({
       <div className="h-14 px-5 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0">
         <div>
           <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            Catálogo de Voces
+            {t('voiceCatalog.sidebarTitle', 'Catálogo de Voces')}
           </h2>
           <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
-            Voces neuronales para emisión multicanal
+            {t('voiceCatalog.sidebarSubtitle', 'Voces neuronales para emisión multicanal')}
           </p>
         </div>
         <span className="font-mono text-[10.5px] text-zinc-500 dark:text-zinc-400 bg-transparent border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 rounded-full">
-          {filteredVoices.length} disponibles
+          {t('voiceCatalog.availableCount', { count: filteredVoices.length })}
         </span>
       </div>
 
@@ -342,7 +359,7 @@ export default function SidebarVoiceCatalog({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre o tono de voz..."
+            placeholder={t('voiceCatalog.searchPlaceholderSidebar', 'Buscar por nombre o tono de voz...')}
             className="w-full h-11 pl-10.5 pr-4 bg-transparent dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all shadow-2xs"
           />
         </div>
@@ -350,7 +367,7 @@ export default function SidebarVoiceCatalog({
         {/* Filtro: Idioma */}
         <SelectDropdown
           id="voice-catalog-lang-select"
-          aria-label="Filtrar por idioma"
+          aria-label={t('voiceCatalog.filterByLanguage', 'Filtrar por idioma')}
           value={selectedLang}
           options={LANG_OPTIONS}
           onChange={(_, val) => {
@@ -362,7 +379,7 @@ export default function SidebarVoiceCatalog({
         {/* Filtro: Proveedor */}
         <SelectDropdown
           id="voice-catalog-engine-select"
-          aria-label="Filtrar por proveedor"
+          aria-label={t('voiceCatalog.filterByProvider', 'Filtrar por proveedor')}
           value={selectedEngine}
           options={ENGINE_OPTIONS}
           onChange={(_, val) => setSelectedEngine(val || 'all')}
@@ -377,7 +394,7 @@ export default function SidebarVoiceCatalog({
           <div className="py-12 text-center space-y-2">
             <Headphones className="w-6 h-6 text-zinc-300 dark:text-zinc-600 mx-auto" />
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              No se encontraron voces con los filtros actuales.
+              {t('voiceCatalog.emptyVoicesDesc', 'No se encontraron voces con los filtros actuales.')}
             </p>
           </div>
         ) : (
@@ -426,8 +443,8 @@ export default function SidebarVoiceCatalog({
                         ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-white/20 hover:bg-zinc-200/80 dark:hover:bg-white/20 hover:scale-105 shadow-2xs'
                         : 'bg-transparent dark:bg-white/5 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:bg-zinc-100/70 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-zinc-100 hover:scale-105 shadow-2xs'
                     }`}
-                    title={isPlaying ? 'Detener muestra' : `Audicionar muestra de ${voice.name}`}
-                    aria-label={isPlaying ? 'Detener muestra' : `Audicionar muestra de ${voice.name}`}
+                    title={isPlaying ? t('voiceCatalog.stopAuditionTooltip', 'Detener muestra') : t('voiceCatalog.playAuditionTooltip', { name: voice.name })}
+                    aria-label={isPlaying ? t('voiceCatalog.stopAuditionTooltip', 'Detener muestra') : t('voiceCatalog.playAuditionTooltip', { name: voice.name })}
                   >
                     {isPlaying ? (
                       <>
@@ -498,13 +515,13 @@ export default function SidebarVoiceCatalog({
                     }`}
                     title={
                       selectedLang !== 'all'
-                        ? (isAssignedToCurrent ? `Voz activa para ${currentLangLabel}` : `Asignar a cabina de ${currentLangLabel}`)
-                        : (isAssigned ? `Asignada a ${assignedCabins.map(c => c.label).join(', ')} (clic para cambiar)` : 'Asignar a cabina')
+                        ? (isAssignedToCurrent ? t('voiceCatalog.activeVoiceForBooth', { cabin: currentLangLabel }) : t('voiceCatalog.assignToBoothSpecific', { cabin: currentLangLabel }))
+                        : (isAssigned ? t('voiceCatalog.assignedToMultiple', { cabins: assignedCabins.map(c => c.label).join(', ') }) : t('voiceCatalog.assignToBoothAction', 'Asignar a cabina'))
                     }
                     aria-label={
                       selectedLang !== 'all'
-                        ? (isAssignedToCurrent ? `Voz activa para ${currentLangLabel}` : `Asignar a cabina de ${currentLangLabel}`)
-                        : (isAssigned ? `Asignada a ${assignedCabins.map(c => c.label).join(', ')}` : 'Asignar a cabina')
+                        ? (isAssignedToCurrent ? t('voiceCatalog.activeVoiceForBooth', { cabin: currentLangLabel }) : t('voiceCatalog.assignToBoothSpecific', { cabin: currentLangLabel }))
+                        : (isAssigned ? t('voiceCatalog.assignedToMultiple', { cabins: assignedCabins.map(c => c.label).join(', ') }) : t('voiceCatalog.assignToBoothAction', 'Asignar a cabina'))
                     }
                   >
                     {isAssignedToCurrent ? (
@@ -518,7 +535,7 @@ export default function SidebarVoiceCatalog({
                   {isAssigning && selectedLang === 'all' && (
                     <div className="absolute right-0 bottom-full mb-1.5 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-1.5 z-40 space-y-0.5 animate-fadeIn">
                       <div className="px-2 py-1 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                        Asignar a cabina:
+                        {t('voiceCatalog.assignToBoothAction', 'Asignar a cabina')}:
                       </div>
                       {CABINS.map(cab => {
                         const isCurrent = selectedVoices[cab.code] === voice.id;

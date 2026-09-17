@@ -39,6 +39,7 @@ import DesktopHeaderMenu from '../components/shared/DesktopHeaderMenu.jsx';
 import AudioVisualizer from '../components/AudioVisualizer.jsx';
 import { socketService } from '../services/socket.js';
 import { audioPlayerService } from '../services/audioPlayer.js';
+import { useI18n } from '../contexts/I18nContext.jsx';
 
 export function detectBrowserLanguage() {
   try {
@@ -65,8 +66,10 @@ export function detectBrowserLanguage() {
 
 export default function ListenerView({
   roomId = 'MAIN',
+  roomTitle = 'Conferencia Principal',
   onLeave = () => {}
 }) {
+  const { language, setLanguage, t } = useI18n();
   const { resolvedTheme, toggleTheme } = useTheme();
   const [hasCopiedLink, setHasCopiedLink] = useState(false);
   const [isQASheetOpen, setIsQASheetOpen] = useState(false);
@@ -201,10 +204,10 @@ export default function ListenerView({
 
     socketService.connect().then(() => {
       const activeProfile = {
-        attendeeId: profile.attendeeId,
-        name: (profileNameRef.current || profile.name || '').trim() || 'Oyente',
-        email: profile.email.trim() || '',
-        phone: profile.phone.trim() || ''
+        attendeeId: profile?.attendeeId || `att_${Date.now()}`,
+        name: (profileNameRef.current || profile?.name || '').trim() || 'Oyente',
+        email: (profile?.email || '').trim(),
+        phone: (profile?.phone || '').trim()
       };
       socketService.joinAsListener(roomId, selectedLangRef.current, activeProfile);
 
@@ -266,6 +269,16 @@ export default function ListenerView({
       setSocketLatency(lat);
     });
 
+    const areArraysShallowEqual = (a, b) => {
+      if (a === b) return true;
+      if (!Array.isArray(a) || !Array.isArray(b)) return false;
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+      }
+      return true;
+    };
+
     const unsubPlayer = audioPlayerService.onStateChange((state) => {
       setIsAudioUnlocked(state.isUnlocked);
       setIsPlayingAudio(state.isPlaying);
@@ -273,8 +286,8 @@ export default function ListenerView({
       setIsAudioSuspended(audioPlayerService.isContextSuspended());
       setActivePlayingSeqId(state.currentPlayingSeqId || null);
       setActivePlayingPacketId(state.currentPlayingPacketId || null);
-      setActiveCoalescedSeqIds(state.currentCoalescedSeqIds || []);
-      setActiveCoalescedPacketIds(state.currentCoalescedPacketIds || []);
+      setActiveCoalescedSeqIds(prev => areArraysShallowEqual(prev, state.currentCoalescedSeqIds || []) ? prev : (state.currentCoalescedSeqIds || []));
+      setActiveCoalescedPacketIds(prev => areArraysShallowEqual(prev, state.currentCoalescedPacketIds || []) ? prev : (state.currentCoalescedPacketIds || []));
     });
 
     // Q&A Backchannel socket handlers
@@ -373,6 +386,7 @@ export default function ListenerView({
       selectedLangRef.current = cleanLang;
       audioPlayerService.setLanguage(cleanLang);
       socketService.switchLanguage(roomId, cleanLang);
+      setLanguage(cleanLang);
     }
 
     // Direct user tap: immediately unlock and resume Web Audio in OS
@@ -385,10 +399,17 @@ export default function ListenerView({
     }
   };
 
-  const handleToggleMute = () => {
+  const handleToggleMute = async () => {
     const nextMute = !isMuted;
     setIsMuted(nextMute);
     audioPlayerService.setMuted(nextMute);
+    if (!nextMute && audioPlayerService.isContextSuspended()) {
+      try {
+        await audioPlayerService.resumeAudio();
+      } catch (e) {
+        console.warn('[ListenerView] Error resuming audio context on unmute:', e);
+      }
+    }
   };
 
   const handleExit = (isDesktopMode = false) => {
@@ -409,10 +430,10 @@ export default function ListenerView({
     handleStopRecordingQuestion();
 
     socketService.raiseHand(roomId, {
-      attendeeId: profile.attendeeId,
-      name: profile.name.trim() || 'Oyente',
-      email: profile.email || '',
-      phone: profile.phone || '',
+      attendeeId: profile?.attendeeId,
+      name: (profile?.name || '').trim() || 'Oyente',
+      email: profile?.email || '',
+      phone: profile?.phone || '',
       nativeLang: selectedLanguage,
       questionText: textToSend
     });
@@ -422,7 +443,7 @@ export default function ListenerView({
       null,
       'audio/webm',
       selectedLanguage,
-      profile.name.trim() || 'Oyente',
+      (profile?.name || '').trim() || 'Oyente',
       textToSend
     );
 
@@ -497,14 +518,14 @@ export default function ListenerView({
         <div className="space-y-2 max-w-xs text-center">
           <div className="space-y-1">
             <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 tracking-tight">
-              Sintonizando sala
+              {t('listenerView.loading.title')}
             </p>
             <p className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
               {roomId}
             </p>
           </div>
           <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
-            Conectando con la cabina de audio e interpretación en directo...
+            {t('listenerView.loading.description')}
           </p>
         </div>
       </div>
@@ -525,8 +546,8 @@ export default function ListenerView({
             type="button"
             onClick={() => handleExit(false)}
             className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-xs active:scale-95 touch-manipulation"
-            title="Salir de la sala"
-            aria-label="Salir de la sala"
+            title={t('listenerView.header.exitTitle')}
+            aria-label={t('listenerView.header.exitAria')}
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -538,7 +559,7 @@ export default function ListenerView({
             type="button"
             onClick={handleCopyMeetingLink}
             className="flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition-all cursor-pointer truncate shadow-xs active:scale-95 touch-manipulation"
-            title="Toca para copiar vínculo de la reunión"
+            title={t('listenerView.header.copyLinkTitle')}
           >
             <span className="truncate">{roomId}</span>
             {hasCopiedLink ? (
@@ -555,8 +576,8 @@ export default function ListenerView({
             type="button"
             onClick={toggleTheme}
             className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-xs active:scale-95 touch-manipulation"
-            title={resolvedTheme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-            aria-label={resolvedTheme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            title={resolvedTheme === 'dark' ? t('listenerView.header.themeLight') : t('listenerView.header.themeDark')}
+            aria-label={resolvedTheme === 'dark' ? t('listenerView.header.themeLight') : t('listenerView.header.themeDark')}
           >
             {resolvedTheme === 'dark' ? <Sun className="w-4 h-4 text-zinc-600 dark:text-zinc-400" /> : <Moon className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />}
           </button>
@@ -572,7 +593,7 @@ export default function ListenerView({
         <div className="flex items-center justify-between gap-3 px-4 py-1.5 bg-white dark:bg-zinc-950 flex-shrink-0">
           <div className="flex items-center gap-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
             <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 animate-pulse" />
-            <span>En directo · <strong className="text-zinc-800 dark:text-zinc-200 font-semibold">{currentLangObj.nativeName}</strong></span>
+            <span>{t('listenerView.header.stageLive')} <strong className="text-zinc-800 dark:text-zinc-200 font-semibold">{currentLangObj.nativeName}</strong></span>
           </div>
           <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800/70 px-2 py-0.5 rounded-full">
             {socketLatency}ms
@@ -586,15 +607,15 @@ export default function ListenerView({
               icon={<Volume2 className="w-4 h-4 text-white" strokeWidth={2.4} />}
               color="#3b82f6"
               style={{ padding: '10px 14px' }}
-              title="Activar audio en directo"
-              desc="Toca para sincronizar y escuchar la traducción en tus auriculares."
+              title={t('listenerView.header.audioBanner.title')}
+              desc={t('listenerView.header.audioBanner.desc')}
               action={
                 <button
                   type="button"
                   onClick={handleUnlockAudio}
                   className="min-h-[38px] px-4 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold shadow-xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
                 >
-                  Sintonizar
+                  {t('listenerView.header.audioBanner.action')}
                 </button>
               }
             />
@@ -639,7 +660,7 @@ export default function ListenerView({
               type="button"
               onClick={handleCopyMeetingLink}
               className="flex items-center gap-1.5 px-3 py-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 font-mono text-xs font-semibold text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer shadow-2xs"
-              title="Copiar vínculo de la sala"
+              title={t('listenerView.header.copyLinkDesktopTitle')}
             >
               <span>{roomId}</span>
               {hasCopiedLink ? (
@@ -661,14 +682,14 @@ export default function ListenerView({
                   setIsProfilePopoverOpen(prev => !prev);
                 }}
                 className="flex items-center gap-1.5 h-8 pl-1.5 pr-2.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 transition-colors cursor-pointer shadow-2xs"
-                title="Tu perfil en la sala"
-                aria-label="Tu perfil en la sala"
+                title={t('listenerView.profile.pillTitle')}
+                aria-label={t('listenerView.profile.pillAria')}
               >
                 <div className="w-5.5 h-5.5 rounded-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center text-[10px] font-bold">
                   {profile.name ? profile.name.slice(0, 1).toUpperCase() : 'O'}
                 </div>
                 <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 max-w-[80px] sm:max-w-[110px] truncate">
-                  {profile.name || 'Oyente'}
+                  {profile.name || t('common.defaultAttendeeName') || 'Oyente'}
                 </span>
               </button>
 
@@ -682,11 +703,11 @@ export default function ListenerView({
                       </div>
                       <div>
                         <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                          Identidad en Sala
+                          {t('listenerView.profile.popoverTitle')}
                         </div>
                         <div className="text-[10px] text-zinc-400 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <span>Audiencia conectada</span>
+                          <span>{t('listenerView.profile.connectedStatus')}</span>
                         </div>
                       </div>
                     </div>
@@ -708,13 +729,13 @@ export default function ListenerView({
                     className="space-y-2.5"
                   >
                     <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block">
-                      Nombre para preguntas al ponente:
+                      {t('listenerView.profile.nameLabel')}
                     </label>
                     <input
                       type="text"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Tu nombre..."
+                      placeholder={t('listenerView.profile.namePlaceholder')}
                       maxLength={30}
                       autoFocus
                       className="w-full h-8 px-3 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-100"
@@ -723,7 +744,7 @@ export default function ListenerView({
                       type="submit"
                       className="w-full h-8 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold transition-all cursor-pointer shadow-xs"
                     >
-                      Guardar Nombre
+                      {t('listenerView.profile.saveButton')}
                     </button>
                   </form>
                 </div>
@@ -738,8 +759,8 @@ export default function ListenerView({
                   ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-200 dark:border-zinc-700 shadow-2xs'
                   : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800'
               }`}
-              title={isRightDrawerOpen ? "Ocultar panel Asistente" : "Mostrar panel Asistente"}
-              aria-label={isRightDrawerOpen ? "Ocultar panel Asistente" : "Mostrar panel Asistente"}
+              title={isRightDrawerOpen ? t('listenerView.header.toggleAssistantHide') : t('listenerView.header.toggleAssistantShow')}
+              aria-label={isRightDrawerOpen ? t('listenerView.header.toggleAssistantHide') : t('listenerView.header.toggleAssistantShow')}
             >
               <PanelRight className="w-4 h-4" />
             </button>
@@ -749,18 +770,16 @@ export default function ListenerView({
         {/* CUERPO DE 4 ZONAS (INICIA DEBAJO DEL HEADER) */}
         <div className="flex-1 min-h-0 w-full overflow-hidden flex flex-row bg-white dark:bg-zinc-950">
 
-
-
         {/* ZONE 2: LEFT CONFIGURATION & CONTROL PANEL (w-80) */}
         <aside className="w-80 border-r border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 flex flex-col flex-shrink-0 select-none overflow-hidden">
           {/* Header: Title */}
           <div className="h-14 px-5 flex items-center justify-between bg-white dark:bg-zinc-950 flex-shrink-0">
             <div>
               <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                Cabina de Oyente
+                {t('listenerView.receptionBooth.title')}
               </h2>
               <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
-                Sincronización de audio y texto en tiempo real
+                {t('listenerView.receptionBooth.subtitle')}
               </p>
             </div>
           </div>
@@ -772,13 +791,13 @@ export default function ListenerView({
           <div className="flex-1 overflow-y-auto px-5 pt-4 pb-5 flex flex-col space-y-5">
             <div className="space-y-4">
               <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                Configuración
+                {t('listenerView.receptionBooth.settings')}
               </div>
 
               {/* Canal de Recepción (4 bloques directos en cuadrícula 2x2 - Inspirado en media_1789145385636.png) */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
-                  Canal de recepción
+                  {t('listenerView.receptionBooth.channelLabel')}
                 </label>
                 <div className="grid grid-cols-2 gap-2.5">
                   {SUPPORTED_LANGUAGES.map(lang => {
@@ -829,7 +848,7 @@ export default function ListenerView({
             {/* Section: Estado + Primary Button (Flujo continuo y compacto sin líneas divisorias) */}
             <div className="space-y-3">
               <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                Estado de recepción
+                {t('listenerView.receptionBooth.statusLabel')}
               </div>
 
               {/* Latency & Audio state card */}
@@ -846,12 +865,12 @@ export default function ListenerView({
                   }`} />
                   <span className="font-medium text-zinc-700 dark:text-zinc-300">
                     {isMuted
-                      ? 'Audio silenciado'
+                      ? t('listenerView.receptionBooth.statusMuted')
                       : isPlayingAudio
-                      ? 'Reproduciendo audio'
+                      ? t('listenerView.receptionBooth.statusPlaying')
                       : isAudioUnlocked
-                      ? 'Audio sincronizado'
-                      : 'Audio en espera'}
+                      ? t('listenerView.receptionBooth.statusSynced')
+                      : t('listenerView.receptionBooth.statusWaiting')}
                   </span>
                 </div>
                 <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500 bg-zinc-200/70 dark:bg-zinc-800/80 px-2 py-0.5 rounded-full">
@@ -865,7 +884,7 @@ export default function ListenerView({
                   <div className="flex items-center gap-2 min-w-0">
                     <AudioLines className="w-3.5 h-3.5 text-emerald-500 shrink-0 animate-pulse" />
                     <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300 truncate">
-                      Audio en vivo activo
+                      {t('listenerView.receptionBooth.visualizerActive')}
                     </span>
                   </div>
                   <div className="w-24 h-6 flex items-center shrink-0">
@@ -896,17 +915,17 @@ export default function ListenerView({
                 {!isAudioUnlocked ? (
                   <>
                     <Volume2 className="w-4 h-4 text-current" />
-                    <span>Iniciar Sintonización</span>
+                    <span>{t('listenerView.receptionBooth.buttonStart')}</span>
                   </>
                 ) : isMuted ? (
                   <>
                     <Volume2 className="w-4 h-4 text-current" />
-                    <span>Reanudar Audio</span>
+                    <span>{t('listenerView.receptionBooth.buttonResume')}</span>
                   </>
                 ) : (
                   <>
                     <VolumeX className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-                    <span>Silenciar Audio</span>
+                    <span>{t('listenerView.receptionBooth.buttonMute')}</span>
                   </>
                 )}
               </button>
@@ -921,11 +940,11 @@ export default function ListenerView({
             <div className="w-full flex items-center justify-between">
               <div>
                 <h1 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
-                  <span>Transcripción en Tiempo Real</span>
+                  <span>{t('listenerView.transcriptionCanvas.title')}</span>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 </h1>
                 <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                  La transcripción aparecerá aquí cuando esté disponible
+                  {t('listenerView.transcriptionCanvas.subtitle')}
                 </p>
               </div>
 
@@ -935,7 +954,7 @@ export default function ListenerView({
                   type="button"
                   onClick={handleCycleCaptionSize}
                   className="h-8 px-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Cambiar tamaño de fuente"
+                  title={t('listenerView.transcriptionCanvas.changeFontSize')}
                 >
                   <Type className="w-3.5 h-3.5 text-zinc-400" />
                   <span>{captionSize.toUpperCase()}</span>
@@ -969,10 +988,10 @@ export default function ListenerView({
             <div className="px-5 pt-3.5 pb-2.5 flex flex-col gap-2.5 bg-white dark:bg-zinc-950 flex-shrink-0">
               <div>
                 <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                  Asistente
+                  {t('listenerView.assistant.title')}
                 </h2>
                 <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
-                  Intervenciones en tiempo real
+                  {t('listenerView.assistant.subtitle')}
                 </p>
               </div>
 
@@ -987,7 +1006,7 @@ export default function ListenerView({
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
                   }`}
                 >
-                  Acciones
+                  {t('listenerView.assistant.tabs.actions')}
                 </button>
                 <button
                   type="button"
@@ -998,7 +1017,7 @@ export default function ListenerView({
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
                   }`}
                 >
-                  Sugerencias
+                  {t('listenerView.assistant.tabs.suggestions')}
                 </button>
                 <button
                   type="button"
@@ -1009,7 +1028,7 @@ export default function ListenerView({
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
                   }`}
                 >
-                  Sala
+                  {t('listenerView.assistant.tabs.room')}
                 </button>
               </div>
             </div>
@@ -1023,10 +1042,10 @@ export default function ListenerView({
                   <div className="space-y-4 animate-fadeIn">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                        Preguntas al Ponente
+                        {t('listenerView.assistant.qa.sectionTitle')}
                       </span>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 text-zinc-500 dark:text-zinc-400">
-                        {qaState === 'idle' ? 'Inactivo' : qaState === 'requested' ? 'En espera' : 'En directo'}
+                        {qaState === 'idle' ? t('listenerView.assistant.qa.stateIdle') : qaState === 'requested' ? t('listenerView.assistant.qa.stateRequested') : t('listenerView.assistant.qa.stateSpeaking')}
                       </span>
                     </div>
 
@@ -1038,40 +1057,24 @@ export default function ListenerView({
                             rows={3}
                             value={questionText}
                             onChange={(e) => setQuestionText(e.target.value)}
-                            placeholder="Escribe tu consulta en cualquier idioma (el ponente la recibirá traducida)..."
+                            placeholder={t('listenerView.assistant.qa.placeholder')}
                             className="w-full bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 resize-none transition-all leading-relaxed"
                           />
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {/* Botón de Dictar ocultado temporalmente
-                          <button
-                            type="button"
-                            onClick={isRecordingQuestion ? handleStopRecordingQuestion : handleStartRecordingQuestion}
-                            className={`h-9 px-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                              isRecordingQuestion
-                                ? 'bg-rose-600 text-white border-transparent animate-pulse'
-                                : 'bg-white dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700/60 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                            }`}
-                            title={isRecordingQuestion ? 'Detener dictado por voz' : 'Dictar consulta por voz'}
-                          >
-                            <Mic className="w-3.5 h-3.5" />
-                            <span>{isRecordingQuestion ? 'Detener' : 'Dictar'}</span>
-                          </button>
-                          */}
-
                           <button
                             type="submit"
                             disabled={!questionText.trim()}
                             className="w-full h-9 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
                           >
                             <Hand className="w-3.5 h-3.5" />
-                            <span>Pedir la Palabra</span>
+                            <span>{t('listenerView.assistant.qa.submitButton')}</span>
                           </button>
                         </div>
 
                         <div className="flex items-center justify-between px-0.5 text-[11px] text-zinc-400 dark:text-zinc-500 pt-0.5">
-                          <span className="truncate">Nombre visible: <strong className="text-zinc-700 dark:text-zinc-300 font-medium">{profile.name}</strong></span>
+                          <span className="truncate">{t('listenerView.assistant.qa.visibleName')} <strong className="text-zinc-700 dark:text-zinc-300 font-medium">{profile.name || t('common.defaultAttendeeName') || 'Oyente'}</strong></span>
                           <button
                             type="button"
                             onClick={() => {
@@ -1080,7 +1083,7 @@ export default function ListenerView({
                             }}
                             className="text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 underline cursor-pointer flex-shrink-0"
                           >
-                            cambiar
+                            {t('common.change')}
                           </button>
                         </div>
                       </form>
@@ -1091,12 +1094,14 @@ export default function ListenerView({
                         <Banner
                           icon={<Hand className="w-4 h-4 text-white animate-bounce" strokeWidth={2.4} />}
                           color="#f59e0b"
-                          title="Turno solicitado"
-                          desc="El ponente ha recibido tu consulta. Se te notificará cuando se te conceda la palabra."
+                          title={t('listenerView.assistant.qa.requestedBanner.title')}
+                          desc={t('listenerView.assistant.qa.requestedBanner.desc')}
                         />
                         {questionText && (
                           <div className="p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-200 leading-relaxed font-medium">
-                            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block mb-1">Tu consulta enviada:</span>
+                            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block mb-1">
+                              {t('listenerView.assistant.qa.yourSentQuery')}
+                            </span>
                             &ldquo;{questionText}&rdquo;
                           </div>
                         )}
@@ -1105,7 +1110,7 @@ export default function ListenerView({
                           onClick={handleCancelRaiseHand}
                           className="w-full h-9 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
                         >
-                          Cancelar turno y bajar la mano
+                          {t('listenerView.assistant.qa.cancelTurn')}
                         </button>
                       </div>
                     )}
@@ -1115,12 +1120,14 @@ export default function ListenerView({
                         <Banner
                           icon={<CheckCircle2 className="w-4 h-4 text-white" strokeWidth={2.4} />}
                           color="#10b981"
-                          title="¡Tienes la palabra!"
-                          desc="El ponente te ha dado paso en directo."
+                          title={t('listenerView.assistant.qa.speakingBanner.title')}
+                          desc={t('listenerView.assistant.qa.speakingBanner.desc')}
                         />
                         {questionText && (
                           <div className="p-3 rounded-xl border border-emerald-500/30 text-xs text-emerald-800 dark:text-emerald-200 leading-relaxed font-medium">
-                            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 block mb-1">Tu consulta:</span>
+                            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 block mb-1">
+                              {t('listenerView.assistant.qa.yourQuery')}
+                            </span>
                             &ldquo;{questionText}&rdquo;
                           </div>
                         )}
@@ -1133,7 +1140,7 @@ export default function ListenerView({
                           }}
                           className="w-full h-9 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer"
                         >
-                          Finalizar intervención
+                          {t('listenerView.assistant.qa.finishIntervention')}
                         </button>
                       </div>
                     )}
@@ -1145,16 +1152,16 @@ export default function ListenerView({
                   <div className="space-y-3 animate-fadeIn">
                     <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 space-y-1.5 shadow-2xs">
                       <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                        Preguntas recomendadas
+                        {t('listenerView.assistant.suggestions.title')}
                       </div>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                        Puedes pulsar cualquiera de estas frases para cargarlas en el campo de texto:
+                        {t('listenerView.assistant.suggestions.desc')}
                       </p>
                     </div>
                     {[
-                      "¿Podría profundizar más en el último punto?",
-                      "¿Cómo impacta esto en la implementación práctica?",
-                      "¿Cuál es el siguiente paso previsto en la hoja de ruta?"
+                      t('listenerView.assistant.suggestions.preset1'),
+                      t('listenerView.assistant.suggestions.preset2'),
+                      t('listenerView.assistant.suggestions.preset3')
                     ].map((phrase, i) => (
                       <button
                         key={i}
@@ -1209,17 +1216,17 @@ export default function ListenerView({
                       {/* Resumen Técnico */}
                       <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 space-y-2 text-xs shadow-2xs">
                         <div className="flex items-center justify-between">
-                          <span className="text-zinc-500 dark:text-zinc-400">Total Oyentes:</span>
+                          <span className="text-zinc-500 dark:text-zinc-400">{t('listenerView.assistant.roomTab.totalListeners')}</span>
                           <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
                             {roomStats.totalListeners || fullParticipants.filter(p => !p.isHost).length || 1}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-zinc-500 dark:text-zinc-400">Canal de Escucha:</span>
+                          <span className="text-zinc-500 dark:text-zinc-400">{t('listenerView.assistant.roomTab.listeningChannel')}</span>
                           <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100 uppercase">{selectedLanguage}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-zinc-500 dark:text-zinc-400">Latencia WebSocket:</span>
+                          <span className="text-zinc-500 dark:text-zinc-400">{t('listenerView.assistant.roomTab.socketLatency')}</span>
                           <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{socketLatency}ms</span>
                         </div>
                       </div>
@@ -1228,10 +1235,10 @@ export default function ListenerView({
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between px-0.5">
                           <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                            Participantes en Sala
+                            {t('listenerView.assistant.roomTab.participantsTitle')}
                           </span>
                           <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                            En directo
+                            {t('common.live')}
                           </span>
                         </div>
 
@@ -1243,7 +1250,7 @@ export default function ListenerView({
                               type="text"
                               value={participantSearch}
                               onChange={(e) => setParticipantSearch(e.target.value)}
-                              placeholder="Buscar participante..."
+                              placeholder={t('listenerView.assistant.roomTab.searchPlaceholder')}
                               className="w-full h-8 pl-8.5 pr-3 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all"
                             />
                           </div>
@@ -1253,7 +1260,7 @@ export default function ListenerView({
                         <div className="space-y-2">
                           {sortedParticipants.length === 0 ? (
                             <div className="py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
-                              No hay participantes que coincidan
+                              {t('listenerView.assistant.roomTab.noMatches')}
                             </div>
                           ) : (
                             sortedParticipants.map((p) => {
@@ -1282,16 +1289,16 @@ export default function ListenerView({
                                       </div>
                                       <div className="min-w-0">
                                         <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-                                          {p.name || 'Ponente'}
+                                          {p.name || t('common.defaultHostName') || 'Ponente'}
                                         </div>
                                         <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
-                                          Anfitrión de la sala
+                                          {t('listenerView.assistant.roomTab.hostSubtitle')}
                                         </div>
                                       </div>
                                     </div>
                                     <span className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-zinc-200/70 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-300/60 dark:border-zinc-700/60 flex items-center gap-1.5 shrink-0">
                                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                      <span>En Vivo</span>
+                                      <span>{t('common.liveBadge')}</span>
                                     </span>
                                   </div>
                                 );
@@ -1319,16 +1326,16 @@ export default function ListenerView({
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-1.5">
                                         <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate">
-                                          {p.name || 'Oyente'}
+                                          {p.name || t('common.defaultAttendeeName') || 'Oyente'}
                                         </span>
                                         {isSelf && (
                                           <span className="px-1.5 py-0.2 rounded-md text-[9px] font-semibold bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shrink-0">
-                                            Tú
+                                            {t('common.you')}
                                           </span>
                                         )}
                                       </div>
                                       <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium block">
-                                        {isSelf ? 'Tu sesión' : 'Oyente conectado'}
+                                        {isSelf ? t('listenerView.assistant.roomTab.selfSubtitle') : t('listenerView.assistant.roomTab.attendeeSubtitle')}
                                       </span>
                                     </div>
                                   </div>
@@ -1349,14 +1356,14 @@ export default function ListenerView({
                 })()}
               </div>
 
-              {/* Bottom Tip Card (Matching Reference Screenshot 2) */}
+              {/* Bottom Tip Card */}
               <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 text-xs space-y-1 mt-4 shadow-2xs">
                 <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
-                  <span>Tip de Cabina</span>
+                  <span>{t('listenerView.assistant.tip.title')}</span>
                 </div>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Puedes hablar o escribir en tu idioma natal; el sistema de traducción traducirá tus preguntas automáticamente al ponente.
+                  {t('listenerView.assistant.tip.desc')}
                 </p>
               </div>
             </div>
@@ -1403,7 +1410,7 @@ export default function ListenerView({
       <AudienceBottomSheet
         isOpen={isAudienceSheetOpen}
         onClose={() => setIsAudienceSheetOpen(false)}
-        roomTitle={roomStats.title || roomInfo?.title || 'Conferencia Principal'}
+        roomTitle={roomStats.title || roomTitle || 'Conferencia Principal'}
         roomId={roomId}
         effectiveAttendeesCount={Math.max(
           roomStats.attendees?.length || roomStats.totalListeners || 0,
