@@ -27,6 +27,7 @@ export default function SelectDropdown({
   'aria-label': ariaLabel,
   className = '',
   size = 'md', // 'sm' | 'compact' | 'md'
+  asMenu = false, // Cuando es true, fuerza la apertura como menú flotante anclado al botón incluso en móvil
   children
 }) {
   const isCompact = size === 'sm' || size === 'compact';
@@ -130,7 +131,8 @@ export default function SelectDropdown({
 
     // En ancho: ajustado al disparador o al ancho mínimo para opciones con banderas / descripciones
     const minCalculated = hasDescriptions ? 260 : (hasFlags ? 220 : 144);
-    const menuWidth = Math.max(rect.width, minCalculated);
+    const availableWidth = Math.max(160, window.innerWidth - 24);
+    const menuWidth = Math.min(Math.max(rect.width, minCalculated), availableWidth);
     const maxLeft = Math.max(12, window.innerWidth - menuWidth - 12);
     const adjustedLeft = Math.max(12, Math.min(rect.left, maxLeft));
 
@@ -186,7 +188,11 @@ export default function SelectDropdown({
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [isOpen]);
 
   // Cerrar con Escape
@@ -217,17 +223,17 @@ export default function SelectDropdown({
         aria-expanded={isOpen}
         disabled={disabled}
         onClick={abrir}
-        className={`w-full appearance-none transition-all cursor-pointer flex items-center justify-between relative select-none disabled:opacity-50 disabled:cursor-not-allowed ${
+        className={`group w-full appearance-none transition-all cursor-pointer flex items-center justify-between relative select-none disabled:opacity-50 disabled:cursor-not-allowed ${
           isCompact
             ? 'h-9 px-2.5 pr-8 rounded-xl text-xs font-medium'
             : 'h-11 px-3.5 pr-10 rounded-2xl text-xs sm:text-sm font-medium'
         } border ${
           isFilterActive
-            ? 'bg-zinc-200/70 dark:bg-white/10 text-zinc-950 dark:text-white border-zinc-300 dark:border-white/20 shadow-2xs font-semibold'
+            ? 'bg-zinc-50 dark:bg-white/10 text-zinc-950 dark:text-white border-zinc-300 dark:border-white/20 shadow-2xs font-semibold'
             : isOpen
-            ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-white/20'
-            : 'bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 border-zinc-200/80 dark:border-white/10'
-        } focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-blue-500 dark:focus-visible:ring-white/40 ${className}`}
+            ? 'bg-white dark:bg-white/10 text-zinc-950 dark:text-zinc-100 border-zinc-300 dark:border-white/20 shadow-2xs'
+            : 'bg-white dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-white/10 shadow-2xs hover:border-zinc-300 dark:hover:border-white/20'
+        } focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-white/40 ${className}`}
       >
         <div className="flex items-center gap-2 min-w-0 pr-1">
           {selectedOption?.flag && (
@@ -241,20 +247,20 @@ export default function SelectDropdown({
               <selectedOption.icon className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-zinc-400 dark:text-zinc-400`} />
             </div>
           )}
-          <span className="truncate text-left">
+          <span className="truncate text-left font-medium">
             {displayLabel}
           </span>
         </div>
         {isOpen ? (
           <X
-            className={`shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 absolute ${
+            className={`shrink-0 text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300 absolute transition-colors ${
               isCompact ? 'w-3.5 h-3.5 right-2.5' : 'w-4 h-4 right-3.5'
             }`}
             aria-hidden="true"
           />
         ) : (
           <ChevronDown
-            className={`shrink-0 text-zinc-400 dark:text-zinc-500 absolute transition-transform duration-200 ${
+            className={`shrink-0 text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300 absolute transition-all duration-200 ${
               isCompact ? 'w-3.5 h-3.5 right-2.5' : 'w-4 h-4 right-3.5'
             }`}
             aria-hidden="true"
@@ -263,7 +269,7 @@ export default function SelectDropdown({
       </button>
 
       {isOpen && typeof window !== 'undefined' && createPortal(
-        isMobile ? (
+        isMobile && !asMenu ? (
           // Versión Móvil: Bottom Sheet estilo standalone-assistant adaptativo
           <div>
             <div
@@ -282,7 +288,7 @@ export default function SelectDropdown({
                 onClick={(e) => e.stopPropagation()}
                 role="listbox"
                 aria-label={ariaLabel || 'Opciones'}
-                className={`relative w-full ${isCompact ? 'max-w-[340px]' : 'max-w-[420px]'} max-h-[85vh] flex flex-col rounded-[24px] bg-white dark:bg-zinc-900 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] border border-black/5 dark:border-white/10 overflow-hidden pointer-events-auto transition-all duration-200 ease-out transform ${
+                className={`relative w-full ${isCompact ? 'max-w-[340px]' : 'max-w-[420px]'} max-h-[85vh] flex flex-col rounded-[28px] bg-white dark:bg-zinc-900 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] border border-black/5 dark:border-white/10 overflow-hidden pointer-events-auto transition-all duration-200 ease-out transform ${
                   animado ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'
                 }`}
               >
@@ -302,10 +308,10 @@ export default function SelectDropdown({
                         role="option"
                         aria-selected={isSelected}
                         onClick={() => handleSelect(option.value)}
-                        className={`group w-full flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-left transition-colors select-none focus:outline-none cursor-pointer bg-transparent ${
+                        className={`group w-full flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-2xl text-left transition-colors select-none focus:outline-none cursor-pointer ${
                           isSelected
-                            ? 'text-zinc-950 dark:text-white font-semibold hover:bg-zinc-100/70 dark:hover:bg-white/5'
-                            : 'text-zinc-600 dark:text-zinc-400 font-normal hover:bg-zinc-100/70 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200'
+                            ? 'text-zinc-950 dark:text-white font-semibold bg-zinc-50 dark:bg-white/10'
+                            : 'text-zinc-600 dark:text-zinc-400 font-normal hover:bg-zinc-100/70 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200 bg-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -325,7 +331,7 @@ export default function SelectDropdown({
                               {option.label}
                             </span>
                             {option.description && (
-                              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5 leading-snug">
+                              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-0.5 leading-snug">
                                 {option.description}
                               </span>
                             )}
@@ -382,10 +388,10 @@ export default function SelectDropdown({
                       role="option"
                       aria-selected={isSelected}
                       onClick={() => handleSelect(option.value)}
-                      className={`group flex w-full items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm text-left transition-colors focus:outline-none cursor-pointer bg-transparent ${
+                      className={`group flex w-full items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm text-left transition-colors focus:outline-none cursor-pointer ${
                         isSelected
-                          ? 'text-zinc-950 dark:text-white font-medium hover:bg-zinc-100/60 dark:hover:bg-white/5'
-                          : 'text-zinc-600 dark:text-zinc-400 font-normal hover:bg-zinc-100/60 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200'
+                          ? 'text-zinc-950 dark:text-white font-medium bg-zinc-50 dark:bg-white/10'
+                          : 'text-zinc-600 dark:text-zinc-400 font-normal hover:bg-zinc-100/60 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200 bg-transparent'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">

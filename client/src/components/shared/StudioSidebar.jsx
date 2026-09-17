@@ -62,12 +62,12 @@ export default function StudioSidebar({
               aria-current={isActive ? 'page' : undefined}
               className="group flex flex-col items-center gap-1.5 w-full cursor-pointer focus:outline-none"
             >
-              {/* Contenedor redondeado estilo squircle (idéntico a la imagen) */}
+              {/* Contenedor redondeado estilo squircle */}
               <div
                 className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${
                   isActive
-                    ? 'bg-zinc-900 dark:bg-zinc-800 text-white shadow-xs'
-                    : 'bg-transparent text-zinc-400 dark:text-zinc-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800/60 group-hover:text-zinc-800 dark:group-hover:text-zinc-200'
+                    ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border border-zinc-200 dark:border-white/15 shadow-2xs'
+                    : 'bg-transparent text-zinc-400 dark:text-zinc-500 border border-transparent group-hover:bg-zinc-100/70 dark:group-hover:bg-white/5 group-hover:text-zinc-800 dark:group-hover:text-zinc-200'
                 }`}
               >
                 <Icon className="w-5 h-5 stroke-[2]" />

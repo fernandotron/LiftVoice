@@ -7,10 +7,10 @@ import { sanitizeApiKey, geminiModelCooldowns } from './translationService.js';
  */
 
 const CLINICAL_INITIAL_PROMPT =
-  "Sesión clínica de medicina interna, cardiología, anestesia y farmacología. " +
+  "Sesión clínica de medicina interna, cardiología, dermatología estética, anestesia y farmacología. " +
   "Parámetros clínicos: ECG, EKG, SpO2 98%, TA 120/80 mmHg, FC 75 lpm, PVC, SatO2, FiO2, gasometría arterial. " +
-  "Farmacología: amiodarona, enoxaparina sódica, noradrenalina, atropina, midazolam, fentanilo, propofol, levotiroxina, nitroglicerina. " +
-  "Patologías CIE-11 y SNOMED CT: infarto agudo de miocardio, fibrilación auricular, EPOC descompensado, tromboembolismo pulmonar, shock cardiogénico.";
+  "Farmacología y estética: amiodarona, enoxaparina sódica, ácido hialurónico, toxina botulínica, hialuronidasa, bioestimuladores, hidroxiapatita, polidioxanona, lidocaína, noradrenalina, atropina, midazolam, fentanilo, propofol. " +
+  "Patologías y procedimientos: infarto agudo de miocardio, fibrilación auricular, rinomodelación, microcánula, EPOC descompensado, tromboembolismo pulmonar, shock cardiogénico.";
 
 /**
  * Detecta el tipo MIME real de un buffer de audio examinando sus magic bytes.
@@ -142,10 +142,11 @@ export class STTService {
     let url = `https://api.deepgram.com/v1/listen?model=${model}&smart_format=true&punctuate=true${langParam}`;
 
     if (options.medicalMode) {
+      url += '&mip_opt_out=true';
       if (model === 'nova-3') {
-        url += '&keyterm=ECG&keyterm=arritmia&keyterm=infarto&keyterm=fentanilo';
+        url += '&keyterm=ECG&keyterm=SpO2&keyterm=IAM&keyterm=TVP&keyterm=Glasgow&keyterm=troponina&keyterm=arritmia&keyterm=enoxaparina&keyterm=amiodarona&keyterm=fentanilo';
       } else {
-        url += '&keywords=ECG:2&keywords=arritmia:2&keywords=infarto:2&keywords=fentanilo:2';
+        url += '&keywords=ECG:2&keywords=SpO2:2&keywords=IAM:2&keywords=TVP:2&keywords=arritmia:2&keywords=infarto:2&keywords=fentanilo:2&keywords=enoxaparina:2';
       }
     }
 

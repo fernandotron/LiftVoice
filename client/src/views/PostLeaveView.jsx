@@ -135,7 +135,7 @@ export default function PostLeaveView({
               className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/50 transition-colors cursor-pointer active:scale-95 flex-shrink-0"
             >
               {hasCopied ? (
-                <Check className="w-4 h-4 text-emerald-500 stroke-[2.5]" />
+                <Check className="w-4 h-4 text-zinc-700 dark:text-zinc-300 stroke-[2.5]" />
               ) : (
                 <Copy className="w-4 h-4" />
               )}

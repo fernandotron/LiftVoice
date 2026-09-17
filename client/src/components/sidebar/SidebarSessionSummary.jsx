@@ -88,15 +88,15 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
               <button
                 type="button"
                 onClick={handleCopyMarkdown}
-                className="w-7 h-7 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
+                className="w-7 h-7 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
                 title="Copiar resumen en Markdown"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
               <button
                 type="button"
                 onClick={handleDownloadMarkdown}
-                className="w-7 h-7 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
+                className="w-7 h-7 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer shadow-2xs"
                 title="Descargar archivo Markdown"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -107,7 +107,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
             type="button"
             onClick={onGenerate}
             disabled={isLoading}
-            className="h-7 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 flex items-center gap-1 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+            className="h-7 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-1 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
             title="Generar o actualizar resumen"
           >
             <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
@@ -151,7 +151,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
 
         {!isLoading && !error && !summaryData && (
           <div className="py-12 text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-center mx-auto text-zinc-500">
+            <div className="w-12 h-12 rounded-2xl bg-transparent dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-center mx-auto text-zinc-500">
               <FileText className="w-6 h-6" />
             </div>
             <div>
@@ -177,21 +177,21 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
           <>
             {/* Métricas */}
             <div className="grid grid-cols-3 gap-2">
-              <div className="p-2.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 text-center">
+              <div className="p-2.5 rounded-xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center">
                 <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Duración</div>
                 <div className="text-sm font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
                   {duration} <span className="text-[10px] font-normal text-zinc-500">min</span>
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 text-center">
+              <div className="p-2.5 rounded-xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center">
                 <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Frases</div>
                 <div className="text-sm font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
                   {totalSentences}
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 text-center">
+              <div className="p-2.5 rounded-xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-center">
                 <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Oyentes</div>
                 <div className="text-sm font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
                   {totalListeners}
@@ -204,7 +204,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
               <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
                 Resumen Ejecutivo
               </div>
-              <div className="p-3 rounded-2xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
+              <div className="p-3 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
                 {execSummary || 'No se detectaron discursos durante esta sesión para resumir.'}
               </div>
             </div>
@@ -215,7 +215,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                 <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
                   Puntos Clave y Argumentos
                 </div>
-                <div className="p-3 rounded-2xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 space-y-2">
+                <div className="p-3 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 space-y-2">
                   {keyPoints.map((point, i) => (
                     <div key={i} className="flex items-start gap-2 text-xs text-zinc-700 dark:text-zinc-300">
                       <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 dark:bg-zinc-100 mt-1.5 flex-shrink-0" />
@@ -227,21 +227,26 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
             )}
 
             {/* Conclusiones y Próximos Pasos */}
-            {actionItems.length > 0 && (
-              <div className="space-y-1.5">
-                <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                  Conclusiones y Próximos Pasos
-                </div>
-                <div className="p-3 rounded-2xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 space-y-2">
-                  {actionItems.map((item, i) => (
+            <div className="space-y-1.5">
+              <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                Conclusiones y Próximos Pasos
+              </div>
+              <div className="p-3 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 space-y-2">
+                {actionItems.length > 0 ? (
+                  actionItems.map((item, i) => (
                     <div key={i} className="flex items-start gap-2 text-xs text-zinc-700 dark:text-zinc-300">
                       <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 dark:bg-zinc-100 mt-1.5 flex-shrink-0" />
                       <span className="leading-relaxed">{item}</span>
                     </div>
-                  ))}
-                </div>
+                  ))
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600 flex-shrink-0" />
+                    <span>Sin contenido registrado.</span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </>
         )}
       </div>

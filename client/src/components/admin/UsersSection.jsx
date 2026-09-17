@@ -402,7 +402,7 @@ export default function UsersSection({
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     placeholder="Nombre del usuario"
-                    className="w-full h-11 px-4 rounded-2xl bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-zinc-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                    className="w-full h-11 px-4 rounded-2xl bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-zinc-100 text-sm focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all"
                   />
                 </div>
 
@@ -506,13 +506,13 @@ export default function UsersSection({
                   role="switch"
                   aria-checked={editStatus === 'Activo'}
                   onClick={() => setEditStatus(prev => prev === 'Activo' ? 'Suspendido' : 'Activo')}
-                  className={`relative shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer ${
-                    editStatus === 'Activo' ? 'bg-blue-600 dark:bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-700'
+                  className={`relative shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-white/40 cursor-pointer ${
+                    editStatus === 'Activo' ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-300 dark:bg-zinc-700'
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                      editStatus === 'Activo' ? 'translate-x-5' : 'translate-x-0'
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform ${
+                      editStatus === 'Activo' ? 'translate-x-5 bg-white dark:bg-zinc-900' : 'translate-x-0 bg-white'
                     }`}
                   />
                 </button>
@@ -573,7 +573,7 @@ export default function UsersSection({
             placeholder="Buscar por nombre, correo electrónico o rol..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-11 pl-10 pr-9 text-xs sm:text-sm border border-zinc-200/80 dark:border-white/10 rounded-2xl bg-zinc-100/70 dark:bg-white/5 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-white/20 transition-all placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+            className="w-full h-11 pl-10 pr-9 text-xs sm:text-sm border border-zinc-200 dark:border-white/10 rounded-2xl bg-transparent dark:bg-white/5 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
           />
           {searchQuery && (
             <button
@@ -592,23 +592,22 @@ export default function UsersSection({
         <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
           {/* Selector de Rol */}
           <SelectDropdown
-            value={roleFilter}
-            options={[
-              { value: 'all', label: 'Todos los roles' },
-              { value: 'admin', label: 'Administradores' },
-              { value: 'speaker', label: 'Ponentes' },
-              { value: 'translator', label: 'Intérpretes' },
-              { value: 'listener', label: 'Oyentes' }
-            ]}
-            onChange={(e) => setRoleFilter(e.target.value)}
+            value={filterRole}
+            options={FILTER_ROLE_OPTIONS}
+            onChange={(val) => setFilterRole(val)}
+            aria-label="Filtrar por rol"
             className="w-40 sm:w-44 h-11 px-3 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 transition-colors"
           />
 
           {/* Botón Limpiar Filtros */}
-          {(searchQuery || roleFilter !== 'all') && (
+          {(searchQuery || filterRole !== 'ALL' || filterStatus !== 'ALL') && (
             <button
               type="button"
-              onClick={handleResetFilters}
+              onClick={() => {
+                setSearchQuery('');
+                setFilterRole('ALL');
+                setFilterStatus('ALL');
+              }}
               className="h-11 px-3 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/60 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400 text-xs font-medium transition-colors cursor-pointer"
             >
               Limpiar

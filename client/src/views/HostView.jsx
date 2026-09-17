@@ -347,6 +347,7 @@ export default function HostView({
 
   const sidebarMeterBarRef = useRef(null);
   const sidebarMeterTextRef = useRef(null);
+  const sidebarMeterStateRef = useRef(null);
   const lastSentSpeechRef = useRef({ text: '', time: 0 });
   const lastCumulativeSpeechRef = useRef({ text: '', time: 0 });
   const [hasCopiedLink, setHasCopiedLink] = useState(false);
@@ -738,15 +739,43 @@ export default function HostView({
 
   // Zero-Reflow GPU VAD listener
   useEffect(() => {
-    const unsubAudioLevel = audioRecorderService.onAudioLevel((lvl) => {
-      // lvl is 0 to 100 from audioRecorderService
-      const pct = Math.min(100, Math.max(0, Math.round(lvl)));
-      const norm = pct / 100;
+    let lastState = '';
+    const unsubAudioLevel = audioRecorderService.onAudioLevel((lvl, meta) => {
+      const pct = typeof meta?.pct === 'number' ? meta.pct : Math.min(100, Math.max(0, Math.round(lvl)));
+      const db = typeof meta?.db === 'number' ? meta.db : (pct > 0 ? Math.round(-60 + (pct / 100) * 60) : -60);
+      const isClip = Boolean(meta?.isClip || pct >= 92);
+
+      // 1. Zero-Reflow GPU clipPath to reveal stationary gradient (no color squashing)
       if (sidebarMeterBarRef.current) {
-        sidebarMeterBarRef.current.style.transform = `scaleX(${norm})`;
+        sidebarMeterBarRef.current.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
       }
+
+      // 2. Decibel readout (True dBFS)
       if (sidebarMeterTextRef.current) {
-        sidebarMeterTextRef.current.textContent = `${pct}%`;
+        sidebarMeterTextRef.current.textContent = db > -55 ? `${db} dB` : '-∞ dB';
+      }
+
+      // 3. Ergonomic Vocal Coaching State
+      if (sidebarMeterStateRef.current) {
+        let stateText = 'Silencio';
+        let stateClass = 'text-zinc-400 dark:text-zinc-500';
+
+        if (isClip || db >= -2) {
+          stateText = '¡Saturando!';
+          stateClass = 'text-rose-500 font-bold animate-pulse';
+        } else if (db >= -18 && db <= -6) {
+          stateText = 'Óptimo';
+          stateClass = 'text-zinc-700 dark:text-zinc-300 font-medium';
+        } else if (db > -36) {
+          stateText = 'Voz activa';
+          stateClass = 'text-zinc-500 dark:text-zinc-400 font-medium';
+        }
+
+        if (stateText !== lastState) {
+          lastState = stateText;
+          sidebarMeterStateRef.current.textContent = stateText;
+          sidebarMeterStateRef.current.className = `text-[10px] font-mono tracking-wider transition-colors ${stateClass}`;
+        }
       }
     });
 
@@ -1233,7 +1262,7 @@ export default function HostView({
       {inspectorTab === 'cabins' && (
         <div className="space-y-4 text-left animate-fadeIn">
           {/* Headphone Monitor & Volume Card */}
-          <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-3 shadow-2xs">
+          <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 space-y-3 shadow-2xs">
             <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 block">
               Retorno de Auriculares
             </span>
@@ -1247,7 +1276,7 @@ export default function HostView({
             <button
               type="button"
               onClick={() => audioPlayerService.playAudioTestTone()}
-              className="w-full h-7 px-3 rounded-full bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 touch-manipulation"
+              className="w-full h-7 px-3 rounded-full bg-transparent hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 touch-manipulation"
               title="Probar sonido de altavoz o auriculares locales"
             >
               <Bell className="w-3 h-3 text-zinc-600 dark:text-zinc-300" />
@@ -1316,10 +1345,11 @@ export default function HostView({
               return (
                 <div
                   key={cab.code}
-                  className={`p-3.5 rounded-2xl border transition-all space-y-2.5 shadow-2xs ${
+                  onClick={() => handleToggleMonitoring(cab.code)}
+                  className={`p-3.5 rounded-2xl border transition-all space-y-2.5 shadow-2xs cursor-pointer select-none ${
                     isMonitored
-                      ? 'border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/80 ring-1 ring-zinc-400/20 dark:ring-zinc-700/50'
-                      : 'border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900/80'
+                      ? 'border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/80 ring-1 ring-zinc-400/20 dark:ring-zinc-700/50'
+                      : 'border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/80'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -1329,7 +1359,10 @@ export default function HostView({
                         <div className="text-xs font-bold text-zinc-950 dark:text-zinc-100">{cab.name}</div>
                         <button
                           type="button"
-                          onClick={() => handleOpenCatalogForCabin(cab.code)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenCatalogForCabin(cab.code);
+                          }}
                           className="text-[10px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 font-mono truncate max-w-[130px] block text-left hover:underline cursor-pointer"
                           title={`Cambiar voz para ${cab.name}`}
                         >
@@ -1341,11 +1374,14 @@ export default function HostView({
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <button
                         type="button"
-                        onClick={() => handleToggleMonitoring(cab.code)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleMonitoring(cab.code);
+                        }}
                         className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 ${
                           isMonitored
                             ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 ring-2 ring-zinc-950/20 dark:ring-white/20'
-                            : 'bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300'
+                            : 'bg-transparent hover:bg-zinc-200/70 dark:bg-zinc-800 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300'
                         }`}
                         title={isMonitored ? `Silenciar retorno de ${cab.name}` : `Escuchar retorno en directo de ${cab.name}`}
                         aria-label={isMonitored ? `Silenciar retorno de ${cab.name}` : `Escuchar retorno en directo de ${cab.name}`}
@@ -1355,11 +1391,14 @@ export default function HostView({
 
                       <button
                         type="button"
-                        onClick={() => handlePreviewChannelVoice(cab.code)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePreviewChannelVoice(cab.code);
+                        }}
                         className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 ${
                           isAuditioning
                             ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 ring-2 ring-zinc-950/20 dark:ring-white/20'
-                            : 'bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200'
+                            : 'bg-transparent hover:bg-zinc-200/70 dark:bg-zinc-800 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200'
                         }`}
                         title={isAuditioning ? 'Detener reproducción de voz' : 'Audicionar muestra de voz'}
                         aria-label={isAuditioning ? `Detener voz para ${cab.name}` : `Audicionar voz para ${cab.name}`}
@@ -1390,7 +1429,7 @@ export default function HostView({
       {/* Tab: Q&A */}
       {inspectorTab === 'qa' && (
         <div className="space-y-4 text-left animate-fadeIn">
-          <div className="p-3.5 rounded-2xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 space-y-1.5 shadow-2xs">
+          <div className="p-3.5 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 space-y-1.5 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Hand className="w-4 h-4 text-amber-500" />
@@ -1431,7 +1470,7 @@ export default function HostView({
 
           <div className="space-y-2">
             {qaQueue.filter(q => q.status === 'pending').length === 0 ? (
-              <div className="p-8 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 text-center space-y-1.5 bg-zinc-50/50 dark:bg-zinc-900/30">
+              <div className="p-8 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 text-center space-y-1.5 bg-transparent dark:bg-zinc-900/30">
                 <Hand className="w-5 h-5 text-zinc-400 dark:text-zinc-500 mx-auto" />
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">No hay preguntas pendientes</p>
               </div>
@@ -1439,7 +1478,7 @@ export default function HostView({
               qaQueue.filter(q => q.status === 'pending').map((q) => (
                 <div
                   key={q.questionId}
-                  className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 shadow-2xs space-y-2.5 flex flex-col"
+                  className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 shadow-2xs space-y-2.5 flex flex-col"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -1501,7 +1540,7 @@ export default function HostView({
         return (
           <div className="space-y-4 text-left animate-fadeIn">
             {/* Resumen Técnico */}
-            <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-2 text-xs shadow-2xs">
+            <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 space-y-2 text-xs shadow-2xs">
               <div className="flex items-center justify-between">
                 <span className="text-zinc-500 dark:text-zinc-400">Total Oyentes:</span>
                 <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
@@ -1520,7 +1559,7 @@ export default function HostView({
 
             {/* Auditoría Técnica Exclusiva para Administrador */}
             {isAdminVerified && (
-              <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-2 text-xs shadow-2xs">
+              <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 space-y-2 text-xs shadow-2xs">
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-500 dark:text-zinc-400">Motor STT Activo:</span>
                   <span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">
@@ -1590,7 +1629,7 @@ export default function HostView({
                     value={participantSearch}
                     onChange={(e) => setParticipantSearch(e.target.value)}
                     placeholder="Buscar participante..."
-                    className="w-full h-8 pl-8.5 pr-3 rounded-2xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all"
+                    className="w-full h-8 pl-8.5 pr-3 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all"
                   />
                 </div>
               )}
@@ -1598,7 +1637,7 @@ export default function HostView({
               {/* Lista de usuarios conectados */}
               <div className="space-y-2">
                 {/* Ponente / Anfitrión Fila Pinned */}
-                <div className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 shadow-2xs">
+                <div className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 shadow-2xs">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative shrink-0">
                       <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 flex items-center justify-center text-xs font-bold border border-zinc-300/60 dark:border-zinc-700/60">
@@ -1643,7 +1682,7 @@ export default function HostView({
                     return (
                       <div
                         key={att.id}
-                        className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900/80 shadow-2xs transition-all"
+                        className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/80 shadow-2xs transition-all"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center text-xs font-bold shrink-0 border border-zinc-300/60 dark:border-zinc-700/60">
@@ -1690,14 +1729,13 @@ export default function HostView({
     return (
       <div className="fixed inset-0 z-50 w-full h-full flex flex-col items-center justify-center bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6 space-y-4 text-center select-none overflow-hidden animate-fadeIn">
         <Loader2 className="w-8 h-8 text-zinc-800 dark:text-zinc-200 animate-spin" />
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 tracking-tight">
             Iniciando estudio de emisión...
           </p>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{roomId}</span>
-          </div>
+          <p className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
+            {roomId}
+          </p>
         </div>
       </div>
     );
@@ -1734,7 +1772,7 @@ export default function HostView({
           >
             <span className="truncate">{roomId}</span>
             {hasCopiedLink ? (
-              <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+              <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 flex-shrink-0" />
             ) : (
               <Copy className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-shrink-0" />
             )}
@@ -1800,7 +1838,7 @@ export default function HostView({
           >
             <span>{roomId}</span>
             {hasCopiedLink ? (
-              <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+              <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 flex-shrink-0" />
             ) : (
               <Copy className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-shrink-0" />
             )}
@@ -1901,9 +1939,6 @@ export default function HostView({
                 Control de captura y locución en directo
               </p>
             </div>
-            <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800/80 px-2 py-0.5 rounded-full">
-              {socketLatency}ms
-            </span>
           </div>
 
           {/* Línea divisoria con margen horizontal en X (idéntico a ListenerView) */}
@@ -1926,14 +1961,16 @@ export default function HostView({
                   <SelectDropdown
                     id="host-mic-select"
                     aria-label="Micrófono de Entrada"
+                    asMenu={true}
                     value={selectedDevice}
                     options={[
-                      { value: 'default', label: 'Micrófono Predeterminado' },
+                      { value: 'default', label: 'Micrófono Predeterminado', icon: Mic },
                       ...devices
                         .filter(d => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications')
                         .map((d, i) => ({
                           value: d.deviceId,
-                          label: d.label || `Micrófono ${i + 1}`
+                          label: d.label || `Micrófono ${i + 1}`,
+                          icon: Mic
                         }))
                     ]}
                     onChange={async (_, val) => {
@@ -2021,13 +2058,13 @@ export default function HostView({
                           }}
                           className={`p-3 min-w-[44px] min-h-[44px] rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between select-none ${
                             isSelected
-                              ? 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-600 ring-1 ring-zinc-400/30 dark:ring-zinc-600/30 shadow-2xs'
-                              : 'bg-white dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/40'
+                              ? 'bg-zinc-50 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-600 ring-1 ring-zinc-400/30 dark:ring-zinc-600/30 shadow-2xs'
+                              : 'bg-transparent dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40'
                           }`}
                         >
                           {/* Fila superior: Bandera a la izquierda, Badge a la derecha */}
                           <div className="flex items-center justify-between mb-2.5">
-                            <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60 overflow-hidden shadow-2xs">
+                            <div className="w-7 h-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60 overflow-hidden shadow-2xs">
                               <CountryFlag code={lang.code} className="w-4.5 h-4.5 rounded-full object-cover" />
                             </div>
                             {isSelected ? (
@@ -2035,7 +2072,7 @@ export default function HostView({
                                 <Check className="w-4 h-4 stroke-[2.5]" />
                               </span>
                             ) : (
-                              <span className="h-6 px-2 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 text-[10px] font-mono font-medium text-zinc-400 dark:text-zinc-500 inline-flex items-center justify-center">
+                              <span className="h-6 px-2 rounded-full bg-transparent dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 text-[10px] font-mono font-medium text-zinc-400 dark:text-zinc-500 inline-flex items-center justify-center">
                                 {lang.code.toUpperCase()}
                               </span>
                             )}
@@ -2063,7 +2100,7 @@ export default function HostView({
                   Ajustes de Locución
                 </div>
 
-                <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-4 shadow-2xs">
+                <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 space-y-4 shadow-2xs">
                   <ElevenSlider
                     label="Velocidad de Locución"
                     value={speechRate}
@@ -2092,37 +2129,108 @@ export default function HostView({
                 </div>
               </div>
 
-              {/* Sección 3: Estado de Emisión & Vúmetro */}
-              <div className="space-y-3">
-                <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                  Estado de Emisión
+              {/* Sección 3: Estado de Emisión & Vúmetro Unificado */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-0.5">
+                  <span>Estado de Emisión</span>
                 </div>
 
-                {/* Live State Card */}
-                <div className="p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 flex items-center justify-between text-xs shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${isBroadcasting ? 'bg-rose-500 animate-pulse' : 'bg-zinc-400'}`} />
-                    <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                      {isBroadcasting ? 'Emisión en directo' : 'Emisión en pausa'}
-                    </span>
-                  </div>
-                  <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500 bg-zinc-200/70 dark:bg-zinc-800/80 px-2 py-0.5 rounded-full">
-                    {socketLatency}ms
-                  </span>
-                </div>
-
-                {/* VAD Level Meter */}
-                <div className="p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-2 shadow-2xs">
+                {/* Contenedor Unificado Studio 2026 */}
+                <div className="rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-transparent dark:bg-zinc-900/60 p-3.5 shadow-2xs space-y-3 transition-colors">
+                  {/* Fila Superior: Estado de Transmisión & Telemetría (SSOT) */}
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">Señal Micrófono</span>
-                    <span ref={sidebarMeterTextRef} className="font-mono font-bold text-xs text-zinc-900 dark:text-zinc-100 tabular-numbers">0%</span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="relative flex h-2.5 w-2.5 shrink-0">
+                        {isBroadcasting ? (
+                          <>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 shadow-xs shadow-rose-500/50" />
+                          </>
+                        ) : (
+                          <span className="h-2.5 w-2.5 rounded-full bg-zinc-400 dark:bg-zinc-600" />
+                        )}
+                      </span>
+                      <span className={`truncate ${
+                        isBroadcasting
+                          ? 'font-semibold text-zinc-900 dark:text-zinc-100'
+                          : 'font-medium text-zinc-600 dark:text-zinc-400'
+                      }`}>
+                        {isBroadcasting ? (
+                          <span className="flex items-center gap-1.5 font-mono">
+                            <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">En directo</span>
+                            <span className="text-zinc-400 dark:text-zinc-500">·</span>
+                            <span className="text-rose-600 dark:text-rose-400 font-semibold">{formatDuration(broadcastSeconds)}</span>
+                          </span>
+                        ) : (
+                          'Listo para emitir'
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Telemetría de Enlace Neutra */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="font-mono text-[10px] font-medium px-2 py-0.5 rounded-full border tabular-numbers bg-transparent dark:bg-white/5 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/10">
+                        {socketLatency || 1}ms
+                      </span>
+                    </div>
                   </div>
-                  <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div
-                      ref={sidebarMeterBarRef}
-                      className="h-full w-full bg-emerald-500 rounded-full origin-left will-change-transform scale-x-0"
-                      style={{ transition: 'transform 0.05s linear' }}
-                    />
+
+                  {/* Separador Sutil Studio */}
+                  <div className="border-t border-zinc-200/60 dark:border-white/5" />
+
+                  {/* Fila Inferior: Señal de Micrófono & Vúmetro Segmentado */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">
+                        Señal Micrófono
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        <span
+                          ref={sidebarMeterStateRef}
+                          className="text-[10px] font-mono tracking-wider text-zinc-400 dark:text-zinc-500 transition-colors"
+                        >
+                          Silencio
+                        </span>
+                        <span
+                          ref={sidebarMeterTextRef}
+                          className="font-mono font-semibold text-[11px] text-zinc-600 dark:text-zinc-300 tabular-numbers"
+                        >
+                          -∞ dB
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Vúmetro Segmentado Studio 2026 con revelado GPU clip-path */}
+                    <div className="relative h-2.5 w-full bg-zinc-200/80 dark:bg-zinc-800/80 rounded-full overflow-hidden p-0.5">
+                      {/* Barra de Relleno Gradiente Fijo con clip-path */}
+                      <div
+                        ref={sidebarMeterBarRef}
+                        className="h-full w-full rounded-full will-change-[clip-path] bg-gradient-to-r from-emerald-500 via-teal-400 via-amber-400 to-rose-500"
+                        style={{
+                          clipPath: 'inset(0 100% 0 0)',
+                          transition: 'clip-path 0.04s ease-out'
+                        }}
+                      />
+                      {/* Máscara de Segmentación LED Studio (20 divisiones chiclet) */}
+                      <div className="absolute inset-0 flex gap-[2px] pointer-events-none px-0.5 py-0.5">
+                        {Array.from({ length: 20 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="flex-1 h-full border-r border-white/70 dark:border-zinc-950/70 last:border-r-0"
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Indicadores de Escala Decibelios / Nivel Calibrado Neutro */}
+                    <div className="flex items-center justify-between text-[9px] font-mono text-zinc-400 dark:text-zinc-500 select-none px-0.5">
+                      <span>-∞</span>
+                      <span>-24dB</span>
+                      <span>-12dB</span>
+                      <span>-6dB</span>
+                      <span>0dB</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2146,7 +2254,7 @@ export default function HostView({
               {isBroadcasting ? (
                 <>
                   <div className="w-2.5 h-2.5 rounded-xs bg-white animate-pulse" />
-                  <span>Detener Emisión ({formatDuration(broadcastSeconds)})</span>
+                  <span>Detener Emisión</span>
                 </>
               ) : (
                 <>
@@ -2453,15 +2561,6 @@ export default function HostView({
             audioRecorderService.setDevice(dev);
           }
         }}
-        speechRate={speechRate}
-        onChangeSpeechRate={(v) => {
-          setSpeechRate(v);
-          audioPlayerService.setPlaybackRate(v);
-        }}
-        decalageValue={decalageValue}
-        onChangeDecalage={handleDecalageChange}
-        isBroadcasting={isBroadcasting}
-        audioRecorderService={audioRecorderService}
       />
 
       {/* Mobile Cabins Bottom Sheet (Sección Exclusiva de Cabinas) */}

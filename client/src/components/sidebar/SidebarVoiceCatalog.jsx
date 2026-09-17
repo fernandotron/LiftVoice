@@ -326,7 +326,7 @@ export default function SidebarVoiceCatalog({
             Voces neuronales para emisión multicanal
           </p>
         </div>
-        <span className="font-mono text-[10.5px] text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 px-2 py-0.5 rounded-full">
+        <span className="font-mono text-[10.5px] text-zinc-500 dark:text-zinc-400 bg-transparent border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 rounded-full">
           {filteredVoices.length} disponibles
         </span>
       </div>
@@ -343,7 +343,7 @@ export default function SidebarVoiceCatalog({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nombre o tono de voz..."
-            className="w-full h-11 pl-10.5 pr-4 bg-zinc-100/80 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all shadow-2xs"
+            className="w-full h-11 pl-10.5 pr-4 bg-transparent dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all shadow-2xs"
           />
         </div>
 
@@ -405,10 +405,10 @@ export default function SidebarVoiceCatalog({
                   selectedLang !== 'all' ? 'cursor-pointer' : ''
                 } ${
                   isHighlighted
-                    ? 'border-zinc-400 dark:border-white/60 bg-zinc-200/80 dark:bg-zinc-800/95 shadow-md ring-2 ring-zinc-950/20 dark:ring-white/30 scale-[1.01]'
+                    ? 'border-zinc-400 dark:border-white/60 bg-zinc-50 dark:bg-zinc-800/95 shadow-md ring-2 ring-zinc-950/20 dark:ring-white/30 scale-[1.01]'
                     : isAssignedToCurrent
-                    ? 'border-zinc-400 dark:border-zinc-600 bg-zinc-100/90 dark:bg-zinc-800/90 shadow-2xs ring-1 ring-zinc-400/30 dark:ring-zinc-600/50'
-                    : 'border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900/80'
+                    ? 'border-zinc-400 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/90 shadow-2xs ring-1 ring-zinc-400/30 dark:ring-zinc-600/50'
+                    : 'border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/60 dark:hover:bg-zinc-900/80'
                 }`}
               >
                 {/* Lado izquierdo: Botón de Play / Audición compacto + Bandera en esquina inferior derecha */}
@@ -421,10 +421,10 @@ export default function SidebarVoiceCatalog({
                     }}
                     className={`relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 cursor-pointer group/btn ${
                       isPlaying
-                        ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 ring-2 ring-zinc-900/20 dark:ring-white/30 scale-102 shadow-xs'
+                        ? 'bg-zinc-100 dark:bg-white/20 text-zinc-900 dark:text-white border border-zinc-300 dark:border-white/30 ring-2 ring-zinc-300/50 dark:ring-white/20 scale-102 shadow-2xs'
                         : isAssignedToCurrent
-                        ? 'bg-zinc-200/80 dark:bg-white/15 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-white/20 hover:bg-zinc-300/80 dark:hover:bg-white/25 hover:scale-105 shadow-2xs'
-                        : 'bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:bg-zinc-200 dark:hover:bg-white/15 hover:scale-105 shadow-2xs'
+                        ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-white/20 hover:bg-zinc-200/80 dark:hover:bg-white/20 hover:scale-105 shadow-2xs'
+                        : 'bg-transparent dark:bg-white/5 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:bg-zinc-100/70 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-zinc-100 hover:scale-105 shadow-2xs'
                     }`}
                     title={isPlaying ? 'Detener muestra' : `Audicionar muestra de ${voice.name}`}
                     aria-label={isPlaying ? 'Detener muestra' : `Audicionar muestra de ${voice.name}`}
@@ -463,7 +463,7 @@ export default function SidebarVoiceCatalog({
                   </div>
 
                   <div className="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400 font-medium truncate mt-0.5">
-                    <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-400 bg-zinc-200/70 dark:bg-zinc-800 px-1 py-0.2 rounded">
+                    <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-400 bg-transparent border border-zinc-200/80 dark:border-zinc-700/60 px-1 py-0.2 rounded">
                       {getEngineDisplayName(voice.engine)}
                     </span>
                     {voice.tone && (
@@ -472,12 +472,6 @@ export default function SidebarVoiceCatalog({
                       </span>
                     )}
                   </div>
-
-                  {voice.desc && (
-                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate leading-tight mt-0.5">
-                      {voice.desc}
-                    </p>
-                  )}
                 </div>
 
                 {/* Lado derecho: Botón Asignar a cabina */}
@@ -497,10 +491,10 @@ export default function SidebarVoiceCatalog({
                     }}
                     className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 border ${
                       isAssignedToCurrent
-                        ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 hover:bg-zinc-800 dark:hover:bg-white'
+                        ? 'bg-zinc-100 dark:bg-white/15 text-zinc-900 dark:text-white border-zinc-300 dark:border-white/25 hover:bg-zinc-200/80 dark:hover:bg-white/25'
                         : isAssigning
-                          ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100'
-                          : 'bg-white dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300'
+                          ? 'bg-zinc-100 dark:bg-white/15 text-zinc-900 dark:text-white border-zinc-300 dark:border-white/25'
+                          : 'bg-transparent dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                     }`}
                     title={
                       selectedLang !== 'all'
@@ -538,8 +532,8 @@ export default function SidebarVoiceCatalog({
                             }}
                             className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors cursor-pointer ${
                               isCurrent
-                                ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-bold'
-                                : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
+                                ? 'bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-bold'
+                                : 'hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
                             }`}
                           >
                             <div className="flex items-center gap-2">

@@ -67,9 +67,14 @@ async function runTest() {
     sourceLanguage: 'es'
   }));
 
-  // Wait 9.5 seconds for AI pipeline (Translation -> TTS -> Multi-channel WS Broadcast)
+  // Wait for AI pipeline (Translation -> TTS -> Multi-channel WS Broadcast) dynamically up to 15s
   console.log('⏳ Waiting for AI pipeline processing and multi-channel broadcast...');
-  await new Promise((r) => setTimeout(r, 9500));
+  const startWait = Date.now();
+  while (Date.now() - startWait < 15000) {
+    const allDone = languages.every(l => receivedAudio[l] && receivedTranscripts[l]);
+    if (allDone) break;
+    await new Promise((r) => setTimeout(r, 400));
+  }
 
   // 4. Verification Check
   console.log('\n--- Verification Results ---');

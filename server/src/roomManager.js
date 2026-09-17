@@ -312,7 +312,13 @@ class RoomManager {
       detectedLanguage: transcriptItem.detectedLanguage,
       translations: transcriptItem.translations,
       isFinal: transcriptItem.isFinal !== undefined ? Boolean(transcriptItem.isFinal) : true,
-      engineUsed: transcriptItem.engineUsed || null
+      engineUsed: transcriptItem.engineUsed || null,
+      medicalMode: Boolean(transcriptItem.medicalMode),
+      metrics: transcriptItem.metrics ? {
+        transMs: typeof transcriptItem.metrics.transMs === 'number' ? transcriptItem.metrics.transMs : 0,
+        sttMs: typeof transcriptItem.metrics.sttMs === 'number' ? transcriptItem.metrics.sttMs : 0,
+        totalMs: typeof transcriptItem.metrics.totalMs === 'number' ? transcriptItem.metrics.totalMs : 0
+      } : { transMs: 0, sttMs: 0, totalMs: 0 }
     };
 
     // 1. Send to host: complete telemetry if admin session, sanitized if standard host
@@ -370,7 +376,13 @@ class RoomManager {
       detectedLanguage: fullItem.detectedLanguage,
       translations: fullItem.translations,
       isFinal: fullItem.isFinal !== undefined ? Boolean(fullItem.isFinal) : true,
-      engineUsed: fullItem.engineUsed || null
+      engineUsed: fullItem.engineUsed || null,
+      medicalMode: Boolean(fullItem.medicalMode),
+      metrics: fullItem.metrics ? {
+        transMs: typeof fullItem.metrics.transMs === 'number' ? fullItem.metrics.transMs : 0,
+        sttMs: typeof fullItem.metrics.sttMs === 'number' ? fullItem.metrics.sttMs : 0,
+        totalMs: typeof fullItem.metrics.totalMs === 'number' ? fullItem.metrics.totalMs : 0
+      } : { transMs: 0, sttMs: 0, totalMs: 0 }
     };
 
     if (room.hostSocket && room.hostSocket.readyState === 1) {
@@ -1158,7 +1170,8 @@ class RoomManager {
       duration: audioPacket.duration || 0,
       latencyMs: audioPacket.latencyMs || 0,
       isHealed: Boolean(audioPacket.isHealed),
-      isHotSwitch: Boolean(audioPacket.isHotSwitch)
+      isHotSwitch: Boolean(audioPacket.isHotSwitch),
+      medicalMode: Boolean(audioPacket.medicalMode)
     };
 
     // Cache latest audio packet per language booth for Hot Channel Switching with auto-expiration

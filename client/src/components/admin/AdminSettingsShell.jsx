@@ -3,7 +3,7 @@ import {
   Settings, Key, X, Check, Shield, Cpu, Zap, Volume2, Mic,
   Sparkles, Stethoscope, Activity, BookOpen, Play, Square, Loader2, Headphones,
   Radio, User, Users, ChevronRight, CheckCircle2, Lock, Server, Globe, VolumeX,
-  Palette, Sun, Moon, Monitor, Eye, EyeOff, AlertCircle, ArrowLeft, Home, Sliders, RotateCcw
+  Palette, Sun, Moon, Monitor, Eye, EyeOff, AlertCircle, ArrowLeft, Home, Sliders, RotateCcw, Layers
 } from 'lucide-react';
 import { audioPlayerService } from '../../services/audioPlayer.js';
 import { audioRecorderService } from '../../services/audioRecorder.js';
@@ -353,6 +353,7 @@ const MEDICAL_MODE_OPTIONS = [
 ];
 
 const MEDICAL_SPECIALTY_OPTIONS = [
+  { value: 'dermatology', label: 'Dermatología & Medicina Estética', description: 'Ácido hialurónico, toxina botulínica, bioestimuladores y láser' },
   { value: 'general', label: 'Medicina General & Urgencias', description: 'Cuidados críticos, triage y atención primaria' },
   { value: 'cardiology', label: 'Cardiología & Hemodinámica', description: 'ECG, IAM, arritmias y cateterismo' },
   { value: 'pharmacology', label: 'Farmacología & Dosificaciones', description: 'Denominación Común Internacional (DCI / INN)' },
@@ -780,7 +781,19 @@ export default function AdminSettingsShell({
             if (data.decalageMode) setDecalageMode(data.decalageMode);
             if (data.googleNeuralMode) setGoogleNeuralMode(data.googleNeuralMode);
 
-            // Sincronizar el estado inicial de referencia para que NO aparezca "Modificaciones sin guardar" al abrir el modal
+            const loadedMedicalMode = data.medicalMode !== undefined ? Boolean(data.medicalMode) : medicalMode;
+            const loadedMedicalSpecialty = data.medicalSpecialty || medicalSpecialty;
+            const loadedCustomGlossary = Array.isArray(data.customGlossary)
+              ? data.customGlossary.join(', ')
+              : (data.customGlossary !== undefined ? String(data.customGlossary) : customGlossary);
+
+            if (data.medicalMode !== undefined) setMedicalMode(Boolean(data.medicalMode));
+            if (data.medicalSpecialty) setMedicalSpecialty(data.medicalSpecialty);
+            if (data.customGlossary !== undefined) {
+              setCustomGlossary(Array.isArray(data.customGlossary) ? data.customGlossary.join(', ') : String(data.customGlossary));
+            }
+
+            // Sincronizar el estado inicial de referencia para que el estado no marque modificaciones pendientes al abrir el modal
             setInitialState(buildSettingsSnapshot({
               pipelineMode: loadedPipelineMode,
               geminiLiveVoices: loadedGeminiLiveVoices,
@@ -801,7 +814,9 @@ export default function AdminSettingsShell({
               qwenTtsEndpoint: loadedQwenTts,
               preferredEngine: loadedTransEngine,
               aiStrategy: loadedAiStrategy,
-              medicalMode, medicalSpecialty, customGlossary,
+              medicalMode: loadedMedicalMode,
+              medicalSpecialty: loadedMedicalSpecialty,
+              customGlossary: loadedCustomGlossary,
               decalageMode: loadedDecalage,
               sttLang: loadedSttLang,
               sttVad: loadedSttVad,
@@ -1570,61 +1585,50 @@ export default function AdminSettingsShell({
         <div className="space-y-8 animate-fadeIn">
           {/* Card: Arquitectura del Pipeline de Interpretación */}
           <div className="p-5 sm:p-6 rounded-2xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-blue-500 shrink-0" />
-                  <span>Arquitectura del Pipeline de Interpretación</span>
-                </h4>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
-                  Configura el flujo central de procesamiento acústico y entrega simultánea para todas las cabinas.
-                </p>
-              </div>
-              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium self-start sm:self-center shrink-0 ${
-                pipelineMode === 'gemini_live_s2s'
-                  ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
-                  : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30'
-              }`}>
-                {pipelineMode === 'gemini_live_s2s' ? 'Gemini 3.8 Live S2S (24kHz)' : 'Deepgram Nova-3 Modular'}
-              </span>
+            <div>
+              <h4 className="text-zinc-900 dark:text-zinc-100 text-base font-semibold leading-tight">
+                Arquitectura del Pipeline de Interpretación
+              </h4>
+              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-[65ch] leading-relaxed">
+                Configura el flujo central de procesamiento acústico y entrega simultánea para todas las cabinas.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 pt-1">
-              <div>
-                <label htmlFor="admin-pipeline-mode" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-                  Modo de procesamiento del pipeline
-                </label>
-                <SelectDropdown
-                  id="admin-pipeline-mode"
-                  aria-label="Arquitectura del Pipeline de Interpretación"
-                  value={pipelineMode}
-                  options={PIPELINE_MODE_OPTIONS}
-                  onChange={(e) => {
-                    const newMode = e.target.value;
-                    setPipelineMode(newMode);
-                    setIsDirty(true);
-                  }}
-                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
-                />
-              </div>
-              <div className="flex flex-col justify-center">
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  {pipelineMode === 'gemini_live_s2s'
-                    ? 'Inferencia directa Speech-to-Speech sin saltos intermedios. Google Gemini 3.8 Live interpreta y habla en cada cabina a 24kHz con mínima latencia perceptual.'
-                    : 'Pipeline modular desacoplado: captura Deepgram Nova-3 (~150ms), traducción vía Gemini 3.8 Flash y síntesis neural en Aura-2 / Azure TTS.'}
-                </p>
-              </div>
+            <div className="pt-1">
+              <label htmlFor="admin-pipeline-mode" className="block text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Modo de procesamiento del pipeline
+              </label>
+              <SelectDropdown
+                id="admin-pipeline-mode"
+                aria-label="Arquitectura del Pipeline de Interpretación"
+                value={pipelineMode}
+                options={PIPELINE_MODE_OPTIONS}
+                onChange={(e) => {
+                  const newMode = e.target.value;
+                  setPipelineMode(newMode);
+                  setIsDirty(true);
+                }}
+              />
             </div>
 
-            {/* Alerta/Banner informativo cuando está en gemini_live_s2s */}
-            {pipelineMode === 'gemini_live_s2s' && (
+            {/* Banner dinámico de estado del Pipeline con el diseño premium de Banner.jsx */}
+            {pipelineMode === 'gemini_live_s2s' ? (
               <Banner
-                icon={<Sparkles className="w-4 h-4 text-purple-500 dark:text-purple-300" strokeWidth={2.2} />}
+                icon={<Sparkles className="w-4 h-4 text-white" strokeWidth={2.2} />}
                 color="#8b5cf6"
                 title="Google Gemini 3.8 Live Speech-to-Speech Activo (24kHz)"
                 subtitle="Interpretación nativa extremo a extremo"
                 desc="Google Gemini 3.8 Live gestiona el pipeline de Speech-to-Speech de forma nativa a 24kHz en todas las cabinas de traducción. El orador principal se interpreta y sintetiza en tiempo real sin etapas intermedias de STT o TTS desacoplados."
-                className="mt-3 animate-fadeIn"
+                className="mt-2 animate-fadeIn"
+              />
+            ) : (
+              <Banner
+                icon={<Layers className="w-4 h-4 text-white" strokeWidth={2.2} />}
+                color="#3b82f6"
+                title="Deepgram Nova-3 Modular Activo (~150ms)"
+                subtitle="Pipeline desacoplado con control granular"
+                desc="Captura acústica ultra-rápida con Deepgram Nova-3 (~150ms), traducción multilingüe contextual vía Gemini 3.8 Flash y síntesis neural en Aura-2 / Azure TTS independiente por cabina."
+                className="mt-2 animate-fadeIn"
               />
             )}
           </div>
@@ -1641,7 +1645,6 @@ export default function AdminSettingsShell({
                 value={sttEngine}
                 options={STT_ENGINE_OPTIONS}
                 onChange={(e) => { setSttEngine(e.target.value); setIsDirty(true); }}
-                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
               />
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                 {sttEngine === 'deepgram' && 'Modelo acústico insignia con latencia ultra-baja (~150ms) y puntuación inteligente. Consume tu saldo de $200.'}
@@ -1667,7 +1670,6 @@ export default function AdminSettingsShell({
                   }
                   setIsDirty(true);
                 }}
-                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
               />
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                 Sincroniza en un clic el reconocimiento de voz, la traducción y la síntesis vocal para optimizar costes o calidad.
@@ -1696,7 +1698,7 @@ export default function AdminSettingsShell({
                   value={sttLang}
                   options={STT_LANG_OPTIONS}
                   onChange={(e) => { setSttLang(e.target.value); setIsDirty(true); }}
-                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                  className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Permite alternar de idioma sobre la marcha o forzar el dialecto nativo para evitar falsas detecciones.
@@ -1713,7 +1715,7 @@ export default function AdminSettingsShell({
                   value={sttVad}
                   options={STT_VAD_OPTIONS}
                   onChange={(e) => { setSttVad(e.target.value); setIsDirty(true); }}
-                  className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                  className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
                 />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                   Evita transcripciones involuntarias por toses, murmullos del público o pausas largas del orador.
@@ -1740,7 +1742,7 @@ export default function AdminSettingsShell({
                 value={preferredTtsEngine}
                 options={TTS_GLOBAL_ENGINE_OPTIONS}
                 onChange={(e) => handlePreferredTtsEngineChange(e.target.value)}
-                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
               />
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                 Asigna el proveedor de voz a las cabinas de traducción de forma automática.
@@ -1757,7 +1759,7 @@ export default function AdminSettingsShell({
                 value={decalageMode}
                 options={TTS_DECALAGE_OPTIONS}
                 onChange={(e) => { setDecalageMode(e.target.value); setIsDirty(true); }}
-                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
               />
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                 El décalage equilibra la velocidad de entrega del audio traducido frente a la naturalidad tonal.
@@ -1843,7 +1845,7 @@ export default function AdminSettingsShell({
                           description: v.desc
                         }))}
                         onChange={(e) => handleVoiceChange(b.lang, e.target.value)}
-                        className="w-full h-11 px-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                        className="w-full h-11 px-3.5 bg-transparent dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
                       />
                     </div>
 
@@ -1902,7 +1904,7 @@ export default function AdminSettingsShell({
                 value={preferredEngine}
                 options={AI_PROVIDER_OPTIONS}
                 onChange={(e) => { setPreferredEngine(e.target.value); setIsDirty(true); }}
-                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
               />
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                 {preferredEngine === 'gemini' && 'Inferencia ultra-rápida en sub-150ms con salida estructurada JSON sin razonamiento forzado.'}
@@ -1922,7 +1924,7 @@ export default function AdminSettingsShell({
                 value={aiStrategy}
                 options={AI_STRATEGY_OPTIONS}
                 onChange={(e) => { setAiStrategy(e.target.value); setIsDirty(true); }}
-                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
               />
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                 La llamada única estructurada reduce el consumo de cuota un 75% y sincroniza los tiempos de audio.
@@ -1951,7 +1953,7 @@ export default function AdminSettingsShell({
                     value={geminiModel}
                     options={GEMINI_MODEL_OPTIONS}
                     onChange={(e) => { setGeminiModel(e.target.value); setIsDirty(true); }}
-                    className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                    className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
                   />
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                     Optimizado para devolver las 4 traducciones en una sola respuesta JSON compacta.
@@ -1967,7 +1969,7 @@ export default function AdminSettingsShell({
                     value={geminiTemp}
                     options={TEMPERATURE_OPTIONS}
                     onChange={(e) => { setGeminiTemp(e.target.value); setIsDirty(true); }}
-                    className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                    className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
                   />
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                     Una temperatura baja previene alucinaciones y respeta fielmente el mensaje del ponente.
@@ -1988,7 +1990,7 @@ export default function AdminSettingsShell({
                       value={qwenModel}
                       options={QWEN_MODEL_OPTIONS}
                       onChange={(e) => { setQwenModel(e.target.value); setIsDirty(true); }}
-                      className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                      className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
                     />
                   </div>
 
@@ -2001,7 +2003,7 @@ export default function AdminSettingsShell({
                       value={qwenTemp}
                       options={TEMPERATURE_OPTIONS}
                       onChange={(e) => { setQwenTemp(e.target.value); setIsDirty(true); }}
-                      className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                      className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
                     />
                   </div>
                 </div>
@@ -2016,7 +2018,7 @@ export default function AdminSettingsShell({
                       value={qwenEndpoint}
                       onChange={(e) => { setQwenEndpoint(e.target.value); markKeyTouched('qwenEndpoint'); setIsDirty(true); }}
                       placeholder="http://localhost:11434/v1"
-                      className="w-full h-11 px-4 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                      className="w-full h-11 px-4 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all"
                     />
                   </div>
 
@@ -2029,7 +2031,7 @@ export default function AdminSettingsShell({
                       value={qwenTtsEndpoint}
                       onChange={(e) => { setQwenTtsEndpoint(e.target.value); markKeyTouched('qwenTtsEndpoint'); setIsDirty(true); }}
                       placeholder="http://localhost:8000/v1/audio/speech"
-                      className="w-full h-11 px-4 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                      className="w-full h-11 px-4 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
@@ -2047,7 +2049,7 @@ export default function AdminSettingsShell({
                     value={openaiModel}
                     options={OPENAI_MODEL_OPTIONS}
                     onChange={(e) => { setOpenaiModel(e.target.value); setIsDirty(true); }}
-                    className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                    className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
                   />
                 </div>
 
@@ -2060,7 +2062,7 @@ export default function AdminSettingsShell({
                     value={openaiTemp}
                     options={TEMPERATURE_OPTIONS}
                     onChange={(e) => { setOpenaiTemp(e.target.value); setIsDirty(true); }}
-                    className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                    className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
                   />
                 </div>
               </div>
@@ -2078,7 +2080,7 @@ export default function AdminSettingsShell({
                     value={googleNeuralMode}
                     options={GOOGLE_NEURAL_OPTIONS}
                     onChange={(e) => { setGoogleNeuralMode(e.target.value); setIsDirty(true); }}
-                    className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                    className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
                   />
                 </div>
               </div>
@@ -2102,7 +2104,7 @@ export default function AdminSettingsShell({
                 value={medicalMode ? 'true' : 'false'}
                 options={MEDICAL_MODE_OPTIONS}
                 onChange={(e) => { setMedicalMode(e.target.value === 'true'); setIsDirty(true); }}
-                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer"
+                className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer"
               />
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                 Protege siglas críticas (ECG, SpO2, IAM, TVP) para evitar alteraciones coloquiales.
@@ -2119,7 +2121,7 @@ export default function AdminSettingsShell({
                 options={MEDICAL_SPECIALTY_OPTIONS}
                 onChange={(e) => { setMedicalSpecialty(e.target.value); setIsDirty(true); }}
                 disabled={!medicalMode}
-                className="w-full h-11 px-3.5 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all cursor-pointer disabled:opacity-50"
+                className="w-full h-11 px-3.5 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all cursor-pointer disabled:opacity-50"
               />
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                 Ajusta el priming terminológico del modelo para la jerga del simposio.
@@ -2143,7 +2145,7 @@ export default function AdminSettingsShell({
                 value={customGlossary}
                 onChange={(e) => { setCustomGlossary(e.target.value); setIsDirty(true); }}
                 placeholder="SpO2, ECG, enoxaparina, amiodarona, troponina, IAM, shock cardiogénico, CIE-11..."
-                className="w-full p-4 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all resize-none"
+                className="w-full p-4 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all resize-none"
               />
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-[65ch]">
                 Los términos introducidos se inyectarán como reglas léxicas estrictas en el prompt de traducción simultánea.
@@ -2207,7 +2209,7 @@ export default function AdminSettingsShell({
                     value={deepgramKey}
                     onChange={(e) => { setDeepgramKey(e.target.value); markKeyTouched('deepgram'); setIsDirty(true); }}
                     placeholder={serverFlags.hasDeepgramKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'Clave de Deepgram (Nova-3 y Aura)...'}
-                    className="w-full h-11 pl-4 pr-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                    className="w-full h-11 pl-4 pr-11 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all"
                   />
                   <button
                     type="button"
@@ -2249,7 +2251,7 @@ export default function AdminSettingsShell({
                     value={geminiKey}
                     onChange={(e) => { setGeminiKey(e.target.value); markKeyTouched('gemini'); setIsDirty(true); }}
                     placeholder={serverFlags.hasGeminiKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'AIzaSy... o sk-or-v1-...'}
-                    className="w-full h-11 pl-4 pr-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                    className="w-full h-11 pl-4 pr-11 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all"
                   />
                   <button
                     type="button"
@@ -2291,7 +2293,7 @@ export default function AdminSettingsShell({
                     value={qwenKey}
                     onChange={(e) => { setQwenKey(e.target.value); markKeyTouched('qwen'); setIsDirty(true); }}
                     placeholder={serverFlags.hasQwenKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'sk-or-v1-... o sk-...'}
-                    className="w-full h-11 pl-4 pr-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                    className="w-full h-11 pl-4 pr-11 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all"
                   />
                   <button
                     type="button"
@@ -2333,7 +2335,7 @@ export default function AdminSettingsShell({
                     value={elevenLabsKey}
                     onChange={(e) => { setElevenLabsKey(e.target.value); markKeyTouched('eleven'); setIsDirty(true); }}
                     placeholder={serverFlags.hasElevenLabsKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'xi_api_key...'}
-                    className="w-full h-11 pl-4 pr-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                    className="w-full h-11 pl-4 pr-11 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all"
                   />
                   <button
                     type="button"
@@ -2375,7 +2377,7 @@ export default function AdminSettingsShell({
                     value={openaiKey}
                     onChange={(e) => { setOpenaiKey(e.target.value); markKeyTouched('openai'); setIsDirty(true); }}
                     placeholder={serverFlags.hasOpenAiKey ? 'Configurada en el servidor (.env) — escribe para reemplazar' : 'sk-proj-...'}
-                    className="w-full h-11 pl-4 pr-11 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all"
+                    className="w-full h-11 pl-4 pr-11 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all"
                   />
                   <button
                     type="button"
@@ -2459,11 +2461,6 @@ export default function AdminSettingsShell({
                 </button>
               );
             })}
-          </div>
-
-          <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-zinc-100/60 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-500 dark:text-zinc-400">
-            <Check className="w-4 h-4 text-emerald-500 shrink-0 stroke-[2.5]" />
-            <span>El tema seleccionado se aplica y guarda automáticamente en tu navegador sin necesidad de confirmación manual.</span>
           </div>
         </div>
       )}

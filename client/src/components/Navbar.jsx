@@ -60,7 +60,7 @@ export default function Navbar({
               >
                 <span>{roomId}</span>
                 {hasCopied ? (
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-sans font-medium">¡Copiado!</span>
+                  <span className="text-[10px] text-zinc-700 dark:text-zinc-300 font-sans font-medium">¡Copiado!</span>
                 ) : (
                   <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-sans font-normal">Copiar</span>
                 )}

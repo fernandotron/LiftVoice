@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Copy, Check, ArrowDown, Mic, Volume2 } from 'lucide-react';
+import { Copy, Check, ArrowDown, Mic } from 'lucide-react';
 
 function LiveCaptions({
   transcriptHistory = [],
@@ -295,20 +295,15 @@ function LiveCaptions({
                         <span>
                           {new Date(p.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </span>
-                        {isAnyAudioActiveInParagraph && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full gemini-reading-badge text-[10px] font-semibold animate-pulse shadow-2xs">
-                            <Volume2 className="w-3 h-3" />
-                            <span>Leyendo</span>
-                          </span>
+                        {p.detectedLanguage && (
+                          <>
+                            <span className="text-zinc-400 dark:text-zinc-600 select-none">·</span>
+                            <span>{p.detectedLanguage}</span>
+                          </>
                         )}
                         {p.isAudienceQuestion && (
                           <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-medium text-[9px] border border-blue-200 dark:border-blue-800">
                             Pregunta de {p.attendeeName || 'Audiencia'}
-                          </span>
-                        )}
-                        {p.detectedLanguage && (
-                          <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[9px] font-mono border border-zinc-200 dark:border-zinc-700">
-                            {p.detectedLanguage}
                           </span>
                         )}
                         {(p.engineUsed?.includes('Clinical') || medicalMode) && (
@@ -326,7 +321,7 @@ function LiveCaptions({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                      <div className={`flex items-center gap-1 transition-opacity ${copiedId === p.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'}`}>
                         <button
                           onClick={() => handleCopyParagraph(p)}
                           className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
@@ -334,7 +329,7 @@ function LiveCaptions({
                           aria-label="Copiar texto del párrafo"
                         >
                           {copiedId === p.id ? (
-                            <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                            <Check className="w-3 h-3 text-zinc-700 dark:text-zinc-200" />
                           ) : (
                             <Copy className="w-3 h-3" />
                           )}
@@ -411,16 +406,11 @@ function LiveCaptions({
                       <span>
                         {new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </span>
-                      {isAudioActive && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full gemini-reading-badge text-[10px] font-semibold animate-pulse shadow-2xs">
-                          <Volume2 className="w-3 h-3" />
-                          <span>Leyendo</span>
-                        </span>
-                      )}
                       {item.detectedLanguage && (
-                        <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[9px] font-mono border border-zinc-200 dark:border-zinc-700">
-                          {item.detectedLanguage}
-                        </span>
+                        <>
+                          <span className="text-zinc-400 dark:text-zinc-600 select-none">·</span>
+                          <span>{item.detectedLanguage}</span>
+                        </>
                       )}
                       {(item.engineUsed?.includes('Clinical') || medicalMode) && (
                         <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-mono text-[9px] border border-emerald-200 dark:border-emerald-800">
@@ -438,7 +428,7 @@ function LiveCaptions({
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <div className={`flex items-center gap-1 transition-opacity ${copiedId === item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'}`}>
                       <button
                         onClick={() => handleCopy(item)}
                         className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
@@ -446,7 +436,7 @@ function LiveCaptions({
                         aria-label="Copiar texto del subtítulo"
                       >
                         {copiedId === item.id ? (
-                          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                          <Check className="w-3 h-3 text-zinc-700 dark:text-zinc-200" />
                         ) : (
                           <Copy className="w-3 h-3" />
                         )}

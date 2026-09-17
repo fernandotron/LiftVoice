@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
-  QrCode, Copy, Check, Download, Maximize2, Minimize2, X,
-  Headphones, Globe, Wifi, Smartphone, Loader2, Radio,
+  Copy, Check, Download, Maximize2, Minimize2, X,
+  Headphones, Globe, Loader2, Radio,
   Sparkles, AlertCircle, ShieldAlert
 } from 'lucide-react';
 import CountryFlag from './shared/CountryFlag.jsx';
@@ -341,7 +341,6 @@ export default function QRCodeModal({
         {/* Pie Discreto de Proyección */}
         <footer className="flex items-center justify-between text-xs text-zinc-500 border-t border-white/10 pt-4 w-full max-w-7xl mx-auto shrink-0">
           <div className="flex items-center gap-2">
-            <Wifi className="w-3.5 h-3.5 text-zinc-400" />
             <span>Red Wi-Fi: {effectiveIp}:{typeof window !== 'undefined' && window.location.port ? window.location.port : '5174'}</span>
           </div>
           <span className="text-zinc-500 hidden sm:inline">Presiona Esc para salir del modo proyector</span>
@@ -371,18 +370,13 @@ export default function QRCodeModal({
 
         {/* ── 1. CABECERA DEL MODAL ─────────────────────────────────── */}
         <header className="flex items-center justify-between px-4 sm:px-8 pt-[max(0.875rem,env(safe-area-inset-top,0px))] pb-3.5 sm:py-5 border-b border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shrink-0">
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-2xs shrink-0">
-              <QrCode className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div className="min-w-0">
-              <h2 id="qr-modal-title" className="text-sm sm:text-lg font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
-                Acceso a la Sala • Audiencia
-              </h2>
-              <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                Escaneo instantáneo para sintonizar las cabinas de voz en directo
-              </p>
-            </div>
+          <div className="min-w-0">
+            <h2 id="qr-modal-title" className="text-sm sm:text-lg font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
+              Acceso a la Sala • Audiencia
+            </h2>
+            <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+              Escaneo instantáneo para sintonizar las cabinas de voz en directo
+            </p>
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -443,7 +437,7 @@ export default function QRCodeModal({
                 title="Copiar código de sala"
                 aria-label="Copiar código de sala"
               >
-                {copiedRoomCode ? <Check className="w-3.5 h-3.5 text-emerald-500 stroke-[2.5]" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedRoomCode ? <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 stroke-[2.5]" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
             </div>
 
@@ -463,7 +457,6 @@ export default function QRCodeModal({
                         : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-transparent'
                     }`}
                   >
-                    <Wifi className="w-3.5 h-3.5" />
                     <span>Red Wi-Fi</span>
                   </button>
 
@@ -479,10 +472,8 @@ export default function QRCodeModal({
                         : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-transparent'
                     }`}
                   >
-                    {isGeneratingTunnel ? (
+                    {isGeneratingTunnel && (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Smartphone className="w-3.5 h-3.5" />
                     )}
                     <span>Datos 4G/5G</span>
                   </button>
@@ -548,7 +539,7 @@ export default function QRCodeModal({
             {/* Los 3 Pasos Clave para Asistentes (Timeline Studio 2026) */}
             <div className="space-y-4">
               <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 transition-colors">
-                <div className="w-7 h-7 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                <div className="w-7 h-7 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200/80 dark:border-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                   1
                 </div>
                 <div className="min-w-0">
@@ -562,7 +553,7 @@ export default function QRCodeModal({
               </div>
 
               <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 transition-colors">
-                <div className="w-7 h-7 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                <div className="w-7 h-7 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200/80 dark:border-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                   2
                 </div>
                 <div className="min-w-0">
@@ -576,7 +567,7 @@ export default function QRCodeModal({
               </div>
 
               <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 transition-colors">
-                <div className="w-7 h-7 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                <div className="w-7 h-7 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200/80 dark:border-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                   3
                 </div>
                 <div className="min-w-0">
@@ -609,7 +600,6 @@ export default function QRCodeModal({
             <div className="p-3 rounded-2xl bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-400 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-medium text-zinc-800 dark:text-zinc-200">
-                  <Wifi className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   <span>Wi-Fi local: {effectiveIp}:{typeof window !== 'undefined' && window.location.port ? window.location.port : '5174'}</span>
                 </div>
                 {isLoopback && availableIps.length > 1 && (
@@ -670,7 +660,7 @@ export default function QRCodeModal({
             >
               {copied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-500 stroke-[2.5]" />
+                  <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 stroke-[2.5]" />
                   <span>Enlace copiado</span>
                 </>
               ) : (

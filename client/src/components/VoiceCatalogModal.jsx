@@ -728,7 +728,7 @@ export default function VoiceCatalogModal({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nombre de voz, tono o estilo..."
-                className="w-full h-10 pl-10 pr-4 bg-white dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all shadow-2xs"
+                className="w-full h-10 pl-10 pr-4 bg-transparent dark:bg-zinc-900/80 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all shadow-2xs"
               />
             </div>
 
@@ -879,7 +879,7 @@ export default function VoiceCatalogModal({
                     key={voice.id}
                     className={`group relative p-4 sm:p-5 rounded-3xl border-2 transition-all duration-200 select-none text-left flex flex-col justify-between gap-3 ${
                       isSelected
-                        ? 'border-zinc-900 dark:border-white/80 bg-zinc-100/80 dark:bg-zinc-800/80 shadow-xs ring-1 ring-zinc-400/20 dark:ring-white/20'
+                        ? 'border-zinc-400 dark:border-white/50 bg-zinc-50 dark:bg-white/5 shadow-xs ring-1 ring-zinc-400/20 dark:ring-white/20'
                         : 'border-zinc-200/80 dark:border-white/10 bg-white dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-white/20 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/70 shadow-2xs'
                     }`}
                   >
@@ -907,10 +907,10 @@ export default function VoiceCatalogModal({
                           aria-label={isPlaying ? "Detener muestra" : `Audicionar muestra de ${voice.name}`}
                           className={`relative w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-200 cursor-pointer group/btn ${
                             isPlaying
-                              ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 ring-2 ring-zinc-900/20 dark:ring-white/30 scale-102 shadow-xs'
+                              ? 'bg-zinc-100 dark:bg-white/20 text-zinc-900 dark:text-white border border-zinc-300 dark:border-white/30 ring-2 ring-zinc-300/50 dark:ring-white/20 scale-102 shadow-2xs'
                               : isSelected
-                              ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:scale-105 shadow-xs'
-                              : 'bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:bg-zinc-200 dark:hover:bg-white/15 hover:scale-105'
+                              ? 'bg-zinc-100 dark:bg-white/15 text-zinc-900 dark:text-white border border-zinc-300 dark:border-white/25 hover:scale-105 shadow-2xs'
+                              : 'bg-transparent dark:bg-white/5 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-zinc-100 hover:scale-105 shadow-2xs'
                           }`}
                         >
                           {isPlaying ? (
@@ -969,7 +969,7 @@ export default function VoiceCatalogModal({
                       {/* Indicador de Selección Superior Derecho (Círculo con Check) */}
                       <div className="shrink-0 flex items-center">
                         {isSelected ? (
-                          <div className="w-5 h-5 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 flex items-center justify-center shadow-2xs transition-all animate-fadeIn">
+                          <div className="w-5 h-5 rounded-full bg-zinc-100 dark:bg-white/15 text-zinc-900 dark:text-white border border-zinc-300 dark:border-white/25 flex items-center justify-center shadow-2xs transition-all animate-fadeIn">
                             <Check className="w-3 h-3 stroke-[3]" />
                           </div>
                         ) : (
@@ -999,15 +999,7 @@ export default function VoiceCatalogModal({
           />
 
           <div className="flex items-center gap-2.5 min-w-0">
-            {isDirty ? (
-              <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate">
-                <span>Modificaciones sin guardar</span>
-                <span className="text-zinc-300 dark:text-zinc-700 hidden md:inline">•</span>
-                <span className="hidden md:inline text-xs text-zinc-500 dark:text-zinc-400 font-normal">
-                  Pulsa Guardar cambios para aplicar a las cabinas
-                </span>
-              </div>
-            ) : isSaved ? (
+            {isSaved ? (
               <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">
                 <Check className="w-4 h-4 stroke-[2.5] text-emerald-500 shrink-0" />
                 <span>Voces guardadas y sincronizadas con éxito</span>

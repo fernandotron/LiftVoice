@@ -169,7 +169,7 @@ export default function MobileHeaderMenu({
                 className="w-full flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-[0.98] transition-all cursor-pointer touch-manipulation"
               >
                 {hasCopiedLink ? (
-                  <Check className="w-4.5 h-4.5 text-emerald-500 shrink-0 stroke-[2.5]" />
+                  <Check className="w-4.5 h-4.5 text-zinc-700 dark:text-zinc-300 shrink-0 stroke-[2.5]" />
                 ) : (
                   <Copy className="w-4.5 h-4.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
                 )}

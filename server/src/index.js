@@ -989,10 +989,14 @@ wss.on('connection', (ws, req) => {
           }
           const audioBuffer = Buffer.isBuffer(rawMessage) ? rawMessage : Buffer.from(rawMessage);
           const detectedMime = detectAudioMimeType(audioBuffer, 'audio/webm');
+          const currentRoom = roomManager.getRoom(currentRoomId);
           await aiPipeline.processSpeech({
             roomId: currentRoomId,
             audioBuffer,
-            mimeType: detectedMime
+            mimeType: detectedMime,
+            medicalMode: currentRoom?.config?.medicalMode,
+            medicalSpecialty: currentRoom?.config?.medicalSpecialty,
+            customGlossary: currentRoom?.config?.customGlossary
           });
         }
         return;
@@ -1054,6 +1058,11 @@ wss.on('connection', (ws, req) => {
           }
           
           const currentRoom = roomManager.getRoom(currentRoomId);
+          if (currentRoom && currentRoom.config) {
+            if (msg.medicalMode !== undefined) currentRoom.config.medicalMode = Boolean(msg.medicalMode);
+            if (msg.medicalSpecialty !== undefined) currentRoom.config.medicalSpecialty = msg.medicalSpecialty;
+            if (Array.isArray(msg.customGlossary)) currentRoom.config.customGlossary = msg.customGlossary;
+          }
           const hostHistory = (currentRoom?.transcriptHistory || []).slice(-50);
 
           ws.send(JSON.stringify({
@@ -1062,6 +1071,7 @@ wss.on('connection', (ws, req) => {
             socketId,
             hostKey: result.room?.hostKey || null, // SEC-02: Entregar al host para su reconexión transparente
             isAdmin: Boolean(ws.isAdminSession),
+            medicalMode: Boolean(currentRoom?.config?.medicalMode),
             stats: roomManager.getHostStats(currentRoomId),
             history: hostHistory
           }));

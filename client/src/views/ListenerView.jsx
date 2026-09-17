@@ -493,14 +493,13 @@ export default function ListenerView({
       <div className="fixed inset-0 z-50 w-full h-full flex flex-col items-center justify-center bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6 space-y-4 text-center select-none overflow-hidden animate-fadeIn">
         <Loader2 className="w-8 h-8 text-zinc-800 dark:text-zinc-200 animate-spin" />
         <div className="space-y-2 max-w-xs text-center">
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 tracking-tight">
               Sintonizando sala
             </p>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>{roomId}</span>
-            </div>
+            <p className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
+              {roomId}
+            </p>
           </div>
           <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
             Conectando con la cabina de audio e interpretación en directo...
@@ -541,7 +540,7 @@ export default function ListenerView({
           >
             <span className="truncate">{roomId}</span>
             {hasCopiedLink ? (
-              <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+              <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 flex-shrink-0" />
             ) : (
               <Copy className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-shrink-0" />
             )}
@@ -641,7 +640,7 @@ export default function ListenerView({
             >
               <span>{roomId}</span>
               {hasCopiedLink ? (
-                <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 flex-shrink-0" />
               ) : (
                 <Copy className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-shrink-0" />
               )}
@@ -788,13 +787,13 @@ export default function ListenerView({
                         onClick={() => handleSelectLanguage(lang.code)}
                         className={`p-3 min-w-[44px] min-h-[44px] rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                           isSelected
-                            ? 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-600 ring-1 ring-zinc-400/30 dark:ring-zinc-600/30 shadow-2xs'
-                            : 'bg-white dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/40'
+                            ? 'bg-zinc-50 dark:bg-zinc-800/80 border-zinc-300 dark:border-zinc-600 ring-1 ring-zinc-400/30 dark:ring-zinc-600/30 shadow-2xs'
+                            : 'bg-transparent dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40'
                         }`}
                       >
                         {/* Fila superior: Bandera a la izquierda, Badge a la derecha */}
                         <div className="flex items-center justify-between mb-2.5">
-                          <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60 overflow-hidden shadow-2xs">
+                          <div className="w-7 h-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60 overflow-hidden shadow-2xs">
                             <CountryFlag code={lang.code} className="w-4.5 h-4.5 rounded-full object-cover" />
                           </div>
                           {isSelected ? (
@@ -802,7 +801,7 @@ export default function ListenerView({
                               <Check className="w-4 h-4 stroke-[2.5]" />
                             </span>
                           ) : (
-                            <span className="h-6 px-2 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 text-[10px] font-mono font-medium text-zinc-400 dark:text-zinc-500 inline-flex items-center justify-center">
+                            <span className="h-6 px-2 rounded-full bg-transparent dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 text-[10px] font-mono font-medium text-zinc-400 dark:text-zinc-500 inline-flex items-center justify-center">
                               {lang.code.toUpperCase()}
                             </span>
                           )}
@@ -831,7 +830,7 @@ export default function ListenerView({
               </div>
 
               {/* Latency & Audio state card */}
-              <div className="p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 flex items-center justify-between text-xs shadow-2xs">
+              <div className="p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 flex items-center justify-between text-xs shadow-2xs">
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${
                     isMuted
@@ -859,7 +858,7 @@ export default function ListenerView({
 
               {/* Visualizer indicator if playing and not muted */}
               {isPlayingAudio && !isMuted && (
-                <div className="relative h-11 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 flex items-center justify-between px-3.5 overflow-hidden shadow-2xs select-none">
+                <div className="relative h-11 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 flex items-center justify-between px-3.5 overflow-hidden shadow-2xs select-none">
                   <div className="flex items-center gap-2 min-w-0">
                     <AudioLines className="w-3.5 h-3.5 text-emerald-500 shrink-0 animate-pulse" />
                     <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300 truncate">
@@ -1145,7 +1144,7 @@ export default function ListenerView({
                 {/* Tab Content: Sugerencias */}
                 {activeInspectorTab === 'suggestions' && (
                   <div className="space-y-3 animate-fadeIn">
-                    <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-1.5 shadow-2xs">
+                    <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 space-y-1.5 shadow-2xs">
                       <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
                         Preguntas recomendadas
                       </div>
@@ -1165,7 +1164,7 @@ export default function ListenerView({
                           setQuestionText(phrase);
                           setActiveInspectorTab('actions');
                         }}
-                        className="w-full p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/60 text-left text-xs text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
+                        className="w-full p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 hover:bg-zinc-50/70 dark:hover:bg-zinc-800/60 text-left text-xs text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
                       >
                         &ldquo;{phrase}&rdquo;
                       </button>
@@ -1209,7 +1208,7 @@ export default function ListenerView({
                   return (
                     <div className="space-y-3 animate-fadeIn">
                       {/* Resumen Técnico */}
-                      <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 space-y-2 text-xs shadow-2xs">
+                      <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 space-y-2 text-xs shadow-2xs">
                         <div className="flex items-center justify-between">
                           <span className="text-zinc-500 dark:text-zinc-400">Total Oyentes:</span>
                           <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
@@ -1246,7 +1245,7 @@ export default function ListenerView({
                               value={participantSearch}
                               onChange={(e) => setParticipantSearch(e.target.value)}
                               placeholder="Buscar participante..."
-                              className="w-full h-8 pl-8.5 pr-3 rounded-2xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all"
+                              className="w-full h-8 pl-8.5 pr-3 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-600 transition-all"
                             />
                           </div>
                         )}
@@ -1273,7 +1272,7 @@ export default function ListenerView({
                                 return (
                                   <div
                                     key="host"
-                                    className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 shadow-2xs transition-all"
+                                    className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 shadow-2xs transition-all"
                                   >
                                     <div className="flex items-center gap-3 min-w-0">
                                       <div className="relative shrink-0">
@@ -1304,8 +1303,8 @@ export default function ListenerView({
                                   key={p.id}
                                   className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
                                     isSelf
-                                      ? 'border-zinc-300 dark:border-zinc-700 bg-zinc-200/50 dark:bg-zinc-800/60 shadow-2xs'
-                                      : 'border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-900/80 shadow-2xs'
+                                      ? 'border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/60 shadow-2xs'
+                                      : 'border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/80 shadow-2xs'
                                   }`}
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
@@ -1352,7 +1351,7 @@ export default function ListenerView({
               </div>
 
               {/* Bottom Tip Card (Matching Reference Screenshot 2) */}
-              <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/60 text-xs space-y-1 mt-4 shadow-2xs">
+              <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/60 text-xs space-y-1 mt-4 shadow-2xs">
                 <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
                   <span>Tip de Cabina</span>

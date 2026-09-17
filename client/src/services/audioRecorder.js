@@ -1801,20 +1801,32 @@ class AudioRecorderService {
 
   startLevelMeter() {
     if (!this.analyserNode) return;
-    const dataArray = new Uint8Array(this.analyserNode.frequencyBinCount);
+    const timeData = new Float32Array(this.analyserNode.fftSize);
     let lastNotifyTime = 0;
     let lastLevel = 0;
 
     const update = () => {
       if (!this.isRecording || !this.analyserNode) return;
 
-      this.analyserNode.getByteFrequencyData(dataArray);
-      let sum = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        sum += dataArray[i];
+      // 1. True RMS computation in time domain (Broadcast standard)
+      this.analyserNode.getFloatTimeDomainData(timeData);
+      let sumSquares = 0;
+      for (let i = 0; i < timeData.length; i++) {
+        const s = timeData[i];
+        sumSquares += s * s;
       }
-      const avg = sum / dataArray.length;
-      const newLevel = Math.min(100, Math.round((avg / 120) * 100));
+      const rms = Math.sqrt(sumSquares / timeData.length);
+      // dBFS: range -60 dBFS to 0 dBFS
+      const db = rms > 0.0001 ? Math.round(20 * Math.log10(rms)) : -60;
+
+      // Calibrated quasi-logarithmic perceptual mapping for VU meter:
+      // -60 dB -> 0% | -24 dB -> 50% | -12 dB -> 75% | 0 dB -> 100%
+      let norm = 0;
+      if (db > -60) {
+        norm = Math.min(1, Math.max(0, (db + 60) / 60));
+      }
+      const newLevel = Math.min(100, Math.round(norm * 100));
+      const isClip = db >= -2 || rms >= 0.98;
       this.audioLevel = newLevel;
 
       const now = performance.now();
@@ -1824,17 +1836,12 @@ class AudioRecorderService {
         this.loudVoiceStartTime = null;
       }
 
-      // Throttle React notification to at most ~16 fps (every 60ms) and require significant delta
-      if (now - lastNotifyTime >= 60 && Math.abs(newLevel - lastLevel) >= 3) {
+      // Smooth broadcast update ~25 fps (every 40ms) with significant delta
+      if (now - lastNotifyTime >= 40 && (Math.abs(newLevel - lastLevel) >= 2 || (newLevel === 0 && lastLevel !== 0))) {
         lastNotifyTime = now;
         lastLevel = newLevel;
         this.audioLevel = newLevel;
-        this.notifyLevel(newLevel);
-      } else if (newLevel === 0 && lastLevel !== 0 && now - lastNotifyTime >= 60) {
-        lastNotifyTime = now;
-        lastLevel = 0;
-        this.audioLevel = 0;
-        this.notifyLevel(0);
+        this.notifyLevel(newLevel, { pct: newLevel, db, isClip, rms });
       }
 
       this.animationFrame = requestAnimationFrame(update);
@@ -1859,9 +1866,14 @@ class AudioRecorderService {
     return () => this.onLevelCallbacks.delete(cb);
   }
 
-  notifyLevel(level) {
+  notifyLevel(level, meta = null) {
+    const metaObj = meta || {
+      pct: level,
+      db: level > 0 ? Math.round(-60 + (level / 100) * 60) : -60,
+      isClip: level >= 90
+    };
     for (const cb of this.onLevelCallbacks) {
-      try { cb(level); } catch (e) {}
+      try { cb(level, metaObj); } catch (e) {}
     }
   }
 

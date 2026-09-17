@@ -1,9 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  ChevronRight, Home, Sun, Moon, Monitor, Copy, Check,
-  PlusCircle, QrCode, Sparkles, Headphones, Settings, LogOut
-} from 'lucide-react';
+import { ChevronRight, Check } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 
 /**
@@ -26,20 +23,6 @@ export function MenuLinesIcon({ className = "w-4.5 h-4.5" }) {
   );
 }
 
-/**
- * Mapeo inteligente de iconos según la etiqueta de la opción extra.
- */
-function getExtraItemIcon(label = '') {
-  const l = label.toLowerCase();
-  if (l.includes('qr')) return QrCode;
-  if (l.includes('resumen')) return Sparkles;
-  if (l.includes('voces') || l.includes('catálogo') || l.includes('catalogo')) return Headphones;
-  if (l.includes('ajustes') || l.includes('configuración') || l.includes('configuracion')) return Settings;
-  if (l.includes('crear') || l.includes('sala')) return PlusCircle;
-  if (l.includes('salir') || l.includes('cerrar')) return LogOut;
-  return Settings;
-}
-
 export default function DesktopHeaderMenu({
   onExit = () => {},
   hasCopiedLink = false,
@@ -57,7 +40,7 @@ export default function DesktopHeaderMenu({
   const submenuRef = useRef(null);
   const themeCloseTimer = useRef(null);
 
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   const cancelThemeClose = useCallback(() => {
     if (themeCloseTimer.current) {
@@ -80,7 +63,7 @@ export default function DesktopHeaderMenu({
     }
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    const MENU_WIDTH = 250;
+    const MENU_WIDTH = 210;
     const padding = 8;
 
     let left = rect.left;
@@ -103,7 +86,7 @@ export default function DesktopHeaderMenu({
     if (!target) return;
     const rect = target.getBoundingClientRect();
     const panelRect = menuRef.current?.getBoundingClientRect();
-    const SUBMENU_WIDTH = 180;
+    const SUBMENU_WIDTH = 140;
     const padding = 8;
 
     const panelRight = panelRect ? panelRect.right : rect.right;
@@ -198,7 +181,7 @@ export default function DesktopHeaderMenu({
           ref={menuRef}
           role="menu"
           aria-label="Menú de opciones"
-          className="fixed z-[99999] min-w-[230px] max-w-[280px] w-max p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)] border border-black/5 dark:border-white/10 overflow-hidden animate-fadeIn select-none text-left"
+          className="fixed z-[99999] min-w-[200px] max-w-[250px] w-max p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)] border border-black/5 dark:border-white/10 overflow-hidden animate-fadeIn select-none text-left"
           style={{
             top: `${menuPos.top}px`,
             left: `${menuPos.left}px`
@@ -215,9 +198,8 @@ export default function DesktopHeaderMenu({
                 onExit();
               }}
               onMouseEnter={handleCloseThemeWithGrace}
-              className="flex w-full items-center gap-3 p-2 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5 transition-colors focus:outline-none cursor-pointer"
+              className="flex w-full items-center px-3 py-2 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5 transition-colors focus:outline-none cursor-pointer"
             >
-              <Home className="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
               <span>Volver al inicio</span>
             </button>
 
@@ -231,20 +213,13 @@ export default function DesktopHeaderMenu({
               onClick={toggleThemeSubmenu}
               onMouseEnter={handleOpenThemeSubmenu}
               onMouseLeave={handleCloseThemeWithGrace}
-              className={`flex w-full items-center justify-between gap-3 p-2 rounded-xl text-sm font-medium transition-colors focus:outline-none cursor-pointer ${
+              className={`flex w-full items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-colors focus:outline-none cursor-pointer ${
                 isThemeSubmenuOpen
                   ? 'bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white'
                   : 'text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5'
               }`}
             >
-              <span className="flex items-center gap-3">
-                {resolvedTheme === 'dark' ? (
-                  <Moon className="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
-                ) : (
-                  <Sun className="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
-                )}
-                <span>Tema</span>
-              </span>
+              <span>Tema</span>
               <ChevronRight className={`w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 flex-shrink-0 transition-transform duration-150 ${isThemeSubmenuOpen ? 'rotate-90 sm:rotate-0' : ''}`} />
             </button>
 
@@ -257,13 +232,8 @@ export default function DesktopHeaderMenu({
                 closeAll();
               }}
               onMouseEnter={handleCloseThemeWithGrace}
-              className="flex w-full items-center gap-3 p-2 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5 transition-colors focus:outline-none cursor-pointer"
+              className="flex w-full items-center px-3 py-2 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5 transition-colors focus:outline-none cursor-pointer"
             >
-              {hasCopiedLink ? (
-                <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-              ) : (
-                <Copy className="w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
-              )}
               <span>{hasCopiedLink ? '¡Enlace copiado!' : 'Copiar vínculo de sala'}</span>
             </button>
           </div>
@@ -274,7 +244,6 @@ export default function DesktopHeaderMenu({
               <div className="border-t border-zinc-200 dark:border-white/10 my-1" />
               <div role="group" className="space-y-0.5">
                 {extraItems.map((item, idx) => {
-                  const ItemIcon = getExtraItemIcon(item.label);
                   const isDestructive = item.destructive || item.label.toLowerCase().includes('cerrar') || item.label.toLowerCase().includes('salir');
                   return (
                     <button
@@ -286,13 +255,12 @@ export default function DesktopHeaderMenu({
                         item.onClick();
                       }}
                       onMouseEnter={handleCloseThemeWithGrace}
-                      className={`flex w-full items-center gap-3 p-2 rounded-xl text-sm font-medium transition-colors focus:outline-none cursor-pointer ${
+                      className={`flex w-full items-center px-3 py-2 rounded-xl text-sm font-medium transition-colors focus:outline-none cursor-pointer ${
                         isDestructive
                           ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10'
                           : 'text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100/70 dark:hover:bg-white/5'
                       }`}
                     >
-                      <ItemIcon className={`w-4 h-4 flex-shrink-0 ${isDestructive ? 'text-red-600 dark:text-red-400' : 'text-zinc-500 dark:text-zinc-400'}`} />
                       <span className="truncate">{item.label}</span>
                     </button>
                   );
@@ -310,7 +278,7 @@ export default function DesktopHeaderMenu({
           ref={submenuRef}
           role="menu"
           aria-label="Seleccionar tema"
-          className="fixed z-[100000] min-w-[170px] p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-[0_8px_24px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] border border-black/5 dark:border-white/10 overflow-hidden animate-fadeIn select-none text-left"
+          className="fixed z-[100000] min-w-[140px] p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-[0_8px_24px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] border border-black/5 dark:border-white/10 overflow-hidden animate-fadeIn select-none text-left"
           style={{
             top: `${themeSubmenuPos.top}px`,
             left: `${themeSubmenuPos.left}px`
@@ -320,11 +288,10 @@ export default function DesktopHeaderMenu({
           onClick={(e) => e.stopPropagation()}
         >
           {[
-            { value: 'light', label: 'Claro', icon: Sun },
-            { value: 'dark', label: 'Oscuro', icon: Moon },
-            { value: 'system', label: 'Sistema', icon: Monitor },
+            { value: 'light', label: 'Claro' },
+            { value: 'dark', label: 'Oscuro' },
+            { value: 'system', label: 'Sistema' },
           ].map((opt) => {
-            const OptIcon = opt.icon;
             const isSelected = theme === opt.value;
             return (
               <button
@@ -336,16 +303,13 @@ export default function DesktopHeaderMenu({
                   setTheme(opt.value);
                   closeAll();
                 }}
-                className={`w-full flex items-center justify-between gap-3 p-2 text-sm rounded-xl transition-colors cursor-pointer hover:bg-zinc-100/70 dark:hover:bg-white/5 ${
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-xl transition-colors cursor-pointer hover:bg-zinc-100/70 dark:hover:bg-white/5 ${
                   isSelected
                     ? 'text-zinc-900 dark:text-white font-semibold'
                     : 'text-zinc-700 dark:text-zinc-300 font-medium'
                 }`}
               >
-                <span className="flex items-center gap-2.5">
-                  <OptIcon className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'}`} />
-                  <span>{opt.label}</span>
-                </span>
+                <span>{opt.label}</span>
                 {isSelected && (
                   <Check className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100 flex-shrink-0 stroke-[2.5]" />
                 )}

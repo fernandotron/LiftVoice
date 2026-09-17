@@ -43,32 +43,10 @@ export default function AdminStickyFooter({
       >
         {/* Left: System Status & Dirty State */}
         <div className="flex items-center gap-2.5 min-w-0">
-          {isDirty ? (
-            <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-amber-600 dark:text-amber-400 truncate">
-              <span className="flex h-2 w-2 relative shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-              </span>
-              <span>Modificaciones sin guardar</span>
-              {isPage && (
-                <>
-                  <span className="hidden md:inline text-zinc-300 dark:text-zinc-700 select-none">/</span>
-                  <span className="hidden md:inline text-xs text-zinc-500 dark:text-zinc-400 font-normal">
-                    Aplica los cambios para sincronizarlos en vivo
-                  </span>
-                </>
-              )}
-            </div>
-          ) : isSaved ? (
+          {isSaved && (
             <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 truncate">
               <Check className="w-4 h-4 stroke-[2.5] shrink-0" />
               <span>{savedMessage || 'Ajustes guardados correctamente'}</span>
-            </div>
-          ) : (
-            <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 truncate">
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">LiftVoice Studio</span>
-              <span className="text-zinc-300 dark:text-zinc-700 select-none hidden sm:inline">/</span>
-              <span className="hidden sm:inline">Configuración sincronizada</span>
             </div>
           )}
         </div>
@@ -81,7 +59,7 @@ export default function AdminStickyFooter({
               onClick={onResetDefaults}
               disabled={isSaving || isResetting}
               title={resetLabel ? `Restablecer ${resetLabel} a los valores recomendados por defecto` : "Restablecer a los valores recomendados por defecto"}
-              className="flex-1 sm:flex-initial h-12 sm:h-10 px-4 sm:px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-amber-500/10 hover:border-amber-500/30 hover:text-amber-600 dark:hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none text-zinc-600 dark:text-zinc-400 text-xs sm:text-sm font-semibold flex items-center justify-center transition-all cursor-pointer active:scale-[0.99] sm:active:scale-95 shadow-2xs shrink-0 whitespace-nowrap"
+              className="flex-1 sm:flex-initial h-12 sm:h-10 px-4 sm:px-4 rounded-full sm:rounded-2xl border border-zinc-200 dark:border-white/10 bg-transparent dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 hover:border-zinc-300 dark:hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none text-zinc-600 dark:text-zinc-400 text-xs sm:text-sm font-semibold flex items-center justify-center transition-all cursor-pointer active:scale-[0.99] sm:active:scale-95 shadow-2xs shrink-0 whitespace-nowrap"
             >
               {isResetting ? (
                 <span>Restableciendo...</span>
@@ -95,7 +73,7 @@ export default function AdminStickyFooter({
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 sm:flex-initial h-12 sm:h-10 px-4 sm:px-4 rounded-full sm:rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-semibold flex items-center justify-center transition-all cursor-pointer active:scale-[0.99] sm:active:scale-95 shadow-2xs whitespace-nowrap"
+              className="flex-1 sm:flex-initial h-12 sm:h-10 px-4 sm:px-4 rounded-full sm:rounded-2xl border border-zinc-200 dark:border-white/10 bg-transparent dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-semibold flex items-center justify-center transition-all cursor-pointer active:scale-[0.99] sm:active:scale-95 shadow-2xs whitespace-nowrap"
             >
               Descartar
             </button>

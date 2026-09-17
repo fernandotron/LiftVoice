@@ -42,7 +42,7 @@ export default function MasterBroadcastDock({
     if (isToggling) return;
     try {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(isBroadcasting ? 25 : [20, 40, 20]);
+        navigator.vibrate(isBroadcasting ? 28 : [18, 35, 22]);
       }
     } catch (e) {}
     onToggleBroadcast();
@@ -88,13 +88,13 @@ export default function MasterBroadcastDock({
           <Settings2 className="w-5 h-5" strokeWidth={1.6} />
         </button>
 
-        {/* Centro: Master Broadcast Button con estado activo en Rose 600 Pulse */}
-        <div className="relative inline-flex items-center justify-center">
+        {/* Centro: Master Broadcast Button — Dynamic Morphing Capsule 2026 */}
+        <div className="relative inline-flex items-center justify-center shrink-0">
           {isBroadcasting && (
             <div
               ref={haloRef}
-              className="absolute -inset-2 rounded-full bg-rose-500/20 pointer-events-none transition-transform duration-75"
-              style={{ transform: 'scale(1)', opacity: 0.5, willChange: 'transform, opacity' }}
+              className="absolute -inset-2 rounded-full bg-rose-500/20 pointer-events-none transition-transform duration-75 will-change-transform"
+              style={{ transform: 'scale(1)', opacity: 0.5 }}
             />
           )}
 
@@ -102,26 +102,36 @@ export default function MasterBroadcastDock({
             type="button"
             onClick={handleBroadcastClick}
             disabled={isToggling}
-            className={`relative h-12 px-5 sm:px-6 rounded-full font-medium text-xs tracking-tight flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer active:scale-95 touch-manipulation select-none whitespace-nowrap min-w-[110px] ${
-              isToggling ? 'opacity-70 cursor-wait' : ''
-            } ${
+            className={`relative h-12 rounded-full font-medium text-xs tracking-tight flex items-center justify-center shadow-xs cursor-pointer active:scale-95 touch-manipulation select-none overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[width,background-color] ${
               isBroadcasting
-                ? 'bg-rose-600 text-white border border-transparent animate-pulse shadow-lg shadow-rose-600/30'
-                : 'bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950'
-            }`}
+                ? 'w-[124px] px-4 bg-rose-600 text-white border border-transparent shadow-lg shadow-rose-600/30'
+                : 'w-12 px-0 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 shadow-md ring-2 ring-zinc-950/10 dark:ring-white/20'
+            } ${isToggling ? 'opacity-70 cursor-wait' : ''}`}
             aria-label={isBroadcasting ? 'Detener emisión en vivo' : 'Comenzar a emitir en vivo'}
+            title={isBroadcasting ? 'Detener emisión en vivo' : 'Comenzar a emitir en vivo'}
           >
-            {isBroadcasting ? (
-              <>
-                <Square className="w-3.5 h-3.5 fill-current text-white" />
-                <span>Detener</span>
-              </>
-            ) : (
-              <>
-                <Mic className="w-4 h-4" strokeWidth={1.6} />
-                <span>Emitir</span>
-              </>
-            )}
+            {/* Contenido en Estado ACTIVO (Cápsula: Stop Icon + Detener) */}
+            <div 
+              className={`flex items-center justify-center gap-2 whitespace-nowrap transition-all duration-200 ease-out ${
+                isBroadcasting 
+                  ? 'opacity-100 scale-100 delay-75' 
+                  : 'opacity-0 scale-75 pointer-events-none absolute'
+              }`}
+            >
+              <Square className="w-3.5 h-3.5 fill-current text-white shrink-0" />
+              <span className="font-semibold tracking-wide">Detener</span>
+            </div>
+
+            {/* Contenido en Estado REPOSO (Círculo: Mic Icon centrado) */}
+            <div 
+              className={`flex items-center justify-center transition-all duration-150 ease-out ${
+                !isBroadcasting 
+                  ? 'opacity-100 scale-100' 
+                  : 'opacity-0 scale-75 pointer-events-none absolute'
+              }`}
+            >
+              <Mic className="w-5 h-5 shrink-0" strokeWidth={1.8} />
+            </div>
           </button>
         </div>
 

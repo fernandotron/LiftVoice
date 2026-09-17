@@ -81,8 +81,8 @@ export default function LanguageBottomSheet({
               onClick={() => handleSelect(lang.code)}
               className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all active:scale-[0.99] cursor-pointer ${
                 isSelected
-                  ? 'bg-zinc-100/90 dark:bg-zinc-800/90 border-zinc-400/80 dark:border-zinc-600 ring-1 ring-zinc-400/40 dark:ring-zinc-600/40 shadow-xs'
-                  : 'bg-zinc-50/50 dark:bg-zinc-800/30 border-zinc-200/70 dark:border-zinc-800/80 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-100/70 dark:hover:bg-zinc-800/60'
+                  ? 'bg-zinc-50 dark:bg-zinc-800/90 border-zinc-400/80 dark:border-zinc-600 ring-1 ring-zinc-400/40 dark:ring-zinc-600/40 shadow-xs'
+                  : 'bg-transparent dark:bg-zinc-800/30 border-zinc-200/70 dark:border-zinc-800/80 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/60'
               }`}
               aria-pressed={isSelected}
             >
@@ -94,7 +94,7 @@ export default function LanguageBottomSheet({
                       {lang.nativeName}
                     </span>
                     {isSelected && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-600">
                         Activo
                       </span>
                     )}

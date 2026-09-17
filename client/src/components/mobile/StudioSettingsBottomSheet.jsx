@@ -1,17 +1,13 @@
-import React, { useEffect, useRef } from 'react';
-import { X, Check, Mic, SlidersHorizontal, Activity } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, Check, Mic, ChevronDown } from 'lucide-react';
 import CountryFlag from '../shared/CountryFlag.jsx';
-import ElevenSlider from '../ElevenSlider.jsx';
-import SelectDropdown from '../shared/SelectDropdown.jsx';
 import { SPEAKER_LANGUAGES } from '../../views/HostView.jsx';
 
 /**
  * StudioSettingsBottomSheet — LiftVoice Studio 2026
- * Panel deslizable ergonómico para la configuración del estudio móvil:
+ * Panel deslizable ultra compacto y ergonómico para móvil:
  * - Idioma del ponente (STT) con opción Auto
- * - Selector de micrófono de entrada
- * - Deslizadores de locución y cadencia
- * - Vúmetro reactivo de audio en tiempo real
+ * - Selector de micrófono de entrada inline acordeón (Zero-Popover)
  */
 export default function StudioSettingsBottomSheet({
   isOpen = false,
@@ -21,20 +17,16 @@ export default function StudioSettingsBottomSheet({
   onToggleAutoLanguage = () => {},
   devices = [],
   selectedDevice = 'default',
-  onChangeDevice = () => {},
-  speechRate = 1.0,
-  onChangeSpeechRate = () => {},
-  decalageValue = 20,
-  onChangeDecalage = () => {},
-  isBroadcasting = false,
-  audioRecorderService = null
+  onChangeDevice = () => {}
 }) {
-  const meterBarRef = useRef(null);
-  const meterTextRef = useRef(null);
+  const [isMicExpanded, setIsMicExpanded] = useState(false);
 
   // Prevenir scroll en body al estar abierto y soportar Escape
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setIsMicExpanded(false);
+      return;
+    }
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -48,21 +40,6 @@ export default function StudioSettingsBottomSheet({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
-
-  // Vúmetro reactivo de nivel de micrófono
-  useEffect(() => {
-    if (!isOpen || !audioRecorderService?.onAudioLevel) return;
-    const unsub = audioRecorderService.onAudioLevel((lvl) => {
-      const normalized = Math.min(100, Math.max(0, lvl));
-      if (meterBarRef.current) {
-        meterBarRef.current.style.transform = `scaleX(${normalized / 100})`;
-      }
-      if (meterTextRef.current) {
-        meterTextRef.current.textContent = `${Math.round(normalized)}%`;
-      }
-    });
-    return () => unsub();
-  }, [isOpen, audioRecorderService]);
 
   if (!isOpen) return null;
 
@@ -89,7 +66,7 @@ export default function StudioSettingsBottomSheet({
               Ajustes de Estudio
             </h3>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              Idioma del ponente, micrófono y locución
+              Idioma del ponente y micrófono de entrada
             </p>
           </div>
 
@@ -103,8 +80,8 @@ export default function StudioSettingsBottomSheet({
           </button>
         </div>
 
-        {/* Contenido Scrolleable Táctil */}
-        <div className="p-5 space-y-4 overflow-y-auto overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] no-scrollbar">
+        {/* Contenido Táctil Compacto */}
+        <div className="p-5 space-y-4 overflow-y-auto overscroll-contain pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] no-scrollbar">
 
           {/* 1. SECCIÓN: IDIOMA DEL PONENTE */}
           <div className="space-y-2">
@@ -166,8 +143,8 @@ export default function StudioSettingsBottomSheet({
                     onClick={() => onSelectSourceLanguage(lang.langCode)}
                     className={`p-3 min-h-[58px] rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between select-none active:scale-[0.98] ${
                       isSelected
-                        ? 'bg-zinc-100 dark:bg-zinc-850 border-zinc-400 dark:border-zinc-600 ring-1 ring-zinc-400/30 dark:ring-zinc-600/40 shadow-xs'
-                        : 'bg-zinc-50/50 dark:bg-zinc-900/40 border-zinc-200/80 dark:border-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
+                        ? 'bg-zinc-50 dark:bg-zinc-850 border-zinc-400 dark:border-zinc-600 ring-1 ring-zinc-400/30 dark:ring-zinc-600/40 shadow-xs'
+                        : 'bg-transparent dark:bg-zinc-900/40 border-zinc-200/80 dark:border-zinc-800/80 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/60'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -179,7 +156,7 @@ export default function StudioSettingsBottomSheet({
                           <Check className="w-3 h-3 stroke-[3]" />
                         </span>
                       ) : (
-                        <span className="h-5 px-2 rounded-full bg-zinc-200/70 dark:bg-zinc-800 border border-zinc-300/60 dark:border-zinc-700/60 text-[10px] font-mono font-bold text-zinc-500 dark:text-zinc-400 inline-flex items-center justify-center">
+                        <span className="h-5 px-2 rounded-full bg-transparent dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/60 text-[10px] font-mono font-bold text-zinc-500 dark:text-zinc-400 inline-flex items-center justify-center">
                           {lang.code.toUpperCase()}
                         </span>
                       )}
@@ -199,76 +176,119 @@ export default function StudioSettingsBottomSheet({
             </div>
           </div>
 
-          {/* 2. SECCIÓN: MICRÓFONO DE ENTRADA */}
-          <div className="space-y-1.5 pt-1">
-            <label htmlFor="mobile-host-mic-select" className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">
-              Micrófono de Entrada
-            </label>
-            <SelectDropdown
-              id="mobile-host-mic-select"
-              aria-label="Micrófono de Entrada"
-              value={selectedDevice}
-              options={[
-                { value: 'default', label: 'Micrófono Predeterminado' },
-                ...devices
-                  .filter(d => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications')
-                  .map((d, i) => ({
-                    value: d.deviceId,
-                    label: d.label || `Micrófono ${i + 1}`
-                  }))
-              ]}
-              onChange={async (_, val) => {
-                onChangeDevice(val || 'default');
-              }}
-            />
-          </div>
+          {/* 2. SECCIÓN: MICRÓFONO DE ENTRADA (Inline Accordion 2026 — Zero-Popover) */}
+          {(() => {
+            const micOptions = [
+              { value: 'default', label: 'Micrófono Predeterminado' },
+              ...devices
+                .filter(d => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications')
+                .map((d, i) => ({
+                  value: d.deviceId,
+                  label: d.label || `Micrófono ${i + 1}`
+                }))
+            ];
+            const selectedOption = micOptions.find(o => o.value === selectedDevice) || micOptions[0];
+            const hasMultiple = micOptions.length > 1;
 
-          {/* 3. SECCIÓN: VÚMETRO REACTIVO */}
-          <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/60 space-y-2 shadow-2xs">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${isBroadcasting ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">
-                  {isBroadcasting ? 'Señal en directo' : 'Nivel de entrada (Prueba)'}
-                </span>
+            return (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">
+                    Micrófono de Entrada
+                  </span>
+                  {hasMultiple && (
+                    <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+                      {micOptions.length} disponibles
+                    </span>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-zinc-200/90 dark:border-zinc-800 bg-transparent dark:bg-zinc-900/50 overflow-hidden transition-all shadow-2xs">
+                  {/* Tarjeta Disparadora Principal */}
+                  <button
+                    type="button"
+                    onClick={() => hasMultiple && setIsMicExpanded(!isMicExpanded)}
+                    disabled={!hasMultiple}
+                    className="w-full p-3.5 flex items-center justify-between text-left transition-colors cursor-pointer select-none disabled:cursor-default"
+                    aria-expanded={isMicExpanded}
+                    aria-label={`Micrófono activo: ${selectedOption.label}. ${hasMultiple ? 'Toca para cambiar de micrófono.' : ''}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                      <div className="w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/60 flex items-center justify-center shrink-0 shadow-2xs">
+                        <Mic className="w-4 h-4 text-zinc-800 dark:text-zinc-200" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                          {selectedOption.label}
+                        </div>
+                        <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono truncate mt-0.5">
+                          {hasMultiple
+                            ? (isMicExpanded ? 'Selecciona un dispositivo:' : 'Dispositivo activo · Toca para cambiar')
+                            : 'Dispositivo activo único'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {hasMultiple && (
+                      <div className="w-7 h-7 rounded-full bg-white dark:bg-zinc-800/80 border border-zinc-200/70 dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-400 dark:text-zinc-500 transition-all">
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isMicExpanded ? 'rotate-180 text-zinc-900 dark:text-white' : ''}`} />
+                      </div>
+                    )}
+                  </button>
+
+                  {/* Acordeón de Dispositivos Inline */}
+                  {hasMultiple && (
+                    <div className={`grid transition-all duration-200 ease-out ${
+                      isMicExpanded
+                        ? 'grid-rows-[1fr] opacity-100 border-t border-zinc-200/80 dark:border-zinc-800/80'
+                        : 'grid-rows-[0fr] opacity-0 border-t-0'
+                    }`}>
+                      <div className="overflow-hidden">
+                        <div className="p-2 space-y-1 bg-white/70 dark:bg-zinc-900/60">
+                          {micOptions.map((option) => {
+                            const isSelected = selectedDevice === option.value;
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => {
+                                  onChangeDevice(option.value);
+                                  setIsMicExpanded(false);
+                                }}
+                                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer select-none active:scale-[0.99] ${
+                                  isSelected
+                                    ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white font-semibold shadow-2xs ring-1 ring-zinc-300/60 dark:ring-zinc-700/60'
+                                    : 'text-zinc-600 dark:text-zinc-400 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-850 hover:text-zinc-900 dark:hover:text-zinc-200'
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1 pr-3">
+                                  <span className={`text-xs block truncate ${
+                                    isSelected
+                                      ? 'font-bold text-zinc-950 dark:text-white'
+                                      : 'font-medium text-zinc-700 dark:text-zinc-300'
+                                  }`}>
+                                    {option.label}
+                                  </span>
+                                </div>
+
+                                {isSelected ? (
+                                  <span className="w-5 h-5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 inline-flex items-center justify-center shrink-0 shadow-2xs">
+                                    <Check className="w-3 h-3 stroke-[3]" />
+                                  </span>
+                                ) : (
+                                  <span className="w-4 h-4 rounded-full border border-zinc-300/80 dark:border-zinc-700 shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-              <span ref={meterTextRef} className="font-mono font-bold text-xs text-zinc-900 dark:text-zinc-100 tabular-nums">0%</span>
-            </div>
-            <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                ref={meterBarRef}
-                className="h-full w-full bg-emerald-500 rounded-full origin-left will-change-transform scale-x-0"
-                style={{ transition: 'transform 0.05s linear' }}
-              />
-            </div>
-          </div>
-
-          {/* 4. SECCIÓN: AJUSTES DE LOCUCIÓN */}
-          <div className="pt-1 space-y-3.5">
-            <ElevenSlider
-              label="Velocidad de Locución"
-              value={speechRate}
-              min={0.7}
-              max={1.5}
-              step={0.05}
-              leftLabel="Más lento"
-              rightLabel="Más rápido"
-              formatValue={(val) => `${val.toFixed(2)}x`}
-              onChange={onChangeSpeechRate}
-            />
-
-            <ElevenSlider
-              label="Cadencia / Décalage de Traducción"
-              value={decalageValue}
-              min={0}
-              max={100}
-              step={5}
-              leftLabel="Rápido (3s)"
-              rightLabel="Ponencia (6s)"
-              formatValue={(val) => (val < 40 ? 'Ágil' : 'Ponencia')}
-              onChange={onChangeDecalage}
-            />
-          </div>
+            );
+          })()}
 
         </div>
       </div>

@@ -487,8 +487,8 @@ export default function RoomsSection({
                     >
                       {copiedId === selectedRoom.roomId ? (
                         <>
-                          <Check className="w-4 h-4 text-emerald-500" />
-                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Copiado</span>
+                          <Check className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+                          <span className="text-zinc-800 dark:text-zinc-200 font-semibold">Copiado</span>
                         </>
                       ) : (
                         <>
@@ -708,7 +708,7 @@ export default function RoomsSection({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar sala por título, código o anfitrión..."
-            className="w-full h-11 pl-10 pr-9 text-xs sm:text-sm border border-zinc-200/80 dark:border-white/10 rounded-2xl bg-zinc-100/70 dark:bg-white/5 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-white/20 transition-all placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+            className="w-full h-11 pl-10 pr-9 text-xs sm:text-sm border border-zinc-200 dark:border-white/10 rounded-2xl bg-transparent dark:bg-white/5 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
           />
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
           {searchQuery && (
@@ -820,7 +820,7 @@ export default function RoomsSection({
                             className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-0.5 cursor-pointer"
                             title="Copiar enlace de invitación"
                           >
-                            {copiedId === room.roomId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                            {copiedId === room.roomId ? <Check className="w-3 h-3 text-zinc-700 dark:text-zinc-300" /> : <Copy className="w-3 h-3" />}
                           </button>
                         </div>
                       </div>

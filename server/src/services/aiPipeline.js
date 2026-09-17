@@ -669,7 +669,7 @@ export class AIPipeline {
         targets: targetLangs
       });
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TRANSLATION_TIMEOUT')), 8500)
+        setTimeout(() => reject(new Error('TRANSLATION_TIMEOUT')), 14000)
       );
       transResult = await Promise.race([transPromise, timeoutPromise]);
     } catch (err) {
@@ -688,6 +688,15 @@ export class AIPipeline {
     }
     const transLatency = Date.now() - transStart;
     const detectedLang = transResult.detectedSource ? normalizePipelineLang(transResult.detectedSource) : (sourceLanguage !== 'auto' ? sourceLanguage : 'es');
+    const isMed = Boolean(
+      transResult.isMedical !== undefined
+        ? transResult.isMedical
+        : (medicalMode !== undefined
+          ? medicalMode
+          : (room?.config?.medicalMode !== undefined
+            ? room.config.medicalMode
+            : translationService.medicalMode))
+    );
 
     const transcriptItem = {
       id: packetId,
@@ -696,6 +705,7 @@ export class AIPipeline {
       originalText: spokenText,
       detectedLanguage: detectedLang,
       engineUsed: transResult.engineUsed || 'Google Neural',
+      medicalMode: isMed,
       sttEngineUsed: sttEngineUsed || 'Deepgram Nova-3',
       sttModel: sttModelUsed || 'nova-3',
       translations: transResult.translations,
@@ -837,7 +847,8 @@ export class AIPipeline {
                   mimeType: audioResult.mimeType || 'audio/mpeg',
                   duration: audioResult.durationMs,
                   latencyMs: Date.now() - lastBurstArrival,
-                  timestamp: Date.now()
+                  timestamp: Date.now(),
+                  medicalMode: isMed
                 });
               }
             } catch (err) {
@@ -959,7 +970,8 @@ export class AIPipeline {
                     duration: audioResult.durationMs,
                     latencyMs: Date.now() - lastBurstArrival,
                     timestamp: Date.now(),
-                    isHealed: true
+                    isHealed: true,
+                    medicalMode: isMed
                   });
                   console.log(`[AIPipeline] 🩹 [Room: ${roomId}] Cabina '${lang}' auto-sanada y difundida con éxito (<${Date.now() - lastBurstArrival}ms).`);
                 }

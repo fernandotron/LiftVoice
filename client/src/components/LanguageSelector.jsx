@@ -64,8 +64,8 @@ export default function LanguageSelector({
                 onClick={() => onSelectLanguage(lang.code)}
                 className={`relative group p-4 sm:p-4.5 rounded-2xl text-left transition-all duration-150 cursor-pointer overflow-hidden border ${
                   isSelected
-                    ? 'bg-zinc-100/90 dark:bg-zinc-800/90 border-zinc-400/80 dark:border-zinc-600 ring-1 ring-zinc-400/40 dark:ring-zinc-600/40 text-zinc-900 dark:text-zinc-100 shadow-xs'
-                    : 'bg-white dark:bg-zinc-900/70 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
+                    ? 'bg-zinc-50 dark:bg-zinc-800/90 border-zinc-400/80 dark:border-zinc-600 ring-1 ring-zinc-400/40 dark:ring-zinc-600/40 text-zinc-900 dark:text-zinc-100 shadow-xs'
+                    : 'bg-transparent dark:bg-zinc-900/70 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/60'
                 }`}
               >
                 {/* Top Row: Flag & Selection / Listener Count */}
@@ -77,7 +77,7 @@ export default function LanguageSelector({
                       <Check className="w-3 h-3 stroke-[3]" />
                     </span>
                   ) : listenerCount > 0 ? (
-                    <span className="flex-shrink-0 text-xs px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 font-mono">
+                    <span className="flex-shrink-0 text-xs px-2 py-0.5 rounded-full bg-transparent dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 font-mono">
                       {listenerCount} {listenerCount === 1 ? 'oyente' : 'oyentes'}
                     </span>
                   ) : null}
@@ -125,8 +125,8 @@ export default function LanguageSelector({
                 onClick={() => onSelectLanguage(lang.code)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer flex-shrink-0 ${
                   isSelected
-                    ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white border border-zinc-400 dark:border-zinc-600 shadow-xs font-semibold'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-zinc-800'
+                    ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white border border-zinc-300 dark:border-zinc-600 shadow-xs font-semibold'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800'
                 }`}
               >
                 <CountryFlag code={lang.code} className="w-4 h-4" title={lang.nativeName} />

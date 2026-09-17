@@ -149,7 +149,7 @@ export default function AdminSidebarRail({
                   className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-0.5 transition-colors cursor-pointer shrink-0"
                   title="Copiar código de sala"
                 >
-                  {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                  {copied ? <Check className="w-3 h-3 text-zinc-700 dark:text-zinc-300" /> : <Copy className="w-3 h-3" />}
                 </button>
                 {uptime && (
                   <>
@@ -211,7 +211,7 @@ export default function AdminSidebarRail({
           <button
             type="button"
             onClick={handleLogoutClick}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer flex-shrink-0"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer flex-shrink-0"
             title="Cerrar sesión de administrador"
           >
             <LogOut className="w-4.5 h-4.5" />
@@ -245,7 +245,7 @@ export default function AdminSidebarRail({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar sección..."
-            className="w-full h-11 pl-10 pr-8 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-white/20 transition-all [&::-webkit-search-cancel-button]:hidden"
+            className="w-full h-11 pl-10 pr-8 bg-transparent dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 dark:focus:ring-white/20 transition-all [&::-webkit-search-cancel-button]:hidden"
           />
           {search && (
             <button
@@ -345,7 +345,7 @@ export default function AdminSidebarRail({
         <button
           type="button"
           onClick={handleLogoutClick}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer flex-shrink-0"
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors cursor-pointer flex-shrink-0"
           title="Cerrar sesión de administrador"
         >
           <LogOut className="w-4.5 h-4.5" />

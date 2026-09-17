@@ -146,7 +146,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
               {/* Sección 1: Métricas de la Sesión */}
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10">
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800">
                     <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                       Duración
                     </div>
@@ -155,7 +155,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                     </div>
                   </div>
 
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10">
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800">
                     <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                       Frases
                     </div>
@@ -164,7 +164,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                     </div>
                   </div>
 
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10">
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800">
                     <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                       Oyentes
                     </div>
@@ -182,11 +182,11 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                 </h4>
                 
                 {execSummary ? (
-                  <div className="p-4 sm:p-5 rounded-2xl bg-zinc-50/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
                     {execSummary}
                   </div>
                 ) : (
-                  <div className="p-4 sm:p-5 rounded-2xl bg-zinc-50/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-3">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-3">
                     <FileText className="w-4 h-4 text-zinc-400 flex-shrink-0" />
                     <span>No se detectaron discursos durante esta sesión para resumir.</span>
                   </div>
@@ -199,7 +199,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                   <h4 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
                     Puntos Clave y Argumentos
                   </h4>
-                  <div className="p-4 sm:p-5 rounded-2xl bg-zinc-50/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 space-y-2.5">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
                     {keyPoints.map((point, i) => (
                       <div key={i} className="flex items-start gap-3 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 dark:bg-white mt-2 flex-shrink-0" />
@@ -217,7 +217,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                 </h4>
                 
                 {actionItems.length > 0 ? (
-                  <div className="p-4 sm:p-5 rounded-2xl bg-zinc-50/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 space-y-2.5">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
                     {actionItems.map((item, i) => (
                       <div key={i} className="flex items-start gap-3 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 dark:bg-white mt-2 flex-shrink-0" />
@@ -226,7 +226,7 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
                     ))}
                   </div>
                 ) : (
-                  <div className="p-4 sm:p-5 rounded-2xl bg-zinc-50/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-3">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-transparent dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-3">
                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600 flex-shrink-0" />
                     <span>Sin contenido registrado.</span>
                   </div>
@@ -248,11 +248,11 @@ ${actionItems.length > 0 ? actionItems.map(a => `- ${a}`).join('\n') : '- Sin co
               type="button"
               onClick={handleCopyMarkdown}
               disabled={isLoading || (!execSummary && actionItems.length === 0)}
-              className="h-10 px-5 rounded-full border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+              className="h-10 px-5 rounded-full border border-zinc-200/80 dark:border-zinc-800 bg-transparent dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {copied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-500 stroke-[3]" />
+                  <Check className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300 stroke-[3]" />
                   <span>Copiado</span>
                 </>
               ) : (
