@@ -436,14 +436,6 @@ function LiveCaptions({
                             </span>
                           </>
                         )}
-                        {isAdmin && p.sttEngineUsed && (
-                          <span
-                            className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono text-[9px] border border-zinc-200 dark:border-zinc-700 flex items-center gap-1"
-                          >
-                            <span className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-500" />
-                            <span>{t('liveCaptions.badges.stt', { engine: p.sttEngineUsed })}</span>
-                          </span>
-                        )}
                       </div>
 
                       <div className={`flex items-center gap-1 transition-opacity ${copiedId === p.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'}`}>
@@ -545,15 +537,6 @@ function LiveCaptions({
                           </span>
                         </>
                       )}
-                      {isAdmin && item.sttEngineUsed && (
-                        <span
-                          className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono text-[9px] border border-zinc-200 dark:border-zinc-700 flex items-center gap-1"
-                          title={`Motor de transcripción: ${item.sttEngineUsed}${item.sttModel ? ` (${item.sttModel})` : ''}`}
-                        >
-                          <span className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-500" />
-                          <span>STT: {item.sttEngineUsed}</span>
-                        </span>
-                      )}
                     </div>
 
                     <div className={`flex items-center gap-1 transition-opacity ${copiedId === item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'}`}>
@@ -605,17 +588,9 @@ function LiveCaptions({
                   <span className={isConsolidating ? 'text-amber-700 dark:text-amber-400 font-medium' : 'text-purple-700 dark:text-purple-300 font-semibold'}>
                     {isConsolidating
                       ? t('liveCaptions.streaming.consolidating')
-                      : isAdmin && activeSttInfo?.label
-                      ? t('liveCaptions.streaming.sttLabel', { label: activeSttInfo.label })
                       : t('liveCaptions.streaming.aiDictation')}
                   </span>
                 </div>
-                {isAdmin && activeSttInfo?.label && (
-                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 text-[9px] font-mono shadow-2xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500" />
-                    <span>Modelo STT: <strong>{activeSttInfo.label}</strong> ({activeSttInfo.mode === 'streaming' ? 'Streaming' : 'Chunks'})</span>
-                  </div>
-                )}
               </div>
               <p className={`${activeFontClass} ${
                 isConsolidating 
